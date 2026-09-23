@@ -39,7 +39,7 @@ The system shape of Fenwira v2: runtime processes, module boundaries, how module
 | `apps/api` | HTTP/WS, authn/authz, validation, synchronous domain writes, webhook ingest | Call Meta **send** endpoints; do long-running work in-request |
 | `apps/worker` | Async processing, outbox relay, schedules, all Meta send/sync calls | Serve HTTP (except health on an internal port) |
 
-Both api and worker import the same domain modules from `apps/api/src/modules/*`. The worker is a second Nest entry point (`apps/worker/src/main.ts`) that loads the modules' processors. Business logic is written once.
+Both api and worker use the same domain modules from `apps/api/src/modules/*`. The worker is a second Nest entry point (`apps/worker/src/main.ts`) that imports them through `@fenwira/api`'s package exports (`./core`, `./modules/*`, `./bootstrap`; ADR-0018) and loads the modules' processors. Business logic is written once.
 
 ### Frontend architecture
 
@@ -101,7 +101,7 @@ COMMIT
 Outbox relay (worker, every 250 ms, and on NOTIFY outbox_new)
   └─ system.claim_outbox_events(batch=200) — FOR UPDATE SKIP LOCKED across tenants
        for each event → for each subscriber queue in EVENT_SUBSCRIPTIONS[event_type]:
-           queue.add(event_type, payload, { jobId: `${event.id}:${subscriber}` })
+           queue.add(event_type, payload, { jobId: eventJobId(event.id, subscriber) })   // `${id}__${queue}`
        mark DISPATCHED (or bump attempts + available_at with backoff on failure)
         │
 Subscriber processor (worker)
@@ -156,7 +156,7 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `system.maintenance` | repeatable scheduler | Retention cleanup, idempotency key expiry, rollups | 1 |
 | `system.ping` | health/test | End-to-end queue check | 1 |
 
-Every job payload includes `tenantId` (except `system.*`) and `correlationId`.
+Every job payload includes `tenantId` (except `system.*`) and `correlationId`. Custom job IDs are always built with `jobId(...parts)` from `@fenwira/queue`, which joins parts with `__`, because BullMQ rejects `:` in job IDs. Processors implement `QueueProcessor` and are registered through `WorkerRuntimeModule` (ADR-0020), which runs every job inside its log context.
 
 ### Realtime
 

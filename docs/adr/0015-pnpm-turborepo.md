@@ -1,6 +1,6 @@
 # ADR-0015: pnpm workspaces + Turborepo monorepo
 
-**Status:** Accepted
+**Status:** Accepted. The package-consumption clause was superseded by [ADR-0018](0018-compiled-internal-packages.md).
 
 ## Context
 

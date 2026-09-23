@@ -1,0 +1,198 @@
+# Fenwira v2 platform (docs/DEPLOYMENT.md). `cp .env.example .env && docker compose up -d`.
+# Only web (3000), api (4000), MinIO (9000 S3 API, 9001 console) and the Mailpit UI (8025)
+# are published. Postgres and Redis stay on the internal network.
+
+name: fenwira
+
+x-server-env: &server-env
+  NODE_ENV: ${NODE_ENV:-production}
+  APP_VERSION: ${APP_VERSION:-dev}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgresql://fenwira_app:${FENWIRA_APP_PASSWORD}@fenwira-postgres:5432/fenwira
+  DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+  REDIS_URL: redis://fenwira-redis:6379/0
+
+services:
+  fenwira-postgres:
+    container_name: fenwira-postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+      FENWIRA_OWNER_PASSWORD: ${FENWIRA_OWNER_PASSWORD}
+      FENWIRA_APP_PASSWORD: ${FENWIRA_APP_PASSWORD}
+    volumes:
+      - fenwira-postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d fenwira']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [fenwira-network]
+
+  fenwira-redis:
+    container_name: fenwira-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - fenwira-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [fenwira-network]
+
+  fenwira-minio:
+    container_name: fenwira-minio
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY}
+    ports:
+      - '${MINIO_API_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - fenwira-minio-data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:9000/minio/health/live']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [fenwira-network]
+
+  fenwira-minio-init:
+    container_name: fenwira-minio-init
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        mc alias set local http://fenwira-minio:9000 "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY"
+        for b in fenwira-media fenwira-imports fenwira-exports fenwira-uploads; do mc mb --ignore-existing "local/$$b"; done
+        mc ilm rule add --expire-days 7 local/fenwira-imports || true
+        mc ilm rule add --expire-days 7 local/fenwira-exports || true
+        echo "buckets ready"
+    environment:
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+    depends_on:
+      fenwira-minio: { condition: service_healthy }
+    restart: 'no'
+    networks: [fenwira-network]
+
+  fenwira-mailpit:
+    container_name: fenwira-mailpit
+    image: axllent/mailpit:v1.29
+    restart: unless-stopped
+    ports:
+      - '${MAILPIT_UI_PORT:-8025}:8025'
+    volumes:
+      - fenwira-mailpit-data:/data
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [fenwira-network]
+
+  fenwira-migrate:
+    container_name: fenwira-migrate
+    build: { context: ., dockerfile: infrastructure/docker/server.Dockerfile, target: migrate }
+    image: fenwira/migrate:local
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://fenwira_owner:${FENWIRA_OWNER_PASSWORD}@fenwira-postgres:5432/fenwira
+    depends_on:
+      fenwira-postgres: { condition: service_healthy }
+    restart: 'no'
+    networks: [fenwira-network]
+
+  fenwira-api:
+    container_name: fenwira-api
+    build: { context: ., dockerfile: infrastructure/docker/server.Dockerfile, target: api }
+    image: fenwira/api:local
+    restart: unless-stopped
+    environment:
+      <<: *server-env
+      PORT: 4000
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      SYSTEM_PING_ENABLED: ${SYSTEM_PING_ENABLED:-false}
+    ports:
+      - '${API_PORT:-4000}:4000'
+    depends_on:
+      fenwira-postgres: { condition: service_healthy }
+      fenwira-redis: { condition: service_healthy }
+      fenwira-minio-init: { condition: service_completed_successfully }
+      fenwira-migrate: { condition: service_completed_successfully }
+    networks: [fenwira-network]
+
+  fenwira-worker:
+    container_name: fenwira-worker
+    build: { context: ., dockerfile: infrastructure/docker/server.Dockerfile, target: worker }
+    image: fenwira/worker:local
+    restart: unless-stopped
+    environment:
+      <<: *server-env
+      WORKER_HEALTH_PORT: 4100
+      OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-250}
+    depends_on:
+      fenwira-postgres: { condition: service_healthy }
+      fenwira-redis: { condition: service_healthy }
+      fenwira-minio-init: { condition: service_completed_successfully }
+      fenwira-migrate: { condition: service_completed_successfully }
+    networks: [fenwira-network]
+
+  fenwira-web:
+    container_name: fenwira-web
+    build:
+      context: .
+      dockerfile: infrastructure/docker/web.Dockerfile
+      target: runtime
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api/v1}
+    image: fenwira/web:local
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://fenwira-api:4000
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+    depends_on:
+      fenwira-api: { condition: service_healthy }
+    networks: [fenwira-network]
+
+  # Integration test runner: `pnpm test:integration` (docker compose --profile test run --rm fenwira-test).
+  fenwira-test:
+    profiles: [test]
+    build: { context: ., dockerfile: infrastructure/docker/server.Dockerfile, target: dev }
+    image: fenwira/server-dev:local
+    env_file: [.env.test]
+    environment:
+      DATABASE_URL: postgresql://fenwira_app:${FENWIRA_APP_PASSWORD}@fenwira-postgres:5432/fenwira_test
+      MIGRATION_DATABASE_URL: postgresql://fenwira_owner:${FENWIRA_OWNER_PASSWORD}@fenwira-postgres:5432/fenwira_test
+      REDIS_URL: redis://fenwira-redis:6379/1
+    command:
+      - sh
+      - -c
+      - pnpm --filter @fenwira/database run db:deploy && pnpm turbo run test:integration --concurrency=1
+    depends_on:
+      fenwira-postgres: { condition: service_healthy }
+      fenwira-redis: { condition: service_healthy }
+    networks: [fenwira-network]
+
+networks:
+  fenwira-network:
+    name: fenwira-network
+
+volumes:
+  fenwira-postgres-data:
+  fenwira-redis-data:
+  fenwira-minio-data:
+  fenwira-mailpit-data:

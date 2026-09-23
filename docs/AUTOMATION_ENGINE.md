@@ -84,7 +84,7 @@ The API returns `{ valid, errors: [{ nodeId?, edgeId?, code, message }] }`, and 
 
 ### Execution semantics
 
-- `automation.execute` job data: `{ tenantId, executionId }`, with `jobId = exec:{executionId}:{step_count}`.
+- `automation.execute` job data: `{ tenantId, executionId }`, with `jobId = jobId('exec', executionId, step_count)`.
 - The processor loop, in which each step is its own transaction:
   1. Load the execution. If it is not RUNNING, or (on resume from delay) not WAITING with `wait_until ≤ now`, exit.
   2. Resolve the current node from the **pinned version's** graph.

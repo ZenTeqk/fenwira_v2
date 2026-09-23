@@ -1,0 +1,41 @@
+// Source of truth for tables is docs/DATABASE.md. Things Prisma cannot express (RLS policies,
+// partial indexes, grants, SECURITY DEFINER functions, triggers) live in ../sql/post-migrate.sql,
+// which runs after every `prisma migrate deploy` (ADR-0016).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OutboxStatus {
+  PENDING
+  DISPATCHED
+  FAILED
+
+  @@map("outbox_status")
+}
+
+/// Transactional outbox (ADR-0013). tenant_id NULL = platform event, writable only through
+/// system.emit_platform_event(); tenant events are inserted inside withTenant() and RLS-checked.
+model OutboxEvent {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  tenantId      String?      @map("tenant_id") @db.Uuid
+  eventType     String       @map("event_type")
+  aggregateType String?      @map("aggregate_type")
+  aggregateId   String?      @map("aggregate_id") @db.Uuid
+  payload       Json
+  correlationId String?      @map("correlation_id")
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  availableAt   DateTime     @default(now()) @map("available_at") @db.Timestamptz(3)
+  lastError     String?      @map("last_error")
+  dispatchedAt  DateTime?    @map("dispatched_at") @db.Timestamptz(3)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt])
+  @@map("outbox_events")
+}

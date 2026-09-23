@@ -1,0 +1,46 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalDependencies": ["packages/config/tsconfig/*.json", ".env.test"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "generated/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": [
+        "NODE_ENV",
+        "APP_VERSION",
+        "LOG_LEVEL",
+        "DATABASE_URL",
+        "MIGRATION_DATABASE_URL",
+        "DB_POOL_SIZE",
+        "REDIS_URL",
+        "WEB_ORIGIN",
+        "SYSTEM_PING_ENABLED",
+        "OUTBOX_POLL_INTERVAL_MS"
+      ]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "watch": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

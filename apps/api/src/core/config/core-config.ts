@@ -1,0 +1,14 @@
+export type ServiceName = 'api' | 'worker'
+
+/** Settings shared by every server process; built from each app's validated env. */
+export type CoreConfig = {
+  service: ServiceName
+  version: string
+  nodeEnv: 'development' | 'test' | 'production'
+  logLevel: string
+  databaseUrl: string
+  dbPoolSize: number
+  redisUrl: string
+}
+
+export const CORE_CONFIG = Symbol('CORE_CONFIG')

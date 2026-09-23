@@ -30,7 +30,7 @@ How tenant data is isolated. It covers the database roles, the RLS policy templa
 | `postgres` | Superuser | Container init only |
 | `fenwira_owner` | LOGIN, owns schema and tables, **not** superuser | `prisma migrate` (the `migrate` compose service) |
 | `fenwira_app` | LOGIN, `NOSUPERUSER NOBYPASSRLS`, DML only (no DDL) | api and worker at runtime |
-| `fenwira_system` | **NOLOGIN**, `BYPASSRLS`, column-limited `SELECT`/`UPDATE` on specific tables only | Owner of the `system.*` SECURITY DEFINER functions |
+| `fenwira_system` | **NOLOGIN**, `BYPASSRLS`, table grants only where a `system.*` function needs them | Owner of the `system.*` SECURITY DEFINER functions. `fenwira_owner` is a member only so that post-migrate can assign that ownership. |
 
 `FORCE ROW LEVEL SECURITY` is set on every RLS table, so even `fenwira_owner` is subject to the policies at runtime.
 
@@ -46,7 +46,7 @@ CREATE POLICY tenant_isolation ON {t}
 
 `nullif(..., '')` makes the policy **fail closed**. When no tenant is bound, or after `RESET`, the GUC is `NULL` or `''`, and the comparison yields no rows instead of raising a cast error.
 
-The policy is applied by a SQL helper, `packages/database/sql/rls.sql` → `SELECT fenwira_apply_tenant_policy('{t}')`, which every migration that creates a tenant-owned table must call.
+The policy is applied by `public.fenwira_apply_tenant_policy(regclass)`. `packages/database/sql/post-migrate.sql` (run after every migration) **automatically applies it to every `public` table that has a `tenant_id` column**, so a new tenant table is protected even if its author forgets. The migrate step then runs the RLS coverage check and fails on any violation.
 
 ### Special policies
 
@@ -111,6 +111,9 @@ Everything that must run before a tenant is known, or across tenants, goes throu
 | X9 | Maintenance and retention | `system.purge_expired(now)` | Row counts | Deletes by age only, with no data returned |
 | X10 | Analytics rollups | `system.tenants_with_activity(since)` | `tenant_id[]` | IDs only. Rollups run per tenant. |
 | X11 | Phone number uniqueness at connect | `system.phone_number_owner_exists(text)` | boolean | Doesn't reveal which tenant |
+| X12 | Platform (tenant-less) events, for example `system.ping.requested` | `system.emit_platform_event(event_type, payload, correlation_id)` | Event ID | Writes only `tenant_id = NULL` rows, which no tenant context can read. Tenant events are always inserted inside `withTenant()`. |
+
+Implemented so far (Phase 1): X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID) and X12. The rest arrive with their phases.
 
 Adding a row to this table requires an ADR amendment and a security review.
 

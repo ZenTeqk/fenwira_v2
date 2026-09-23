@@ -29,9 +29,11 @@ Legend: **T** tenant-owned (RLS) · **G** global · **SD** soft delete · **AO**
 ## Platform (P1/P3)
 
 ```text
-outbox_events                                   T  P3
+outbox_events                                   T  P1
   id uuid pk
-  tenant_id uuid
+  tenant_id uuid null                           -- NULL = platform event (only via system.emit_platform_event, X12);
+                                                --   RLS makes NULL rows invisible to every tenant context
+                                                --   FK to tenants added in Phase 3
   event_type text                               -- see ARCHITECTURE.md event catalog
   aggregate_type text, aggregate_id uuid
   payload jsonb
@@ -39,8 +41,10 @@ outbox_events                                   T  P3
   status outbox_status (PENDING|DISPATCHED|FAILED) default PENDING
   attempts int default 0, available_at timestamptz default now(), last_error text null
   dispatched_at timestamptz null, created_at
-  idx (status, available_at) WHERE status='PENDING'
-  -- NOTIFY outbox_new on insert (trigger); retention: DISPATCHED rows purged after 7d
+  idx (available_at, id) WHERE status='PENDING'   -- post-migrate.sql
+  -- NOTIFY outbox_new on insert (statement trigger); relay leases rows by pushing available_at forward
+  -- retention: DISPATCHED rows purged after 7d
+  -- DB-side ids: public.fenwira_uuid_v7() (PG16 has no built-in UUIDv7)
 
 idempotency_keys                                T  P5
   id, tenant_id, key text, scope text           -- scope e.g. 'POST /conversations/:id/messages'

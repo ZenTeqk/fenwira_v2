@@ -21,3 +21,6 @@ Format: Context → Decision → Consequences → Alternatives rejected. Status 
 | [0015](0015-pnpm-turborepo.md) | pnpm workspaces + Turborepo monorepo |
 | [0016](0016-prisma-with-rls.md) | Prisma ORM coexisting with RLS |
 | [0017](0017-uuidv7-ids.md) | UUIDv7 primary keys |
+| [0018](0018-compiled-internal-packages.md) | Internal packages ship compiled CommonJS |
+| [0019](0019-dependency-version-policy.md) | Dependency version policy |
+| [0020](0020-worker-runtime.md) | In-house worker runtime instead of @nestjs/bullmq |

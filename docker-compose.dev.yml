@@ -1,0 +1,80 @@
+# Hot-reload development: `pnpm dev` (docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build).
+# Each app container compiles the workspace inside its own filesystem; only src/ directories are
+# bind-mounted, so host node_modules (macOS binaries) never enter the Linux containers.
+
+x-server-src: &server-src
+  - ./packages/config/src:/repo/packages/config/src:ro
+  - ./packages/contracts/src:/repo/packages/contracts/src:ro
+  - ./packages/queue/src:/repo/packages/queue/src:ro
+  - ./packages/database/src:/repo/packages/database/src:ro
+  - ./packages/database/sql:/repo/packages/database/sql:ro
+  - ./apps/api/src:/repo/apps/api/src:ro
+  - ./apps/worker/src:/repo/apps/worker/src:ro
+
+services:
+  fenwira-api:
+    build: { target: dev }
+    image: fenwira/server-dev:local
+    env_file: [.env.development]
+    volumes: *server-src
+    command:
+      - sh
+      - -c
+      - >-
+        pnpm exec concurrently -k -n watch,api
+        "pnpm turbo run watch --filter=@fenwira/api..."
+        "node --watch --enable-source-maps apps/api/dist/main.js"
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      start_period: 60s
+
+  fenwira-worker:
+    build: { target: dev }
+    image: fenwira/server-dev:local
+    env_file: [.env.development]
+    volumes: *server-src
+    command:
+      - sh
+      - -c
+      - >-
+        pnpm exec concurrently -k -n watch,worker
+        "pnpm turbo run watch --filter=@fenwira/worker..."
+        "node --watch --enable-source-maps apps/worker/dist/main.js"
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4100/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      start_period: 60s
+
+  fenwira-web:
+    build: { target: dev }
+    image: fenwira/web-dev:local
+    volumes:
+      - ./apps/web/app:/repo/apps/web/app:ro
+      - ./apps/web/lib:/repo/apps/web/lib:ro
+      - ./apps/web/public:/repo/apps/web/public:ro
+      - ./packages/contracts/src:/repo/packages/contracts/src:ro
+    environment:
+      WATCHPACK_POLLING: 'true'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      start_period: 90s

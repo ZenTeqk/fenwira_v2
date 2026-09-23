@@ -46,7 +46,7 @@ packages/contracts Zod schemas + TS types shared by web/api/worker
 packages/whatsapp Meta Cloud API client, webhook parser, signature verification
 packages/queue    Queue names, job payload types, BullMQ factories
 packages/config   Shared tsconfig/eslint/prettier + typed env loader
-infrastructure/docker  Dockerfiles, postgres init SQL
+infrastructure/docker  server.Dockerfile (api|worker|migrate|dev), web.Dockerfile, postgres/init
 docs/             Specs, ADRs, prompts
 ```
 
@@ -57,7 +57,7 @@ docs/             Specs, ADRs, prompts
 3. **One path to Meta.** Only `MessagingService` in `apps/api` enqueues outbound WhatsApp messages, and only the `whatsapp.outbound` worker calls the Meta API. The inbox, campaigns and automations never import `packages/whatsapp` send functions directly.
 4. **Postgres is truth, Redis is execution.** Job state that matters (message status, campaign recipient status, automation step) is persisted in Postgres. Losing Redis must not lose business state.
 5. **Idempotency.** Webhooks dedupe on Meta's IDs. Outbound jobs carry an idempotency key. Worker handlers must be safe to run twice.
-6. **Outbox.** Domain events that trigger queue work are written to `outbox_event` in the same transaction as the state change, then relayed. Do not enqueue from inside a transaction that might roll back.
+6. **Outbox.** Domain events that trigger queue work are written to `outbox_events` in the same transaction as the state change, then relayed. Do not enqueue from inside a transaction that might roll back.
 7. **Secrets.** Meta tokens and app secrets are encrypted at rest (AES-256-GCM with a key from env). They are never returned to the browser, never logged, and appear masked in the UI.
 8. **Logging.** Use structured JSON logs with `correlationId` and `tenantId`. Never log message bodies, phone numbers, tokens or email addresses at info level or above.
 9. **Contracts first.** Request and response shapes live in `packages/contracts` as Zod schemas and are used by both web and api.
@@ -111,10 +111,24 @@ Feature code imports UI primitives from `@fenwira/ui` only. Do not create one-of
 3. Keep the system runnable at every commit: `docker compose up -d` works, and lint, typecheck and tests pass.
 4. Update the docs the phase owns, and flip the phase's status in `docs/ROADMAP.md` only when every acceptance criterion passes.
 
+## Commands
+
+| Command | Does |
+| --- | --- |
+| `pnpm install` | Install (pnpm 10, Node 22 LTS; see `.nvmrc`) |
+| `pnpm lint` | ESLint in every package, plus dependency-cruiser module boundaries |
+| `pnpm typecheck` / `pnpm test` / `pnpm build` | Via Turborepo (packages build first; ADR-0018) |
+| `pnpm test:integration` | Real Postgres and Redis in the `fenwira-test` container, as `fenwira_app` |
+| `docker compose up -d --wait` | The full platform (built images) |
+| `pnpm dev` | Hot-reload variant (`docker-compose.dev.yml`) |
+| `pnpm smoke` | Health checks plus the outbox round trip, against a running stack |
+
+Dependency versions are pinned exactly. Upgrading a major needs its own PR (ADR-0019).
+
 ## Definition of done (every phase)
 
-- `pnpm lint && pnpm typecheck && pnpm test` pass locally and in CI
-- `docker compose up -d` from a clean clone starts all services, and they report healthy
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration` pass locally and in CI
+- `docker compose up -d --wait` from a clean clone starts all services, they report healthy, and `pnpm smoke` passes
 - New tenant tables have RLS plus cross-tenant tests
 - New endpoints are in `docs/API_SPEC.md`, with Zod contracts and RBAC guards
 - No hex colors outside `packages/ui`, and no secrets or PII in logs

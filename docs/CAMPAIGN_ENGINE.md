@@ -55,7 +55,7 @@ The union of the `include` entries, minus the `exclude` entries, then deduped by
 3. The `campaign.dispatch` processor handles `campaign.launched`:
    - **Snapshot:** evaluate the audience in pages of 1,000 contacts, and insert `campaign_recipients` rows (`ON CONFLICT (campaign_id, contact_id) DO NOTHING`) with the `phone_e164` snapshot and the **resolved variables**. Set `audience_snapshot_at` and `total_recipients`. The snapshot is resumable: it restarts after the last inserted contact ID.
    - **Validation at snapshot:** mark SKIPPED with `skip_reason` for NO_CONSENT (MARKETING category without GRANTED), OPTED_OUT (revoked), BLOCKED, INVALID_PHONE and MISSING_VARIABLE (a mapping resolved empty with no fallback). Recipients are deduped by phone (DUPLICATE).
-   - **Dispatch:** enqueue `campaign.dispatch` jobs of type `batch` for QUEUED recipients in pages of 500 (by recipient ID order), with `jobId = batch:{campaignId}:{firstRecipientId}`.
+   - **Dispatch:** enqueue `campaign.dispatch` jobs of type `batch` for QUEUED recipients in pages of 500 (by recipient ID order), with `jobId = jobId('batch', campaignId, firstRecipientId)`.
 
 ### Batch processing
 
