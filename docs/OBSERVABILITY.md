@@ -1,0 +1,97 @@
+# Observability
+
+## Scope
+
+Logging, correlation, metrics, tracing, health checks and alerting. Phases 1–11 build the logging, correlation, health and metrics endpoints. Phase 12 adds the collector, dashboards and alert routing.
+
+## Decisions
+
+### Logs
+
+- **pino** JSON to stdout in every Node process. No log files; Docker collects stdout.
+- Levels: `fatal`, `error`, `warn`, `info` (default in production), `debug` (default in dev) and `trace`.
+- Base fields on every line:
+
+| Field | Source |
+| --- | --- |
+| `time`, `level`, `msg` | pino |
+| `service` | `web` \| `api` \| `worker` |
+| `env`, `version` (git SHA) | env |
+| `correlationId` | AsyncLocalStorage (HTTP), job data (worker) |
+| `tenantId`, `userId` | TenantContext when bound |
+| `module` | Nest logger context |
+| `jobId`, `queue`, `attempt` | Worker only |
+| `err` | pino error serializer (message, stack, code) |
+
+- HTTP access log: one line per request with `method`, `route` (the template, not the raw path), `status`, `durationMs`, `contentLength`. Query strings are never logged.
+- **Redaction** (central pino config): `req.headers.authorization`, `req.headers.cookie`, `res.headers["set-cookie"]`, `*.password`, `*.token`, `*.accessToken`, `*.secret`, `*.code` (OAuth), `*.pin`, `*.phone*`, `*.email`, `*.text`, `*.body`, `*.content`, `*.variables`. See the PII rules in `SECURITY.md`.
+
+### Correlation IDs
+
+- HTTP: accept `X-Correlation-Id` (if it is a valid UUID or a ≤ 64-character token), else generate a UUIDv7. Echoed on the response.
+- Webhooks: `whk:{webhookEventId}`.
+- Propagation: `outbox_events.correlation_id` → job data `correlationId` → all logs, and to Meta calls as a log field. Scheduled jobs use `sched:{queue}:{timestamp}`.
+- The web app displays the correlation ID in `ErrorState` ("Reference: 0192…") so support can find the logs.
+
+### Metrics (OpenTelemetry SDK, exported in Prometheus format at `/metrics` on an internal port)
+
+| Metric | Type | Labels |
+| --- | --- | --- |
+| `http_server_duration_ms` | histogram | route, method, status_class |
+| `webhook_received_total` | counter | kind, result (`accepted` \| `duplicate` \| `bad_signature` \| `unknown_number`) |
+| `webhook_ingest_duration_ms` | histogram | |
+| `queue_depth` | gauge | queue, state (`waiting` \| `delayed` \| `active` \| `failed`) |
+| `queue_job_duration_ms` | histogram | queue, result |
+| `queue_job_failures_total` | counter | queue, error_class |
+| `outbox_pending` | gauge | |
+| `outbox_lag_seconds` | gauge | Age of the oldest PENDING row |
+| `meta_api_requests_total` | counter | endpoint, result, error_code |
+| `meta_api_duration_ms` | histogram | endpoint |
+| `messages_status_total` | counter | direction, status, source |
+| `dlq_size` | gauge | queue |
+| `ws_connections` | gauge | |
+| `db_pool_in_use` / `db_pool_waiting` | gauge | service |
+| `redis_memory_used_bytes` | gauge | (from INFO, polled) |
+
+Labels **never** include tenantId, userId or other high-cardinality IDs. Per-tenant views come from analytics, not metrics.
+
+### Tracing (Phase 12)
+
+OpenTelemetry auto-instrumentation for http, NestJS, Prisma (`@prisma/instrumentation`), ioredis and BullMQ. Trace context is propagated in job data (`traceparent`), so one trace spans HTTP → outbox → queue → worker → Meta. Export uses OTLP to the `fenwira-otel` collector (compose profile `observability`).
+
+### Health checks
+
+| Endpoint | Service | Checks | Used by |
+| --- | --- | --- | --- |
+| `/health/live` | api, worker | Event loop responsive | Docker `healthcheck`, restart policy |
+| `/health/ready` | api | Postgres `SELECT 1` (1 s timeout), Redis `PING`, BullMQ client connected | Readiness, the `depends_on` of web |
+| `/health/ready` | worker | Postgres, Redis, processors registered, outbox relay heartbeat < 10 s old | Docker `healthcheck` |
+| `/health` | api, worker | Summary JSON `{status, version, checks:{…}}` | Humans |
+| `/api/health` | web | Process up + API `/health/live` reachable | Docker `healthcheck` |
+
+The worker serves health on an internal port (`WORKER_HEALTH_PORT`, default 4100), not published to the host.
+
+### Alerts (Phase 12; Grafana alerting or Alertmanager)
+
+| Alert | Condition (5-minute window unless noted) | Severity |
+| --- | --- | --- |
+| Webhook failures | `bad_signature` + 5xx on the webhook route > 5% | critical |
+| Webhook processing failures | `webhook_events` FAILED > 0 in 15 minutes | warning |
+| Queue backlog | `queue_depth{state="waiting"}` for `whatsapp.outbound` > 5,000 for 10 minutes, or for inbound > 500 | critical |
+| Outbox lag | `outbox_lag_seconds` > 30 | critical |
+| High failed-message % | Outbound FAILED / (SENT + FAILED) > 10% over 15 minutes | warning |
+| DLQ growth | `dlq_size` > 0 and increasing | warning |
+| Worker crash | Worker not ready for 2 minutes, or restarts > 3 in 15 minutes | critical |
+| DB connection exhaustion | `db_pool_waiting` > 0 for 5 minutes, or PG connections > 80% of max | critical |
+| Redis memory | > 80% of `maxmemory` | warning |
+| API 5xx | 5xx rate > 1% | critical |
+| High p95 latency | API p95 > 800 ms for 10 minutes (excluding exports and uploads) | warning |
+| Meta credential invalid | Any credential moves to INVALID | warning (tenant is also notified) |
+| Wallet ledger drift | Daily reconciliation mismatch | critical |
+
+## Open questions
+
+| # | Question | Owner |
+| --- | --- | --- |
+| O1 | Where do alerts route in production (email, Slack, PagerDuty)? | Ops |
+| O2 | Log retention and destination in production (for example Loki)? Decided at the production migration. | Ops |
