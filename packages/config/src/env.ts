@@ -37,6 +37,22 @@ export const baseEnvSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 })
 
+const optionalString = z
+  .string()
+  .optional()
+  .transform((v) => (v && v.trim() ? v.trim() : undefined))
+
+/** Meta platform config (docs/META_INTEGRATION.md → Platform model). Never stored per tenant. */
+const metaEnv = {
+  META_APP_ID: optionalString,
+  META_APP_SECRET: optionalString,
+  META_GRAPH_API_VERSION: z
+    .string()
+    .regex(/^v\d+\.\d+$/, 'must look like v23.0')
+    .default('v23.0'),
+  META_GRAPH_BASE_URL: z.url().default('https://graph.facebook.com'),
+}
+
 const optionalPem = z
   .string()
   .optional()
@@ -65,6 +81,13 @@ export const apiEnvSchema = baseEnvSchema
     TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
     /** e.g. ".fenwira.com" when web and API are on sibling subdomains; unset for localhost. */
     COOKIE_DOMAIN: z.string().optional(),
+    ...metaEnv,
+    META_WEBHOOK_VERIFY_TOKEN: optionalString,
+    META_ES_CONFIG_ID: optionalString,
+    /** Manual connect with a pasted token (Meta test number). Never in production. */
+    WHATSAPP_DEV_CONNECT: booleanString.default(false),
+    /** Public base URL of the API (webhook callback shown in docs/UI). */
+    PUBLIC_API_URL: z.url().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return
@@ -74,6 +97,7 @@ export const apiEnvSchema = baseEnvSchema
       fail('JWT_PRIVATE_KEY', 'is required in production')
     if (!env.COOKIE_SECURE) fail('COOKIE_SECURE', 'must be true in production')
     if (env.SYSTEM_PING_ENABLED) fail('SYSTEM_PING_ENABLED', 'must be false in production')
+    if (env.WHATSAPP_DEV_CONNECT) fail('WHATSAPP_DEV_CONNECT', 'must be false in production')
   })
 export type ApiEnv = z.infer<typeof apiEnvSchema>
 
@@ -87,6 +111,11 @@ export const workerEnvSchema = baseEnvSchema.extend({
   WEB_ORIGIN: z.url(),
   SMTP_URL: z.string().refine((v) => /^smtps?:\/\//.test(v), 'must be an smtp:// or smtps:// URL'),
   MAIL_FROM: z.string().min(3),
+  ENCRYPTION_KEYS: z.string().min(1),
+  ENCRYPTION_ACTIVE_KEY_ID: z.string().min(1),
+  ...metaEnv,
+  /** How often each connected number is refreshed from Meta (quality, tier, token expiry). */
+  WHATSAPP_SYNC_INTERVAL_HOURS: z.coerce.number().min(0.01).max(168).default(6),
 })
 export type WorkerEnv = z.infer<typeof workerEnvSchema>
 

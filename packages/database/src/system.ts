@@ -81,4 +81,21 @@ export class SystemGateway {
     const row = rows[0]
     return row ? { tenantId: row.tenant_id, invitationId: row.invitation_id } : null
   }
+
+  /** X11 — is `phoneNumberId` live in a tenant other than `tenantId`? Never says which. */
+  async phoneNumberOwnerExists(phoneNumberId: string, tenantId: string): Promise<boolean> {
+    const rows = await this.prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT system.phone_number_owner_exists(${phoneNumberId}, ${tenantId}::uuid) AS exists`
+    return rows[0]?.exists ?? false
+  }
+
+  /** X5 — phone numbers whose last sync is older than `olderThan` (IDs only). */
+  async phoneNumbersDueForSync(
+    olderThan: Date,
+    limit: number,
+  ): Promise<Array<{ tenantId: string; phoneId: string }>> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; phone_id: string }>>`
+      SELECT * FROM system.phone_numbers_due_for_sync(${olderThan}, ${limit}::int)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, phoneId: r.phone_id }))
+  }
 }

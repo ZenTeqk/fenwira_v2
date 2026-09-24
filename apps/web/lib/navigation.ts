@@ -19,7 +19,7 @@ import {
  * "coming soon" entries; NEXT_PUBLIC_NAV_PREVIEW=true (development only) reveals everything
  * with a placeholder page so the shell can be reviewed.
  */
-export const SHIPPED_PHASE = 3
+export const SHIPPED_PHASE = 4
 
 /** `permission`: hidden unless the member's role grants it (the API enforces it regardless). */
 export type NavLeaf = {
@@ -89,7 +89,13 @@ export const NAVIGATION: NavItem[] = [
     phase: 4,
     icon: Plug,
     children: [
-      { id: 'integrations-whatsapp', label: 'WhatsApp', href: '/integrations/whatsapp', phase: 4 },
+      {
+        id: 'integrations-whatsapp',
+        label: 'WhatsApp',
+        href: '/integrations/whatsapp',
+        phase: 4,
+        permission: 'whatsapp.read',
+      },
       { id: 'integrations-webhooks', label: 'Webhooks', href: '/integrations/webhooks', phase: 11 },
       { id: 'integrations-api', label: 'API', href: '/integrations/api', phase: 11 },
     ],

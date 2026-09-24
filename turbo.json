@@ -37,7 +37,17 @@
         "COOKIE_SECURE",
         "SMTP_URL",
         "MAIL_FROM",
-        "MAILPIT_API_URL"
+        "MAILPIT_API_URL",
+        "META_APP_ID",
+        "META_APP_SECRET",
+        "META_ES_CONFIG_ID",
+        "META_WEBHOOK_VERIFY_TOKEN",
+        "META_GRAPH_API_VERSION",
+        "META_GRAPH_BASE_URL",
+        "WHATSAPP_DEV_CONNECT",
+        "WHATSAPP_SYNC_INTERVAL_HOURS",
+        "PUBLIC_API_URL",
+        "TEST_LOG_LEVEL"
       ]
     },
     "dev": {

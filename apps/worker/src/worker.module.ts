@@ -14,7 +14,11 @@ import {
   PlatformWorkerModule,
 } from '@fenwira/api/modules/platform'
 import { TenancyModule, TenancyProcessor } from '@fenwira/api/modules/tenancy'
-import { type WorkerEnv } from '@fenwira/config'
+import {
+  WhatsAppAccountsModule,
+  WhatsAppSyncProcessor,
+} from '@fenwira/api/modules/whatsapp-accounts'
+import { parseKeyRing, type WorkerEnv } from '@fenwira/config'
 import { type DynamicModule, Module } from '@nestjs/common'
 import { ProcessorsHealthIndicator } from './processors.health'
 
@@ -43,9 +47,23 @@ export class WorkerModule {
     })
     const identity = IdentityWorkerModule.forWorker({ webOrigin: env.WEB_ORIGIN })
     const tenancy = TenancyModule.forWorker({ webOrigin: env.WEB_ORIGIN })
+    const whatsapp = WhatsAppAccountsModule.forWorker({
+      keyRing: parseKeyRing(env.ENCRYPTION_KEYS, env.ENCRYPTION_ACTIVE_KEY_ID),
+      appId: env.META_APP_ID,
+      appSecret: env.META_APP_SECRET,
+      graphVersion: env.META_GRAPH_API_VERSION,
+      graphBaseUrl: env.META_GRAPH_BASE_URL,
+      devConnect: false,
+      syncIntervalHours: env.WHATSAPP_SYNC_INTERVAL_HOURS,
+    })
     const runtime = WorkerRuntimeModule.forRoot({
-      imports: [platform, identity, tenancy],
-      processors: [...PLATFORM_PROCESSORS, IdentityProcessor, TenancyProcessor],
+      imports: [platform, identity, tenancy, whatsapp],
+      processors: [
+        ...PLATFORM_PROCESSORS,
+        IdentityProcessor,
+        TenancyProcessor,
+        WhatsAppSyncProcessor,
+      ],
     })
 
     return {
@@ -56,6 +74,7 @@ export class WorkerModule {
         platform,
         identity,
         tenancy,
+        whatsapp,
         runtime,
         HealthModule.forRoot({
           imports: [platform, runtime],

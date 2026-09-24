@@ -31,6 +31,17 @@ export const STATUS_PRESETS = {
   CONNECTED: { tone: 'success', label: 'Connected', icon: CheckCircle2 },
   DISCONNECTED: { tone: 'neutral', label: 'Disconnected', icon: PlugZap },
   ERROR: { tone: 'danger', label: 'Error', icon: XCircle },
+  FLAGGED: { tone: 'warning', label: 'Flagged', icon: AlertTriangle },
+  RESTRICTED: { tone: 'danger', label: 'Restricted', icon: Ban },
+  // Credentials
+  VALID: { tone: 'success', label: 'Valid', icon: CheckCircle2 },
+  EXPIRING: { tone: 'warning', label: 'Expiring soon', icon: Clock },
+  INVALID: { tone: 'danger', label: 'Invalid', icon: XCircle },
+  // WhatsApp quality rating (Meta's High / Medium / Low)
+  GREEN: { tone: 'success', label: 'High quality', icon: CheckCircle2 },
+  YELLOW: { tone: 'warning', label: 'Medium quality', icon: AlertTriangle },
+  RED: { tone: 'danger', label: 'Low quality', icon: XCircle },
+  UNKNOWN: { tone: 'neutral', label: 'Quality unknown', icon: CircleDashed },
   // Messages
   CREATED: { tone: 'neutral', label: 'Created', icon: CircleDashed },
   QUEUED: { tone: 'neutral', label: 'Queued', icon: Clock },

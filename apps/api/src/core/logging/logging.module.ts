@@ -13,7 +13,7 @@ function pathOnly(url: string | undefined): string {
 @Module({})
 export class LoggingModule {
   static forRoot(config: CoreConfig): DynamicModule {
-    const logger = createRootLogger(config)
+    const logger = createRootLogger(config, config.logDestination)
     return {
       module: LoggingModule,
       imports: [

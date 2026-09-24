@@ -52,9 +52,13 @@ POST /whatsapp/connections {code, wabaId, phoneNumberId}  ──►
 ◄──────────────── {connection, steps:[{key, status, error?}]}
 ```
 
+- Steps 1–3 run before anything is stored. If one fails, the API returns 422 `WHATSAPP_CONNECT_FAILED` with the step list and nothing is written; the user restarts signup because the code is single-use. Step 4 returns 409 `PHONE_NUMBER_ALREADY_CONNECTED`. Steps 6–8 run after storing, and a failure there leaves the number in `ERROR` with the failed step.
+- REGISTER is skipped for developer-connect tokens and for numbers Meta already reports as `CONNECTED`.
 - Each step records its status on the connection (stored in `whatsapp_phone_numbers.status_detail` as JSON). Retrying resumes from the first non-completed step. Steps 6–8 are idempotent at Meta.
 - The code-exchange token is a **business integration system user token** (long-lived). `debug_token` gives `expires_at` (usually 0 = never). The daily `whatsapp.sync` job re-checks it and marks the credential `INVALID` on error 190.
-- Disconnect: `DELETE /{waba_id}/subscribed_apps` (only if no other number of this tenant uses the WABA), then wipe the credential ciphertext, set the number to DISCONNECTED, and audit it.
+- Disconnect: `DELETE /{waba_id}/subscribed_apps` (only if no other number of this tenant uses the WABA), then wipe the credential ciphertext, set the number to DISCONNECTED, and audit it. A Meta failure while unsubscribing does not block the disconnect; the audit entry records `webhooks: failed`. If the number was the default, the oldest remaining number becomes the default.
+- Sync (`whatsapp.sync` queue): a BullMQ job scheduler fires `sync-due` every 15 minutes. It lists numbers not synced within `WHATSAPP_SYNC_INTERVAL_HOURS` (default 6) through X5 and enqueues one `sync-phone` job per number, with job IDs bucketed by interval. Each job refreshes status, quality, tier and throughput (`GET /{phone_number_id}`) and the token (`debug_token`). Tokens expiring within 7 days become `EXPIRING`, and error 190 or a permission error makes them `INVALID`. Changes are audited as `SYSTEM` and emit `whatsapp.connection.changed`. A number whose setup has a failed step stays `ERROR` until it is retried.
+- Tokens are decrypted only right before a Graph call. Responses carry `maskedToken`; audit entries and logs carry no token (pino redacts `token`, `accessToken`, `access_token` and `input_token`). Integration tests search every response, captured log line and audit entry for the issued tokens.
 
 ### Dev connect (flagged)
 
@@ -120,7 +124,7 @@ Status webhooks contain `pricing {billable, pricing_model, category}`. The billi
 
 ### Testing
 
-A `meta-mock` HTTP server (in `packages/whatsapp/testing`) implements the endpoints above with scripted responses and errors. It is used by integration tests and a docker-compose `test` profile. Signature helpers generate valid and invalid `X-Hub-Signature-256` for webhook tests. A small smoke suite runs against the real Meta test number manually, before each release.
+A `meta-mock` HTTP server (`@fenwira/whatsapp/testing`) implements the Phase 4 endpoints with realistic shapes. Control routes (`POST /__mock/seed|fail|revoke|quality|reset`, `GET /__mock/calls`) script accounts, errors and revocations. Integration tests run it in-process; local development and e2e use the `fenwira-meta-mock` compose service (profile `meta-mock`, see `DEPLOYMENT.md`). Token conventions: code `code-for:<wabaId>` exchanges to `mock-token:<wabaId>:<n>`, and developer tokens look like `mock-dev:<wabaId>[:suffix]`. A token containing `expiring` reports expiry in 3 days. Signature helpers generate valid and invalid `X-Hub-Signature-256` for webhook tests. A small smoke suite runs against the real Meta test number manually, before each release.
 
 ## Open questions
 

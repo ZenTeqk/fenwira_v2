@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # api, worker and migrate images from one pruned, cached build (docs/DEPLOYMENT.md).
-# Targets: api | worker | migrate | dev (full workspace + dev deps; dev compose and test runner).
+# Targets: api | worker | migrate | meta-mock | dev (full workspace + dev deps; dev compose and test runner).
 
 ARG NODE_IMAGE=node:22-bookworm-slim
 ARG PNPM_VERSION=10.34.5
@@ -54,6 +54,7 @@ COPY --from=build --chown=node:node /repo/packages/contracts/dist ./packages/con
 COPY --from=build --chown=node:node /repo/packages/queue/dist ./packages/queue/dist
 COPY --from=build --chown=node:node /repo/packages/database/dist ./packages/database/dist
 COPY --from=build --chown=node:node /repo/packages/database/sql ./packages/database/sql
+COPY --from=build --chown=node:node /repo/packages/whatsapp/dist ./packages/whatsapp/dist
 COPY --from=build --chown=node:node /repo/apps/api/dist ./apps/api/dist
 USER node
 
@@ -72,3 +73,11 @@ CMD ["node", "--enable-source-maps", "apps/worker/dist/main.js"]
 
 FROM runtime AS migrate
 CMD ["node", "packages/database/dist/cli/migrate.js"]
+
+# Simulated Meta Graph API (local dev connect and demos; never points at real Meta data).
+FROM runtime AS meta-mock
+ENV PORT=4200
+EXPOSE 4200
+HEALTHCHECK --interval=5s --timeout=3s --retries=10 \
+  CMD node -e "fetch('http://127.0.0.1:4200/__mock/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "packages/whatsapp/dist/testing/server.js"]

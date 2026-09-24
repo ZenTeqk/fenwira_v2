@@ -108,16 +108,16 @@ Everything that must run before a tenant is known, or across tenants, goes throu
 | X2 | Webhook tenant resolution | `system.resolve_tenant_by_phone_number_id(text)` | `tenant_id` or NULL | Called only **after** the platform HMAC is verified. Returns only the ID. |
 | X3 | Outbox relay | `system.claim_outbox_events(batch int)` | Claimed rows (id, tenant_id, type, payload) | Only the relay calls it. Each handler then re-enters `withTenant`. |
 | X4 | Scheduled campaign activation | `system.due_scheduled_campaigns(now timestamptz)` | `(tenant_id, campaign_id)[]` | IDs only. Processing is per tenant. |
-| X5 | Phone number sync fan-out | `system.phone_numbers_due_for_sync(now)` | `(tenant_id, phone_number_id)[]` | IDs only |
+| X5 | Phone number sync fan-out | `system.phone_numbers_due_for_sync(older_than timestamptz, limit int)` | `(tenant_id, phone_id)[]` (row IDs) | IDs only. Each sync job re-enters `withTenant`. |
 | X6 | Invitation acceptance | `system.resolve_invitation(token_hash bytea)` | `(tenant_id, invitation_id)` | Hash of a 256-bit token |
 | X7 | API key authentication | `system.resolve_api_key(prefix text)` | `(tenant_id, api_key_id, key_hash, scopes, revoked_at)` | The hash is verified in app code with a constant-time compare |
 | X8 | Automation inbound webhook trigger | `system.resolve_flow_webhook(token_hash bytea)` | `(tenant_id, flow_id)` | Hash of a 256-bit token |
 | X9 | Maintenance and retention | `system.purge_expired(now)` | Row counts | Deletes by age only, with no data returned |
 | X10 | Analytics rollups | `system.tenants_with_activity(since)` | `tenant_id[]` | IDs only. Rollups run per tenant. |
-| X11 | Phone number uniqueness at connect | `system.phone_number_owner_exists(text)` | boolean | Doesn't reveal which tenant |
+| X11 | Phone number uniqueness at connect | `system.phone_number_owner_exists(phone_number_id text, tenant_id uuid)` | boolean: live in a tenant other than the caller's | Doesn't reveal which tenant. The partial unique index `whatsapp_phone_numbers_active_number_unique` is the real guarantee. |
 | X12 | Platform (tenant-less) events, for example `system.ping.requested` | `system.emit_platform_event(event_type, payload, correlation_id)` | Event ID | Writes only `tenant_id = NULL` rows, which no tenant context can read. Tenant events are always inserted inside `withTenant()`. |
 
-Implemented so far: X1 (policies plus `withUser`), X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID), X6 (`resolve_invitation`) and X12. The rest arrive with their phases.
+Implemented so far: X1 (policies plus `withUser`), X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID), X5 and X11 (Phase 4), X6 (`resolve_invitation`) and X12. The rest arrive with their phases.
 
 Adding a row to this table requires an ADR amendment and a security review.
 

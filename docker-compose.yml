@@ -12,6 +12,13 @@ x-server-env: &server-env
   DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
   REDIS_URL: redis://fenwira-redis:6379/0
 
+# Meta platform config (docs/META_INTEGRATION.md). Empty app id/secret = Embedded Signup off.
+x-meta-env: &meta-env
+  META_APP_ID: ${META_APP_ID:-}
+  META_APP_SECRET: ${META_APP_SECRET:-}
+  META_GRAPH_API_VERSION: ${META_GRAPH_API_VERSION:-v23.0}
+  META_GRAPH_BASE_URL: ${META_GRAPH_BASE_URL:-https://graph.facebook.com}
+
 services:
   fenwira-postgres:
     container_name: fenwira-postgres
@@ -121,7 +128,7 @@ services:
     image: fenwira/api:local
     restart: unless-stopped
     environment:
-      <<: *server-env
+      <<: [*server-env, *meta-env]
       PORT: 4000
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       SYSTEM_PING_ENABLED: ${SYSTEM_PING_ENABLED:-false}
@@ -131,6 +138,10 @@ services:
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+      META_ES_CONFIG_ID: ${META_ES_CONFIG_ID:-}
+      WHATSAPP_DEV_CONNECT: ${WHATSAPP_DEV_CONNECT:-false}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:4000}
     ports:
       - '${API_PORT:-4000}:4000'
     depends_on:
@@ -146,12 +157,15 @@ services:
     image: fenwira/worker:local
     restart: unless-stopped
     environment:
-      <<: *server-env
+      <<: [*server-env, *meta-env]
       WORKER_HEALTH_PORT: 4100
       OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-250}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       SMTP_URL: smtp://fenwira-mailpit:1025
       MAIL_FROM: ${MAIL_FROM:-Fenwira <no-reply@fenwira.local>}
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS}
+      ENCRYPTION_ACTIVE_KEY_ID: ${ENCRYPTION_ACTIVE_KEY_ID:-k1}
+      WHATSAPP_SYNC_INTERVAL_HOURS: ${WHATSAPP_SYNC_INTERVAL_HOURS:-6}
     depends_on:
       fenwira-postgres: { condition: service_healthy }
       fenwira-redis: { condition: service_healthy }
@@ -177,6 +191,19 @@ services:
       - '${WEB_PORT:-3000}:3000'
     depends_on:
       fenwira-api: { condition: service_healthy }
+    networks: [fenwira-network]
+
+  # Simulated Meta Graph API for local dev connect (profile meta-mock; see docs/DEPLOYMENT.md).
+  # Point META_GRAPH_BASE_URL at http://fenwira-meta-mock:4200 to use it.
+  fenwira-meta-mock:
+    container_name: fenwira-meta-mock
+    profiles: [meta-mock]
+    build: { context: ., dockerfile: infrastructure/docker/server.Dockerfile, target: meta-mock }
+    image: fenwira/meta-mock:local
+    restart: unless-stopped
+    ports:
+      # Loopback only: e2e tests seed numbers through its /__mock control routes.
+      - '127.0.0.1:${META_MOCK_PORT:-4200}:4200'
     networks: [fenwira-network]
 
   # Integration test runner: `pnpm test:integration` (docker compose --profile test run --rm fenwira-test).

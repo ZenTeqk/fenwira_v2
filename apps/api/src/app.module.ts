@@ -15,9 +15,14 @@ import { AuthGuard, IdentityModule } from './modules/identity'
 import { PlatformApiModule } from './modules/platform/platform-api.module'
 import { RealtimeModule } from './modules/realtime'
 import { PermissionGuard, TenancyModule, TenantGuard } from './modules/tenancy'
+import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
 
-export function coreConfigFromApiEnv(env: ApiEnv): CoreConfig {
+export function coreConfigFromApiEnv(
+  env: ApiEnv,
+  extra: Pick<CoreConfig, 'logDestination'> = {},
+): CoreConfig {
   return {
+    ...extra,
     service: 'api',
     version: env.APP_VERSION,
     nodeEnv: env.NODE_ENV,
@@ -31,23 +36,33 @@ export function coreConfigFromApiEnv(env: ApiEnv): CoreConfig {
 
 @Module({})
 export class ApiModule {
-  static forRoot(env: ApiEnv): DynamicModule {
+  static forRoot(env: ApiEnv, extra: Pick<CoreConfig, 'logDestination'> = {}): DynamicModule {
+    const keyRing = parseKeyRing(env.ENCRYPTION_KEYS, env.ENCRYPTION_ACTIVE_KEY_ID)
     const identity = IdentityModule.forApi({
       jwtPrivateKey: env.JWT_PRIVATE_KEY,
       jwtPublicKey: env.JWT_PUBLIC_KEY,
       cookies: { secure: env.COOKIE_SECURE, domain: env.COOKIE_DOMAIN },
-      keyRing: parseKeyRing(env.ENCRYPTION_KEYS, env.ENCRYPTION_ACTIVE_KEY_ID),
+      keyRing,
       webOrigin: env.WEB_ORIGIN,
     })
     const tenancy = TenancyModule.forApi(identity)
     return {
       module: ApiModule,
       imports: [
-        CoreModule.forRoot(coreConfigFromApiEnv(env)),
+        CoreModule.forRoot(coreConfigFromApiEnv(env, extra)),
         AuditModule,
         identity,
         tenancy,
         AuditApiModule,
+        WhatsAppAccountsModule.forApi({
+          keyRing,
+          appId: env.META_APP_ID,
+          appSecret: env.META_APP_SECRET,
+          configId: env.META_ES_CONFIG_ID,
+          graphVersion: env.META_GRAPH_API_VERSION,
+          graphBaseUrl: env.META_GRAPH_BASE_URL,
+          devConnect: env.WHATSAPP_DEV_CONNECT,
+        }),
         RealtimeModule.forApi([identity, tenancy]),
         HealthModule.forRoot({
           indicators: [PostgresHealthIndicator, RedisHealthIndicator, QueueHealthIndicator],

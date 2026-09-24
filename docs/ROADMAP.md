@@ -16,7 +16,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 1 | Monorepo + Docker Compose + engineering foundation | 🔵 every local acceptance criterion passes (see below). Only remaining item: CI green on a PR, which needs a GitHub remote. | [PHASE_01](prompts/PHASE_01_FOUNDATION.md) |
 | 2 | Design system + application shell | ✅ all acceptance criteria pass locally (see below). The CI workflow includes every check but hasn't run on GitHub yet (no remote). | [PHASE_02](prompts/PHASE_02_DESIGN_SYSTEM.md) |
 | 3 | Authentication + tenant + RBAC + RLS | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_03](prompts/PHASE_03_AUTH_TENANCY.md) |
-| 4 | Meta onboarding + WhatsApp account management | ⬜ | [PHASE_04](prompts/PHASE_04_META_ONBOARDING.md) |
+| 4 | Meta onboarding + WhatsApp account management | 🔵 every criterion passes against the simulated Graph API (see below). Real Embedded Signup needs Meta Tech Provider approval (MI1). |  [PHASE_04](prompts/PHASE_04_META_ONBOARDING.md) |
 | 5 | Webhook + messaging engine | ⬜ | [PHASE_05](prompts/PHASE_05_MESSAGING_ENGINE.md) |
 | 6 | Contacts + consent + CRM foundation | ⬜ | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
 | 7 | Multi-agent shared inbox | ⬜ | [PHASE_07](prompts/PHASE_07_INBOX.md) |
@@ -105,3 +105,23 @@ Bugs found and fixed during the phase:
 - `trust proxy` was hard-coded, which would allow IP spoofing past per-IP limits.
 - The in-memory CSRF token was empty after a full page load, so the first mutation (for example, clicking the email verification link while signed in) failed.
 - A stale "signed out" cache entry bounced users back to sign-in after a redirect login.
+
+## Phase 4 verification (2026-09-25)
+
+| Acceptance criterion | Result | Evidence |
+| --- | --- | --- |
+| With real Meta sandbox credentials, a new tenant completes Embedded Signup and sees **Connected** with no manual DB edits | ⏳ | Blocked on MI1 (Meta Tech Provider onboarding). The full server-side sequence (exchange → debug_token → WABA/number → uniqueness → store → subscribe → register → validate) passes against `fenwira-meta-mock` in `apps/worker/test/whatsapp.int.test.ts`. The browser side (`lib/facebook-sdk.ts`: FB.login plus the `WA_EMBEDDED_SIGNUP` message) needs real credentials to verify. |
+| Dev connect works with the Meta test number and is absent when the flag is off | ✅ | Integration tests: connected with a pasted token and registration skipped; with the flag off, 404 and `devConnect: false`. e2e `whatsapp.spec.ts`: Developer connect → Connected → Test connection → Disconnect in the browser. The env schema refuses `WHATSAPP_DEV_CONNECT=true` in production. |
+| The raw token never appears in any API response, log line, audit entry or browser storage | ✅ | The `token hygiene` test searches every captured response (including `/audit-logs`) and every debug-level log line for the issued tokens. e2e checks localStorage, sessionStorage and cookies. The DB holds only `v1.k1.…` ciphertext. |
+| Connecting a `phone_number_id` already owned by another tenant is rejected without revealing that tenant | ✅ | 409 `PHONE_NUMBER_ALREADY_CONNECTED`; the body contains neither the other workspace's name, its ID nor the connection ID. Guaranteed by X11 plus the partial unique index (DB test). The number can be connected elsewhere after it is disconnected. |
+| Disconnecting unsubscribes the webhooks and wipes the credential | ✅ | The mock receives `DELETE /{waba}/subscribed_apps`; every credential is `REVOKED` with `token_ciphertext = NULL`; the webhook subscription is `REMOVED`. |
+| Cross-tenant tests extended to all new tables | ✅ | The tenant matrix has fixtures for all 5 tables (the coverage test fails without them). The security matrix picks up the 10 new routes automatically. |
+
+Also verified: the resumable post-store failure → Retry path, test message plus revoked-token detection → Rotate token, the default number moving on PATCH or disconnect, RBAC (a MANAGER can read but not manage; an AGENT can't test), and the `whatsapp.sync` scheduler fan-out → per-number job → quality/tier update audited as SYSTEM. axe runs on `/settings/whatsapp` with no WCAG AA violations.
+
+Test counts: 126 integration (62 database, 10 API, 54 system), 33 Playwright e2e and 122 unit tests.
+
+Bugs found and fixed during the phase:
+
+- The worker couldn't boot the sync processor because `AuditModule` was imported only by the API root module. Nest aborted the whole test process.
+

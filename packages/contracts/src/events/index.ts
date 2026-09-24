@@ -26,6 +26,11 @@ export const EVENT_PAYLOAD_SCHEMAS = {
   'identity.password_reset.requested': z.object({ userId: z.uuid() }),
   // Tenancy (tenant events). The worker (re)generates the invitation token and emails it.
   'tenancy.invitation.sent': z.object({ invitationId: z.uuid() }),
+  // WhatsApp accounts (Phase 4). Subscribers arrive with the inbox/notifications phases.
+  'whatsapp.connection.changed': z.object({
+    phoneId: z.uuid(),
+    change: z.enum(['CONNECTED', 'DISCONNECTED', 'STATUS_CHANGED', 'CREDENTIAL_CHANGED']),
+  }),
 } as const
 
 export type DomainEventType = keyof typeof EVENT_PAYLOAD_SCHEMAS

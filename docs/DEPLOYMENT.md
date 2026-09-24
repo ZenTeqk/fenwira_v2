@@ -111,13 +111,21 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 | `COOKIE_SECURE` | `false` locally (**must be true in production**) | api | 3 |
 | `COOKIE_DOMAIN` | unset (localhost); e.g. `.fenwira.com` for sibling subdomains | api | 3 |
 | `TRUST_PROXY` | `0` (socket IP) | api: reverse-proxy hops trusted for `X-Forwarded-For`. Set to the real hop count behind a proxy; never >0 when the API is exposed directly. | 3 |
-| `META_APP_ID`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `META_ES_CONFIG_ID` | | api, worker | 4 |
-| `META_GRAPH_API_VERSION`, `META_GRAPH_BASE_URL` | `v23.0`, `https://graph.facebook.com` | api, worker | 4 |
-| `WHATSAPP_DEV_CONNECT`, `PUBLIC_API_URL` | | api, web | 4 |
+| `META_APP_ID`, `META_APP_SECRET` | empty (Embedded Signup off) | api, worker | 4 |
+| `META_ES_CONFIG_ID`, `META_WEBHOOK_VERIFY_TOKEN` | empty | api | 4 |
+| `META_GRAPH_API_VERSION`, `META_GRAPH_BASE_URL` | `v23.0`, `https://graph.facebook.com` (`.env.example`: the local mock) | api, worker | 4 |
+| `WHATSAPP_DEV_CONNECT` | `false` (refused in production) | api | 4 |
+| `WHATSAPP_SYNC_INTERVAL_HOURS` | `6` | worker | 4 |
+| `PUBLIC_API_URL` | `http://localhost:4000` | api | 4 |
+| `COMPOSE_PROFILES`, `META_MOCK_PORT` | `meta-mock`, `4200` (local development only) | compose | 4 |
 | `API_KEY_PEPPER` | | api | 11 |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | | all | 12 |
 
 Each app validates its variables at boot with the Zod schemas in `packages/config/src/env.ts`. A missing or invalid variable stops the process with one message listing every problem.
+
+### Simulated Meta locally (Phase 4)
+
+Without a Meta app, local development uses `fenwira-meta-mock`, a small simulated Graph API from `@fenwira/whatsapp/testing` (profile `meta-mock`, published on `127.0.0.1:4200` only). `.env.example` turns it on with `COMPOSE_PROFILES=meta-mock`, `META_GRAPH_BASE_URL=http://fenwira-meta-mock:4200` and `WHATSAPP_DEV_CONNECT=true`. It starts with one demo account (WABA `100000000000001`, phone number ID `200000000000001`). In Settings → WhatsApp → **Developer connect**, use those IDs and the token `mock-dev:100000000000001:local`. Tests seed more accounts through `POST /__mock/seed`. To use real Meta, set the Meta variables, point `META_GRAPH_BASE_URL` at `https://graph.facebook.com`, and remove the profile.
 
 ### Receiving Meta webhooks locally (Phase 4+)
 

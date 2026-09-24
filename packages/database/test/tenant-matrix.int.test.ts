@@ -10,6 +10,10 @@ import { Database, type TenantTx } from '../src'
  */
 type Fixture = (tx: TenantTx, ctx: { tenantId: string; userId: string }) => Promise<unknown>
 
+const metaId = () => String(Math.floor(Math.random() * 1e15)).padStart(15, '1')
+const waba = (tx: TenantTx, tenantId: string) =>
+  tx.whatsAppBusinessAccount.create({ data: { tenantId, wabaId: metaId(), name: 'Matrix WABA' } })
+
 const FIXTURES: Record<string, Fixture> = {
   outbox_events: (tx, { tenantId }) =>
     tx.outboxEvent.create({ data: { tenantId, eventType: 'test.event', payload: {} } }),
@@ -22,6 +26,37 @@ const FIXTURES: Record<string, Fixture> = {
   audit_logs: (tx, { tenantId }) =>
     tx.auditLog.create({
       data: { tenantId, actorType: 'SYSTEM', action: 'test.action', targetType: 'test' },
+    }),
+  meta_business_accounts: (tx, { tenantId }) =>
+    tx.metaBusinessAccount.create({
+      data: { tenantId, metaBusinessId: metaId(), name: 'Matrix Business' },
+    }),
+  whatsapp_business_accounts: (tx, { tenantId }) => waba(tx, tenantId),
+  whatsapp_phone_numbers: async (tx, { tenantId }) =>
+    tx.whatsAppPhoneNumber.create({
+      data: {
+        tenantId,
+        wabaId: (await waba(tx, tenantId)).id,
+        phoneNumberId: metaId(),
+        displayPhoneNumber: '+1 555-000-0000',
+        verifiedName: 'Matrix',
+        status: 'CONNECTED',
+      },
+    }),
+  meta_credentials: async (tx, { tenantId }) =>
+    tx.metaCredential.create({
+      data: {
+        tenantId,
+        wabaId: (await waba(tx, tenantId)).id,
+        tokenCiphertext: Uint8Array.from([1, 2, 3]),
+        tokenPrefix: 'EAAG',
+        tokenLast4: 'abcd',
+        tokenType: 'DEV',
+      },
+    }),
+  webhook_subscriptions: async (tx, { tenantId }) =>
+    tx.webhookSubscription.create({
+      data: { tenantId, wabaId: (await waba(tx, tenantId)).id, subscribedFields: ['messages'] },
     }),
 }
 
@@ -188,5 +223,60 @@ describe('tenant root and memberships', () => {
     await expect(
       db.withGlobal((tx) => tx.role.update({ where: { key: 'VIEWER' }, data: { rank: 99 } })),
     ).rejects.toThrow(/permission denied/)
+  })
+})
+
+describe('whatsapp phone numbers (Phase 4)', () => {
+  const phoneIn = (t: typeof A, phoneNumberId: string, status: 'CONNECTED' | 'DISCONNECTED') =>
+    db.withTenant(t.tenantId, async (tx) =>
+      tx.whatsAppPhoneNumber.create({
+        data: {
+          tenantId: t.tenantId,
+          wabaId: (await waba(tx, t.tenantId)).id,
+          phoneNumberId,
+          displayPhoneNumber: '+1 555-000-0001',
+          verifiedName: 'Matrix',
+          status,
+        },
+      }),
+    )
+
+  it('a live number belongs to one tenant; X11 says so without naming it', async () => {
+    const number = metaId()
+    await phoneIn(A, number, 'CONNECTED')
+    await expect(db.system.phoneNumberOwnerExists(number, B.tenantId)).resolves.toBe(true)
+    await expect(db.system.phoneNumberOwnerExists(number, A.tenantId)).resolves.toBe(false)
+    await expect(phoneIn(B, number, 'CONNECTED')).rejects.toThrow(/Unique constraint|unique/i)
+  })
+
+  it('a disconnected number can be connected by another tenant', async () => {
+    const number = metaId()
+    await phoneIn(A, number, 'DISCONNECTED')
+    await expect(db.system.phoneNumberOwnerExists(number, B.tenantId)).resolves.toBe(false)
+    await expect(phoneIn(B, number, 'CONNECTED')).resolves.toBeDefined()
+  })
+
+  it('X5 returns only IDs of live numbers due for sync', async () => {
+    const due = await db.system.phoneNumbersDueForSync(new Date(Date.now() + 60_000), 1000)
+    expect(due.length).toBeGreaterThan(0)
+    expect(Object.keys(due[0]!).sort()).toEqual(['phoneId', 'tenantId'])
+  })
+
+  it('allows one default number per tenant', async () => {
+    const make = () =>
+      db.withTenant(A.tenantId, async (tx) =>
+        tx.whatsAppPhoneNumber.create({
+          data: {
+            tenantId: A.tenantId,
+            wabaId: (await waba(tx, A.tenantId)).id,
+            phoneNumberId: metaId(),
+            displayPhoneNumber: '+1',
+            verifiedName: 'x',
+            isDefault: true,
+          },
+        }),
+      )
+    await make()
+    await expect(make()).rejects.toThrow(/Unique constraint|unique/i)
   })
 })

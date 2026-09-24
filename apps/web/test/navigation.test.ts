@@ -31,11 +31,15 @@ describe('navigation', () => {
     const visible = visibleNavigation(false)
     for (const leaf of flattenLeaves(visible)) expect(leaf.phase).toBeLessThanOrEqual(SHIPPED_PHASE)
     for (const item of visible) if (item.children) expect(item.children.length).toBeGreaterThan(0)
-    expect(visible.map((i) => i.id)).toEqual(['dashboard', 'settings'])
+    expect(visible.map((i) => i.id)).toEqual(['dashboard', 'integrations', 'settings'])
+    expect(visible.find((i) => i.id === 'integrations')!.children!.map((c) => c.label)).toEqual([
+      'WhatsApp',
+    ])
     expect(visible.find((i) => i.id === 'settings')!.children!.map((c) => c.label)).toEqual([
       'Workspace',
       'Team',
       'Roles',
+      'WhatsApp',
       'Security',
       'Audit Logs',
     ])

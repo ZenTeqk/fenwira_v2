@@ -151,36 +151,49 @@ meta_business_accounts                          T
 
 whatsapp_business_accounts                      T
   id, tenant_id, meta_business_account_id → meta_business_accounts null
-  waba_id text unique, name text, currency char(3) null, timezone_id text null
+  waba_id text, name text, currency char(3) null, timezone_id text null
   message_template_namespace text null
   status waba_status (ACTIVE|RESTRICTED|DISABLED|DISCONNECTED)
   created_at, updated_at
+  unique (tenant_id, waba_id)
 
 whatsapp_phone_numbers                          T
   id, tenant_id, waba_id → whatsapp_business_accounts
-  phone_number_id text unique                    -- global unique: one tenant per number
-  display_phone_number text, verified_name text
+  phone_number_id text
+  display_phone_number text, verified_name text, label text null
   quality_rating quality_rating (GREEN|YELLOW|RED|UNKNOWN)
   messaging_limit_tier text null                 -- as reported by Meta
-  throughput_mps int default 80
+  throughput_mps int default 80                  -- STANDARD 80, HIGH 1000
   status phone_status (PENDING|CONNECTED|FLAGGED|RESTRICTED|DISCONNECTED|ERROR)
-  status_detail text null
+  status_detail jsonb null                       -- connect steps [{key, status, error?}]
   registration_pin_ciphertext bytea null         -- 2-step verification PIN we set
-  is_default boolean default false               -- one default per tenant (partial unique)
+  is_default boolean default false
   last_synced_at null, connected_at null, disconnected_at null
   created_at, updated_at
+  unique (tenant_id, phone_number_id)
+  UNIQUE (phone_number_id) WHERE status <> 'DISCONNECTED'   -- one tenant per live number
+  UNIQUE (tenant_id) WHERE is_default                       -- one default per tenant
 
 meta_credentials                                T
   id, tenant_id, waba_id → whatsapp_business_accounts
-  token_ciphertext bytea, token_last4 text, token_type (BUSINESS_INTEGRATION|SYSTEM_USER|DEV)
+  token_ciphertext bytea null (NULL once REVOKED), token_prefix text, token_last4 text
+  token_type meta_token_type (BUSINESS_INTEGRATION|SYSTEM_USER|DEV)
   scopes text[], expires_at null, status credential_status (VALID|EXPIRING|INVALID|REVOKED)
-  rotated_at null, created_at, updated_at
-  unique (waba_id) WHERE status IN ('VALID','EXPIRING')
+  last_checked_at null, rotated_at null, created_at, updated_at
+  UNIQUE (waba_id) WHERE status IN ('VALID','EXPIRING')
 
 webhook_subscriptions                           T
-  id, tenant_id, waba_id, subscribed_fields text[]
-  status (ACTIVE|FAILED|REMOVED), last_event_at null, last_checked_at null, created_at, updated_at
+  id, tenant_id, waba_id → whatsapp_business_accounts, subscribed_fields text[]
+  status webhook_subscription_status (ACTIVE|FAILED|REMOVED)
+  last_event_at null, last_checked_at null, created_at, updated_at
+  unique (tenant_id, waba_id)
 ```
+
+Differences from the original Phase 0 draft:
+
+- `phone_number_id` is unique among **non-DISCONNECTED** rows (partial index) rather than globally. A number a tenant disconnected can be connected by another tenant, and the same tenant reconnecting reuses its row through `(tenant_id, phone_number_id)`.
+- `waba_id` is unique per tenant. Numbers, not WABAs, carry traffic, and a WABA can only live in one tenant while it has a live number there.
+- `status_detail` is `jsonb` (the step list), not text. `label` (rename) and `token_prefix`/`last_checked_at` (masked display and sync) were added.
 
 ## Messaging (P5; inbox columns P7)
 

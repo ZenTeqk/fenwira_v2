@@ -1,14 +1,17 @@
 import { apiEnvSchema, loadEnv, uuidv7, workerEnvSchema } from '@fenwira/config'
 import { type INestApplication } from '@nestjs/common'
 import request from 'supertest'
-import { createApiApp } from '@fenwira/api/bootstrap'
+import { type ApiAppOptions, createApiApp } from '@fenwira/api/bootstrap'
 import { createWorkerApp } from '../../src/bootstrap'
 
 /**
  * Boots the real API (and optionally the real worker, for emails) in-process against the compose
  * Postgres/Redis/Mailpit (fenwira-test service). Everything goes through HTTP like a browser would.
  */
-export async function bootApi(overrides: Record<string, string> = {}): Promise<INestApplication> {
+export async function bootApi(
+  overrides: Record<string, string> = {},
+  options: ApiAppOptions = {},
+): Promise<INestApplication> {
   // TRUST_PROXY=1 lets each simulated browser present its own IP (X-Forwarded-For), so per-IP
   // rate limits apply per client instead of to the whole test run.
   const env = loadEnv(apiEnvSchema, {
@@ -18,14 +21,20 @@ export async function bootApi(overrides: Record<string, string> = {}): Promise<I
     TRUST_PROXY: '1',
     ...overrides,
   })
-  const app = await createApiApp(env)
+  const app = await createApiApp(env, options)
   await app.init()
   return app
 }
 
-export async function bootWorker(): Promise<INestApplication> {
+export async function bootWorker(
+  overrides: Record<string, string> = {},
+): Promise<INestApplication> {
   const app = await createWorkerApp(
-    loadEnv(workerEnvSchema, { ...process.env, LOG_LEVEL: process.env.TEST_LOG_LEVEL ?? 'silent' }),
+    loadEnv(workerEnvSchema, {
+      ...process.env,
+      LOG_LEVEL: process.env.TEST_LOG_LEVEL ?? 'silent',
+      ...overrides,
+    }),
   )
   await app.init()
   return app

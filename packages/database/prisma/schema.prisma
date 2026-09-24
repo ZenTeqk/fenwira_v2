@@ -36,7 +36,7 @@ model OutboxEvent {
   dispatchedAt  DateTime?    @map("dispatched_at") @db.Timestamptz(3)
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant        Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, createdAt])
   @@map("outbox_events")
@@ -59,14 +59,14 @@ model User {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  sessions               Session[]
+  sessions                Session[]
   emailVerificationTokens EmailVerificationToken[]
-  passwordResetTokens    PasswordResetToken[]
-  twoFactor              TwoFactorCredential?
-  securityEvents         SecurityEvent[]
-  memberships            Membership[]
-  ownedTenants           Tenant[]      @relation("TenantOwner")
-  sentInvitations        Invitation[]  @relation("InvitationInviter")
+  passwordResetTokens     PasswordResetToken[]
+  twoFactor               TwoFactorCredential?
+  securityEvents          SecurityEvent[]
+  memberships             Membership[]
+  ownedTenants            Tenant[]                 @relation("TenantOwner")
+  sentInvitations         Invitation[]             @relation("InvitationInviter")
 
   @@map("users")
 }
@@ -187,11 +187,16 @@ model Tenant {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  owner        User          @relation("TenantOwner", fields: [ownerUserId], references: [id])
-  memberships  Membership[]
-  invitations  Invitation[]
-  auditLogs    AuditLog[]
-  outboxEvents OutboxEvent[]
+  owner                    User                      @relation("TenantOwner", fields: [ownerUserId], references: [id])
+  memberships              Membership[]
+  invitations              Invitation[]
+  auditLogs                AuditLog[]
+  outboxEvents             OutboxEvent[]
+  metaBusinessAccounts     MetaBusinessAccount[]
+  whatsappBusinessAccounts WhatsAppBusinessAccount[]
+  whatsappPhoneNumbers     WhatsAppPhoneNumber[]
+  metaCredentials          MetaCredential[]
+  webhookSubscriptions     WebhookSubscription[]
 
   @@map("tenants")
 }
@@ -325,4 +330,178 @@ model AuditLog {
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([tenantId, targetType, targetId])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------------------------
+// WhatsApp accounts (Phase 4, docs/META_INTEGRATION.md). Tokens and PINs are AES-256-GCM
+// ciphertext (@fenwira/config encryptSecret) and are decrypted only right before a Graph call.
+// ---------------------------------------------------------------------------------------------
+
+model MetaBusinessAccount {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  metaBusinessId String   @map("meta_business_id")
+  name           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  wabas  WhatsAppBusinessAccount[]
+
+  @@unique([tenantId, metaBusinessId])
+  @@map("meta_business_accounts")
+}
+
+enum WabaStatus {
+  ACTIVE
+  RESTRICTED
+  DISABLED
+  DISCONNECTED
+
+  @@map("waba_status")
+}
+
+/// One row per (tenant, WABA). A WABA in several tenants is prevented through its phone numbers
+/// (whatsapp_phone_numbers_active_number_unique), which is what actually carries traffic.
+model WhatsAppBusinessAccount {
+  id                       String     @id @default(uuid(7)) @db.Uuid
+  tenantId                 String     @map("tenant_id") @db.Uuid
+  metaBusinessAccountId    String?    @map("meta_business_account_id") @db.Uuid
+  wabaId                   String     @map("waba_id")
+  name                     String
+  currency                 String?    @db.Char(3)
+  timezoneId               String?    @map("timezone_id")
+  messageTemplateNamespace String?    @map("message_template_namespace")
+  status                   WabaStatus @default(ACTIVE)
+  createdAt                DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  metaBusinessAccount  MetaBusinessAccount?  @relation(fields: [metaBusinessAccountId], references: [id], onDelete: SetNull)
+  phoneNumbers         WhatsAppPhoneNumber[]
+  credentials          MetaCredential[]
+  webhookSubscriptions WebhookSubscription[]
+
+  @@unique([tenantId, wabaId])
+  @@map("whatsapp_business_accounts")
+}
+
+enum QualityRating {
+  GREEN
+  YELLOW
+  RED
+  UNKNOWN
+
+  @@map("quality_rating")
+}
+
+enum PhoneStatus {
+  PENDING
+  CONNECTED
+  FLAGGED
+  RESTRICTED
+  DISCONNECTED
+  ERROR
+
+  @@map("phone_status")
+}
+
+/// status_detail holds the connection steps [{key, status, error?}] (resumable connect flow).
+/// One non-DISCONNECTED row per phone_number_id across all tenants and one default per tenant
+/// (partial unique indexes in post-migrate.sql).
+model WhatsAppPhoneNumber {
+  id                        String        @id @default(uuid(7)) @db.Uuid
+  tenantId                  String        @map("tenant_id") @db.Uuid
+  wabaId                    String        @map("waba_id") @db.Uuid
+  phoneNumberId             String        @map("phone_number_id")
+  displayPhoneNumber        String        @map("display_phone_number")
+  verifiedName              String        @map("verified_name")
+  label                     String?
+  qualityRating             QualityRating @default(UNKNOWN) @map("quality_rating")
+  messagingLimitTier        String?       @map("messaging_limit_tier")
+  throughputMps             Int           @default(80) @map("throughput_mps")
+  status                    PhoneStatus   @default(PENDING)
+  statusDetail              Json?         @map("status_detail")
+  registrationPinCiphertext Bytes?        @map("registration_pin_ciphertext")
+  isDefault                 Boolean       @default(false) @map("is_default")
+  lastSyncedAt              DateTime?     @map("last_synced_at") @db.Timestamptz(3)
+  connectedAt               DateTime?     @map("connected_at") @db.Timestamptz(3)
+  disconnectedAt            DateTime?     @map("disconnected_at") @db.Timestamptz(3)
+  createdAt                 DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba   WhatsAppBusinessAccount @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, phoneNumberId])
+  @@index([tenantId, status])
+  @@map("whatsapp_phone_numbers")
+}
+
+enum MetaTokenType {
+  BUSINESS_INTEGRATION
+  SYSTEM_USER
+  DEV
+
+  @@map("meta_token_type")
+}
+
+enum CredentialStatus {
+  VALID
+  EXPIRING
+  INVALID
+  REVOKED
+
+  @@map("credential_status")
+}
+
+/// One live (VALID|EXPIRING) credential per WABA (partial unique in post-migrate.sql). Disconnect
+/// and rotation set the old row REVOKED and wipe token_ciphertext.
+model MetaCredential {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  tenantId        String           @map("tenant_id") @db.Uuid
+  wabaId          String           @map("waba_id") @db.Uuid
+  tokenCiphertext Bytes?           @map("token_ciphertext")
+  tokenLast4      String           @map("token_last4")
+  tokenPrefix     String           @map("token_prefix")
+  tokenType       MetaTokenType    @map("token_type")
+  scopes          String[]
+  expiresAt       DateTime?        @map("expires_at") @db.Timestamptz(3)
+  status          CredentialStatus @default(VALID)
+  lastCheckedAt   DateTime?        @map("last_checked_at") @db.Timestamptz(3)
+  rotatedAt       DateTime?        @map("rotated_at") @db.Timestamptz(3)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba   WhatsAppBusinessAccount @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, wabaId])
+  @@map("meta_credentials")
+}
+
+enum WebhookSubscriptionStatus {
+  ACTIVE
+  FAILED
+  REMOVED
+
+  @@map("webhook_subscription_status")
+}
+
+model WebhookSubscription {
+  id               String                    @id @default(uuid(7)) @db.Uuid
+  tenantId         String                    @map("tenant_id") @db.Uuid
+  wabaId           String                    @map("waba_id") @db.Uuid
+  subscribedFields String[]                  @map("subscribed_fields")
+  status           WebhookSubscriptionStatus @default(ACTIVE)
+  lastEventAt      DateTime?                 @map("last_event_at") @db.Timestamptz(3)
+  lastCheckedAt    DateTime?                 @map("last_checked_at") @db.Timestamptz(3)
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba   WhatsAppBusinessAccount @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, wabaId])
+  @@map("webhook_subscriptions")
 }

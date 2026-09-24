@@ -56,6 +56,9 @@ importers:
       '@fenwira/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@fenwira/whatsapp':
+        specifier: workspace:*
+        version: link:../../packages/whatsapp
       '@nestjs/common':
         specifier: 11.2.6
         version: 11.2.6(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -238,6 +241,9 @@ importers:
       '@fenwira/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@fenwira/whatsapp':
+        specifier: workspace:*
+        version: link:../../packages/whatsapp
       '@nestjs/common':
         specifier: 11.2.6
         version: 11.2.6(reflect-metadata@0.2.2)(rxjs@7.8.2)

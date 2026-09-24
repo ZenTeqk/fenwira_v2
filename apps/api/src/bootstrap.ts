@@ -1,3 +1,4 @@
+import { type DestinationStream } from 'pino'
 import 'reflect-metadata'
 import { type ApiEnv } from '@fenwira/config'
 import { type INestApplication, RequestMethod } from '@nestjs/common'
@@ -11,8 +12,13 @@ import { correlationMiddleware } from './core/http/correlation.middleware'
 import { RedisIoAdapter } from './modules/realtime'
 
 /** Builds the configured API application (used by main.ts and integration tests). */
-export async function createApiApp(env: ApiEnv): Promise<INestApplication> {
-  const app = await NestFactory.create<NestExpressApplication>(ApiModule.forRoot(env), {
+export type ApiAppOptions = { logDestination?: DestinationStream }
+
+export async function createApiApp(
+  env: ApiEnv,
+  options: ApiAppOptions = {},
+): Promise<INestApplication> {
+  const app = await NestFactory.create<NestExpressApplication>(ApiModule.forRoot(env, options), {
     bufferLogs: true,
     bodyParser: true,
   })

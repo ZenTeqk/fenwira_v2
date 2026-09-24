@@ -86,6 +86,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS memberships_one_active_owner
   ON public.memberships (tenant_id) WHERE role = 'OWNER' AND status = 'ACTIVE';
 CREATE UNIQUE INDEX IF NOT EXISTS invitations_one_pending_per_email
   ON public.invitations (tenant_id, email) WHERE status = 'PENDING';
+-- Phase 4: one tenant per live phone number (a DISCONNECTED number may be connected elsewhere),
+-- one default number per tenant, one live credential per WABA.
+CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_phone_numbers_active_number_unique
+  ON public.whatsapp_phone_numbers (phone_number_id) WHERE status <> 'DISCONNECTED';
+CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_phone_numbers_one_default
+  ON public.whatsapp_phone_numbers (tenant_id) WHERE is_default;
+CREATE UNIQUE INDEX IF NOT EXISTS meta_credentials_one_live_per_waba
+  ON public.meta_credentials (waba_id) WHERE status IN ('VALID', 'EXPIRING');
 
 -- ---------------------------------------------------------------------------------------------
 -- Grants for the runtime role (DML only, never DDL)
@@ -226,6 +234,31 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   SELECT i.tenant_id, i.id FROM public.invitations i WHERE i.token_hash = p_token_hash LIMIT 1;
 $$;
 
+-- X11: phone number uniqueness at connect. Answers only "is this number live in another tenant",
+-- never which one. The partial unique index is the real guarantee; this gives a clean 409 first.
+GRANT SELECT (tenant_id, phone_number_id, status) ON public.whatsapp_phone_numbers TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.phone_number_owner_exists(p_phone_number_id text, p_tenant_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.whatsapp_phone_numbers p
+    WHERE p.phone_number_id = p_phone_number_id AND p.tenant_id <> p_tenant_id
+      AND p.status <> 'DISCONNECTED'
+  );
+$$;
+
+-- X5: phone number sync fan-out. IDs only; each sync job re-enters withTenant(tenant_id).
+GRANT SELECT (id, tenant_id, status, last_synced_at) ON public.whatsapp_phone_numbers TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.phone_numbers_due_for_sync(p_older_than timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid, phone_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT p.tenant_id, p.id FROM public.whatsapp_phone_numbers p
+  WHERE p.status <> 'DISCONNECTED' AND p.status <> 'PENDING'
+    AND (p.last_synced_at IS NULL OR p.last_synced_at < p_older_than)
+  ORDER BY p.last_synced_at NULLS FIRST
+  LIMIT p_limit;
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -234,7 +267,9 @@ BEGIN
     'system.claim_outbox_events(integer, integer)',
     'system.mark_outbox_dispatched(uuid[])',
     'system.mark_outbox_retry(uuid, text, integer)',
-    'system.resolve_invitation(bytea)'
+    'system.resolve_invitation(bytea)',
+    'system.phone_number_owner_exists(text, uuid)',
+    'system.phone_numbers_due_for_sync(timestamptz, integer)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

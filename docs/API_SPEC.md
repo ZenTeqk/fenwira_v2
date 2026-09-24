@@ -61,9 +61,9 @@ List:
 | 400/401 (auth) | `TOKEN_INVALID` (verification/reset/invitation link used or expired), `INVALID_CODE` (wrong 2FA code) |
 | 404 | `NOT_FOUND`, `TENANT_NOT_FOUND` (also used for tenants you don't belong to) |
 | 409 | `CONFLICT`, `EMAIL_TAKEN`, `IDEMPOTENCY_KEY_REUSED` (different body), `IDEMPOTENCY_IN_PROGRESS`, `COMPOSE_LOCKED`, `VERSION_CONFLICT`, `PHONE_NUMBER_ALREADY_CONNECTED` |
-| 422 | Domain rule violations: `CONVERSATION_WINDOW_CLOSED`, `CONSENT_REQUIRED`, `CONTACT_BLOCKED`, `INVALID_PHONE`, `AUTOMATION_BLOCKED_BY_TAKEOVER`, `NO_CONNECTED_NUMBER`, `TEMPLATE_NOT_APPROVED`, `TEMPLATE_VARIABLES_INVALID`, `TEMPLATE_*` (validation codes in `TEMPLATE_ENGINE.md`), `FLOW_*` (validation codes in `AUTOMATION_ENGINE.md`), `LIMIT_EXCEEDED`, `INSUFFICIENT_BALANCE`, `SUBSCRIPTION_INACTIVE` |
+| 422 | Domain rule violations: `WHATSAPP_CONNECT_FAILED` (with `details.steps`), `CONVERSATION_WINDOW_CLOSED`, `CONSENT_REQUIRED`, `CONTACT_BLOCKED`, `INVALID_PHONE`, `AUTOMATION_BLOCKED_BY_TAKEOVER`, `NO_CONNECTED_NUMBER`, `TEMPLATE_NOT_APPROVED`, `TEMPLATE_VARIABLES_INVALID`, `TEMPLATE_*` (validation codes in `TEMPLATE_ENGINE.md`), `FLOW_*` (validation codes in `AUTOMATION_ENGINE.md`), `LIMIT_EXCEEDED`, `INSUFFICIENT_BALANCE`, `SUBSCRIPTION_INACTIVE` |
 | 429 | `RATE_LIMITED` (+ `Retry-After`) |
-| 5xx | `INTERNAL`, `UPSTREAM_UNAVAILABLE` (503: Redis or Postgres unreachable — a dependency outage, not a bug) |
+| 5xx | `INTERNAL`, `UPSTREAM_UNAVAILABLE` (503: Redis, Postgres or Meta unreachable — a dependency outage, not a bug) |
 
 Error codes are a closed enum in `packages/contracts/src/errors.ts`, and the web app maps them to user copy.
 
@@ -157,7 +157,17 @@ Every route needs `X-Tenant-Id` plus an ACTIVE membership. A missing, malformed,
 | POST | `/whatsapp/connections/:id/rotate-token` | `whatsapp.manage`. `{code}` |
 | PATCH | `/whatsapp/connections/:id` | `whatsapp.manage`. `{isDefault}` |
 | DELETE | `/whatsapp/connections/:id` | `whatsapp.manage`. Disconnects. |
-| GET | `/config/whatsapp-signup` | `whatsapp.manage`. `{appId, configId, graphVersion}` (all public values) |
+| GET | `/config/whatsapp-signup` | `whatsapp.manage`. `{embeddedSignup, appId, configId, graphVersion, devConnect}` (all public values) |
+
+Implementation notes (Phase 4):
+
+- A connection (`WhatsAppConnection` in `@fenwira/contracts`) carries status, quality, tier, webhook status, `lastSyncedAt`, `steps[]` and `credential {status, tokenType, maskedToken, expiresAt}`. No response ever contains a token. `maskedToken` looks like `EAAG…9f2c`.
+- `POST /whatsapp/connections` and `/dev`: a failure before anything is stored (EXCHANGE, VERIFY, FETCH) returns **422 `WHATSAPP_CONNECT_FAILED`** with `details {step, steps}`. The user restarts signup, because the code is single-use. A number that is live in another workspace returns **409 `PHONE_NUMBER_ALREADY_CONNECTED`**, which never reveals that workspace. A failure after storing (SUBSCRIBE, REGISTER, VALIDATE) returns **201** with `status: ERROR` and the failed step, and `POST /:id/retry` resumes from it.
+- Connecting is naturally idempotent per `(tenant, phoneNumberId)`: repeating it reuses the row and re-runs the steps. The generic `Idempotency-Key` middleware (IK) is not built yet and arrives with messaging in Phase 5.
+- `POST /:id/test {to?}`: in Phase 4, the optional message is Meta's `hello_world` template sent by a direct Graph call, marked `TODO(phase-5)` to go through `MessagingService`. The response is `{ok, status, qualityRating, error?, message?}` and is 200 even when Meta rejects the call.
+- `POST /:id/rotate-token`: `{code}` (Embedded Signup) or `{accessToken}` (developer connect only).
+- `PATCH /:id`: `{isDefault: true}` and/or `{label}`.
+- Rate limits per tenant: connect/rotate 20/h, test 30/h (with a message 10/h), sync 30/h.
 
 ### Webhooks (P5). Public, no auth.
 
