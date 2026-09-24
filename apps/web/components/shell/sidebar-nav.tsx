@@ -11,6 +11,8 @@ type SidebarNavProps = {
   pathname: string
   collapsed?: boolean
   onNavigate?: () => void
+  /** Count pills by item id (e.g. unread conversations on Inbox). */
+  badges?: Record<string, number>
 }
 
 const itemBase = cn(
@@ -23,7 +25,13 @@ const inactive = 'text-slate-400 hover:bg-slate-800 hover:text-surface'
 const active =
   'bg-slate-800 text-surface before:absolute before:inset-y-2 before:left-0 before:w-0.75 before:rounded-full before:bg-primary'
 
-export function SidebarNav({ items, pathname, collapsed = false, onNavigate }: SidebarNavProps) {
+export function SidebarNav({
+  items,
+  pathname,
+  collapsed = false,
+  onNavigate,
+  badges = {},
+}: SidebarNavProps) {
   const activeLeaf = findActiveLeaf(pathname, items)
   const activeGroup = items.find((item) =>
     item.children?.some((child) => child.id === activeLeaf?.id),
@@ -55,6 +63,17 @@ export function SidebarNav({ items, pathname, collapsed = false, onNavigate }: S
               ) : (
                 <span className="truncate">{item.label}</span>
               )}
+              {badges[item.id] ? (
+                <span
+                  className={cn(
+                    'rounded-full bg-primary-strong px-1.5 text-xs font-semibold text-surface',
+                    collapsed ? 'absolute top-0.5 right-1' : 'ml-auto',
+                  )}
+                >
+                  {badges[item.id]! > 99 ? '99+' : badges[item.id]}
+                  <span className="sr-only"> unread</span>
+                </span>
+              ) : null}
             </Link>
           )
           return (

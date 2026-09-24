@@ -115,4 +115,21 @@ export class SystemGateway {
       SELECT * FROM system.resolve_tenant_by_waba_id(${wabaId})`
     return rows[0]?.tenant_id ?? null
   }
+
+  /** X13 — conversations whose snooze ended or whose takeover should be released (IDs only). */
+  async inboxMaintenanceDue(
+    now: Date,
+    limit: number,
+  ): Promise<
+    Array<{ tenantId: string; conversationId: string; kind: 'UNSNOOZE' | 'RELEASE_TAKEOVER' }>
+  > {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ tenant_id: string; conversation_id: string; kind: 'UNSNOOZE' | 'RELEASE_TAKEOVER' }>
+    >`SELECT * FROM system.inbox_maintenance_due(${now}, ${limit}::int)`
+    return rows.map((r) => ({
+      tenantId: r.tenant_id,
+      conversationId: r.conversation_id,
+      kind: r.kind,
+    }))
+  }
 }

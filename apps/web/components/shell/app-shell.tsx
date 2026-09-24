@@ -35,7 +35,12 @@ import {
   type NavItem,
   visibleNavigation,
 } from '@/lib/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { get } from '@/lib/api/client'
+import { keys } from '@/lib/api/keys'
+import { usePresenceHeartbeat, useRealtimeEvent } from '@/lib/realtime'
 import { useSession } from '../session/session-provider'
+import { NotificationsBell } from './notifications-bell'
 import { SidebarNav } from './sidebar-nav'
 import { TenantSwitcher } from './tenant-switcher'
 
@@ -62,8 +67,23 @@ type AppShellProps = { children: ReactNode; navPreview: boolean; galleryEnabled:
 /** Sidebar (slate, 248px / 64px collapsed; drawer below 1024px) + header + page (docs/prompts/PHASE_02). */
 export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps) {
   const pathname = usePathname()
+  // The inbox fills the viewport under the header with its own panes (docs/INBOX.md → Layout).
+  const fullBleed = pathname === '/inbox' || pathname.startsWith('/inbox/')
   const router = useRouter()
-  const { me, membership, signOut } = useSession()
+  const { me, membership, signOut, tenantId, can } = useSession()
+  const unread = useQuery({
+    queryKey: keys.tenant(tenantId, 'inbox-unread'),
+    queryFn: () =>
+      get<{ data: { conversations: number } }>('/inbox/unread-count').then(
+        (r) => r.data.conversations,
+      ),
+    enabled: can('inbox.read'),
+    refetchInterval: 30_000,
+  })
+  usePresenceHeartbeat(can('inbox.reply'))
+  useRealtimeEvent('message.created', () => void unread.refetch())
+  useRealtimeEvent('conversation.read', () => void unread.refetch())
+  const badges = { inbox: unread.data ?? 0 }
   const nav: NavItem[] = useMemo(
     () => visibleNavigation(navPreview, NAVIGATION, membership.permissions),
     [navPreview, membership.permissions],
@@ -132,7 +152,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       >
         <TenantSwitcher collapsed={collapsed} />
         <div className="flex-1 overflow-y-auto">
-          <SidebarNav items={nav} pathname={pathname} collapsed={collapsed} />
+          <SidebarNav items={nav} pathname={pathname} collapsed={collapsed} badges={badges} />
         </div>
         <button
           type="button"
@@ -159,12 +179,17 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
         <DrawerContent title="Navigation" side="left" width="sm" tone="dark">
           <div className="flex flex-col gap-4">
             <TenantSwitcher />
-            <SidebarNav items={nav} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+            <SidebarNav
+              items={nav}
+              pathname={pathname}
+              badges={badges}
+              onNavigate={() => setMobileOpen(false)}
+            />
           </div>
         </DrawerContent>
       </Drawer>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={cn('flex min-w-0 flex-1 flex-col', fullBleed && 'h-dvh')}>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-surface px-4 md:px-6">
           <Button
             variant="ghost"
@@ -191,10 +216,14 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
               ⌘K
             </kbd>
           </Button>
-          {/* Notifications bell slot — Phase 7 */}
+          <NotificationsBell />
           <Dropdown>
-            <DropdownTrigger aria-label="Account menu" className={cn('rounded-full', focusRing)}>
-              <Avatar name={me.user.name} size="md" />
+            <DropdownTrigger className={cn('rounded-full', focusRing)}>
+              {/* Initials are decorative; naming via text (not aria-label) avoids a label/content mismatch. */}
+              <span aria-hidden="true">
+                <Avatar name={me.user.name} size="md" />
+              </span>
+              <span className="sr-only">Account menu</span>
             </DropdownTrigger>
             <DropdownContent className="w-64">
               <DropdownLabel className="flex flex-col gap-0.5 text-slate">
@@ -221,8 +250,12 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           </Dropdown>
         </header>
 
-        <main id="main" tabIndex={-1} className="flex-1 outline-none">
-          <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6">{children}</div>
+        <main id="main" tabIndex={-1} className="min-h-0 flex-1 outline-none">
+          {fullBleed ? (
+            children
+          ) : (
+            <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6">{children}</div>
+          )}
         </main>
       </div>
 

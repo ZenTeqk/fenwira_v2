@@ -26,6 +26,11 @@ export class RealtimeEmitter implements OnApplicationShutdown {
     this.safe(() => this.emitter.to(tenantRoom(tenantId)).emit(event, payload))
   }
 
+  /** One user's sockets (every tab), e.g. notifications. */
+  toUser(userId: string, event: string, payload: unknown): void {
+    this.safe(() => this.emitter.to(`user:${userId}`).emit(event, payload))
+  }
+
   /** Conversation-scoped events also reach the tenant room (lists, badges). */
   toConversation(tenantId: string, conversationId: string, event: string, payload: unknown): void {
     this.safe(() =>

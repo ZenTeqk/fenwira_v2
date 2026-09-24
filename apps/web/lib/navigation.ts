@@ -19,7 +19,7 @@ import {
  * "coming soon" entries; NEXT_PUBLIC_NAV_PREVIEW=true (development only) reveals everything
  * with a placeholder page so the shell can be reviewed.
  */
-export const SHIPPED_PHASE = 6
+export const SHIPPED_PHASE = 7
 
 /** `permission`: hidden unless the member's role grants it (the API enforces it regardless). */
 export type NavLeaf = {
@@ -33,7 +33,14 @@ export type NavItem = NavLeaf & { icon: LucideIcon; children?: NavLeaf[] }
 
 export const NAVIGATION: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', href: '/dashboard', phase: 2, icon: LayoutDashboard },
-  { id: 'inbox', label: 'Inbox', href: '/inbox', phase: 7, icon: MessageSquare },
+  {
+    id: 'inbox',
+    label: 'Inbox',
+    href: '/inbox',
+    phase: 7,
+    icon: MessageSquare,
+    permission: 'inbox.read',
+  },
   {
     id: 'contacts',
     label: 'Contacts',

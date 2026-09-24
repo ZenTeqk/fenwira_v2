@@ -85,6 +85,12 @@ export class Client {
       .set(this.headers(headers))
       .send(body ?? {})
   }
+  put(path: string, body?: object, headers?: Record<string, string>) {
+    return this.agent
+      .put(`/api/v1${path}`)
+      .set(this.headers(headers))
+      .send(body ?? {})
+  }
   delete(path: string, headers?: Record<string, string>) {
     return this.agent.delete(`/api/v1${path}`).set(this.headers(headers))
   }

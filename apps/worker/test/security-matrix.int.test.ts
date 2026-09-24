@@ -59,6 +59,8 @@ function call(member: Member, route: Route, tenantId = member.tenantId) {
       return member.client.post(path, {})
     case 'PATCH':
       return member.client.patch(path, {})
+    case 'PUT':
+      return member.client.put(path, {})
     case 'DELETE':
       return member.client.delete(path)
     default:

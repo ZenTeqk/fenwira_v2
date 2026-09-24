@@ -14,7 +14,7 @@ import { REDIS } from '../../core/redis/redis.provider'
 import { StorageService } from '../../core/storage/storage.service'
 import { OutboxRelayService } from '../platform'
 import { loadLiveToken, markCredentialInvalid } from '../whatsapp-accounts'
-import { MARK_READ_JOB } from './conversations.service'
+import { MARK_READ_JOB } from './constants'
 import { toWaId } from './messaging.mapper'
 import { MESSAGING_OPTIONS, type MessagingOptions } from './messaging.options'
 import type IORedis from 'ioredis'
@@ -117,6 +117,13 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
         this.guard(message.type, phone.status, message.conversation.serviceWindowExpiresAt) ??
         (message.purpose === 'MARKETING' && message.contact.marketingConsent !== 'GRANTED'
           ? { code: 'CONSENT_REQUIRED', detail: 'The contact withdrew marketing consent.' }
+          : null) ??
+        (message.source === 'AUTOMATION' &&
+        message.conversation.automationState !== 'AUTOMATION_ACTIVE'
+          ? {
+              code: 'AUTOMATION_BLOCKED_BY_TAKEOVER',
+              detail: 'An agent took over the conversation.',
+            }
           : null)
       if (guard) {
         await this.fail(tx, message.id, guard.code, guard.detail)

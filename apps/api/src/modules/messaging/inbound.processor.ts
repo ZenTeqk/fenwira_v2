@@ -136,6 +136,7 @@ export class InboundProcessor implements QueueProcessor<WebhookJob> {
     // Blocked contacts: messages are still recorded, but the conversation stays resolved.
     const blocked = contact.status === 'BLOCKED'
     const opened = !blocked && (!before || before.status === 'RESOLVED')
+    const unsnoozed = !blocked && before?.status === 'SNOOZED'
 
     const message = await tx.message.create({
       data: {
@@ -149,6 +150,9 @@ export class InboundProcessor implements QueueProcessor<WebhookJob> {
         content: m.content as Prisma.InputJsonValue,
         providerMessageId: m.providerMessageId,
         providerTimestamp: at,
+        // Threads sort by created_at: use the customer's send time so a burst processed in
+        // parallel still reads in order.
+        createdAt: at,
         replyToMessageId: m.replyToProviderMessageId
           ? ((
               await tx.message.findFirst({
@@ -162,17 +166,35 @@ export class InboundProcessor implements QueueProcessor<WebhookJob> {
 
     const windowEnd = new Date(at.getTime() + WINDOW_MS)
     const newer = !conversation.lastCustomerMessageAt || at > conversation.lastCustomerMessageAt
+    const newerMessage = !conversation.lastMessageAt || at >= conversation.lastMessageAt
     await tx.conversation.update({
       where: { id: conversation.id },
       data: {
+        inboundCount: { increment: 1 },
+        ...(unsnoozed ? { status: 'OPEN', snoozedUntil: null } : {}),
         ...(opened ? { status: 'OPEN', resolvedAt: null } : {}),
         ...(blocked ? { status: 'RESOLVED', resolvedAt: new Date() } : {}),
         ...(newer ? { lastCustomerMessageAt: at, serviceWindowExpiresAt: windowEnd } : {}),
-        lastMessageId: message.id,
-        lastMessageAt: message.createdAt,
-        lastMessagePreview: previewOf(m.content),
+        ...(newerMessage
+          ? {
+              lastMessageId: message.id,
+              lastMessageAt: message.createdAt,
+              lastMessagePreview: previewOf(m.content),
+            }
+          : {}),
       },
     })
+    // Unread: +1 for everyone tracking this conversation; the assignee always tracks it.
+    await tx.conversationReadState.updateMany({
+      where: { conversationId: conversation.id },
+      data: { unreadCount: { increment: 1 } },
+    })
+    if (conversation.assigneeId)
+      await tx.$executeRaw`
+        INSERT INTO conversation_read_states (tenant_id, conversation_id, user_id, unread_count, updated_at)
+        SELECT ${tenantId}::uuid, ${conversation.id}::uuid, ${conversation.assigneeId}::uuid,
+               ${conversation.inboundCount + 1}, now()
+        ON CONFLICT (conversation_id, user_id) DO NOTHING`
     const outbox = (eventType: string, payload: Record<string, string>) =>
       tx.outboxEvent.create({
         data: {

@@ -98,7 +98,7 @@ async function ensureCsrf(force = false): Promise<void> {
 }
 
 export async function api<T = unknown>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,
   opts: Options = {},
 ): Promise<T> {
@@ -165,4 +165,6 @@ export const post = <T>(path: string, body?: unknown, opts?: Options) =>
   api<T>('POST', path, { ...opts, body: body ?? {} })
 export const patch = <T>(path: string, body: unknown, opts?: Options) =>
   api<T>('PATCH', path, { ...opts, body })
+export const put = <T>(path: string, body: unknown, opts?: Options) =>
+  api<T>('PUT', path, { ...opts, body })
 export const del = <T>(path: string, opts?: Options) => api<T>('DELETE', path, opts)

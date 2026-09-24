@@ -19,7 +19,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 4 | Meta onboarding + WhatsApp account management | 🔵 every criterion passes against the simulated Graph API (see below). Real Embedded Signup needs Meta Tech Provider approval (MI1). |  [PHASE_04](prompts/PHASE_04_META_ONBOARDING.md) |
 | 5 | Webhook + messaging engine | 🔵 every criterion passes against the simulated Graph API (see below). The real-test-number run needs Meta credentials (MI1). | [PHASE_05](prompts/PHASE_05_MESSAGING_ENGINE.md) |
 | 6 | Contacts + consent + CRM foundation | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
-| 7 | Multi-agent shared inbox | ⬜ | [PHASE_07](prompts/PHASE_07_INBOX.md) |
+| 7 | Multi-agent shared inbox | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_07](prompts/PHASE_07_INBOX.md) |
 | 8 | Template management / builder | ⬜ | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
 | 9 | Campaign / broadcast engine | ⬜ | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
 | 10 | Automation / visual flow builder | ⬜ | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
@@ -164,3 +164,30 @@ UI: Contacts (list with search, filter builder, bulk tag, untag and delete, save
 
 Test counts: 219 integration (132 database, 10 API, 77 system), 36 Playwright e2e and 134 unit tests.
 
+## Phase 7 verification (2026-09-24)
+
+| Acceptance criterion | Result | Evidence |
+| --- | --- | --- |
+| Two agents in two browsers on the same conversation: only the lock holder or assignee can send, and the other sees the typing indicator and a disabled composer | ✅ | `apps/worker/test/inbox.int.test.ts`: while one agent holds the lock, the other's send is 409 `COMPOSE_LOCKED` naming the holder, and a non-assignee can't force it; sending releases the lock; the assignee can force the lock, after which the previous holder's send is refused. e2e `inbox.spec.ts` with two browser contexts: agent B sees "… is replying…" and a disabled composer, and replies arrive live in the other browser. |
+| 100 inbound messages burst into 20 conversations: every message appears in order, unread counts are correct, and nothing is duplicated | ✅ | 100 signed webhooks (5 per conversation, delivered shuffled and concurrently): exactly 100 messages, each thread in provider-timestamp order, unread 5 per conversation for a user who never opened them, and 0 after mark-read. |
+| Outside the service window, a freeform reply is blocked by the server even if the UI check is bypassed (API test) | ✅ | Direct API call → 422 `CONVERSATION_WINDOW_CLOSED`; a template is accepted. |
+| During AGENT_TAKEOVER, an automation-sourced send is rejected (test) | ✅ | The first agent reply sets `AGENT_TAKEOVER` and writes a `takeover` system event; `MessagingService` with `source AUTOMATION` → 422 `AUTOMATION_BLOCKED_BY_TAKEOVER`. "Return to automation" allows it again. The outbound worker re-checks the same guard at send time. |
+| An agent in Tenant A never receives WebSocket events from Tenant B (test with two sockets) | ✅ | Two sockets in two tenants: none of A's `message.*`, `conversation.updated`, `compose.lock` or `presence.updated` events reach B. B can't join A's conversation room, and B's `compose.heartbeat` for it is refused. |
+| Search returns only the current tenant's conversations | ✅ | The same word in both tenants: each tenant's `?q=` returns only its own conversations, with the message snippet. Name and phone matches work too. |
+| Lighthouse accessibility score of at least 90 on the inbox page | ✅ | **100**, with 0 failing audits (lighthouse 12.8.2, signed-in admin, headless Chromium). axe (WCAG 2.1 AA) on `/inbox` in `a11y.spec.ts` and `inbox.spec.ts`. |
+
+Also verified: assignment permissions (an agent can't assign others: 403) and the assignee's notification; round-robin auto-assign to the ONLINE agent; a snooze expiring through the maintenance job (X13); `ASSIGNED_ONLY` visibility hides other agents' conversations from the AGENT role (404); the tenant matrix has fixtures for the 4 new tables; and the security matrix covers every new route (PUT added to the harness).
+
+UI: the three-pane inbox (Conversations | Chat | Contact) with views, search and unread filter; a virtualized thread with system-event pills and internal notes; a composer with the compose lock, template-only mode when the window is closed, attachments and optimistic send; assignment, status, snooze, takeover and tags in the header; a compact Contact 360 pane (a drawer below 1280 px, a single pane with back navigation below 768 px); a notifications bell; and an unread badge on the Inbox nav item.
+
+Test counts: 244 integration (148 database, 10 API, 86 system), 38 Playwright e2e and 134 unit tests.
+
+Bugs found and fixed during the phase:
+
+- axe flagged the view switcher (tabs without tab panels) and muted text on `primary-soft` and `neutral-soft`. The switcher became a toggle-button group, and the selected row, outbound bubbles and empty state use AA-passing text.
+- Lighthouse flagged the account menu button (visible initials not in its `aria-label`). The initials are now hidden from assistive tech and the name comes from screen-reader text.
+- Inbound bursts could arrive out of order, so a message's `created_at` is now Meta's timestamp, and the conversation's last-message fields only move forward.
+
+Not covered by a test yet: idle-takeover auto-release (same X13 job as the snooze path) and the lock's 30 s expiry (the Redis TTL).
+
+**Fenwira Core (Phases 0–7) is complete locally.** What's still open: the Phase 0 owner review, CI on a GitHub remote, and real Meta runs (MI1).

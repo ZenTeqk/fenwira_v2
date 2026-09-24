@@ -17,6 +17,7 @@ import { PlatformApiModule } from './modules/platform/platform-api.module'
 import { RealtimeModule } from './modules/realtime'
 import { PermissionGuard, TenancyModule, TenantGuard } from './modules/tenancy'
 import { ContactsModule } from './modules/contacts'
+import { InboxModule } from './modules/inbox'
 import { MessagingModule } from './modules/messaging'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
 
@@ -51,6 +52,13 @@ export class ApiModule {
       webOrigin: env.WEB_ORIGIN,
     })
     const tenancy = TenancyModule.forApi(identity)
+    const messaging = MessagingModule.forApi({
+      keyRing,
+      graphBaseUrl: env.META_GRAPH_BASE_URL,
+      graphVersion: env.META_GRAPH_API_VERSION,
+      appSecret: env.META_APP_SECRET,
+      verifyToken: env.META_WEBHOOK_VERIFY_TOKEN,
+    })
     return {
       module: ApiModule,
       imports: [
@@ -60,13 +68,8 @@ export class ApiModule {
         tenancy,
         AuditApiModule,
         ContactsModule.forApi(),
-        MessagingModule.forApi({
-          keyRing,
-          graphBaseUrl: env.META_GRAPH_BASE_URL,
-          graphVersion: env.META_GRAPH_API_VERSION,
-          appSecret: env.META_APP_SECRET,
-          verifyToken: env.META_WEBHOOK_VERIFY_TOKEN,
-        }),
+        messaging,
+        InboxModule.forApi([messaging]),
         WhatsAppAccountsModule.forApi({
           keyRing,
           appId: env.META_APP_ID,

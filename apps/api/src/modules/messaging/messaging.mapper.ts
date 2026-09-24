@@ -1,14 +1,8 @@
-import {
-  type Conversation,
-  type Message,
-  type MessageContent,
-  messageContentSchema,
-} from '@fenwira/contracts'
+import { type Message, type MessageContent, messageContentSchema } from '@fenwira/contracts'
 import { type Prisma } from '@fenwira/database'
 
 type MessageRow = Prisma.MessageGetPayload<object>
 const iso = (d: Date | null) => d?.toISOString() ?? null
-
 export function toMessage(m: MessageRow): Message {
   const parsed = messageContentSchema.safeParse(m.content)
   return {
@@ -30,32 +24,6 @@ export function toMessage(m: MessageRow): Message {
     failedAt: iso(m.failedAt),
     providerTimestamp: iso(m.providerTimestamp),
     createdAt: m.createdAt.toISOString(),
-  }
-}
-
-export const CONVERSATION_INCLUDE = {
-  contact: true,
-  phoneNumber: { select: { id: true, displayPhoneNumber: true } },
-} as const satisfies Prisma.ConversationInclude
-
-type ConversationRow = Prisma.ConversationGetPayload<{ include: typeof CONVERSATION_INCLUDE }>
-
-export function toConversation(c: ConversationRow): Conversation {
-  return {
-    id: c.id,
-    status: c.status,
-    contact: {
-      id: c.contact.id,
-      phoneE164: c.contact.phoneE164,
-      name: c.contact.name,
-      waProfileName: c.contact.waProfileName,
-    },
-    phoneNumber: c.phoneNumber,
-    lastMessageAt: iso(c.lastMessageAt),
-    lastMessagePreview: c.lastMessagePreview,
-    lastCustomerMessageAt: iso(c.lastCustomerMessageAt),
-    serviceWindowExpiresAt: iso(c.serviceWindowExpiresAt),
-    createdAt: c.createdAt.toISOString(),
   }
 }
 

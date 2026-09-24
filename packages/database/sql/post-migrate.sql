@@ -107,6 +107,14 @@ CREATE INDEX IF NOT EXISTS contacts_name_trgm ON public.contacts USING gin (name
 CREATE INDEX IF NOT EXISTS contacts_phone_trgm ON public.contacts USING gin (phone_e164 gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS contacts_email_trgm ON public.contacts USING gin ((email::text) gin_trgm_ops);
 
+-- Phase 7: inbox search. Full-text over message text and captions ('simple' config: no
+-- stemming, works across languages). Generated, so Prisma never writes it.
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS text_search tsvector
+  GENERATED ALWAYS AS (
+    to_tsvector('simple', coalesce(content->>'text', '') || ' ' || coalesce(content->>'caption', ''))
+  ) STORED;
+CREATE INDEX IF NOT EXISTS messages_text_search_idx ON public.messages USING gin (text_search);
+
 -- Outbound status ordering (docs/MESSAGING_ENGINE.md): a status applies only when its rank is
 -- higher than the current one. FAILED and RECEIVED sit outside the ladder.
 CREATE OR REPLACE FUNCTION public.fenwira_message_status_rank(s public.message_status)
@@ -300,6 +308,31 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT 1;
 $$;
 
+-- X13: inbox maintenance. Conversations whose snooze ended (→ OPEN) or whose takeover should be
+-- released (RESOLVED, tenant opted in, no agent message for N hours). IDs only; the job re-enters
+-- withTenant for each.
+GRANT SELECT (id, tenant_id, status, snoozed_until, automation_state, updated_at)
+  ON public.conversations TO fenwira_system;
+GRANT SELECT (id, takeover_auto_release_hours) ON public.tenants TO fenwira_system;
+GRANT SELECT (conversation_id, source, created_at) ON public.messages TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.inbox_maintenance_due(p_now timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid, conversation_id uuid, kind text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  (SELECT c.tenant_id, c.id, 'UNSNOOZE'::text FROM public.conversations c
+    WHERE c.status = 'SNOOZED' AND c.snoozed_until IS NOT NULL AND c.snoozed_until <= p_now
+    LIMIT p_limit)
+  UNION ALL
+  (SELECT c.tenant_id, c.id, 'RELEASE_TAKEOVER'::text FROM public.conversations c
+    JOIN public.tenants t ON t.id = c.tenant_id
+    WHERE c.automation_state = 'AGENT_TAKEOVER' AND c.status = 'RESOLVED'
+      AND t.takeover_auto_release_hours IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM public.messages m
+        WHERE m.conversation_id = c.id AND m.source = 'INBOX'
+          AND m.created_at > p_now - make_interval(hours => t.takeover_auto_release_hours))
+    LIMIT p_limit);
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -312,7 +345,8 @@ BEGIN
     'system.phone_number_owner_exists(text, uuid)',
     'system.phone_numbers_due_for_sync(timestamptz, integer)',
     'system.resolve_tenant_by_phone_number_id(text)',
-    'system.resolve_tenant_by_waba_id(text)'
+    'system.resolve_tenant_by_waba_id(text)',
+    'system.inbox_maintenance_due(timestamptz, integer)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

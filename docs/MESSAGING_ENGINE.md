@@ -166,7 +166,8 @@ After commit: emit WS `message.created` and `conversation.updated`.
 - **Realtime.** `RealtimeEmitter` (core) publishes through the Socket.IO Redis adapter from api and worker: `message.created`, `message.status` and `message.updated` go to `tenant:{id}` and `conversation:{id}`, and `conversation.updated` to both. Sockets join `conversation:{id}` with `conversation.join`, which checks the conversation belongs to the socket's tenant.
 - **Metrics** (`prom-client`; OpenTelemetry comes in Phase 12): `webhook_received_total{kind,result}`, `webhook_ingest_duration_ms`, `meta_api_requests_total{endpoint,result,error_code}`, `meta_api_duration_ms`, `messages_status_total{direction,status}`, `queue_depth{queue,state}`, `dlq_size{queue}`. Served on the worker's internal health port (`/metrics`) and the api's internal `METRICS_PORT`.
 - **Consent** (Phase 6): `purpose` is stored on the message and checked at accept and send time: MARKETING needs GRANTED, and UTILITY is blocked only by an explicit REVOKED. The error is 422 `CONSENT_REQUIRED` (at send time, the message fails with that code).
-- **Not yet built:** compose lock and takeover guards (Phase 7), template validation (Phase 8), balance check (Phase 11), and `POST /messages/:id/retry` (Phase 7).
+- **Takeover** (Phase 7): step 7 is enforced at accept time (422 `AUTOMATION_BLOCKED_BY_TAKEOVER`) and again by the outbound worker at send time (the message fails with that code). The compose lock is an inbox rule, checked by `InboxService` before it calls `MessagingService` (`INBOX.md`).
+- **Not yet built:** template validation (Phase 8), balance check (Phase 11) and `POST /messages/:id/retry` (deferred from Phase 7).
 
 ## Open questions
 

@@ -12,6 +12,7 @@ import { AppError } from '../../core/http/app-error'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { normalizePhone } from '../../core/phone'
 import { previewOf, toMessage } from './messaging.mapper'
+import { writeSystemEvent } from './system-events'
 
 export type SendTarget = { conversationId: string } | { phoneE164: string; phoneNumberId?: string }
 
@@ -124,6 +125,16 @@ export class MessagingService {
         'The 24-hour window is closed. Send an approved template to restart the conversation.',
       )
 
+    // 7. Human takeover: automation never sends while an agent has the conversation.
+    if (input.source === 'AUTOMATION' && conversation.automationState !== 'AUTOMATION_ACTIVE')
+      throw new AppError(
+        'AUTOMATION_BLOCKED_BY_TAKEOVER',
+        422,
+        'An agent has taken over this conversation; automation is paused.',
+        { automationState: conversation.automationState },
+      )
+    // 8. Compose lock: enforced by the inbox before it calls send (docs/INBOX.md).
+
     const stored = await this.storedContent(tx, content)
     const message = await tx.message.create({
       data: {
@@ -170,6 +181,18 @@ export class MessagingService {
           : {}),
       },
     })
+    if (input.source === 'INBOX' && conversation.automationState === 'AUTOMATION_ACTIVE')
+      await writeSystemEvent(
+        tx,
+        { tenantId, conversationId: conversation.id, contactId: conversation.contactId },
+        'takeover',
+        {
+          actorId: input.actorUserId ?? null,
+          from: 'AUTOMATION_ACTIVE',
+          to: 'AGENT_TAKEOVER',
+          automatic: true,
+        },
+      )
     return { message: toMessage(message), conversationId: conversation.id }
   }
 

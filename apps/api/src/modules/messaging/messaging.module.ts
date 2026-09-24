@@ -1,6 +1,5 @@
 import { type DynamicModule, Module } from '@nestjs/common'
-import { ConversationsController, FilesController } from './messaging.controller'
-import { ConversationsService } from './conversations.service'
+import { FilesController } from './messaging.controller'
 import { FilesService } from './files.service'
 import { InboundProcessor } from './inbound.processor'
 import { MediaProcessor } from './media.processor'
@@ -24,11 +23,10 @@ export class MessagingModule {
   static forApi(options: MessagingOptions): DynamicModule {
     return {
       module: MessagingModule,
-      controllers: [WhatsAppWebhookController, ConversationsController, FilesController],
+      controllers: [WhatsAppWebhookController, FilesController],
       providers: [
         { provide: MESSAGING_OPTIONS, useValue: options },
         MessagingService,
-        ConversationsService,
         FilesService,
         WebhookIngestService,
       ],

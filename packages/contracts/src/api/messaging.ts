@@ -144,6 +144,14 @@ export const messageSchema = z.object({
 export type Message = z.infer<typeof messageSchema>
 
 export const CONVERSATION_STATUSES = ['OPEN', 'PENDING', 'SNOOZED', 'RESOLVED'] as const
+export type ConversationStatus = (typeof CONVERSATION_STATUSES)[number]
+export const AUTOMATION_STATES = [
+  'AUTOMATION_ACTIVE',
+  'AGENT_TAKEOVER',
+  'AUTOMATION_PAUSED',
+] as const
+export type AutomationState = (typeof AUTOMATION_STATES)[number]
+
 export const conversationSchema = z.object({
   id: idSchema,
   status: z.enum(CONVERSATION_STATUSES),
@@ -154,13 +162,106 @@ export const conversationSchema = z.object({
     waProfileName: z.string().nullable(),
   }),
   phoneNumber: z.object({ id: idSchema, displayPhoneNumber: z.string() }),
+  assignee: z.object({ id: idSchema, name: z.string() }).nullable(),
+  tags: z.array(z.object({ id: idSchema, name: z.string(), color: z.string() })),
+  automationState: z.enum(AUTOMATION_STATES),
+  /** Unread messages for the current user. */
+  unreadCount: z.number().int(),
   lastMessageAt: z.string().nullable(),
   lastMessagePreview: z.string().nullable(),
   lastCustomerMessageAt: z.string().nullable(),
   serviceWindowExpiresAt: z.string().nullable(),
+  /** The server's view of the 24-hour window; the UI counts down from expiresAt. */
+  serviceWindow: z.object({ expiresAt: z.string().nullable(), isOpen: z.boolean() }),
+  snoozedUntil: z.string().nullable(),
+  firstResponseAt: z.string().nullable(),
+  /** Matching message text when the list was searched. */
+  snippet: z.string().nullable().optional(),
   createdAt: z.string(),
 })
 export type Conversation = z.infer<typeof conversationSchema>
+
+export const INBOX_VIEWS = ['mine', 'unassigned', 'all', 'takeover', 'resolved'] as const
+export type InboxView = (typeof INBOX_VIEWS)[number]
+const boolParam = z.enum(['true', 'false']).transform((v) => v === 'true')
+export const conversationsQuerySchema = z.object({
+  view: z.enum(INBOX_VIEWS).optional(),
+  status: z.enum(CONVERSATION_STATUSES).optional(),
+  assigneeId: idSchema.optional(),
+  unassigned: boolParam.optional(),
+  tagId: idSchema.optional(),
+  unread: boolParam.optional(),
+  window: z.enum(['OPEN', 'CLOSED']).optional(),
+  phoneNumberId: idSchema.optional(),
+  q: z.string().trim().min(1).max(120).optional(),
+  sort: z.enum(['recent', 'oldest_waiting']).default('recent'),
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+  cursor: z.string().max(200).optional(),
+})
+export type ConversationsQuery = z.infer<typeof conversationsQuerySchema>
+
+export const assignRequestSchema = z.object({ assigneeId: idSchema.nullable() })
+export const conversationStatusRequestSchema = z
+  .object({
+    status: z.enum(CONVERSATION_STATUSES),
+    snoozedUntil: z.iso.datetime({ offset: true }).optional(),
+  })
+  .refine((v) => (v.status === 'SNOOZED') === Boolean(v.snoozedUntil), {
+    path: ['snoozedUntil'],
+    message: 'Snoozing needs a time (and only snoozing does).',
+  })
+export const automationStateRequestSchema = z.object({ state: z.enum(AUTOMATION_STATES) })
+export const composeLockRequestSchema = z.object({ force: z.boolean().default(false) })
+export const composeLockSchema = z.object({
+  conversationId: idSchema,
+  holder: z.object({ id: idSchema, name: z.string() }).nullable(),
+  expiresAt: z.string().nullable(),
+})
+export type ComposeLock = z.infer<typeof composeLockSchema>
+
+export const conversationNoteSchema = z.object({
+  id: idSchema,
+  conversationId: idSchema,
+  body: z.string(),
+  authorId: idSchema,
+  authorName: z.string(),
+  mentions: z.array(idSchema),
+  createdAt: z.string(),
+})
+export type ConversationNote = z.infer<typeof conversationNoteSchema>
+export const createConversationNoteSchema = z.object({
+  body: z.string().trim().min(1).max(5000),
+  mentions: z.array(idSchema).max(20).default([]),
+})
+
+export const PRESENCE_STATUSES = ['ONLINE', 'AWAY', 'OFFLINE'] as const
+export type PresenceStatus = (typeof PRESENCE_STATUSES)[number]
+export const presenceSchema = z.object({
+  userId: idSchema,
+  name: z.string(),
+  status: z.enum(PRESENCE_STATUSES),
+  lastSeen: z.string().nullable(),
+})
+export type Presence = z.infer<typeof presenceSchema>
+
+export const notificationSchema = z.object({
+  id: idSchema,
+  type: z.string(),
+  severity: z.enum(['INFO', 'WARNING', 'CRITICAL']),
+  title: z.string(),
+  body: z.string(),
+  link: z.string().nullable(),
+  readAt: z.string().nullable(),
+  createdAt: z.string(),
+})
+export type Notification = z.infer<typeof notificationSchema>
+
+export const inboxSettingsSchema = z.object({
+  autoAssign: z.enum(['OFF', 'ROUND_ROBIN']),
+  inboxVisibility: z.enum(['ALL', 'ASSIGNED_ONLY']),
+  takeoverAutoReleaseHours: z.number().int().min(1).max(720).nullable(),
+})
+export type InboxSettings = z.infer<typeof inboxSettingsSchema>
 
 export const sendMessageRequestSchema = z.object({ content: sendableContentSchema })
 export type SendMessageRequest = z.infer<typeof sendMessageRequestSchema>

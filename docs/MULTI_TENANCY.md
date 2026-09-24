@@ -116,8 +116,9 @@ Everything that must run before a tenant is known, or across tenants, goes throu
 | X10 | Analytics rollups | `system.tenants_with_activity(since)` | `tenant_id[]` | IDs only. Rollups run per tenant. |
 | X11 | Phone number uniqueness at connect | `system.phone_number_owner_exists(phone_number_id text, tenant_id uuid)` | boolean: live in a tenant other than the caller's | Doesn't reveal which tenant. The partial unique index `whatsapp_phone_numbers_active_number_unique` is the real guarantee. |
 | X12 | Platform (tenant-less) events, for example `system.ping.requested` | `system.emit_platform_event(event_type, payload, correlation_id)` | Event ID | Writes only `tenant_id = NULL` rows, which no tenant context can read. Tenant events are always inserted inside `withTenant()`. |
+| X13 | Inbox maintenance (snooze expiry, idle takeover release) | `system.inbox_maintenance_due(now timestamptz, limit int)` | `(tenant_id, conversation_id, kind)[]`, kind `UNSNOOZE` or `RELEASE_TAKEOVER` | IDs only. Each change re-enters `withTenant` and re-checks the condition. |
 
-Implemented so far: X1 (policies plus `withUser`), X2 (Phase 5), X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID), X5 and X11 (Phase 4), X6 (`resolve_invitation`) and X12. The rest arrive with their phases.
+Implemented so far: X1 (policies plus `withUser`), X2 (Phase 5), X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID), X5 and X11 (Phase 4), X6 (`resolve_invitation`), X12 and X13 (Phase 7). The rest arrive with their phases.
 
 Adding a row to this table requires an ADR amendment and a security review.
 

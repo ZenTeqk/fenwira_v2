@@ -206,6 +206,31 @@ const FIXTURES: Record<string, Fixture> = {
         expiresAt: new Date(Date.now() + 3600_000),
       },
     }),
+  conversation_read_states: async (tx, { tenantId, userId }) =>
+    tx.conversationReadState.create({
+      data: { tenantId, conversationId: (await conversation(tx, tenantId)).id, userId },
+    }),
+  conversation_notes: async (tx, { tenantId, userId }) =>
+    tx.conversationNote.create({
+      data: {
+        tenantId,
+        conversationId: (await conversation(tx, tenantId)).id,
+        authorId: userId,
+        body: 'internal',
+      },
+    }),
+  conversation_tags: async (tx, { tenantId }) =>
+    tx.conversationTag.create({
+      data: {
+        tenantId,
+        conversationId: (await conversation(tx, tenantId)).id,
+        tagId: (await tag(tx, tenantId)).id,
+      },
+    }),
+  notifications: (tx, { tenantId, userId }) =>
+    tx.notification.create({
+      data: { tenantId, userId, type: 'test', title: 't', body: 'b' },
+    }),
   webhook_subscriptions: async (tx, { tenantId }) =>
     tx.webhookSubscription.create({
       data: { tenantId, wabaId: (await waba(tx, tenantId)).id, subscribedFields: ['messages'] },

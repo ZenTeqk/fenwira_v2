@@ -250,7 +250,7 @@ messages                                        T
 Implemented in Phase 5 (migration `20260926000000_messaging`), with these differences from the draft above:
 
 - `messages.attempts int` counts outbound send attempts; `files.filename` keeps the original name for downloads.
-- `messages.text_search` (full-text search) is deferred to Phase 7, where inbox search needs it; Prisma can't manage generated `tsvector` columns, so it will be added in SQL then.
+- `messages.text_search` (full-text search) was deferred to Phase 7 and is added in SQL there (see Inbox).
 - The status ladder is `public.fenwira_message_status_rank(message_status)` (CREATED 0 … READ 5; FAILED and RECEIVED −1), used by every status update's `WHERE`.
 - Partial unique indexes in `post-migrate.sql`: `contacts (tenant_id, phone_e164) WHERE deleted_at IS NULL`, `messages (tenant_id, provider_message_id)` and `messages (tenant_id, idempotency_key)` where not null.
 - `webhook_events.payload` is the normalized event plus `phoneId` (the number's row id); raw bodies are not stored (`raw_ref` dropped).
@@ -345,6 +345,15 @@ conversation_tags                               T
 ```
 
 Compose locks and presence live in Redis only (`INBOX.md`).
+
+Implemented in Phase 7 (migration `20260928000000_inbox`), with these differences from the draft:
+
+- `conversations.inbound_count int` (the unread fallback when a user has no read-state row) and `conversations.assigned_at` (round-robin tie-break).
+- `conversation_read_states` has an index `(tenant_id, user_id)` for the nav badge.
+- `messages.text_search` is added in `post-migrate.sql` (Prisma can't model generated columns): `to_tsvector('simple', content->>'text' || ' ' || content->>'caption')`, with a GIN index.
+- `tenants` gained `auto_assign` (`auto_assign_mode` OFF or ROUND_ROBIN), `inbox_visibility` (ALL or ASSIGNED_ONLY) and `takeover_auto_release_hours int null`.
+- `notifications` (drafted under Platform) is built as specified; the API only returns the caller's own rows.
+- An inbound message's `created_at` is Meta's timestamp, not the insert time.
 
 ## Templates (P8)
 

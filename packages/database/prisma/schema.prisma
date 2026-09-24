@@ -69,6 +69,10 @@ model User {
   sentInvitations         Invitation[]             @relation("InvitationInviter")
   ownedContacts           Contact[]                @relation("ContactOwner")
   contactNotes            ContactNote[]            @relation("ContactNoteAuthor")
+  assignedConversations   Conversation[]           @relation("ConversationAssignee")
+  readStates              ConversationReadState[]  @relation("ConversationReader")
+  conversationNotes       ConversationNote[]       @relation("ConversationNoteAuthor")
+  notifications           Notification[]           @relation("NotificationRecipient")
 
   @@map("users")
 }
@@ -177,22 +181,26 @@ model SecurityEvent {
 /// Tenant root ("Workspace" in the UI). Custom RLS: visible when bound or when the current user is
 /// an ACTIVE member (post-migrate.sql → tenant_root).
 model Tenant {
-  id             String    @id @default(uuid(7)) @db.Uuid
-  name           String
-  slug           String    @unique @db.Citext
-  defaultCountry String    @default("IN") @map("default_country") @db.Char(2)
-  timezone       String    @default("Asia/Kolkata")
-  currency       String    @default("INR") @db.Char(3)
-  require2fa     Boolean   @default(false) @map("require_2fa")
+  id                       String          @id @default(uuid(7)) @db.Uuid
+  name                     String
+  slug                     String          @unique @db.Citext
+  defaultCountry           String          @default("IN") @map("default_country") @db.Char(2)
+  timezone                 String          @default("Asia/Kolkata")
+  currency                 String          @default("INR") @db.Char(3)
+  require2fa               Boolean         @default(false) @map("require_2fa")
   /// Whole-message keywords that revoke / grant MARKETING consent (case-insensitive).
-  optOutKeywords String[]  @default(["STOP", "UNSUBSCRIBE", "CANCEL", "STOP ALL", "OPT OUT"]) @map("opt_out_keywords")
-  optInKeywords  String[]  @default(["START", "SUBSCRIBE", "OPT IN"]) @map("opt_in_keywords")
+  optOutKeywords           String[]        @default(["STOP", "UNSUBSCRIBE", "CANCEL", "STOP ALL", "OPT OUT"]) @map("opt_out_keywords")
+  optInKeywords            String[]        @default(["START", "SUBSCRIBE", "OPT IN"]) @map("opt_in_keywords")
   /// Reply after an opt-out (a SERVICE message). Empty = no reply.
-  optOutReply    String?   @default("You're unsubscribed from marketing messages. Reply START to subscribe again.") @map("opt_out_reply")
-  ownerUserId    String    @map("owner_user_id") @db.Uuid
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+  optOutReply              String?         @default("You're unsubscribed from marketing messages. Reply START to subscribe again.") @map("opt_out_reply")
+  autoAssign               AutoAssignMode  @default(OFF) @map("auto_assign")
+  inboxVisibility          InboxVisibility @default(ALL) @map("inbox_visibility")
+  /// Return AGENT_TAKEOVER to automation after N idle hours on a resolved conversation (null = never).
+  takeoverAutoReleaseHours Int?            @map("takeover_auto_release_hours")
+  ownerUserId              String          @map("owner_user_id") @db.Uuid
+  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt                DateTime?       @map("deleted_at") @db.Timestamptz(3)
 
   owner                    User                        @relation("TenantOwner", fields: [ownerUserId], references: [id])
   memberships              Membership[]
@@ -221,6 +229,10 @@ model Tenant {
   importJobs               ImportJob[]
   importJobErrors          ImportJobError[]
   exportJobs               ExportJob[]
+  readStates               ConversationReadState[]
+  conversationNotes        ConversationNote[]
+  conversationTags         ConversationTag[]
+  notifications            Notification[]
 
   @@map("tenants")
 }
@@ -615,6 +627,9 @@ model Conversation {
   phoneNumberId            String             @map("phone_number_id") @db.Uuid
   status                   ConversationStatus @default(OPEN)
   assigneeId               String?            @map("assignee_id") @db.Uuid
+  assignedAt               DateTime?          @map("assigned_at") @db.Timestamptz(3)
+  /// Inbound messages ever received; unread for a user with no read-state row.
+  inboundCount             Int                @default(0) @map("inbound_count")
   automationState          AutomationState    @default(AUTOMATION_ACTIVE) @map("automation_state")
   automationStateChangedAt DateTime?          @map("automation_state_changed_at") @db.Timestamptz(3)
   automationStateChangedBy String?            @map("automation_state_changed_by") @db.Uuid
@@ -629,10 +644,14 @@ model Conversation {
   createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contact     Contact             @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  phoneNumber WhatsAppPhoneNumber @relation(fields: [phoneNumberId], references: [id], onDelete: Cascade)
+  tenant      Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact     Contact                 @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  phoneNumber WhatsAppPhoneNumber     @relation(fields: [phoneNumberId], references: [id], onDelete: Cascade)
+  assignee    User?                   @relation("ConversationAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   messages    Message[]
+  readStates  ConversationReadState[]
+  notes       ConversationNote[]
+  tags        ConversationTag[]
 
   @@unique([tenantId, contactId, phoneNumberId])
   @@index([tenantId, status, lastMessageAt(sort: Desc)])
@@ -919,8 +938,9 @@ model Tag {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contacts ContactTag[]
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contacts      ContactTag[]
+  conversations ConversationTag[]
 
   @@unique([tenantId, name])
   @@map("tags")
@@ -1152,4 +1172,104 @@ model ExportJob {
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@map("export_jobs")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Inbox (Phase 7, docs/INBOX.md). Compose locks and presence live in Redis only.
+// ---------------------------------------------------------------------------------------------
+
+/// Per-user unread tracking, created lazily when a user opens a conversation (and for the assignee).
+model ConversationReadState {
+  tenantId          String   @map("tenant_id") @db.Uuid
+  conversationId    String   @map("conversation_id") @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  lastReadMessageId String?  @map("last_read_message_id") @db.Uuid
+  unreadCount       Int      @default(0) @map("unread_count")
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation("ConversationReader", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([tenantId, userId])
+  @@map("conversation_read_states")
+}
+
+/// Internal notes; never sent to the customer.
+model ConversationNote {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  conversationId String    @map("conversation_id") @db.Uuid
+  authorId       String    @map("author_id") @db.Uuid
+  body           String
+  mentions       String[]  @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User         @relation("ConversationNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([tenantId, conversationId, createdAt])
+  @@map("conversation_notes")
+}
+
+model ConversationTag {
+  tenantId       String   @map("tenant_id") @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  tagId          String   @map("tag_id") @db.Uuid
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tag          Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, tagId])
+  @@index([tenantId, tagId])
+  @@map("conversation_tags")
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  CRITICAL
+
+  @@map("notification_severity")
+}
+
+/// In-app notifications (bell). One row per recipient.
+model Notification {
+  id        String               @id @default(uuid(7)) @db.Uuid
+  tenantId  String               @map("tenant_id") @db.Uuid
+  userId    String               @map("user_id") @db.Uuid
+  type      String
+  severity  NotificationSeverity @default(INFO)
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?            @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, readAt, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+enum AutoAssignMode {
+  OFF
+  ROUND_ROBIN
+
+  @@map("auto_assign_mode")
+}
+
+enum InboxVisibility {
+  ALL
+  ASSIGNED_ONLY
+
+  @@map("inbox_visibility")
 }

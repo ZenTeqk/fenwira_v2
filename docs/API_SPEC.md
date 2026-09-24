@@ -195,7 +195,13 @@ Implementation notes (Phase 4):
 | POST | `/files/upload-url` | Authenticated. `{purpose, mimeType, sizeBytes}` → `{fileId, url, headers}` |
 | POST | `/files/:id/complete` | Verifies the object and sniffs its type → READY or REJECTED |
 | GET | `/files/:id/download-url` | Scoped by file purpose permission |
-| POST | `/messages/:id/retry` | `inbox.reply`. Only for FAILED messages with a retryable error. (Phase 7) |
+| POST | `/messages/:id/retry` | `inbox.reply`. Only for FAILED messages with a retryable error. (Deferred; not built in Phase 7) |
+| GET | `/conversations/:id/compose-lock` | `inbox.read`. `{conversationId, holder: {id, name} \| null, expiresAt}` |
+| GET | `/inbox/presence` | `inbox.read`. Members with `inbox.reply` and their `ONLINE\|AWAY\|OFFLINE` status |
+| GET | `/inbox/unread-count` | `inbox.read`. Conversations with unread > 0 visible to the caller (nav badge) |
+| GET | `/notifications` | `workspace.read`. The caller's own notifications, newest first |
+| POST | `/notifications/read-all`, `/notifications/:id/read` | `workspace.read` |
+| GET / PATCH | `/workspace/inbox-settings` | `workspace.read` / `workspace.manage`. `{autoAssign, inboxVisibility, takeoverAutoReleaseHours}` |
 
 Implemented in Phase 5: `GET /conversations` (newest first, cursor; inbox filters arrive in Phase 7), `POST /conversations` **IK** (`{to, phoneNumberId?, content}` starts or continues a conversation with a phone number, usually a template), `GET /conversations/:id`, `GET /conversations/:id/messages` (newest first, `before` cursor), `POST /conversations/:id/messages` **IK** (`{content}`), `POST /conversations/:id/read` (queues Meta's read receipt), `GET /messages/:id`, and the three `/files` endpoints for message media (`inbox.reply` to upload, `inbox.read` to download). Sendable content in v1: `TEXT`, `IMAGE`/`DOCUMENT`/`AUDIO`/`VIDEO` with a READY `fileId`, and `TEMPLATE {name, language, components?}` (template management is Phase 8). Send errors: 422 `NO_CONNECTED_NUMBER`, `CONTACT_BLOCKED`, `CONVERSATION_WINDOW_CLOSED`, `FILE_NOT_READY`. Uploads are checked on `complete`: the size must match and JPEG, PNG, PDF and MP4 files must carry the right magic bytes, or the file becomes REJECTED.
 
@@ -280,6 +286,10 @@ Implementation notes (Phase 6): search uses an opaque offset cursor, `limit` ≤
 | GET | `/analytics/overview`, `/analytics/messages`, `/analytics/campaigns`, `/analytics/agents`, `/analytics/automations`, `/analytics/usage` | `analytics.read`. `?from&to&granularity` |
 | CRUD | `/api-keys` | `integrations.manage` |
 | CRUD | `/webhook-endpoints`, GET `/webhook-endpoints/:id/deliveries`, POST `…/test` | `integrations.manage` |
+
+Implemented in Phase 7: `GET /conversations` takes `view=mine|unassigned|all|takeover|resolved` plus `status, assigneeId, tagId, unread, window, phoneNumberId, q` and `sort=recent|oldest_waiting`, and each item carries `assignee`, `tags`, `automationState`, `unreadCount`, `serviceWindow {expiresAt, isOpen}`, `snoozedUntil`, `firstResponseAt` and, for searches, `snippet`. `POST /conversations/:id/assign` takes `{assigneeId | null}`: claiming for yourself needs `inbox.assign_self`, assigning someone else needs `inbox.reassign`, and the assignee can always unassign themselves. `POST /conversations/:id/compose-lock` takes `{force?}`; a force by anyone other than the assignee or an `inbox.reassign` holder is 409 `COMPOSE_LOCKED`. Replies: 409 `COMPOSE_LOCKED`, and automation sends during a takeover get 422 `AUTOMATION_BLOCKED_BY_TAKEOVER`. Notes take `{body, mentions?: userId[]}`; each mentioned ACTIVE member gets a notification. Visibility `ASSIGNED_ONLY` limits the AGENT role to its own and unassigned conversations; others get 404.
+
+WS events added in Phase 7: `conversation.assigned`, `compose.lock`, `presence.updated`, `note.created` (tenant or conversation rooms, as applicable) and `notification.created` (the `user:{id}` room). Client → server: `compose.heartbeat {conversationId}`, `presence.heartbeat {status?}`.
 
 ### WebSocket
 

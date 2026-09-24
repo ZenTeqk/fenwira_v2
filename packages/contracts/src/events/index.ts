@@ -41,6 +41,18 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     pricing: z.unknown().optional(),
   }),
   'conversation.opened': z.object({ conversationId: z.uuid(), contactId: z.uuid() }),
+  // Inbox (Phase 7).
+  'conversation.assigned': z.object({
+    conversationId: z.uuid(),
+    assigneeId: z.uuid().nullable(),
+    previousAssigneeId: z.uuid().nullable(),
+  }),
+  'conversation.automation_state.changed': z.object({
+    conversationId: z.uuid(),
+    from: z.string(),
+    to: z.string(),
+    actorId: z.uuid().nullable(),
+  }),
   // Contacts (Phase 6). Subscribers (automation, analytics) arrive in P10–P11.
   'contact.created': z.object({ contactId: z.uuid(), source: z.string() }),
   'contact.updated': z.object({ contactId: z.uuid(), changedFields: z.array(z.string()) }),

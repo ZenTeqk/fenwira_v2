@@ -26,6 +26,54 @@ function socketFor(tenantId: string): Socket {
   return socket
 }
 
+/** The tenant socket, for emits (joins, heartbeats). */
+export function useSocket(): Socket {
+  const { tenantId } = useSession()
+  return socketFor(tenantId)
+}
+
+/** Joins `conversation:{id}` while mounted (typing locks, notes); rejoins after reconnects. */
+export function useConversationRoom(conversationId: string | null): void {
+  const socket = useSocket()
+  useEffect(() => {
+    if (!conversationId) return
+    const join = () => socket.emit('conversation.join', { conversationId })
+    join()
+    socket.on('connect', join)
+    return () => {
+      socket.off('connect', join)
+      socket.emit('conversation.leave', { conversationId })
+    }
+  }, [socket, conversationId])
+}
+
+/** Presence heartbeat every 20 s; AWAY after 10 minutes without input (docs/INBOX.md → Presence). */
+export function usePresenceHeartbeat(enabled: boolean): void {
+  const socket = useSocket()
+  useEffect(() => {
+    if (!enabled) return
+    let last = Date.now()
+    const touch = () => {
+      last = Date.now()
+    }
+    const beat = () =>
+      socket.emit('presence.heartbeat', {
+        status: Date.now() - last > 10 * 60_000 ? 'AWAY' : 'ONLINE',
+      })
+    beat()
+    socket.on('connect', beat)
+    const t = setInterval(beat, 20_000)
+    for (const ev of ['keydown', 'pointerdown', 'focus'] as const)
+      window.addEventListener(ev, touch)
+    return () => {
+      clearInterval(t)
+      socket.off('connect', beat)
+      for (const ev of ['keydown', 'pointerdown', 'focus'] as const)
+        window.removeEventListener(ev, touch)
+    }
+  }, [socket, enabled])
+}
+
 /** Calls `handler` for every `event` in the active tenant while the component is mounted. */
 export function useRealtimeEvent<T>(event: string, handler: (payload: T) => void): void {
   const { tenantId } = useSession()

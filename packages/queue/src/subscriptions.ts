@@ -20,7 +20,10 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'contact.created': [],
   'contact.updated': [],
   'consent.changed': [],
-  'conversation.opened': [],
+  // Auto-assign (round robin) on open; analytics subscribes in P11.
+  'conversation.opened': [QUEUES.inboxEvents],
+  'conversation.assigned': [],
+  'conversation.automation_state.changed': [],
 }
 
 export function subscribersFor(eventType: string): readonly QueueName[] {

@@ -103,6 +103,18 @@ Upload through `POST /files/upload-url` (purpose `MESSAGE_MEDIA`) → PUT to Min
 
 `first_response_at` is set on the first INBOX-source outbound message after an OPEN. It feeds agent first-response-time analytics (Phase 11).
 
+## Implementation notes (Phase 7)
+
+- **Modules.** `apps/api/src/modules/inbox` owns the inbox: `InboxService` (list, thread, reply, assignment, status, takeover, notes, tags, notifications, settings), `ComposeLockService`, `PresenceService`, `InboxGateway` (`compose.heartbeat`, `presence.heartbeat`) and the worker's `InboxEventsProcessor`. Replies still go through `MessagingService`, the only send path.
+- **Reply rule.** If someone else holds the lock → 409 `COMPOSE_LOCKED` (`details.holder`). If the lock is free, the sender takes it for the send and releases it after; this also covers a non-assignee who hasn't typed yet. The first INBOX send while `AUTOMATION_ACTIVE` moves the conversation to `AGENT_TAKEOVER` and writes a `takeover` system event.
+- **Ordering.** An inbound message's `created_at` is Meta's timestamp, so a burst delivered out of order still sorts correctly. The conversation's last-message fields only move forward (a `newerMessage` guard).
+- **Unread.** `conversations.inbound_count` is the fallback for users without a read-state row, so a conversation nobody has opened is unread for everyone, with no fan-out writes. Inbound increments every existing row and inserts the assignee's row if missing.
+- **Auto-assign** runs on the `inbox.events` queue from `conversation.opened` (round robin over ONLINE members with `inbox.reply`, fewest OPEN assigned, then the oldest `assigned_at`).
+- **Maintenance.** A 60 s repeatable job calls `system.inbox_maintenance_due` (X13) and, per tenant, reopens expired snoozes (`status_changed` with `reason: snooze_ended`) and releases idle takeovers (`automation_resumed` with `reason: auto_release`).
+- **Notifications.** An in-app `notifications` table (assignment, a mention in a note) with a bell in the top bar. The payload goes to `user:{id}` as `notification.created`.
+- **Presence.** `AWAY` is accepted from the client heartbeat; the browser idle timer that sets it is not built yet. A socket disconnect marks the user OFFLINE once they have no other open sockets.
+- **Not built in Phase 7:** Meta typing indicators (M1 is still open), the `POST /messages/:id/retry` endpoint, and canned responses (I2).
+
 ## Open questions
 
 | # | Question | Owner |
