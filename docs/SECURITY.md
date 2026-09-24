@@ -18,8 +18,8 @@ Authentication, sessions, RBAC, secret handling, PII and logging rules, rate lim
 | --- | --- |
 | Access token | JWT (EdDSA, Ed25519 key from env), 15 min, claims `sub, sid, iat, exp`. It carries **no tenant or role**; those are resolved per request. |
 | Refresh token | 256-bit random, stored as a SHA-256 hash in `sessions`, 30-day absolute and 7-day idle lifetime |
-| Cookies | `fw_at` (access): HttpOnly, Secure (except in dev over http), SameSite=Lax, Path=/. `fw_rt` (refresh): HttpOnly, Secure, SameSite=Strict, Path=/api/v1/auth. `fw_csrf`: readable, SameSite=Lax. |
-| Rotation | Each refresh issues a new refresh token in the same `family_id`. **Reuse of an already-rotated token revokes the whole family** and writes an audit entry. |
+| Cookies | `fw_at` (access): HttpOnly, Secure (except in dev over http), SameSite=Lax, Path=/. `fw_rt` (refresh): HttpOnly, Secure, SameSite=Strict, Path=/api/v1/auth. `fw_csrf`: **HttpOnly**, SameSite=Lax; the value reaches the client in response bodies (see Phase 3 notes). |
+| Rotation | Each refresh issues a new refresh token in the same `family_id`. **Reuse of an already-rotated token revokes the whole family** and records a `REFRESH_TOKEN_REUSE` security event. |
 | Revocation | Logout revokes the session. "Log out everywhere" revokes all of the user's sessions. A password change revokes all other sessions. |
 | Access-token revocation lag | Up to 15 minutes. The `sid` is checked against a Redis deny-set on each request (`revoked_sid:{sid}`, TTL 15 minutes), which removes the lag. |
 
@@ -106,7 +106,7 @@ Permission catalog and matrix (● = granted):
 
 A CI test runs the E2E suite with log capture and greps for known seed phone numbers, emails and token prefixes. It fails if any appear.
 
-### Rate limits (Redis sliding window, `@nestjs/throttler` with Redis storage)
+### Rate limits (Redis sliding window: `RateLimitService`, a sorted set per key)
 
 | Surface | Limit |
 | --- | --- |
@@ -118,7 +118,23 @@ A CI test runs the E2E suite with log capture and greps for known seed phone num
 | `POST /webhooks/whatsapp` | No app limit. Protected by HMAC; the reverse proxy caps body size at 1 MB. |
 | Message send endpoints | 60/min per user (the business limit is enforced by the queue limiter) |
 
-Responses include `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`. A 429 carries `Retry-After`.
+A 429 carries `Retry-After`.
+
+**Implemented in Phase 3:**
+
+| Surface | Limit |
+| --- | --- |
+| Login | 5/min per email + 20/min per IP |
+| Register | 5/h per IP + 3/h per email |
+| Forgot password | 5/h per IP + 3/h per email |
+| 2FA verify | 5 per challenge |
+| Resend verification | 3/h per user |
+| Password change | 5 per 15 min per user |
+| Workspace creation | 10/h per user |
+| Invitations | 50/h per workspace; 5 resends/h per invitation |
+| Invitation accept | 20/h per IP |
+
+**Not yet implemented** (Phase 12 hardening): the general 600/min authenticated limit, API-key limits, and the `RateLimit-*` response headers.
 
 ### Input, output and file safety
 
@@ -132,6 +148,21 @@ Responses include `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`
 ### Audit
 
 Audit these actions (non-exhaustive): auth events (login, logout, 2FA changes, password change, session revocation, refresh reuse), membership and role changes, invitations, WhatsApp connection changes, credential rotation, template submission, campaign launch/pause/stop, flow publish/pause, consent manual changes, exports, API key create/revoke, billing changes, and entitlement overrides.
+
+### Phase 3 implementation notes (2026-09-24)
+
+These describe what shipped where it refines the decisions above.
+
+- **Default deny.** Global guards run in order: `AuthGuard` → `CsrfGuard` → `TenantGuard` → `PermissionGuard`. Every route needs a session unless it is marked `@Public()`. Tenant routes resolve membership through `TenantAccessService`, which the WebSocket gateway shares.
+- **JWT.** EdDSA on `node:crypto` with no library. The header is fixed and never read back, so there is no `alg` confusion. MFA challenge tokens carry `purpose: 'mfa'` and are never accepted as access tokens. Outside production, keys are generated per boot when unset; production refuses to start without them (env schema).
+- **CSRF.** The `fw_csrf` cookie is **HttpOnly**. Clients receive the value in login/refresh/`/auth/me` response bodies and echo it in `X-CSRF-Token`. This works across sibling subdomains without JS-readable cookies. `/auth/refresh` skips the header check: its cookie is `SameSite=Strict` and the Origin check still applies.
+- **2FA.** TOTP codes are single-use per 30 s step (Redis `SET NX`). There are at most 5 attempts per login challenge. Backup codes are Argon2id-hashed and removed when used.
+- **Breached passwords.** The bundled list is the NCSC top-100k, filtered to entries that could pass the 10-character minimum (9,126 entries, 42 KB gzipped).
+- **Raw tokens never stored.** Email-verification, password-reset and invitation tokens are created by the worker. The database stores only a SHA-256 hash, and the outbox carries only IDs. A new token invalidates older unused ones.
+- **Security events.** User-level events (sign-ins, failures, 2FA, session revocations, refresh-token reuse) go to the append-only `security_events` table, shown on Settings → Security. Tenant actions go to `audit_logs`.
+- **Client IP.** `TRUST_PROXY` (default 0) sets how many reverse-proxy hops to trust for `X-Forwarded-For`. Leaving it >0 on a directly exposed API would let clients spoof their IP past per-IP rate limits.
+- **Redis outages.** Application Redis commands queue for up to 2 s during reconnects, then fail. Connectivity errors map to **503 `UPSTREAM_UNAVAILABLE`**. Auth fails closed while Redis is unavailable, because the deny-set and rate limits can't be checked.
+- **Verification.** `apps/worker/test/security-matrix.int.test.ts` discovers every tenant-scoped route from route metadata. It asserts 403 for every role × missing permission and 404 for every cross-tenant call, plus WebSocket room isolation. `packages/database/test/tenant-matrix.int.test.ts` does the same per tenant table, and fails when a new tenant table has no fixture.
 
 ## Threat model (STRIDE summary)
 

@@ -7,6 +7,9 @@ import { QUEUES, type QueueName } from './names'
  */
 export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> = {
   'system.ping.requested': [QUEUES.systemPing],
+  'identity.email_verification.requested': [QUEUES.identityEvents],
+  'identity.password_reset.requested': [QUEUES.identityEvents],
+  'tenancy.invitation.sent': [QUEUES.tenancyEvents],
 }
 
 export function subscribersFor(eventType: string): readonly QueueName[] {

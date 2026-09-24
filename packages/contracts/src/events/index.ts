@@ -20,6 +20,12 @@ export const systemPingRequestedSchema = z.object({
 
 export const EVENT_PAYLOAD_SCHEMAS = {
   'system.ping.requested': systemPingRequestedSchema,
+  // Identity (platform events: tenant_id NULL). The worker creates the token and sends the
+  // email, so raw tokens never touch the database or the outbox.
+  'identity.email_verification.requested': z.object({ userId: z.uuid() }),
+  'identity.password_reset.requested': z.object({ userId: z.uuid() }),
+  // Tenancy (tenant events). The worker (re)generates the invitation token and emails it.
+  'tenancy.invitation.sent': z.object({ invitationId: z.uuid() }),
 } as const
 
 export type DomainEventType = keyof typeof EVENT_PAYLOAD_SCHEMAS

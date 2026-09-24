@@ -81,7 +81,7 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 
 | Variable | Default (`.env.example`) | Used by | Phase |
 | --- | --- | --- | --- |
-| `NODE_ENV` | `production` | api, worker | 1 |
+| `NODE_ENV` | `development` (`production` enforces deployment guardrails: JWT keys, secure cookies, ping off) | api, worker | 1 |
 | `APP_VERSION` | `dev` (CI sets the git SHA) | api, worker | 1 |
 | `LOG_LEVEL` | `info` | api, worker | 1 |
 | `WEB_PORT` / `API_PORT` / `MINIO_API_PORT` / `MINIO_CONSOLE_PORT` / `MAILPIT_UI_PORT` | 3000 / 4000 / 9000 / 9001 / 8025 | compose | 1 |
@@ -103,10 +103,14 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 | `ENABLE_UI_GALLERY` | `true` locally (runtime) | web: serves `/dev/ui`, which the e2e accessibility suite needs. Off in production. | 2 |
 | `NEXT_PUBLIC_NAV_PREVIEW` | `false` (`true` in `.env.development`) | web **build arg**: shows navigation for unshipped phases, with placeholder pages. Development only. | 2 |
 | `S3_ENDPOINT`, `S3_PUBLIC_ENDPOINT`, `S3_REGION`, `S3_FORCE_PATH_STYLE`, `S3_BUCKET_*` | | api, worker | 5 |
-| `SMTP_URL`, `MAIL_FROM` | `smtp://fenwira-mailpit:1025` | api, worker | 3 |
-| `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` | Ed25519 PEM (base64) | api | 3 |
-| `ENCRYPTION_KEYS`, `ENCRYPTION_ACTIVE_KEY_ID` | | api, worker | 3 |
-| `COOKIE_SECURE` | `false` locally | api | 3 |
+| `SMTP_URL` | assembled by compose: `smtp://fenwira-mailpit:1025` | worker | 3 |
+| `MAIL_FROM` | `Fenwira <no-reply@fenwira.local>` | worker | 3 |
+| `WEB_ORIGIN` (worker) | `http://localhost:3000` | worker: links in emails | 3 |
+| `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` | empty = generated per boot (non-production); `pnpm setup:env` writes real base64 PEM keys | api | 3 |
+| `ENCRYPTION_KEYS`, `ENCRYPTION_ACTIVE_KEY_ID` | local-only dev key `k1:…`, `k1`; `pnpm setup:env` generates a random one | api | 3 |
+| `COOKIE_SECURE` | `false` locally (**must be true in production**) | api | 3 |
+| `COOKIE_DOMAIN` | unset (localhost); e.g. `.fenwira.com` for sibling subdomains | api | 3 |
+| `TRUST_PROXY` | `0` (socket IP) | api: reverse-proxy hops trusted for `X-Forwarded-For`. Set to the real hop count behind a proxy; never >0 when the API is exposed directly. | 3 |
 | `META_APP_ID`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `META_ES_CONFIG_ID` | | api, worker | 4 |
 | `META_GRAPH_API_VERSION`, `META_GRAPH_BASE_URL` | `v23.0`, `https://graph.facebook.com` | api, worker | 4 |
 | `WHATSAPP_DEV_CONNECT`, `PUBLIC_API_URL` | | api, web | 4 |

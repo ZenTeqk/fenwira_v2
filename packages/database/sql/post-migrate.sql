@@ -55,6 +55,38 @@ BEGIN
   END LOOP;
 END $$;
 
+-- tenants: the tenant root has no tenant_id column, so it gets its own policies. Writes only to
+-- the bound tenant; reads also allow tenants the current user is an ACTIVE member of (the tenant
+-- list before a tenant is chosen, docs/MULTI_TENANCY.md X1). Split per command so that membership
+-- never grants UPDATE/DELETE on another tenant row.
+ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tenants FORCE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'public.tenants'::regclass AND polname = 'tenant_self') THEN
+    CREATE POLICY tenant_self ON public.tenants
+      USING      (id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)
+      WITH CHECK (id = nullif(current_setting('app.current_tenant_id', true), '')::uuid);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'public.tenants'::regclass AND polname = 'tenant_member_read') THEN
+    CREATE POLICY tenant_member_read ON public.tenants FOR SELECT
+      USING (id IN (SELECT m.tenant_id FROM public.memberships m
+                    WHERE m.user_id = nullif(current_setting('app.current_user_id', true), '')::uuid
+                      AND m.status = 'ACTIVE'));
+  END IF;
+  -- memberships: standard tenant_isolation (auto-applied above) + a user may read their own rows.
+  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'public.memberships'::regclass AND polname = 'membership_self_read') THEN
+    CREATE POLICY membership_self_read ON public.memberships FOR SELECT
+      USING (user_id = nullif(current_setting('app.current_user_id', true), '')::uuid);
+  END IF;
+END $$;
+
+-- Invariants Prisma cannot express.
+CREATE UNIQUE INDEX IF NOT EXISTS memberships_one_active_owner
+  ON public.memberships (tenant_id) WHERE role = 'OWNER' AND status = 'ACTIVE';
+CREATE UNIQUE INDEX IF NOT EXISTS invitations_one_pending_per_email
+  ON public.invitations (tenant_id, email) WHERE status = 'PENDING';
+
 -- ---------------------------------------------------------------------------------------------
 -- Grants for the runtime role (DML only, never DDL)
 -- ---------------------------------------------------------------------------------------------
@@ -70,7 +102,7 @@ DO $$
 DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
-    'audit_logs', 'contact_activities', 'automation_execution_steps',
+    'audit_logs', 'security_events', 'contact_activities', 'automation_execution_steps',
     'wallet_transactions', 'usage_events', 'analytics_events'
   ] LOOP
     IF to_regclass('public.' || t) IS NOT NULL THEN
@@ -78,6 +110,10 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+-- Global reference tables are seeded by the migrate step (from @fenwira/contracts) and read-only
+-- at runtime (docs/MULTI_TENANCY.md → Table classes).
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.roles, public.permissions, public.role_permissions FROM fenwira_app;
 
 -- ---------------------------------------------------------------------------------------------
 -- Outbox (ADR-0013)
@@ -181,6 +217,15 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   SELECT count(*)::integer FROM retried;
 $$;
 
+-- X6: invitation acceptance. Resolves the SHA-256 of a 256-bit token to IDs only; the caller then
+-- re-enters withTenant(tenant_id) for everything else.
+GRANT SELECT (id, tenant_id, token_hash, status) ON public.invitations TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.resolve_invitation(p_token_hash bytea)
+RETURNS TABLE (tenant_id uuid, invitation_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT i.tenant_id, i.id FROM public.invitations i WHERE i.token_hash = p_token_hash LIMIT 1;
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -188,7 +233,8 @@ BEGIN
     'system.emit_platform_event(text, jsonb, text)',
     'system.claim_outbox_events(integer, integer)',
     'system.mark_outbox_dispatched(uuid[])',
-    'system.mark_outbox_retry(uuid, text, integer)'
+    'system.mark_outbox_retry(uuid, text, integer)',
+    'system.resolve_invitation(bytea)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

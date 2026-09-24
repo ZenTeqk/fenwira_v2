@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { signInAsNewOwner } from './support'
 
 const VIEWPORTS = [
   { name: 'desktop', width: 1440, height: 900 },
@@ -9,6 +10,7 @@ const VIEWPORTS = [
 for (const vp of VIEWPORTS) {
   for (const path of ['/dashboard', '/dev/ui']) {
     test(`${path} has no horizontal scroll at ${vp.width}px`, async ({ page }) => {
+      if (path === '/dashboard') await signInAsNewOwner(page, `ui-rwd-${vp.width}`)
       await page.setViewportSize({ width: vp.width, height: vp.height })
       await page.goto(path)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
@@ -21,6 +23,7 @@ for (const vp of VIEWPORTS) {
 }
 
 test('sidebar is persistent at 1024px and a drawer at 375px', async ({ page }) => {
+  await signInAsNewOwner(page, 'ui-rwd-drawer')
   await page.setViewportSize({ width: 1024, height: 768 })
   await page.goto('/dashboard')
   await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
@@ -34,6 +37,7 @@ test('sidebar is persistent at 1024px and a drawer at 375px', async ({ page }) =
 })
 
 test('sidebar collapses to an icon rail and remembers it', async ({ page }) => {
+  await signInAsNewOwner(page, 'ui-rwd-rail')
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/dashboard')
   const sidebar = page.locator('aside')

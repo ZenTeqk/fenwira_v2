@@ -5,6 +5,8 @@ const valid = {
   WEB_ORIGIN: 'http://localhost:3000',
   DATABASE_URL: 'postgresql://u:p@db:5432/fenwira',
   REDIS_URL: 'redis://redis:6379/0',
+  ENCRYPTION_KEYS: 'k1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+  ENCRYPTION_ACTIVE_KEY_ID: 'k1',
 }
 
 describe('loadEnv', () => {
@@ -30,6 +32,17 @@ describe('loadEnv', () => {
       expect(msg).toContain('WEB_ORIGIN')
       expect(msg).toContain('DATABASE_URL')
       expect(msg).toContain('REDIS_URL')
+    }
+  })
+  it('refuses unsafe production settings', () => {
+    try {
+      loadEnv(apiEnvSchema, { ...valid, NODE_ENV: 'production', SYSTEM_PING_ENABLED: 'true' })
+      expect.unreachable()
+    } catch (err) {
+      const msg = (err as Error).message
+      expect(msg).toContain('JWT_PRIVATE_KEY: is required in production')
+      expect(msg).toContain('COOKIE_SECURE: must be true in production')
+      expect(msg).toContain('SYSTEM_PING_ENABLED: must be false in production')
     }
   })
 })

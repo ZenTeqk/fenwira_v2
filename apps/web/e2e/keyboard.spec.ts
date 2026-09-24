@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { signInAsNewOwner } from './support'
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -61,7 +62,9 @@ test('ConfirmDialog: focus starts on Cancel, Escape cancels', async ({ page }) =
 })
 
 test('CommandPalette: Control+K opens, type to filter, Enter runs', async ({ page }) => {
+  await signInAsNewOwner(page, 'ui-palette')
   await page.goto('/dashboard')
+  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible()
   await page.keyboard.press('Control+k')
   const input = page.getByPlaceholder('Search or jump to…')
   await expect(input).toBeFocused()
@@ -70,7 +73,10 @@ test('CommandPalette: Control+K opens, type to filter, Enter runs', async ({ pag
 })
 
 test('CommandPalette navigates to every visible nav item', async ({ page }) => {
+  test.setTimeout(90_000)
+  await signInAsNewOwner(page, 'ui-palette-nav')
   await page.goto('/dashboard')
+  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible()
   const hrefs = await page
     .getByRole('navigation', { name: 'Main' })
     .locator('a[href]')

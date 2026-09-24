@@ -18,5 +18,6 @@ export function correlationMiddleware(req: Request, res: Response, next: NextFun
   const correlationId = resolveCorrelationId(req.header(CORRELATION_HEADER))
   ;(req as Request & { correlationId: string }).correlationId = correlationId
   res.setHeader('X-Correlation-Id', correlationId)
-  requestContext.run({ correlationId }, next)
+  const userAgent = req.header('user-agent')?.slice(0, 400)
+  requestContext.run({ correlationId, ip: req.ip, userAgent }, next)
 }

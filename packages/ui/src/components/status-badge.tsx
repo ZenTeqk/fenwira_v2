@@ -56,6 +56,11 @@ export const STATUS_PRESETS = {
   RESOLVED: { tone: 'neutral', label: 'Resolved', icon: CheckCircle2 },
   SNOOZED: { tone: 'neutral', label: 'Snoozed', icon: Clock },
   AGENT_TAKEOVER: { tone: 'info', label: 'Agent takeover', icon: Hand },
+  // Team
+  DEACTIVATED: { tone: 'neutral', label: 'Deactivated', icon: Ban },
+  EXPIRED: { tone: 'warning', label: 'Expired', icon: Clock },
+  REVOKED: { tone: 'neutral', label: 'Revoked', icon: Ban },
+  ACCEPTED: { tone: 'success', label: 'Accepted', icon: CheckCircle2 },
   // Health
   UP: { tone: 'success', label: 'Up', icon: CheckCircle2 },
   DOWN: { tone: 'danger', label: 'Down', icon: AlertTriangle },

@@ -17,10 +17,25 @@ import {
   focusRing,
   useCommandPaletteShortcut,
 } from '@fenwira/ui'
-import { LayoutGrid, Menu, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react'
+import {
+  LayoutGrid,
+  LogOut,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  Shield,
+} from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
-import { breadcrumbsFor, flattenLeaves, type NavItem, visibleNavigation } from '@/lib/navigation'
+import {
+  breadcrumbsFor,
+  flattenLeaves,
+  NAVIGATION,
+  type NavItem,
+  visibleNavigation,
+} from '@/lib/navigation'
+import { useSession } from '../session/session-provider'
 import { SidebarNav } from './sidebar-nav'
 import { TenantSwitcher } from './tenant-switcher'
 
@@ -48,7 +63,11 @@ type AppShellProps = { children: ReactNode; navPreview: boolean; galleryEnabled:
 export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const nav: NavItem[] = useMemo(() => visibleNavigation(navPreview), [navPreview])
+  const { me, membership, signOut } = useSession()
+  const nav: NavItem[] = useMemo(
+    () => visibleNavigation(navPreview, NAVIGATION, membership.permissions),
+    [navPreview, membership.permissions],
+  )
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -175,19 +194,29 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           {/* Notifications bell slot — Phase 7 */}
           <Dropdown>
             <DropdownTrigger aria-label="Account menu" className={cn('rounded-full', focusRing)}>
-              <Avatar name="Guest" size="md" />
+              <Avatar name={me.user.name} size="md" />
             </DropdownTrigger>
-            <DropdownContent className="w-56">
-              <DropdownLabel>Not signed in</DropdownLabel>
+            <DropdownContent className="w-64">
+              <DropdownLabel className="flex flex-col gap-0.5 text-slate">
+                <span className="truncate text-base font-medium">{me.user.name}</span>
+                <span className="truncate text-xs font-normal text-muted">{me.user.email}</span>
+              </DropdownLabel>
+              <DropdownSeparator />
+              <DropdownItem onSelect={() => router.push('/settings/security')}>
+                <Shield aria-hidden="true" />
+                Security
+              </DropdownItem>
               {galleryEnabled ? (
-                <>
-                  <DropdownSeparator />
-                  <DropdownItem onSelect={() => router.push('/dev/ui')}>
-                    <LayoutGrid aria-hidden="true" />
-                    Component gallery
-                  </DropdownItem>
-                </>
+                <DropdownItem onSelect={() => router.push('/dev/ui')}>
+                  <LayoutGrid aria-hidden="true" />
+                  Component gallery
+                </DropdownItem>
               ) : null}
+              <DropdownSeparator />
+              <DropdownItem onSelect={() => void signOut()}>
+                <LogOut aria-hidden="true" />
+                Sign out
+              </DropdownItem>
             </DropdownContent>
           </Dropdown>
         </header>

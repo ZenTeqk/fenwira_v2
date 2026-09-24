@@ -29,7 +29,15 @@
         "REDIS_URL",
         "WEB_ORIGIN",
         "SYSTEM_PING_ENABLED",
-        "OUTBOX_POLL_INTERVAL_MS"
+        "OUTBOX_POLL_INTERVAL_MS",
+        "ENCRYPTION_KEYS",
+        "ENCRYPTION_ACTIVE_KEY_ID",
+        "JWT_PRIVATE_KEY",
+        "JWT_PUBLIC_KEY",
+        "COOKIE_SECURE",
+        "SMTP_URL",
+        "MAIL_FROM",
+        "MAILPIT_API_URL"
       ]
     },
     "dev": {

@@ -15,8 +15,8 @@ done
 pass "api ready (postgres, redis, queue up)"
 
 curl -fsS "$WEB/api/health" >/dev/null || fail "web /api/health not 200"
-curl -fsS "$WEB/dashboard" | grep -q "All systems operational" || fail "web dashboard does not show 'All systems operational'"
-pass "web healthy and dashboard rendering API status"
+curl -fsS "$WEB/login" | grep -q "Fenwira" || fail "web sign-in page did not render"
+pass "web healthy and sign-in page rendering"
 
 corr="smoke-$(date +%s)"
 accepted=$(curl -fsS -X POST -H "X-Correlation-Id: $corr" "$API/api/v1/system/ping") \

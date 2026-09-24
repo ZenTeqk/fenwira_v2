@@ -9,6 +9,8 @@ export type CoreConfig = {
   databaseUrl: string
   dbPoolSize: number
   redisUrl: string
+  /** Allowed browser origin for CORS/CSRF (api only). */
+  webOrigin?: string
 }
 
 export const CORE_CONFIG = Symbol('CORE_CONFIG')

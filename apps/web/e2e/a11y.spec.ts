@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test } from '@playwright/test'
+import { signInAsNewOwner } from './support'
 
 // WCAG 2.1 A + AA (docs/prompts/PHASE_02_DESIGN_SYSTEM.md acceptance: no AA violations).
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
@@ -17,13 +18,31 @@ async function expectNoViolations(page: Page, include?: string) {
   expect(summary).toEqual([])
 }
 
-for (const path of ['/dev/ui', '/dashboard']) {
+for (const path of ['/dev/ui', '/login', '/register', '/forgot-password']) {
   test(`${path} has no WCAG 2.1 AA violations`, async ({ page }) => {
     await page.goto(path)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await expectNoViolations(page)
   })
 }
+
+test('signed-in pages have no WCAG 2.1 AA violations', async ({ page }) => {
+  test.setTimeout(90_000)
+  await signInAsNewOwner(page, 'ui-a11y')
+  for (const path of [
+    '/dashboard',
+    '/settings/workspace',
+    '/settings/team',
+    '/settings/roles',
+    '/settings/security',
+    '/settings/audit-logs',
+  ]) {
+    await page.goto(path)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.waitForLoadState('networkidle')
+    await expectNoViolations(page)
+  }
+})
 
 // While a modal overlay is open, Radix aria-hides the page behind it and traps focus inside the
 // overlay, so the background is unreachable. axe's aria-hidden-focus rule still flags the hidden
@@ -57,6 +76,7 @@ test('open overlays have no AA violations', async ({ page }) => {
 })
 
 test('mobile navigation drawer has no AA violations', async ({ page }) => {
+  await signInAsNewOwner(page, 'ui-a11y-mobile')
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/dashboard')
   await page.getByRole('button', { name: 'Open navigation' }).click()

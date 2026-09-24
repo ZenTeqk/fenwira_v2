@@ -62,6 +62,17 @@ export class Database {
     )
   }
 
+  /**
+   * Transaction for GLOBAL tables only (users, sessions, tokens, security_events). No tenant or user
+   * is bound, so every tenant-owned table reads as empty and rejects writes (fails closed).
+   */
+  async withGlobal<T>(
+    fn: (tx: TenantTx) => Promise<T>,
+    opts: { timeoutMs?: number } = {},
+  ): Promise<T> {
+    return this.prisma.$transaction(fn, { timeout: opts.timeoutMs ?? 10_000, maxWait: 5_000 })
+  }
+
   /** Only for listing a user's own memberships/tenants before a tenant is chosen (X1). */
   async withUser<T>(userId: string, fn: (tx: UserTx) => Promise<T>): Promise<T> {
     assertUuid('user', userId)

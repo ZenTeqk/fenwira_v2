@@ -66,10 +66,31 @@ export function toErrorEnvelope(
     const message = status < 500 ? exception.message : 'An unexpected error occurred.'
     return { status, body: { error: { code, message, correlationId } } }
   }
+  if (isDependencyOutage(exception)) {
+    return {
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      body: {
+        error: {
+          code: 'UPSTREAM_UNAVAILABLE',
+          message: 'A required service is temporarily unavailable. Please try again.',
+          correlationId,
+        },
+      },
+    }
+  }
   return {
     status: HttpStatus.INTERNAL_SERVER_ERROR,
     body: { error: { code: 'INTERNAL', message: 'An unexpected error occurred.', correlationId } },
   }
+}
+
+/** Redis/Postgres connectivity failures are outages (503), not bugs (500). */
+export function isDependencyOutage(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  const text = `${err.name} ${err.message}`
+  return /MaxRetriesPerRequestError|Command timed out|Connection is closed|Stream isn't writeable|ECONNREFUSED|Can't reach database server|P1001|P1017/.test(
+    text,
+  )
 }
 
 @Catch()
@@ -82,6 +103,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const res = host.switchToHttp().getResponse<Response>()
     const correlationId = requestContext.correlationId() ?? 'unknown'
     const { status, body } = toErrorEnvelope(exception, correlationId)
+    const retryAfter = body.error.details?.retryAfter
+    if (status === 429 && typeof retryAfter === 'number')
+      res.setHeader('Retry-After', String(retryAfter))
     if (status >= 500)
       this.logger.error({ err: exception, code: body.error.code }, 'request failed')
     res.status(status).json(body)

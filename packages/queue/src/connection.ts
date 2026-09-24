@@ -3,9 +3,12 @@ import IORedis, { type RedisOptions } from 'ioredis'
 import { type QueueName } from './names'
 
 /**
- * Redis connection for BullMQ workers/queues. BullMQ requires maxRetriesPerRequest=null for
- * blocking worker connections; `role: 'producer'` fails fast instead (enableOfflineQueue=false)
- * so API requests and health checks never hang while Redis is down.
+ * Redis connections by role:
+ * - `worker`: BullMQ blocking consumers (BullMQ requires maxRetriesPerRequest=null).
+ * - `producer`: BullMQ producers; fail fast (no offline queue) so enqueues never hang.
+ * - `command`: application commands (rate limits, session deny-set, locks). Commands issued while
+ *   (re)connecting are queued briefly instead of failing — otherwise every request right after
+ *   boot or during a reconnect would error — and time out after 2 s during a real outage.
  */
 export function createRedisConnection(
   url: string,
@@ -15,7 +18,14 @@ export function createRedisConnection(
   const base: RedisOptions =
     role === 'worker'
       ? { maxRetriesPerRequest: null, enableReadyCheck: true }
-      : { maxRetriesPerRequest: 1, enableOfflineQueue: false, connectTimeout: 2000 }
+      : role === 'producer'
+        ? { maxRetriesPerRequest: 1, enableOfflineQueue: false, connectTimeout: 2000 }
+        : {
+            maxRetriesPerRequest: 1,
+            enableOfflineQueue: true,
+            commandTimeout: 2000,
+            connectTimeout: 2000,
+          }
   const connection = new IORedis(url, {
     ...base,
     retryStrategy: (attempt) => Math.min(attempt * 200, 2000),

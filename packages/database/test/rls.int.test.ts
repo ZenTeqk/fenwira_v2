@@ -29,6 +29,23 @@ beforeAll(async () => {
   owner = new Client({ connectionString: ownerUrl })
   rawApp = new Client({ connectionString: appUrl })
   await Promise.all([owner.connect(), rawApp.connect()])
+  // outbox_events.tenant_id references tenants (Phase 3): create the two tenants first.
+  for (const [tenantId, name] of [
+    [tenantA, 'RLS A'],
+    [tenantB, 'RLS B'],
+  ] as const) {
+    const userId = uuidv7()
+    await db.withGlobal((tx) =>
+      tx.user.create({
+        data: { id: userId, email: `${userId}@rls.test`, name, passwordHash: 'x' },
+      }),
+    )
+    await db.withTenant(tenantId, (tx) =>
+      tx.tenant.create({
+        data: { id: tenantId, name, slug: `rls-${tenantId}`, ownerUserId: userId },
+      }),
+    )
+  }
 })
 
 beforeEach(async () => {

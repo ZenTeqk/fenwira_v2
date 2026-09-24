@@ -36,6 +36,293 @@ model OutboxEvent {
   dispatchedAt  DateTime?    @map("dispatched_at") @db.Timestamptz(3)
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
+  tenant        Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   @@index([tenantId, createdAt])
   @@map("outbox_events")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Identity (Phase 3) — global tables, no tenant_id, reached only through the identity module.
+// ---------------------------------------------------------------------------------------------
+
+model User {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  email           String    @unique @db.Citext
+  passwordHash    String    @map("password_hash")
+  name            String
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  locale          String    @default("en")
+  timezone        String    @default("Asia/Kolkata")
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(3)
+  disabledAt      DateTime? @map("disabled_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions               Session[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens    PasswordResetToken[]
+  twoFactor              TwoFactorCredential?
+  securityEvents         SecurityEvent[]
+  memberships            Membership[]
+  ownedTenants           Tenant[]      @relation("TenantOwner")
+  sentInvitations        Invitation[]  @relation("InvitationInviter")
+
+  @@map("users")
+}
+
+/// One row per refresh token. Rotation creates a child row in the same family and revokes the
+/// parent (reason ROTATED); presenting a ROTATED token revokes the whole family (reuse detection).
+model Session {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  familyId         String    @map("family_id") @db.Uuid
+  parentId         String?   @map("parent_id") @db.Uuid
+  refreshTokenHash Bytes     @unique @map("refresh_token_hash")
+  userAgent        String?   @map("user_agent")
+  ip               String?   @db.Inet
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedReason    String?   @map("revoked_reason")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([familyId])
+  @@map("sessions")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash Bytes     @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash Bytes     @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model TwoFactorCredential {
+  userId           String    @id @map("user_id") @db.Uuid
+  secretCiphertext Bytes     @map("secret_ciphertext")
+  enabledAt        DateTime? @map("enabled_at") @db.Timestamptz(3)
+  backupCodeHashes String[]  @map("backup_code_hashes")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("two_factor_credentials")
+}
+
+enum SecurityEventType {
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  LOGOUT
+  PASSWORD_CHANGED
+  PASSWORD_RESET
+  EMAIL_VERIFIED
+  TWO_FACTOR_ENABLED
+  TWO_FACTOR_DISABLED
+  BACKUP_CODE_USED
+  SESSION_REVOKED
+  ALL_SESSIONS_REVOKED
+  REFRESH_TOKEN_REUSE
+
+  @@map("security_event_type")
+}
+
+/// User-level security trail (not tenant-scoped); tenant actions go to audit_logs. Append-only.
+model SecurityEvent {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  userId    String            @map("user_id") @db.Uuid
+  type      SecurityEventType
+  ip        String?           @db.Inet
+  userAgent String?           @map("user_agent")
+  metadata  Json?
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("security_events")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tenancy (Phase 3)
+// ---------------------------------------------------------------------------------------------
+
+/// Tenant root ("Workspace" in the UI). Custom RLS: visible when bound or when the current user is
+/// an ACTIVE member (post-migrate.sql → tenant_root).
+model Tenant {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  name           String
+  slug           String    @unique @db.Citext
+  defaultCountry String    @default("IN") @map("default_country") @db.Char(2)
+  timezone       String    @default("Asia/Kolkata")
+  currency       String    @default("INR") @db.Char(3)
+  require2fa     Boolean   @default(false) @map("require_2fa")
+  ownerUserId    String    @map("owner_user_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  owner        User          @relation("TenantOwner", fields: [ownerUserId], references: [id])
+  memberships  Membership[]
+  invitations  Invitation[]
+  auditLogs    AuditLog[]
+  outboxEvents OutboxEvent[]
+
+  @@map("tenants")
+}
+
+enum RoleKey {
+  OWNER
+  ADMIN
+  MANAGER
+  AGENT
+  VIEWER
+
+  @@map("role_key")
+}
+
+/// Seeded from @fenwira/contracts (rbac.ts) by the migrate step; read-only for fenwira_app.
+model Role {
+  key         RoleKey          @id
+  name        String
+  rank        Int
+  permissions RolePermission[]
+  memberships Membership[]
+  invitations Invitation[]
+
+  @@map("roles")
+}
+
+model Permission {
+  key         String           @id
+  description String
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleKey       RoleKey @map("role_key")
+  permissionKey String  @map("permission_key")
+
+  role       Role       @relation(fields: [roleKey], references: [key], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([roleKey, permissionKey])
+  @@map("role_permissions")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  DEACTIVATED
+
+  @@map("membership_status")
+}
+
+/// Exactly one ACTIVE OWNER per tenant (partial unique index in post-migrate.sql).
+model Membership {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  tenantId      String           @map("tenant_id") @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  role          RoleKey
+  status        MembershipStatus @default(ACTIVE)
+  joinedAt      DateTime         @default(now()) @map("joined_at") @db.Timestamptz(3)
+  deactivatedAt DateTime?        @map("deactivated_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleRef Role   @relation(fields: [role], references: [key])
+
+  @@unique([tenantId, userId])
+  @@index([userId, status])
+  @@map("memberships")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+
+  @@map("invitation_status")
+}
+
+/// token_hash is set by the worker when it (re)sends the email; the raw token exists only in the
+/// email. One PENDING invitation per (tenant, email) — partial unique index in post-migrate.sql.
+model Invitation {
+  id          String           @id @default(uuid(7)) @db.Uuid
+  tenantId    String           @map("tenant_id") @db.Uuid
+  email       String           @db.Citext
+  role        RoleKey
+  tokenHash   Bytes?           @unique @map("token_hash")
+  invitedById String           @map("invited_by") @db.Uuid
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime?        @map("expires_at") @db.Timestamptz(3)
+  sentAt      DateTime?        @map("sent_at") @db.Timestamptz(3)
+  acceptedAt  DateTime?        @map("accepted_at") @db.Timestamptz(3)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("InvitationInviter", fields: [invitedById], references: [id])
+  roleRef   Role   @relation(fields: [role], references: [key])
+
+  @@index([tenantId, status])
+  @@map("invitations")
+}
+
+enum ActorType {
+  USER
+  API_KEY
+  SYSTEM
+
+  @@map("actor_type")
+}
+
+/// Tenant audit trail. Append-only: UPDATE/DELETE/TRUNCATE revoked from fenwira_app.
+model AuditLog {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  actorType     ActorType @map("actor_type")
+  actorId       String?   @map("actor_id") @db.Uuid
+  action        String
+  targetType    String    @map("target_type")
+  targetId      String?   @map("target_id")
+  changes       Json?
+  ip            String?   @db.Inet
+  userAgent     String?   @map("user_agent")
+  correlationId String?   @map("correlation_id")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, targetType, targetId])
+  @@map("audit_logs")
 }

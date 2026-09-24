@@ -59,6 +59,16 @@ describe('toErrorEnvelope', () => {
     expect(http500.body.error.message).toBe('An unexpected error occurred.')
   })
 
+  it('maps dependency outages to 503 UPSTREAM_UNAVAILABLE, not 500', () => {
+    const redis = toErrorEnvelope(new Error('Command timed out'), 'c')
+    expect(redis.status).toBe(503)
+    expect(redis.body.error.code).toBe('UPSTREAM_UNAVAILABLE')
+    expect(toErrorEnvelope(new Error("Can't reach database server at db:5432"), 'c').status).toBe(
+      503,
+    )
+    expect(toErrorEnvelope(new Error('TypeError: x is undefined'), 'c').status).toBe(500)
+  })
+
   it('turns ZodErrors into VALIDATION_FAILED with field errors', () => {
     const err = z.object({ name: z.string() }).safeParse({ name: 1 }).error!
     const { status, body } = toErrorEnvelope(err, 'c')

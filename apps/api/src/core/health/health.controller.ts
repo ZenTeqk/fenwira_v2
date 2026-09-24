@@ -1,8 +1,10 @@
 import { Controller, Get, Res } from '@nestjs/common'
 import { type Response } from 'express'
+import { Public } from '../security/decorators'
 import { HealthService } from './health.service'
 
-/** Outside the /api/v1 prefix (docs/API_SPEC.md → Health). */
+/** Outside the /api/v1 prefix (docs/API_SPEC.md → Health). Public: probes carry no session. */
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(private readonly health: HealthService) {}

@@ -51,14 +51,16 @@ The policy is applied by `public.fenwira_apply_tenant_policy(regclass)`. `packag
 ### Special policies
 
 ```sql
--- tenants: visible if bound, or if the current user is a member
-CREATE POLICY tenant_root ON tenants
-  USING (
-    id = nullif(current_setting('app.current_tenant_id', true), '')::uuid
-    OR id IN (SELECT tenant_id FROM memberships
-              WHERE user_id = nullif(current_setting('app.current_user_id', true), '')::uuid
-                AND status = 'ACTIVE'))
+-- tenants: writes only to the bound tenant (tenant_self); reads also allow tenants the
+-- current user is an ACTIVE member of (tenant_member_read). Split per command so that membership
+-- never grants UPDATE/DELETE on another tenant row (tested in tenant-matrix.int.test.ts).
+CREATE POLICY tenant_self ON tenants
+  USING      (id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)
   WITH CHECK (id = nullif(current_setting('app.current_tenant_id', true), '')::uuid);
+CREATE POLICY tenant_member_read ON tenants FOR SELECT
+  USING (id IN (SELECT tenant_id FROM memberships
+                WHERE user_id = nullif(current_setting('app.current_user_id', true), '')::uuid
+                  AND status = 'ACTIVE'));
 
 -- memberships: standard policy + let a user read their own memberships (tenant list before a tenant is chosen)
 CREATE POLICY membership_self_read ON memberships FOR SELECT
@@ -69,7 +71,7 @@ Creating a tenant (at registration) binds the new tenant's ID before inserting, 
 
 ### Append-only tables
 
-`REVOKE UPDATE, DELETE ON audit_logs, wallet_transactions, analytics_events FROM fenwira_app;`
+`REVOKE UPDATE, DELETE, TRUNCATE` from `fenwira_app` on `audit_logs`, `security_events`, `contact_activities`, `automation_execution_steps`, `wallet_transactions`, `usage_events` and `analytics_events` (applied by post-migrate.sql as each table appears). `roles`, `permissions` and `role_permissions` are read-only for `fenwira_app`.
 
 ### Binding tenant context in application code
 
@@ -78,13 +80,15 @@ Creating a tenant (at registration) binds the new tenant's ID before inserting, 
 ```ts
 withTenant<T>(tenantId: string, fn: (tx: TenantTx) => Promise<T>, opts?: { userId?: string }): Promise<T>
 withUser<T>(userId: string, fn: (tx: UserTx) => Promise<T>): Promise<T>   // only for listing the user's own memberships/tenants
+withGlobal<T>(fn: (tx) => Promise<T>): Promise<T>                          // global tables only (users, sessions, tokens); tenant tables read empty
 ```
 
 Implementation: a Prisma interactive transaction whose first statement is `SELECT set_config('app.current_tenant_id', $1, true), set_config('app.current_user_id', $2, true)`. The `true` flag gives transaction-local scope (the `SET LOCAL` semantics). This is safe with connection pooling because the setting dies with the transaction.
 
 - The raw `PrismaClient` is exported only from `packages/database/internal`. An ESLint rule forbids importing it outside `packages/database` and the `system` gateway.
 - A Prisma client extension also injects `tenant_id` into `create` calls and adds `where: { tenantId }` to queries. This is **defense in depth**; RLS remains the actual guarantee.
-- Nest's `TenantContext` (AsyncLocalStorage) holds `{tenantId, userId, permissions, correlationId}`, and services pull the tenant from it rather than from arguments.
+- Nest's request context (AsyncLocalStorage) holds `auth` and `tenant` (`{tenantId, membershipId, role, permissions}`), set by the guards. Feature code reaches tenant data only through `TenantDb.run(fn)`, which binds the verified tenant and user to the transaction.
+- **Membership queries always filter `tenantId` explicitly.** Inside `withTenant(A, …, {userId})`, the `membership_self_read` policy also exposes the user's memberships in *other* tenants, so `where: { tenantId, userId }` is mandatory (see `TenantAccessService`).
 - Long jobs, such as imports and campaign snapshots, run as many short `withTenant` transactions (batches of at most 1,000 rows). They never hold one transaction open for the whole job.
 
 ### Tenant selection (HTTP and WS)
@@ -113,7 +117,7 @@ Everything that must run before a tenant is known, or across tenants, goes throu
 | X11 | Phone number uniqueness at connect | `system.phone_number_owner_exists(text)` | boolean | Doesn't reveal which tenant |
 | X12 | Platform (tenant-less) events, for example `system.ping.requested` | `system.emit_platform_event(event_type, payload, correlation_id)` | Event ID | Writes only `tenant_id = NULL` rows, which no tenant context can read. Tenant events are always inserted inside `withTenant()`. |
 
-Implemented so far (Phase 1): X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID) and X12. The rest arrive with their phases.
+Implemented so far: X1 (policies plus `withUser`), X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID), X6 (`resolve_invitation`) and X12. The rest arrive with their phases.
 
 Adding a row to this table requires an ADR amendment and a security review.
 

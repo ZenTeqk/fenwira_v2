@@ -4,6 +4,7 @@ import { loadEnv, migrateEnvSchema } from '@fenwira/config'
 import { Client } from 'pg'
 import { POST_MIGRATE_SQL_PATH, PRISMA_SCHEMA_PATH } from '../paths'
 import { findRlsViolations } from '../rls'
+import { seedRbac } from '../seed-rbac'
 
 /**
  * `prisma migrate deploy` → post-migrate.sql → RLS check, as fenwira_owner.
@@ -28,6 +29,11 @@ async function main(): Promise<void> {
   try {
     await client.query(readFileSync(POST_MIGRATE_SQL_PATH, 'utf8'))
     console.log('post-migrate.sql applied')
+
+    const seeded = await seedRbac(client)
+    console.log(
+      `RBAC seeded: ${seeded.roles} roles, ${seeded.permissions} permissions, ${seeded.grants} grants`,
+    )
 
     const violations = await findRlsViolations(client)
     if (violations.length > 0) {

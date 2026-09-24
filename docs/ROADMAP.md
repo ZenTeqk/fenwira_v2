@@ -15,7 +15,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 0 | Product + architecture specification | 🔵 all 18 docs and 17 ADRs drafted; waiting for owner review of the open questions in `PRODUCT.md` | [PHASE_00](prompts/PHASE_00_SPECIFICATION.md) |
 | 1 | Monorepo + Docker Compose + engineering foundation | 🔵 every local acceptance criterion passes (see below). Only remaining item: CI green on a PR, which needs a GitHub remote. | [PHASE_01](prompts/PHASE_01_FOUNDATION.md) |
 | 2 | Design system + application shell | ✅ all acceptance criteria pass locally (see below). The CI workflow includes every check but hasn't run on GitHub yet (no remote). | [PHASE_02](prompts/PHASE_02_DESIGN_SYSTEM.md) |
-| 3 | Authentication + tenant + RBAC + RLS | ⬜ | [PHASE_03](prompts/PHASE_03_AUTH_TENANCY.md) |
+| 3 | Authentication + tenant + RBAC + RLS | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_03](prompts/PHASE_03_AUTH_TENANCY.md) |
 | 4 | Meta onboarding + WhatsApp account management | ⬜ | [PHASE_04](prompts/PHASE_04_META_ONBOARDING.md) |
 | 5 | Webhook + messaging engine | ⬜ | [PHASE_05](prompts/PHASE_05_MESSAGING_ENGINE.md) |
 | 6 | Contacts + consent + CRM foundation | ⬜ | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
@@ -86,3 +86,22 @@ Test counts: 46 unit tests (9 packages) and 29 integration tests (16 RLS/outbox,
 | Every StatusBadge renders a text label, never color alone | ✅ | A unit test renders all 27 `STATUS_PRESETS` and asserts each label |
 
 Test counts: 87 unit tests (32 in `@fenwira/ui`), 29 integration tests and 19 Playwright e2e tests. 29 components, plus `Field`/`Label`.
+
+## Phase 3 verification (2026-09-24)
+
+| Acceptance criterion | Result | Evidence |
+| --- | --- | --- |
+| Every section-4 flow works end to end in the browser, with emails in Mailpit | ✅ | `apps/web/e2e/auth.spec.ts` and `tenancy.spec.ts` drive the real UI against the composed stack. Covered: register → verify link → create workspace → dashboard; sign out/in; redirect back after sign-in; forgot → reset link; 2FA enrolment (QR code, secret, backup codes) and sign-in with a code; session list and "sign out other sessions"; invite from Team → accept as a new account. Emails are read from Mailpit. |
+| Generated cross-tenant matrix passes; CI fails when a tenant table has no RLS policy | ✅ | `packages/database/test/tenant-matrix.int.test.ts` (per tenant table, from `pg_catalog`; fails when a table has no fixture). `apps/worker/test/security-matrix.int.test.ts` covers every tenant route (from route metadata): 404 cross-tenant, 403 for every role × missing permission, list isolation, WebSocket rooms. The migrate step fails on any RLS gap. |
+| Switching tenant changes all data on screen, with no stale cache | ✅ | e2e `switching workspace changes all data on screen`. Query keys are tenant-prefixed, and switching clears the cache and remounts the page. The same user in two workspaces sees each workspace's own data in the API test. |
+| Auth endpoints are rate limited (a test proves it) | ✅ | Login: 5 → 429 with `Retry-After`. Forgot password: 3 → 429. |
+| `API_SPEC.md` and `DATABASE.md` updated | ✅ | Both describe the implemented endpoints and schema. SECURITY, MULTI_TENANCY, ARCHITECTURE and DEPLOYMENT are updated too. |
+
+Test counts: 90 integration (38 database, 10 API, 42 system) and 32 Playwright e2e (auth, tenancy, axe WCAG 2.1 AA on the sign-in and settings pages, responsive, keyboard), plus unit tests in every package.
+
+Bugs found and fixed during the phase:
+
+- The fail-fast Redis connection made rate-limited endpoints return 500 right after boot or during reconnects.
+- `trust proxy` was hard-coded, which would allow IP spoofing past per-IP limits.
+- The in-memory CSRF token was empty after a full page load, so the first mutation (for example, clicking the email verification link while signed in) failed.
+- A stale "signed out" cache entry bounced users back to sign-in after a redirect login.

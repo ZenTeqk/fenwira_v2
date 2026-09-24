@@ -31,7 +31,14 @@ describe('navigation', () => {
     const visible = visibleNavigation(false)
     for (const leaf of flattenLeaves(visible)) expect(leaf.phase).toBeLessThanOrEqual(SHIPPED_PHASE)
     for (const item of visible) if (item.children) expect(item.children.length).toBeGreaterThan(0)
-    expect(visible.map((i) => i.id)).toEqual(['dashboard'])
+    expect(visible.map((i) => i.id)).toEqual(['dashboard', 'settings'])
+    expect(visible.find((i) => i.id === 'settings')!.children!.map((c) => c.label)).toEqual([
+      'Workspace',
+      'Team',
+      'Roles',
+      'Security',
+      'Audit Logs',
+    ])
   })
 
   it('reveals everything in preview mode', () => {
@@ -61,5 +68,13 @@ describe('navigation', () => {
     ])
     expect(breadcrumbsFor('/dashboard', nav)).toEqual([{ label: 'Dashboard' }])
     expect(breadcrumbsFor('/nowhere', nav)).toEqual([])
+  })
+  it('hides leaves the member lacks permission for', () => {
+    const agent = visibleNavigation(false, NAVIGATION, ['workspace.read', 'team.read'])
+    expect(agent.find((i) => i.id === 'settings')!.children!.map((c) => c.label)).toEqual([
+      'Workspace',
+      'Team',
+      'Security',
+    ])
   })
 })

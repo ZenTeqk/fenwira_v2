@@ -2,12 +2,14 @@ import { type SystemPingAccepted, type SystemPingStatus } from '@fenwira/contrac
 import { Controller, Get, HttpCode, Param, Post } from '@nestjs/common'
 import { z } from 'zod'
 import { ZodValidationPipe } from '../../../core/http/zod-validation.pipe'
+import { Public } from '../../../core/security/decorators'
 import { SystemPingService } from './system-ping.service'
 
 /**
  * End-to-end probe: api → outbox → relay → queue → worker. Registered only when
  * SYSTEM_PING_ENABLED=true (dev/test); unauthenticated, so never enabled in production.
  */
+@Public()
 @Controller('system/ping')
 export class SystemPingController {
   constructor(private readonly pings: SystemPingService) {}

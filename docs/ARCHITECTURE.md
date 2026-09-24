@@ -54,7 +54,7 @@ Both api and worker use the same domain modules from `apps/api/src/modules/*`. T
 | Module | Owns tables | Phase |
 | --- | --- | --- |
 | `platform` | `outbox_events`, `idempotency_keys`, `files`, `notifications` | 1, 3 |
-| `identity` | `users`, `sessions`, `email_verification_tokens`, `password_reset_tokens`, `two_factor_credentials` | 3 |
+| `identity` | `users`, `sessions`, `email_verification_tokens`, `password_reset_tokens`, `two_factor_credentials`, `security_events` | 3 |
 | `tenancy` | `tenants`, `memberships`, `roles`, `permissions`, `role_permissions`, `invitations` | 3 |
 | `audit` | `audit_logs` | 3 |
 | `whatsapp-accounts` | `meta_business_accounts`, `whatsapp_business_accounts`, `whatsapp_phone_numbers`, `meta_credentials`, `webhook_subscriptions` | 4 |
@@ -114,6 +114,9 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 
 | Event type | Emitted by | Payload (besides `tenantId`, `occurredAt`, `correlationId`) | Subscribers (queue) |
 | --- | --- | --- | --- |
+| `identity.email_verification.requested` | identity (platform event) | `userId` | `identity.events` |
+| `identity.password_reset.requested` | identity (platform event) | `userId` | `identity.events` |
+| `tenancy.invitation.sent` | tenancy | `invitationId` | `tenancy.events` |
 | `message.outbound.requested` | messaging (`MessagingService.send`) | `messageId` | `whatsapp.outbound` |
 | `message.inbound.received` | messaging (inbound processor) | `messageId, conversationId, contactId, text?` | `contacts.events` (opt-in/out keywords), `automation.trigger`, `analytics.events` |
 | `message.status.changed` | messaging (status processor) | `messageId, from, to, errorCode?, pricing?` | `campaign.events`, `analytics.events`, `billing.usage`, `contacts.events` (on 131050) |
@@ -142,6 +145,8 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `whatsapp.outbound.dlq` | outbound processor (exhausted) | Parked for inspection and replay | 0 (manual) |
 | `whatsapp.media` | inbound processor | Download inbound media → MinIO | 5 |
 | `whatsapp.sync` | repeatable scheduler | Phone quality/tier/status, template reconciliation, credential expiry | 2 |
+| `identity.events` | outbox relay | Verification and password-reset tokens plus emails (Phase 3) | 5 |
+| `tenancy.events` | outbox relay | Invitation tokens plus emails (Phase 3) | 5 |
 | `contacts.events` | outbox relay | Opt-in/out keyword and 131050 consent handling | 10 |
 | `contacts.import` / `contacts.export` | contacts API | CSV import/export | 2 |
 | `inbox.events` | outbox relay | Auto-assignment | 10 |
@@ -158,9 +163,16 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 
 Every job payload includes `tenantId` (except `system.*`) and `correlationId`. Custom job IDs are always built with `jobId(...parts)` from `@fenwira/queue`, which joins parts with `__`, because BullMQ rejects `:` in job IDs. Processors implement `QueueProcessor` and are registered through `WorkerRuntimeModule` (ADR-0020), which runs every job inside its log context.
 
+### Phase 3 structure notes
+
+- **Guards** are global and default-deny, in the order `AuthGuard` → `CsrfGuard` → `TenantGuard` → `PermissionGuard` (see SECURITY.md → Phase 3 implementation notes). Route metadata comes from `@Public`, `@OptionalAuth`, `@TenantScoped`, `@RequirePermission` and `@RequireRole`.
+- **Module dependencies** have no cycles (dependency-cruiser): `tenancy` → `identity`, `audit`; `realtime` → `identity`, `tenancy`. `audit` is global. The `/audit-logs` controller lives in `audit` and uses the core `TenantDb`. `/auth/me` lives in `tenancy` because it composes the user with their memberships.
+- **Email** is sent only by the worker (`EmailModule`, one SMTP transport). The api queues it through outbox events.
+- **Web data layer:** TanStack Query with tenant-prefixed query keys, a `SessionProvider` holding the active tenant (switching clears the cache and remounts the page), and an `AuthGate` around the app shell.
+
 ### Realtime
 
-A Socket.IO gateway on the api with `@socket.io/redis-adapter`, so any api replica can emit.
+A Socket.IO gateway on the api (path `/ws`) with `@socket.io/redis-adapter`, so any api replica can emit. Implemented in Phase 3: cookie authentication at the handshake, the membership check before joining `tenant:{id}`, and `tenant.switch` with an ack. Workers get the Redis emitter in Phase 5.
 
 | Room | Joined when |
 | --- | --- |

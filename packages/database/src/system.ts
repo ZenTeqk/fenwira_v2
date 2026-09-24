@@ -1,4 +1,7 @@
-import { type PrismaClient } from '@prisma/client'
+import { type Prisma, type PrismaClient } from '@prisma/client'
+
+/** Anything that can run raw SQL: the client or an open transaction (to join its commit). */
+type Executor = PrismaClient | Prisma.TransactionClient
 
 export type ClaimedOutboxEvent = {
   id: string
@@ -32,8 +35,10 @@ export class SystemGateway {
     eventType: string,
     payload: Record<string, unknown>,
     correlationId: string | null,
+    tx?: Prisma.TransactionClient,
   ): Promise<string> {
-    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>`
+    const exec: Executor = tx ?? this.prisma
+    const rows = await exec.$queryRaw<Array<{ id: string }>>`
       SELECT system.emit_platform_event(${eventType}, ${JSON.stringify(payload)}::jsonb, ${correlationId}) AS id`
     return rows[0]!.id
   }
@@ -65,5 +70,15 @@ export class SystemGateway {
     const rows = await this.prisma.$queryRaw<Array<{ n: number }>>`
       SELECT system.mark_outbox_retry(${id}::uuid, ${error}, ${maxAttempts}::int) AS n`
     return rows[0]!.n
+  }
+
+  /** X6 — invitation token hash → IDs only (docs/MULTI_TENANCY.md). */
+  async resolveInvitation(
+    tokenHash: Uint8Array,
+  ): Promise<{ tenantId: string; invitationId: string } | null> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; invitation_id: string }>>`
+      SELECT * FROM system.resolve_invitation(${tokenHash})`
+    const row = rows[0]
+    return row ? { tenantId: row.tenant_id, invitationId: row.invitation_id } : null
   }
 }

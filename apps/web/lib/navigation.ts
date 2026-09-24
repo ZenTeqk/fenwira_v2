@@ -1,3 +1,4 @@
+import { type Permission } from '@fenwira/contracts'
 import {
   BarChart3,
   CreditCard,
@@ -18,9 +19,16 @@ import {
  * "coming soon" entries; NEXT_PUBLIC_NAV_PREVIEW=true (development only) reveals everything
  * with a placeholder page so the shell can be reviewed.
  */
-export const SHIPPED_PHASE = 2
+export const SHIPPED_PHASE = 3
 
-export type NavLeaf = { id: string; label: string; href: string; phase: number }
+/** `permission`: hidden unless the member's role grants it (the API enforces it regardless). */
+export type NavLeaf = {
+  id: string
+  label: string
+  href: string
+  phase: number
+  permission?: Permission
+}
 export type NavItem = NavLeaf & { icon: LucideIcon; children?: NavLeaf[] }
 
 export const NAVIGATION: NavItem[] = [
@@ -110,25 +118,64 @@ export const NAVIGATION: NavItem[] = [
     phase: 3,
     icon: Settings,
     children: [
-      { id: 'settings-workspace', label: 'Workspace', href: '/settings/workspace', phase: 3 },
-      { id: 'settings-team', label: 'Team', href: '/settings/team', phase: 3 },
-      { id: 'settings-roles', label: 'Roles', href: '/settings/roles', phase: 3 },
-      { id: 'settings-whatsapp', label: 'WhatsApp', href: '/settings/whatsapp', phase: 4 },
+      {
+        id: 'settings-workspace',
+        label: 'Workspace',
+        href: '/settings/workspace',
+        phase: 3,
+        permission: 'workspace.read',
+      },
+      {
+        id: 'settings-team',
+        label: 'Team',
+        href: '/settings/team',
+        phase: 3,
+        permission: 'team.read',
+      },
+      {
+        id: 'settings-roles',
+        label: 'Roles',
+        href: '/settings/roles',
+        phase: 3,
+        permission: 'roles.read',
+      },
+      {
+        id: 'settings-whatsapp',
+        label: 'WhatsApp',
+        href: '/settings/whatsapp',
+        phase: 4,
+        permission: 'whatsapp.read',
+      },
       { id: 'settings-security', label: 'Security', href: '/settings/security', phase: 3 },
-      { id: 'settings-audit', label: 'Audit Logs', href: '/settings/audit-logs', phase: 3 },
+      {
+        id: 'settings-audit',
+        label: 'Audit Logs',
+        href: '/settings/audit-logs',
+        phase: 3,
+        permission: 'audit.view',
+      },
     ],
   },
 ]
 
 export const navPreviewEnabled = (): boolean => process.env.NEXT_PUBLIC_NAV_PREVIEW === 'true'
 
-const shipped = (leaf: NavLeaf, preview: boolean) => preview || leaf.phase <= SHIPPED_PHASE
+const visible = (leaf: NavLeaf, preview: boolean, permissions?: readonly Permission[]) =>
+  (preview || leaf.phase <= SHIPPED_PHASE) &&
+  (!leaf.permission || !permissions || permissions.includes(leaf.permission))
 
-/** Visible navigation: unshipped leaves removed, empty groups dropped. */
-export function visibleNavigation(preview: boolean, nav: NavItem[] = NAVIGATION): NavItem[] {
+/**
+ * Visible navigation: unshipped leaves and leaves the member lacks permission for are removed;
+ * empty groups are dropped. `permissions` undefined = don't filter by permission.
+ */
+export function visibleNavigation(
+  preview: boolean,
+  nav: NavItem[] = NAVIGATION,
+  permissions?: readonly Permission[],
+): NavItem[] {
   return nav.flatMap((item) => {
-    if (!item.children) return shipped(item, preview) ? [item] : []
-    const children = item.children.filter((child) => shipped(child, preview))
+    if (!item.children) return visible(item, preview, permissions) ? [item] : []
+    const children = item.children.filter((child) => visible(child, preview, permissions))
     return children.length > 0 ? [{ ...item, children }] : []
   })
 }

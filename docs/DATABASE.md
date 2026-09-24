@@ -33,7 +33,7 @@ outbox_events                                   T  P1
   id uuid pk
   tenant_id uuid null                           -- NULL = platform event (only via system.emit_platform_event, X12);
                                                 --   RLS makes NULL rows invisible to every tenant context
-                                                --   FK to tenants added in Phase 3
+                                                --   FK → tenants(id) ON DELETE CASCADE (Phase 3)
   event_type text                               -- see ARCHITECTURE.md event catalog
   aggregate_type text, aggregate_id uuid
   payload jsonb
@@ -66,64 +66,81 @@ notifications                                   T  P7
   idx (tenant_id, user_id, read_at, created_at desc)
 ```
 
-## Identity & tenancy (P3)
+## Identity & tenancy (P3). Implemented (migration `20260924000000_identity_tenancy`)
 
 ```text
 users                                           G
-  id, email citext unique, password_hash text (argon2id), name text
-  avatar_file_id uuid null, email_verified_at timestamptz null
-  locale text default 'en', timezone text default 'Asia/Kolkata'
-  last_login_at timestamptz null, disabled_at timestamptz null, created_at, updated_at
+  id, email citext unique (stored lowercase), password_hash text (argon2id, params in the hash)
+  name text, email_verified_at null, locale default 'en', timezone default 'Asia/Kolkata'
+  last_login_at null, disabled_at null, created_at, updated_at
+  -- avatar_file_id arrives with `files` in Phase 5
 
-sessions                                        G
-  id, user_id → users, family_id uuid             -- rotation family
-  refresh_token_hash bytea unique, parent_id uuid null
-  user_agent text, ip inet, last_used_at, expires_at, revoked_at null, revoked_reason text null
+sessions                                        G   (one row per refresh token)
+  id, user_id → users, family_id uuid            -- the "session" users see; access JWT sid = family_id
+  parent_id uuid null                            -- the row this one rotated from
+  refresh_token_hash bytea unique (sha256), user_agent null, ip inet null
+  last_used_at, expires_at (30d absolute, fixed at login), revoked_at null
+  revoked_reason text null (ROTATED | REUSE_DETECTED | LOGOUT | USER_REVOKED | USER_REVOKED_ALL | PASSWORD_CHANGED | PASSWORD_RESET | EXPIRED)
   created_at
-  idx (user_id, revoked_at)
+  idx (user_id, revoked_at), (family_id)
+  -- presenting a ROTATED token → every row in the family REUSE_DETECTED
 
 email_verification_tokens / password_reset_tokens   G
-  id, user_id, token_hash bytea unique, expires_at, used_at null, created_at
+  id, user_id, token_hash bytea unique (sha256 of a 256-bit token; raw token only in the email)
+  expires_at (24h / 1h), used_at null, created_at
+  -- created by the worker; a new token marks older unused ones used
 
 two_factor_credentials                          G
-  user_id pk → users, secret_ciphertext bytea, enabled_at null
-  backup_code_hashes bytea[], created_at, updated_at
+  user_id pk → users, secret_ciphertext bytea (AES-256-GCM, v1.{kid}…)
+  enabled_at null (null = setup started, not confirmed)
+  backup_code_hashes text[] (argon2id; a used code is removed), created_at, updated_at
 
-tenants                                         root (custom RLS)  SD
-  id, name text, slug citext unique, default_country char(2) default 'IN'
-  timezone text default 'Asia/Kolkata', currency char(3) default 'INR'
-  owner_user_id uuid → users, created_at, updated_at, deleted_at
+security_events                                 G  AO   -- user-level trail (tenant actions go to audit_logs)
+  id, user_id → users, type security_event_type
+      (LOGIN_SUCCEEDED | LOGIN_FAILED | LOGOUT | PASSWORD_CHANGED | PASSWORD_RESET | EMAIL_VERIFIED |
+       TWO_FACTOR_ENABLED | TWO_FACTOR_DISABLED | BACKUP_CODE_USED | SESSION_REVOKED |
+       ALL_SESSIONS_REVOKED | REFRESH_TOKEN_REUSE)
+  ip inet null, user_agent null, metadata jsonb null, created_at
+  idx (user_id, created_at desc)
 
-roles                                           G  (seeded: OWNER, ADMIN, MANAGER, AGENT, VIEWER)
-  id, key role_key unique, name text, rank int  -- rank: OWNER 50 … VIEWER 10
+tenants                                         root (custom RLS: tenant_self + tenant_member_read)  SD
+  id, name, slug citext unique (slugified name + random suffix)
+  default_country char(2) default 'IN', timezone default 'Asia/Kolkata', currency char(3) default 'INR'
+  require_2fa boolean default false, owner_user_id → users
+  created_at, updated_at, deleted_at (soft delete → TENANT_NOT_FOUND everywhere)
 
-permissions                                     G  (seeded; catalog in SECURITY.md)
-  id, key text unique, description text
+roles                                           G  read-only (seeded from @fenwira/contracts rbac.ts)
+  key role_key pk (OWNER|ADMIN|MANAGER|AGENT|VIEWER), name, rank int (50…10)
 
-role_permissions                                G
-  role_id, permission_id, pk (role_id, permission_id)
+permissions                                     G  read-only (seeded)
+  key text pk, description text
 
-memberships                                     T (+ self-read policy)
-  id, tenant_id, user_id → users, role_id → roles
-  status membership_status (ACTIVE|DEACTIVATED), joined_at, deactivated_at null
+role_permissions                                G  read-only (seeded; stale grants removed on migrate)
+  role_key → roles, permission_key → permissions, pk (role_key, permission_key)
+
+memberships                                     T (+ membership_self_read)
+  id, tenant_id → tenants, user_id → users, role role_key → roles.key
+  status (ACTIVE|DEACTIVATED), joined_at, deactivated_at null, updated_at
   unique (tenant_id, user_id)
-  -- exactly one ACTIVE OWNER per tenant: partial unique index on (tenant_id) WHERE role=OWNER AND status=ACTIVE
-  --   (implemented via a role_key column denormalized from roles, kept in sync by the service)
+  unique (tenant_id) WHERE role='OWNER' AND status='ACTIVE'   -- exactly one owner (post-migrate.sql)
 
 invitations                                     T
-  id, tenant_id, email citext, role_id, token_hash bytea unique
-  invited_by → users, status invitation_status (PENDING|ACCEPTED|REVOKED|EXPIRED)
-  expires_at (7d), accepted_at null, created_at
-  unique (tenant_id, email) WHERE status='PENDING'
+  id, tenant_id, email citext, role role_key → roles.key, invited_by → users
+  token_hash bytea null unique                   -- set by the worker on each (re)send; null once used/revoked
+  status (PENDING|ACCEPTED|REVOKED|EXPIRED), expires_at null (sent_at + 7d), sent_at null, accepted_at null
+  created_at, updated_at
+  unique (tenant_id, email) WHERE status='PENDING'           -- post-migrate.sql
+  idx (tenant_id, status)
 
 audit_logs                                      T  AO
   id, tenant_id, actor_type (USER|API_KEY|SYSTEM), actor_id uuid null
-  action text                                    -- e.g. 'team.member.role_changed'
-  target_type text, target_id uuid null
-  changes jsonb null                             -- {field: [old,new]}, secrets redacted
-  ip inet null, user_agent text null, correlation_id text, created_at
+  action text (e.g. 'team.member.role_changed'), target_type, target_id text null
+  changes jsonb null ({field: [old, new]}; keys matching password|token|secret|code redacted)
+  ip inet null, user_agent null, correlation_id null, created_at
   idx (tenant_id, created_at desc), (tenant_id, target_type, target_id)
 ```
+
+Differences from the original Phase 0 draft: memberships and invitations reference `roles.key` directly (no `role_id` plus denormalized key); `security_events` was added because user-level auth events have no tenant; invitation tokens are issued by the worker, so `token_hash` is nullable.
 
 ## WhatsApp accounts (P4)
 

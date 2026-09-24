@@ -20,7 +20,7 @@ Conventions for every HTTP endpoint, plus the endpoint inventory per phase. Requ
 | `fw_at` cookie | User access token (see `SECURITY.md`) |
 | `Authorization: Bearer fw_live_…` | API key (alternative to cookies) |
 | `X-Tenant-Id` | Required on tenant-scoped routes for cookie auth. Ignored for API keys. |
-| `X-CSRF-Token` | Required on cookie-authenticated mutations |
+| `X-CSRF-Token` | Required on cookie-authenticated mutations. The `fw_csrf` cookie is HttpOnly; clients get the value from login/refresh/`/auth/me` bodies. |
 | `X-Correlation-Id` | Optional inbound, always returned |
 | `Idempotency-Key` | Required on the endpoints marked **IK**, optional elsewhere on POST |
 
@@ -58,11 +58,12 @@ List:
 | 400 | `VALIDATION_FAILED` (with `fieldErrors`), `INVALID_CURSOR` |
 | 401 | `UNAUTHENTICATED`, `SESSION_EXPIRED`, `INVALID_CREDENTIALS`, `TOTP_REQUIRED` (202 challenge flow) |
 | 403 | `FORBIDDEN` (missing permission), `CSRF_FAILED`, `ENTITLEMENT_REQUIRED`, `EMAIL_NOT_VERIFIED`, `TWO_FACTOR_ENROLLMENT_REQUIRED` |
+| 400/401 (auth) | `TOKEN_INVALID` (verification/reset/invitation link used or expired), `INVALID_CODE` (wrong 2FA code) |
 | 404 | `NOT_FOUND`, `TENANT_NOT_FOUND` (also used for tenants you don't belong to) |
-| 409 | `CONFLICT`, `IDEMPOTENCY_KEY_REUSED` (different body), `IDEMPOTENCY_IN_PROGRESS`, `COMPOSE_LOCKED`, `VERSION_CONFLICT`, `PHONE_NUMBER_ALREADY_CONNECTED` |
+| 409 | `CONFLICT`, `EMAIL_TAKEN`, `IDEMPOTENCY_KEY_REUSED` (different body), `IDEMPOTENCY_IN_PROGRESS`, `COMPOSE_LOCKED`, `VERSION_CONFLICT`, `PHONE_NUMBER_ALREADY_CONNECTED` |
 | 422 | Domain rule violations: `CONVERSATION_WINDOW_CLOSED`, `CONSENT_REQUIRED`, `CONTACT_BLOCKED`, `INVALID_PHONE`, `AUTOMATION_BLOCKED_BY_TAKEOVER`, `NO_CONNECTED_NUMBER`, `TEMPLATE_NOT_APPROVED`, `TEMPLATE_VARIABLES_INVALID`, `TEMPLATE_*` (validation codes in `TEMPLATE_ENGINE.md`), `FLOW_*` (validation codes in `AUTOMATION_ENGINE.md`), `LIMIT_EXCEEDED`, `INSUFFICIENT_BALANCE`, `SUBSCRIPTION_INACTIVE` |
 | 429 | `RATE_LIMITED` (+ `Retry-After`) |
-| 5xx | `INTERNAL`, `UPSTREAM_UNAVAILABLE` |
+| 5xx | `INTERNAL`, `UPSTREAM_UNAVAILABLE` (503: Redis or Postgres unreachable — a dependency outage, not a bug) |
 
 Error codes are a closed enum in `packages/contracts/src/errors.ts`, and the web app maps them to user copy.
 
@@ -94,42 +95,54 @@ Legend: **P** = required permission. **IK** = Idempotency-Key required.
 | GET | `/health/live` | Process up |
 | GET | `/health/ready` | Postgres, Redis and queue checks. 503 if any is down. |
 
-### Auth & identity (P3). No tenant header.
+### Auth & identity (P3). No tenant header. Implemented.
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| POST | `/auth/register` | `{name, email, password}` → sends a verification email |
-| POST | `/auth/email/verify` | `{token}` |
-| POST | `/auth/email/resend` | |
-| POST | `/auth/login` | → 200 plus cookies, or 202 `{challenge:'TOTP', challengeToken}` |
-| POST | `/auth/2fa/verify` | `{challengeToken, code}` (TOTP or backup code) |
-| POST | `/auth/refresh` | Rotates `fw_rt` |
-| POST | `/auth/logout` | |
-| POST | `/auth/password/forgot` / `/auth/password/reset` | |
-| GET | `/auth/me` | User plus memberships `[{tenant, role, permissions}]` |
-| PATCH | `/me` | Name, locale, timezone, avatar |
-| POST | `/me/password` | Revokes other sessions |
-| GET / DELETE | `/me/sessions`, `/me/sessions/:id` | List and revoke |
-| POST | `/me/2fa/setup` → `/me/2fa/enable` → `/me/2fa/disable` | Setup returns an otpauth URI. Enable returns the backup codes. |
-| POST | `/tenants` | Create a workspace. The caller becomes OWNER. |
-| GET | `/invitations/:token` | Public preview (workspace name, inviter) |
-| POST | `/invitations/:token/accept` | Existing user, or `{name, password}` for a new user |
+Auth column: **Public** = no session needed. **Session** = the `fw_at` cookie (and `X-CSRF-Token` on mutations). Rate limits are in `SECURITY.md` → Rate limits.
 
-### Workspace, team, audit (P3). Tenant-scoped.
+| Method | Path | Auth | Request → response |
+| --- | --- | --- | --- |
+| POST | `/auth/register` | Public | `{name, email, password}` → 201 `{data: {status: 'AUTHENTICATED', csrfToken}}` plus session cookies. A verification email is queued. 409 `EMAIL_TAKEN`; 400 `VALIDATION_FAILED` (a breached password has field code `breached`). |
+| POST | `/auth/email/verify` | Public | `{token}` → 204. 400 `TOKEN_INVALID` (used, expired or unknown). |
+| POST | `/auth/email/resend` | Session | → 202 (no-op if already verified) |
+| POST | `/auth/login` | Public | `{email, password}` → 200 `{data: {status: 'AUTHENTICATED', csrfToken}}` plus cookies, or **202** `{data: {status: 'TOTP_REQUIRED', challengeToken}}` with no cookies. 401 `INVALID_CREDENTIALS` (same for an unknown email). |
+| POST | `/auth/2fa/verify` | Public | `{challengeToken, code}` (6-digit TOTP or `xxxxx-xxxxx` backup code) → 200 as for login. 401 `INVALID_CODE`/`TOKEN_INVALID`; 429 after 5 attempts per challenge. |
+| POST | `/auth/refresh` | `fw_rt` cookie | → 200 `{data: {csrfToken}}` plus rotated cookies. 401 `SESSION_EXPIRED` clears cookies. Reusing a rotated token revokes the whole session family. |
+| POST | `/auth/logout` | Session | → 204, cookies cleared, session family revoked immediately |
+| POST | `/auth/password/forgot` | Public | `{email}` → always 202 (no account enumeration) |
+| POST | `/auth/password/reset` | Public | `{token, password}` → 204. Revokes every session; marks the email verified. |
+| GET | `/auth/me` | Session | → `{data: {user, memberships: [{membershipId, tenantId, tenantName, tenantSlug, role, permissions[], require2fa}], csrfToken}}` |
+| PATCH | `/me` | Session | `{name?, timezone?, locale?}` → `{data: user}` (avatar upload arrives with MinIO files in Phase 5) |
+| POST | `/me/password` | Session | `{currentPassword, newPassword}` → 204. Revokes all other sessions. |
+| GET | `/me/sessions` | Session | → `{data: [{id, userAgent, ip, createdAt, lastUsedAt, current}]}`, one entry per session family |
+| DELETE | `/me/sessions/:id` | Session | → 204. The session's access token stops working immediately (Redis deny-set). |
+| POST | `/me/sessions/revoke-others` | Session | → `{data: {revoked}}` |
+| GET | `/me/security-events` | Session | → `{data: [{id, type, ip, userAgent, createdAt}]}`, the latest 50 |
+| POST | `/me/2fa/setup` | Session | → `{data: {secret, otpauthUri}}` (the secret is stored encrypted, not yet enabled) |
+| POST | `/me/2fa/enable` | Session | `{code}` → `{data: {backupCodes[10]}}`, shown once |
+| POST | `/me/2fa/disable` | Session | `{password, code}` → 204 |
+| POST | `/tenants` | Session | `{name, country='IN', timezone='Asia/Kolkata'}` → 201 `{data: workspace}`. The caller becomes OWNER. 403 `EMAIL_NOT_VERIFIED`. |
+| GET | `/invitations/:token` | Public | → `{data: {workspaceName, inviterName, email, role, expiresAt, existingAccount}}`. 404 `TOKEN_INVALID`. |
+| POST | `/invitations/:token/accept` | Public, session optional | Signed in as the invited email: `{}`. New account: `{name, password}`, which also starts a session. → `{data: {tenantId, csrfToken?}}`. 409 `CONFLICT` with `details.reason` `SIGN_IN_REQUIRED` or `EMAIL_MISMATCH`. |
 
-| Method | Path | P |
-| --- | --- | --- |
-| GET / PATCH | `/workspace` | `workspace.read` / `workspace.manage` |
-| DELETE | `/workspace` | OWNER |
-| POST | `/workspace/transfer-ownership` | OWNER |
-| GET | `/team/members` | `team.read` |
-| PATCH | `/team/members/:membershipId` | `team.manage` (role) |
-| POST | `/team/members/:membershipId/deactivate` / `/reactivate` | `team.manage` |
-| GET / POST | `/team/invitations` | `team.manage` |
-| POST | `/team/invitations/:id/resend` / `/revoke` | `team.manage` |
-| GET | `/roles` | `roles.read` (matrix) |
-| GET | `/audit-logs` | `audit.view` (filter: actor, action, target, date) |
-| GET / POST | `/notifications`, `/notifications/:id/read`, `/notifications/read-all` | self (P7) |
+### Workspace, team, audit (P3). Tenant-scoped. Implemented.
+
+Every route needs `X-Tenant-Id` plus an ACTIVE membership. A missing, malformed, foreign or deleted tenant returns **404 `TENANT_NOT_FOUND`**. A missing permission returns 403 `FORBIDDEN` with `details.permission`. If the workspace has `require2fa` and the caller has no 2FA, every route returns 403 `TWO_FACTOR_ENROLLMENT_REQUIRED`. The integration suite checks every route here against both matrices, which it generates from route metadata.
+
+| Method | Path | P | Notes |
+| --- | --- | --- | --- |
+| GET / PATCH | `/workspace` | `workspace.read` / `workspace.manage` | PATCH `{name?, country?, timezone?, require2fa?}`, audited as a diff |
+| DELETE | `/workspace` | OWNER | Soft delete, 204 |
+| POST | `/workspace/transfer-ownership` | OWNER | `{membershipId}` → 204. The old owner becomes ADMIN, atomically. |
+| GET | `/team/members` | `team.read` | `[{membershipId, userId, name, email, role, status, twoFactorEnabled, joinedAt}]` |
+| PATCH | `/team/members/:id` | `team.manage` | `{role}` (never OWNER). 403 above the caller's own rank; 409 for self or for the owner. |
+| POST | `/team/members/:id/deactivate` · `/reactivate` | `team.manage` | 409 for self or for the owner. Access is lost immediately. |
+| GET | `/team/invitations` | `team.manage` | Pending and expired invitations |
+| POST | `/team/invitations` | `team.manage` | `{email, role}` → 201. 409 if already a member or already invited. Limit 50 per workspace per hour. |
+| POST | `/team/invitations/:id/resend` | `team.manage` | 202. A new token replaces the old one (the old link dies). |
+| POST | `/team/invitations/:id/revoke` | `team.manage` | 204 |
+| GET | `/roles` | `roles.read` | `{roles: [{key, label, rank, permissions[]}], permissions: [{key, description}]}` |
+| GET | `/audit-logs` | `audit.view` | `?action=<prefix>&actorId&from&to&limit&cursor` → `{data, page}` |
+| GET / POST | `/notifications`, `/notifications/:id/read`, `/notifications/read-all` | self | Phase 7 |
 
 ### WhatsApp accounts (P4)
 
