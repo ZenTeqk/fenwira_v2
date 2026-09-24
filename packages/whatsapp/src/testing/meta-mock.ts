@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import { deliverWebhook, inboundMessageWebhook, statusWebhook } from './webhooks'
 
 /**
  * Simulated Meta Graph API for local development and tests (docs/META_INTEGRATION.md → Testing).
@@ -35,12 +36,27 @@ type Failure = {
 }
 export type MockCall = { method: string; path: string; authorization?: string; body?: unknown }
 
+export type SentMessage = { phoneNumberId: string; wamid: string; payload: Record<string, unknown> }
+/** Where the mock posts signed webhooks (status updates after sends, simulated inbound). */
+export type WebhookTarget = {
+  url: string
+  appSecret: string
+  /** Statuses posted after each successful send, in order. Default sent, delivered, read. */
+  statuses?: Array<'sent' | 'delivered' | 'read'>
+  delayMs?: number
+}
+
 export type MetaMockState = {
   wabas: Map<string, Waba>
   revoked: Set<string>
   failures: Failure[]
   calls: MockCall[]
   exchanges: number
+  sent: SentMessage[]
+  media: Map<string, { mimeType: string; bytes: Buffer }>
+  /** Slow responses for matching Graph paths (e.g. to stop a worker mid-send). */
+  delays: Array<{ pathContains: string; ms: number; times: number }>
+  webhookTarget?: WebhookTarget
 }
 
 export const DEMO_WABA_ID = '100000000000001'
@@ -95,6 +111,9 @@ export function createMetaMockState(): MetaMockState {
     failures: [],
     calls: [],
     exchanges: 0,
+    sent: [],
+    media: new Map(),
+    delays: [],
   }
   seedDemo(state)
   return state
@@ -113,16 +132,42 @@ function send(res: ServerResponse, status: number, body: unknown): void {
 const graphError = (res: ServerResponse, status: number, code: number, message: string) =>
   send(res, status, { error: { message, type: 'OAuthException', code, fbtrace_id: 'MockTrace' } })
 
-async function readBody(req: IncomingMessage): Promise<unknown> {
+async function readBody(req: IncomingMessage): Promise<{ raw: Buffer; body: unknown }> {
   const chunks: Buffer[] = []
   for await (const chunk of req) chunks.push(chunk as Buffer)
-  const text = Buffer.concat(chunks).toString('utf8')
-  if (!text) return undefined
+  const raw = Buffer.concat(chunks)
+  if ((req.headers['content-type'] ?? '').startsWith('multipart/')) return { raw, body: undefined }
+  const text = raw.toString('utf8')
+  if (!text) return { raw, body: undefined }
   try {
-    return JSON.parse(text)
+    return { raw, body: JSON.parse(text) }
   } catch {
-    return text
+    return { raw, body: text }
   }
+}
+
+/** Posts sent → delivered → read for a send, like Meta does, when a webhook target is set. */
+function scheduleStatuses(state: MetaMockState, waba: Waba, sent: SentMessage): void {
+  const target = state.webhookTarget
+  if (!target) return
+  const statuses = target.statuses ?? ['sent', 'delivered', 'read']
+  const ids = { wabaId: waba.id, phoneNumberId: sent.phoneNumberId }
+  statuses.forEach((status, i) => {
+    setTimeout(
+      () =>
+        void deliverWebhook(
+          target.url,
+          target.appSecret,
+          statusWebhook(ids, {
+            wamid: sent.wamid,
+            status,
+            recipientId: String(sent.payload.to),
+            callbackData: sent.payload.biz_opaque_callback_data as string | undefined,
+          }),
+        ).catch(() => undefined),
+      (target.delayMs ?? 300) * (i + 1),
+    )
+  })
 }
 
 const grantedWaba = (token: string): string | undefined => {
@@ -134,7 +179,18 @@ export function createMetaMockHandler(state: MetaMockState) {
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const url = new URL(req.url ?? '/', 'http://mock')
     const method = req.method ?? 'GET'
-    const body = await readBody(req)
+    const { raw, body } = await readBody(req)
+    const origin = `http://${req.headers.host ?? 'localhost'}`
+
+    // Media bytes (what Meta's short-lived media URLs serve); needs a bearer token.
+    if (url.pathname.startsWith('/__media/')) {
+      const item = state.media.get(url.pathname.slice('/__media/'.length))
+      if (!req.headers.authorization) return graphError(res, 401, 190, 'Missing token')
+      if (!item) return send(res, 404, { error: 'unknown media' })
+      res.writeHead(200, { 'Content-Type': item.mimeType })
+      res.end(item.bytes)
+      return
+    }
 
     // ---------------------------------------------------------------- control routes
     if (url.pathname.startsWith('/__mock/')) {
@@ -148,6 +204,9 @@ export function createMetaMockHandler(state: MetaMockState) {
           state.revoked.clear()
           state.failures = []
           state.calls = []
+          state.sent = []
+          state.delays = []
+          state.media.clear()
           seedDemo(state)
           return send(res, 200, { ok: true })
         case 'seed':
@@ -162,6 +221,44 @@ export function createMetaMockHandler(state: MetaMockState) {
             ...(input as object),
           } as Failure)
           return send(res, 200, { ok: true })
+        case 'delay':
+          state.delays.push({
+            times: 1,
+            ms: 1000,
+            ...(input as object),
+          } as MetaMockState['delays'][number])
+          return send(res, 200, { ok: true })
+        case 'media':
+          state.media.set(String(input.id), {
+            mimeType: String(input.mimeType ?? 'image/jpeg'),
+            bytes: Buffer.from(String(input.base64 ?? ''), 'base64'),
+          })
+          return send(res, 200, { ok: true })
+        case 'webhook-target':
+          state.webhookTarget = input.url ? (input as unknown as WebhookTarget) : undefined
+          return send(res, 200, { ok: true })
+        case 'inbound': {
+          // Simulates a customer writing to one of the mock's numbers.
+          const target = state.webhookTarget
+          const found = findPhone(state, String(input.phoneNumberId))
+          if (!target || !found)
+            return send(res, 409, { error: 'no webhook target or unknown phone' })
+          const wamid = `wamid.in.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`
+          const status = await deliverWebhook(
+            target.url,
+            target.appSecret,
+            inboundMessageWebhook(
+              { wabaId: found.waba.id, phoneNumberId: found.phone.id },
+              {
+                from: String(input.from ?? '919876543210'),
+                name: input.name ? String(input.name) : undefined,
+                text: String(input.text ?? 'Hello from the simulator'),
+                wamid,
+              },
+            ),
+          )
+          return send(res, 200, { wamid, webhookStatus: status })
+        }
         case 'revoke':
           state.revoked.add(String(input.token))
           return send(res, 200, { ok: true })
@@ -186,6 +283,12 @@ export function createMetaMockHandler(state: MetaMockState) {
     const authorization = req.headers.authorization
     state.calls.push({ method, path, authorization, body })
 
+    const delay = state.delays.find((d) => path.includes(d.pathContains))
+    if (delay) {
+      delay.times -= 1
+      if (delay.times <= 0) state.delays.splice(state.delays.indexOf(delay), 1)
+      await new Promise((r) => setTimeout(r, delay.ms))
+    }
     const failure = state.failures.find(
       (f) => path.includes(f.pathContains) && (!f.method || f.method === method),
     )
@@ -250,6 +353,15 @@ export function createMetaMockHandler(state: MetaMockState) {
     if (!granted) return graphError(res, 401, 190, 'Invalid OAuth access token.')
 
     const [first, second] = parts.slice(1)
+    if (first && !second && method === 'GET' && state.media.has(first)) {
+      const item = state.media.get(first)!
+      return send(res, 200, {
+        id: first,
+        url: `${origin}/__media/${first}`,
+        mime_type: item.mimeType,
+        file_size: item.bytes.length,
+      })
+    }
     const waba = first ? state.wabas.get(first) : undefined
     if (waba) {
       if (waba.id !== granted) return graphError(res, 403, 200, 'Permissions error')
@@ -281,13 +393,32 @@ export function createMetaMockHandler(state: MetaMockState) {
         return send(res, 200, { success: true })
       }
       if (second === 'messages' && method === 'POST') {
+        const payload = (body ?? {}) as Record<string, unknown>
+        if (payload.status === 'read') return send(res, 200, { success: true })
+        const type = String(payload.type ?? '')
+        const media = payload[type] as { id?: string } | undefined
+        if (
+          ['image', 'document', 'audio', 'video'].includes(type) &&
+          !state.media.has(media?.id ?? '')
+        )
+          return graphError(res, 400, 131053, 'Media upload error')
+        const wamid = `wamid.mock.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`
+        const sent = { phoneNumberId: phone.phone.id, wamid, payload }
+        state.sent.push(sent)
+        scheduleStatuses(state, phone.waba, sent)
         return send(res, 200, {
           messaging_product: 'whatsapp',
-          contacts: [
-            { input: (body as { to?: string })?.to, wa_id: (body as { to?: string })?.to },
-          ],
-          messages: [{ id: `wamid.mock.${Date.now()}` }],
+          contacts: [{ input: payload.to, wa_id: payload.to }],
+          messages: [{ id: wamid }],
         })
+      }
+      if (second === 'media' && method === 'POST') {
+        const type =
+          /name="type"\r\n\r\n([^\r]+)/.exec(raw.toString('latin1'))?.[1] ??
+          'application/octet-stream'
+        const id = `media${state.media.size + 1}${Date.now()}`
+        state.media.set(id, { mimeType: type, bytes: raw })
+        return send(res, 200, { id })
       }
     }
 

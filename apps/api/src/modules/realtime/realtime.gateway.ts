@@ -1,4 +1,5 @@
-import { Logger } from '@nestjs/common'
+import { Database } from '@fenwira/database'
+import { Inject, Logger } from '@nestjs/common'
 import {
   ConnectedSocket,
   MessageBody,
@@ -9,13 +10,14 @@ import {
 } from '@nestjs/websockets'
 import { parse as parseCookies } from 'cookie'
 import { type Server, type Socket } from 'socket.io'
+import { conversationRoom, tenantRoom } from '../../core/realtime/realtime-emitter'
 import { ACCESS_COOKIE } from '../../core/security/cookies'
 import { JwtService, SessionService } from '../identity'
 import { TenantAccessService } from '../tenancy'
 
 type SocketData = { userId?: string; tenantId?: string }
 
-export const tenantRoom = (tenantId: string) => `tenant:${tenantId}`
+export { tenantRoom }
 export const userRoom = (userId: string) => `user:${userId}`
 
 /**
@@ -32,6 +34,7 @@ export class RealtimeGateway implements OnGatewayConnection {
     private readonly jwt: JwtService,
     private readonly sessions: SessionService,
     private readonly access: TenantAccessService,
+    @Inject(Database) private readonly db: Database,
   ) {}
 
   async handleConnection(socket: Socket): Promise<void> {
@@ -67,8 +70,36 @@ export class RealtimeGateway implements OnGatewayConnection {
     const access = await this.access.resolve(data.userId, body?.tenantId)
     if (!access.ok) return { ok: false, error: 'TENANT_NOT_FOUND' }
     if (data.tenantId) await socket.leave(tenantRoom(data.tenantId))
+    for (const room of socket.rooms) if (room.startsWith('conversation:')) await socket.leave(room)
     data.tenantId = access.context.tenantId
     await socket.join(tenantRoom(access.context.tenantId))
+    return { ok: true }
+  }
+
+  /** Joins `conversation:{id}` after checking the conversation belongs to the socket's tenant. */
+  @SubscribeMessage('conversation.join')
+  async joinConversation(
+    @ConnectedSocket() socket: Socket,
+    @MessageBody() body: { conversationId?: string },
+  ): Promise<{ ok: boolean; error?: string }> {
+    const data = socket.data as SocketData
+    const id = body?.conversationId
+    if (!data.tenantId || !id || !/^[0-9a-f-]{36}$/i.test(id))
+      return { ok: false, error: 'NOT_FOUND' }
+    const found = await this.db.withTenant(data.tenantId, (tx) =>
+      tx.conversation.findFirst({ where: { id }, select: { id: true } }),
+    )
+    if (!found) return { ok: false, error: 'NOT_FOUND' }
+    await socket.join(conversationRoom(id))
+    return { ok: true }
+  }
+
+  @SubscribeMessage('conversation.leave')
+  async leaveConversation(
+    @ConnectedSocket() socket: Socket,
+    @MessageBody() body: { conversationId?: string },
+  ): Promise<{ ok: boolean }> {
+    if (body?.conversationId) await socket.leave(conversationRoom(body.conversationId))
     return { ok: true }
   }
 

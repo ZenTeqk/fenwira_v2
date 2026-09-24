@@ -7,6 +7,9 @@ const valid = {
   REDIS_URL: 'redis://redis:6379/0',
   ENCRYPTION_KEYS: 'k1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
   ENCRYPTION_ACTIVE_KEY_ID: 'k1',
+  S3_ENDPOINT: 'http://minio:9000',
+  S3_ACCESS_KEY_ID: 'a',
+  S3_SECRET_ACCESS_KEY: 'b',
 }
 
 describe('loadEnv', () => {

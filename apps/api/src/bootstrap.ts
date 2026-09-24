@@ -21,6 +21,8 @@ export async function createApiApp(
   const app = await NestFactory.create<NestExpressApplication>(ApiModule.forRoot(env, options), {
     bufferLogs: true,
     bodyParser: true,
+    // Keeps req.rawBody for the WhatsApp webhook HMAC (verified on the exact bytes Meta sent).
+    rawBody: true,
   })
   app.useLogger(app.get(Logger))
   app.set('trust proxy', env.TRUST_PROXY)

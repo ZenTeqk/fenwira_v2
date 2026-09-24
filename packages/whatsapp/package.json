@@ -12,6 +12,10 @@
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
+    },
+    "./send": {
+      "types": "./dist/send.d.ts",
+      "default": "./dist/send.js"
     }
   },
   "files": [
@@ -29,5 +33,8 @@
   "devDependencies": {
     "@fenwira/config": "workspace:*",
     "vitest": "3.2.7"
+  },
+  "dependencies": {
+    "@fenwira/contracts": "workspace:*"
   }
 }

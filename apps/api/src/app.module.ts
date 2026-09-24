@@ -2,6 +2,7 @@ import { parseKeyRing, type ApiEnv } from '@fenwira/config'
 import { type DynamicModule, Module } from '@nestjs/common'
 import { APP_GUARD } from '@nestjs/core'
 import { type CoreConfig } from './core/config/core-config'
+import { storageConfigFromEnv } from './core/storage/storage.service'
 import { CoreModule } from './core/core.module'
 import { HealthModule } from './core/health/health.module'
 import {
@@ -15,6 +16,7 @@ import { AuthGuard, IdentityModule } from './modules/identity'
 import { PlatformApiModule } from './modules/platform/platform-api.module'
 import { RealtimeModule } from './modules/realtime'
 import { PermissionGuard, TenancyModule, TenantGuard } from './modules/tenancy'
+import { MessagingModule } from './modules/messaging'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
 
 export function coreConfigFromApiEnv(
@@ -31,6 +33,8 @@ export function coreConfigFromApiEnv(
     dbPoolSize: env.DB_POOL_SIZE,
     redisUrl: env.REDIS_URL,
     webOrigin: env.WEB_ORIGIN,
+    storage: storageConfigFromEnv(env),
+    metricsPort: env.METRICS_PORT,
   }
 }
 
@@ -54,6 +58,13 @@ export class ApiModule {
         identity,
         tenancy,
         AuditApiModule,
+        MessagingModule.forApi({
+          keyRing,
+          graphBaseUrl: env.META_GRAPH_BASE_URL,
+          graphVersion: env.META_GRAPH_API_VERSION,
+          appSecret: env.META_APP_SECRET,
+          verifyToken: env.META_WEBHOOK_VERIFY_TOKEN,
+        }),
         WhatsAppAccountsModule.forApi({
           keyRing,
           appId: env.META_APP_ID,

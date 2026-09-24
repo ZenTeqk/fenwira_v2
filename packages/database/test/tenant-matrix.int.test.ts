@@ -14,6 +14,25 @@ const metaId = () => String(Math.floor(Math.random() * 1e15)).padStart(15, '1')
 const waba = (tx: TenantTx, tenantId: string) =>
   tx.whatsAppBusinessAccount.create({ data: { tenantId, wabaId: metaId(), name: 'Matrix WABA' } })
 
+const contact = (tx: TenantTx, tenantId: string) =>
+  tx.contact.create({
+    data: { tenantId, phoneE164: `+91${metaId().slice(0, 10)}`, source: 'INBOUND' },
+  })
+const conversation = async (tx: TenantTx, tenantId: string) => {
+  const phone = await tx.whatsAppPhoneNumber.create({
+    data: {
+      tenantId,
+      wabaId: (await waba(tx, tenantId)).id,
+      phoneNumberId: metaId(),
+      displayPhoneNumber: '+1',
+      verifiedName: 'Matrix',
+    },
+  })
+  return tx.conversation.create({
+    data: { tenantId, contactId: (await contact(tx, tenantId)).id, phoneNumberId: phone.id },
+  })
+}
+
 const FIXTURES: Record<string, Fixture> = {
   outbox_events: (tx, { tenantId }) =>
     tx.outboxEvent.create({ data: { tenantId, eventType: 'test.event', payload: {} } }),
@@ -52,6 +71,49 @@ const FIXTURES: Record<string, Fixture> = {
         tokenPrefix: 'EAAG',
         tokenLast4: 'abcd',
         tokenType: 'DEV',
+      },
+    }),
+  contacts: (tx, { tenantId }) => contact(tx, tenantId),
+  conversations: (tx, { tenantId }) => conversation(tx, tenantId),
+  messages: async (tx, { tenantId }) => {
+    const c = await conversation(tx, tenantId)
+    return tx.message.create({
+      data: {
+        tenantId,
+        conversationId: c.id,
+        contactId: c.contactId,
+        direction: 'INBOUND',
+        type: 'TEXT',
+        status: 'RECEIVED',
+        source: 'CUSTOMER',
+        content: { type: 'TEXT', text: 'matrix' },
+        providerMessageId: `wamid.${metaId()}`,
+      },
+    })
+  },
+  webhook_events: (tx, { tenantId }) =>
+    tx.webhookEvent.create({
+      data: { tenantId, dedupeKey: `msg:${metaId()}`, kind: 'MESSAGE', payload: {} },
+    }),
+  files: (tx, { tenantId }) =>
+    tx.file.create({
+      data: {
+        tenantId,
+        bucket: 'fenwira-media',
+        objectKey: `${tenantId}/${metaId()}`,
+        mimeType: 'image/png',
+        sizeBytes: 1,
+        purpose: 'MESSAGE_MEDIA',
+      },
+    }),
+  idempotency_keys: (tx, { tenantId }) =>
+    tx.idempotencyKey.create({
+      data: {
+        tenantId,
+        key: metaId(),
+        scope: 'matrix',
+        requestHash: Uint8Array.from([1]),
+        expiresAt: new Date(Date.now() + 3600_000),
       },
     }),
   webhook_subscriptions: async (tx, { tenantId }) =>
@@ -278,5 +340,73 @@ describe('whatsapp phone numbers (Phase 4)', () => {
       )
     await make()
     await expect(make()).rejects.toThrow(/Unique constraint|unique/i)
+  })
+})
+
+describe('messaging (Phase 5)', () => {
+  it('X2 resolves a live number to its tenant and ignores unknown numbers', async () => {
+    const phone = await db.withTenant(A.tenantId, async (tx) =>
+      tx.whatsAppPhoneNumber.create({
+        data: {
+          tenantId: A.tenantId,
+          wabaId: (await waba(tx, A.tenantId)).id,
+          phoneNumberId: metaId(),
+          displayPhoneNumber: '+1',
+          verifiedName: 'x',
+          status: 'CONNECTED',
+        },
+        include: { waba: true },
+      }),
+    )
+    await expect(db.system.resolveTenantByPhoneNumberId(phone.phoneNumberId)).resolves.toEqual({
+      tenantId: A.tenantId,
+      phoneId: phone.id,
+    })
+    await expect(db.system.resolveTenantByWabaId(phone.waba.wabaId)).resolves.toBe(A.tenantId)
+    await expect(db.system.resolveTenantByPhoneNumberId('0')).resolves.toBeNull()
+  })
+
+  it('one message per provider id and per idempotency key; status rank orders the ladder', async () => {
+    const key = `k-${metaId()}`
+    const wamid = `w-${metaId()}`
+    await db.withTenant(A.tenantId, async (tx) => {
+      const c = await conversation(tx, A.tenantId)
+      const base = {
+        tenantId: A.tenantId,
+        conversationId: c.id,
+        contactId: c.contactId,
+        direction: 'OUTBOUND' as const,
+        type: 'TEXT' as const,
+        status: 'CREATED' as const,
+        source: 'API' as const,
+        content: {},
+      }
+      await tx.message.create({ data: { ...base, idempotencyKey: key, providerMessageId: wamid } })
+    })
+    const dup = (data: Record<string, string>) =>
+      db.withTenant(A.tenantId, async (tx) => {
+        const c = await conversation(tx, A.tenantId)
+        return tx.message.create({
+          data: {
+            tenantId: A.tenantId,
+            conversationId: c.id,
+            contactId: c.contactId,
+            direction: 'OUTBOUND',
+            type: 'TEXT',
+            status: 'CREATED',
+            source: 'API',
+            content: {},
+            ...data,
+          },
+        })
+      })
+    await expect(dup({ idempotencyKey: key })).rejects.toThrow(/Unique constraint|unique/i)
+    await expect(dup({ providerMessageId: wamid })).rejects.toThrow(/Unique constraint|unique/i)
+    const ranks = await db.withGlobal((tx) =>
+      tx.$queryRawUnsafe<Array<{ r: number[] }>>(
+        `SELECT array_agg(fenwira_message_status_rank(s) ORDER BY o) AS r FROM unnest(ARRAY['CREATED','QUEUED','SENDING','SENT','DELIVERED','READ','FAILED']::message_status[]) WITH ORDINALITY AS t(s, o)`,
+      ),
+    )
+    expect(ranks[0]!.r).toEqual([0, 1, 2, 3, 4, 5, -1])
   })
 })

@@ -1,5 +1,5 @@
 import { type ClaimedOutboxEvent, Database } from '@fenwira/database'
-import { type EventJob, eventJobId, subscribersFor } from '@fenwira/queue'
+import { type EventJob, outboxJobId, QUEUE_JOB_OPTIONS, subscribersFor } from '@fenwira/queue'
 import {
   Inject,
   Injectable,
@@ -21,6 +21,9 @@ export type OutboxRelayOptions = {
 
 export const OUTBOX_RELAY_OPTIONS = Symbol('OUTBOX_RELAY_OPTIONS')
 
+/** Runs after an event was enqueued to all its subscribers (e.g. message CREATED → QUEUED). */
+export type OutboxDispatchHook = (event: ClaimedOutboxEvent) => Promise<void>
+
 /**
  * Transactional outbox relay (ADR-0013). Woken by LISTEN outbox_new and by a poll timer;
  * claims leased batches through system.claim_outbox_events, fans each event out to its
@@ -36,6 +39,7 @@ export class OutboxRelayService implements OnApplicationBootstrap, OnApplication
   private stopped = false
   /** Epoch ms of the last completed drain; the worker health check reads it. */
   lastHeartbeatAt = 0
+  private readonly hooks = new Map<string, OutboxDispatchHook[]>()
 
   constructor(
     @Inject(Database) private readonly db: Database,
@@ -44,6 +48,11 @@ export class OutboxRelayService implements OnApplicationBootstrap, OnApplication
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext('OutboxRelay')
+  }
+
+  /** Modules register hooks at init; a failing hook is logged and never un-dispatches. */
+  onDispatched(eventType: string, hook: OutboxDispatchHook): void {
+    this.hooks.set(eventType, [...(this.hooks.get(eventType) ?? []), hook])
   }
 
   onApplicationBootstrap(): void {
@@ -95,6 +104,10 @@ export class OutboxRelayService implements OnApplicationBootstrap, OnApplication
         try {
           await this.fanOut(event, correlationId)
           dispatched.push(event.id)
+          for (const hook of this.hooks.get(event.eventType) ?? [])
+            await hook(event).catch((err: unknown) =>
+              this.logger.warn({ eventId: event.id, err }, 'outbox dispatch hook failed'),
+            )
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err)
           this.logger.warn(
@@ -126,9 +139,10 @@ export class OutboxRelayService implements OnApplicationBootstrap, OnApplication
       payload: event.payload,
     } as EventJob
     for (const queueName of subscribers) {
-      await this.queues
-        .get(queueName)
-        .add(event.eventType, data, { jobId: eventJobId(event.id, queueName) })
+      await this.queues.get(queueName).add(event.eventType, data, {
+        ...QUEUE_JOB_OPTIONS[queueName],
+        jobId: outboxJobId(event, queueName),
+      })
     }
     this.logger.debug(
       { eventId: event.id, eventType: event.eventType, subscribers },

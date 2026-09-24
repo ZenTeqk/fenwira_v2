@@ -98,4 +98,21 @@ export class SystemGateway {
       SELECT * FROM system.phone_numbers_due_for_sync(${olderThan}, ${limit}::int)`
     return rows.map((r) => ({ tenantId: r.tenant_id, phoneId: r.phone_id }))
   }
+
+  /** X2 — tenant (and number row) of a live phone_number_id, for webhook routing. */
+  async resolveTenantByPhoneNumberId(
+    phoneNumberId: string,
+  ): Promise<{ tenantId: string; phoneId: string } | null> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; phone_id: string }>>`
+      SELECT * FROM system.resolve_tenant_by_phone_number_id(${phoneNumberId})`
+    const row = rows[0]
+    return row ? { tenantId: row.tenant_id, phoneId: row.phone_id } : null
+  }
+
+  /** X2 (WABA-level fields such as template and account updates). */
+  async resolveTenantByWabaId(wabaId: string): Promise<string | null> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
+      SELECT * FROM system.resolve_tenant_by_waba_id(${wabaId})`
+    return rows[0]?.tenant_id ?? null
+  }
 }

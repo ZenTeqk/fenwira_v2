@@ -107,23 +107,11 @@ export const updateConnectionRequestSchema = z
   .refine((v) => Object.keys(v).length > 0, 'Provide at least one field.')
 export type UpdateConnectionRequest = z.infer<typeof updateConnectionRequestSchema>
 
-/** `to` is an international number with or without "+", digits only otherwise. */
-export const testConnectionRequestSchema = z.object({
-  to: z
-    .string()
-    .trim()
-    .transform((v) => v.replace(/[\s()-]/g, '').replace(/^\+/, ''))
-    .pipe(z.string().regex(/^[1-9]\d{7,14}$/, 'Enter the number in international format.'))
-    .optional(),
-})
-export type TestConnectionRequest = z.infer<typeof testConnectionRequestSchema>
-
 export const testConnectionResultSchema = z.object({
   ok: z.boolean(),
   status: z.enum(PHONE_STATUSES),
   qualityRating: z.enum(QUALITY_RATINGS),
   error: z.object({ code: z.string(), message: z.string() }).optional(),
-  message: z.object({ messageId: z.string() }).optional(),
 })
 export type TestConnectionResult = z.infer<typeof testConnectionResultSchema>
 

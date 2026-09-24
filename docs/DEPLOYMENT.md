@@ -102,7 +102,9 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 | `SYSTEM_PING_ENABLED` | `true` locally, **must be `false` in production** | api (`POST /api/v1/system/ping`) | 1 |
 | `ENABLE_UI_GALLERY` | `true` locally (runtime) | web: serves `/dev/ui`, which the e2e accessibility suite needs. Off in production. | 2 |
 | `NEXT_PUBLIC_NAV_PREVIEW` | `false` (`true` in `.env.development`) | web **build arg**: shows navigation for unshipped phases, with placeholder pages. Development only. | 2 |
-| `S3_ENDPOINT`, `S3_PUBLIC_ENDPOINT`, `S3_REGION`, `S3_FORCE_PATH_STYLE`, `S3_BUCKET_*` | | api, worker | 5 |
+| `S3_ENDPOINT` (internal), `S3_PUBLIC_ENDPOINT` (what browsers use for presigned URLs, `http://localhost:9000` locally), `S3_REGION`, `S3_FORCE_PATH_STYLE`, `S3_BUCKET_MEDIA` (`fenwira-media`), `S3_BUCKET_UPLOADS` | compose sets the internal endpoint | api, worker | 5 |
+| `WHATSAPP_OUTBOUND_BACKOFF_MS` | `1000` | worker | 5 |
+| `METRICS_PORT` | `9464` (not published) | api | 5 |
 | `SMTP_URL` | assembled by compose: `smtp://fenwira-mailpit:1025` | worker | 3 |
 | `MAIL_FROM` | `Fenwira <no-reply@fenwira.local>` | worker | 3 |
 | `WEB_ORIGIN` (worker) | `http://localhost:3000` | worker: links in emails | 3 |
@@ -125,7 +127,7 @@ Each app validates its variables at boot with the Zod schemas in `packages/confi
 
 ### Simulated Meta locally (Phase 4)
 
-Without a Meta app, local development uses `fenwira-meta-mock`, a small simulated Graph API from `@fenwira/whatsapp/testing` (profile `meta-mock`, published on `127.0.0.1:4200` only). `.env.example` turns it on with `COMPOSE_PROFILES=meta-mock`, `META_GRAPH_BASE_URL=http://fenwira-meta-mock:4200` and `WHATSAPP_DEV_CONNECT=true`. It starts with one demo account (WABA `100000000000001`, phone number ID `200000000000001`). In Settings → WhatsApp → **Developer connect**, use those IDs and the token `mock-dev:100000000000001:local`. Tests seed more accounts through `POST /__mock/seed`. To use real Meta, set the Meta variables, point `META_GRAPH_BASE_URL` at `https://graph.facebook.com`, and remove the profile.
+Without a Meta app, local development uses `fenwira-meta-mock`, a small simulated Graph API from `@fenwira/whatsapp/testing` (profile `meta-mock`, published on `127.0.0.1:4200` only). `.env.example` turns it on with `COMPOSE_PROFILES=meta-mock`, `META_GRAPH_BASE_URL=http://fenwira-meta-mock:4200` and `WHATSAPP_DEV_CONNECT=true`. It starts with one demo account (WABA `100000000000001`, phone number ID `200000000000001`). In Settings → WhatsApp → **Developer connect**, use those IDs and the token `mock-dev:100000000000001:local`. Since Phase 5 the mock posts signed status webhooks to the api (`META_APP_SECRET` is shared between the two locally), so a test message goes queued → sent → delivered → read on screen. To simulate a customer writing in: `curl -X POST 127.0.0.1:4200/__mock/inbound -d '{"phoneNumberId":"200000000000001","from":"919876543210","text":"Hi"}'`. Tests seed more accounts through `POST /__mock/seed`. To use real Meta, set the Meta variables, point `META_GRAPH_BASE_URL` at `https://graph.facebook.com`, and remove the profile.
 
 ### Receiving Meta webhooks locally (Phase 4+)
 

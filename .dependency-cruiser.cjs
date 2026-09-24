@@ -72,6 +72,19 @@ module.exports = {
       to: { path: '^apps/api/src/modules/' },
     },
     {
+      name: 'meta-send-only-in-outbound',
+      severity: 'error',
+      comment:
+        'Only the whatsapp.outbound processor may call Meta send functions (Phase 5 acceptance); everything else goes through MessagingService.',
+      from: {
+        pathNot: [
+          '^apps/api/src/modules/messaging/outbound\\.processor\\.ts$',
+          '^packages/whatsapp/',
+        ],
+      },
+      to: { path: '^packages/whatsapp/(dist|src)/send\\.' },
+    },
+    {
       name: 'worker-uses-api-public-exports',
       severity: 'error',
       comment:
@@ -82,7 +95,9 @@ module.exports = {
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: ['(^|/)dist/', '(^|/)\\.next/', '(^|/)coverage/', '(^|/)generated/'] },
+    exclude: {
+      path: ['(^|/)dist/(?!send\\.)', '(^|/)\\.next/', '(^|/)coverage/', '(^|/)generated/'],
+    },
     tsPreCompilationDeps: true,
     combinedDependencies: true,
     enhancedResolveOptions: {

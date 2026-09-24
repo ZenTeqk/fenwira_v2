@@ -94,6 +94,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_phone_numbers_one_default
   ON public.whatsapp_phone_numbers (tenant_id) WHERE is_default;
 CREATE UNIQUE INDEX IF NOT EXISTS meta_credentials_one_live_per_waba
   ON public.meta_credentials (waba_id) WHERE status IN ('VALID', 'EXPIRING');
+-- Phase 5: one live contact per phone, one message per Meta id, one message per idempotency key.
+CREATE UNIQUE INDEX IF NOT EXISTS contacts_one_live_per_phone
+  ON public.contacts (tenant_id, phone_e164) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS messages_provider_message_id_unique
+  ON public.messages (tenant_id, provider_message_id) WHERE provider_message_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS messages_idempotency_key_unique
+  ON public.messages (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
+
+-- Outbound status ordering (docs/MESSAGING_ENGINE.md): a status applies only when its rank is
+-- higher than the current one. FAILED and RECEIVED sit outside the ladder.
+CREATE OR REPLACE FUNCTION public.fenwira_message_status_rank(s public.message_status)
+RETURNS integer LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE s
+    WHEN 'CREATED' THEN 0 WHEN 'QUEUED' THEN 1 WHEN 'SENDING' THEN 2
+    WHEN 'SENT' THEN 3 WHEN 'DELIVERED' THEN 4 WHEN 'READ' THEN 5
+    ELSE -1 END;
+$$;
 
 -- ---------------------------------------------------------------------------------------------
 -- Grants for the runtime role (DML only, never DDL)
@@ -259,6 +276,25 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT p_limit;
 $$;
 
+-- X2: webhook tenant resolution. Called only after the platform HMAC is verified; returns IDs of
+-- the live number (or, for WABA-level events, of the WABA's tenant) and nothing else.
+GRANT SELECT (id, tenant_id, phone_number_id, status) ON public.whatsapp_phone_numbers TO fenwira_system;
+GRANT SELECT (id, tenant_id, waba_id, status) ON public.whatsapp_business_accounts TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.resolve_tenant_by_phone_number_id(p_phone_number_id text)
+RETURNS TABLE (tenant_id uuid, phone_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT p.tenant_id, p.id FROM public.whatsapp_phone_numbers p
+  WHERE p.phone_number_id = p_phone_number_id AND p.status <> 'DISCONNECTED'
+  LIMIT 1;
+$$;
+CREATE OR REPLACE FUNCTION system.resolve_tenant_by_waba_id(p_waba_id text)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT w.tenant_id FROM public.whatsapp_business_accounts w
+  WHERE w.waba_id = p_waba_id AND w.status <> 'DISCONNECTED'
+  LIMIT 1;
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -269,7 +305,9 @@ BEGIN
     'system.mark_outbox_retry(uuid, text, integer)',
     'system.resolve_invitation(bytea)',
     'system.phone_number_owner_exists(text, uuid)',
-    'system.phone_numbers_due_for_sync(timestamptz, integer)'
+    'system.phone_numbers_due_for_sync(timestamptz, integer)',
+    'system.resolve_tenant_by_phone_number_id(text)',
+    'system.resolve_tenant_by_waba_id(text)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

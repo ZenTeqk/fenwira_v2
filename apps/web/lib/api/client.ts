@@ -38,10 +38,16 @@ export const setActiveTenantId = (tenantId: string | undefined) => {
 }
 export const getActiveTenantId = () => activeTenantId
 
-type Options = { body?: unknown; tenant?: boolean; signal?: AbortSignal }
+type Options = {
+  body?: unknown
+  tenant?: boolean
+  signal?: AbortSignal
+  /** Extra request headers, e.g. Idempotency-Key. */
+  headers?: Record<string, string>
+}
 
 async function send(method: string, path: string, opts: Options): Promise<Response> {
-  const headers: Record<string, string> = { Accept: 'application/json' }
+  const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers }
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
   if (method !== 'GET' && csrfToken) headers['X-CSRF-Token'] = csrfToken
   if (opts.tenant !== false && activeTenantId) headers['X-Tenant-Id'] = activeTenantId

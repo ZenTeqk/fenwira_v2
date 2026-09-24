@@ -1,3 +1,5 @@
 export * from './client'
 export * from './errors'
 export * from './graph'
+export * from './normalize'
+export * from './signature'

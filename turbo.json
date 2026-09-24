@@ -47,7 +47,15 @@
         "WHATSAPP_DEV_CONNECT",
         "WHATSAPP_SYNC_INTERVAL_HOURS",
         "PUBLIC_API_URL",
-        "TEST_LOG_LEVEL"
+        "TEST_LOG_LEVEL",
+        "S3_ENDPOINT",
+        "S3_PUBLIC_ENDPOINT",
+        "S3_REGION",
+        "S3_ACCESS_KEY_ID",
+        "S3_SECRET_ACCESS_KEY",
+        "S3_FORCE_PATH_STYLE",
+        "S3_BUCKET_MEDIA",
+        "S3_BUCKET_UPLOADS"
       ]
     },
     "dev": {

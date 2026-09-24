@@ -8,6 +8,9 @@ import { LoggingModule } from './logging/logging.module'
 import { QueueRegistry } from './queue/queue-registry'
 import { REDIS, RedisLifecycle, redisProvider } from './redis/redis.provider'
 import { RateLimitService } from './security/rate-limit.service'
+import { MetricsService } from './metrics/metrics.service'
+import { RealtimeEmitter } from './realtime/realtime-emitter'
+import { StorageService } from './storage/storage.service'
 import { Database } from '@fenwira/database'
 
 /** Process-wide infrastructure shared by api and worker: config, logging, db, redis, queues. */
@@ -27,6 +30,9 @@ export class CoreModule {
         QueueRegistry,
         RateLimitService,
         TenantDb,
+        RealtimeEmitter,
+        MetricsService,
+        ...(config.storage ? [StorageService] : []),
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
       ],
       exports: [
@@ -36,6 +42,9 @@ export class CoreModule {
         QueueRegistry,
         RateLimitService,
         TenantDb,
+        RealtimeEmitter,
+        MetricsService,
+        ...(config.storage ? [StorageService] : []),
         LoggingModule,
       ],
     }

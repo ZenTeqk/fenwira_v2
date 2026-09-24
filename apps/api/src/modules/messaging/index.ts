@@ -1,0 +1,7 @@
+export { MESSAGING_PROCESSORS, MessagingModule } from './messaging.module'
+export { MESSAGING_OPTIONS, type MessagingOptions } from './messaging.options'
+export { MessagingService, type SendInput, type SendTarget } from './messaging.service'
+export { InboundProcessor } from './inbound.processor'
+export { MediaProcessor } from './media.processor'
+export { OutboundProcessor } from './outbound.processor'
+export { StatusProcessor } from './status.processor'

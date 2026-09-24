@@ -53,6 +53,19 @@ const metaEnv = {
   META_GRAPH_BASE_URL: z.url().default('https://graph.facebook.com'),
 }
 
+/** MinIO locally, S3 in production (docs/DEPLOYMENT.md). */
+const storageEnv = {
+  S3_ENDPOINT: z.url(),
+  /** What browsers use for presigned URLs (the published MinIO port locally). */
+  S3_PUBLIC_ENDPOINT: z.url().optional(),
+  S3_REGION: z.string().min(1).default('us-east-1'),
+  S3_ACCESS_KEY_ID: z.string().min(1),
+  S3_SECRET_ACCESS_KEY: z.string().min(1),
+  S3_FORCE_PATH_STYLE: booleanString.default(true),
+  S3_BUCKET_MEDIA: z.string().min(3).default('fenwira-media'),
+  S3_BUCKET_UPLOADS: z.string().min(3).default('fenwira-uploads'),
+}
+
 const optionalPem = z
   .string()
   .optional()
@@ -88,6 +101,9 @@ export const apiEnvSchema = baseEnvSchema
     WHATSAPP_DEV_CONNECT: booleanString.default(false),
     /** Public base URL of the API (webhook callback shown in docs/UI). */
     PUBLIC_API_URL: z.url().optional(),
+    ...storageEnv,
+    /** Internal Prometheus listener (docs/OBSERVABILITY.md); compose doesn't publish it. */
+    METRICS_PORT: z.coerce.number().int().positive().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return
@@ -116,6 +132,9 @@ export const workerEnvSchema = baseEnvSchema.extend({
   ...metaEnv,
   /** How often each connected number is refreshed from Meta (quality, tier, token expiry). */
   WHATSAPP_SYNC_INTERVAL_HOURS: z.coerce.number().min(0.01).max(168).default(6),
+  /** Outbound retry base delay; attempts wait 2^n × base with jitter. Tests shorten it. */
+  WHATSAPP_OUTBOUND_BACKOFF_MS: z.coerce.number().int().min(10).max(60_000).default(1000),
+  ...storageEnv,
 })
 export type WorkerEnv = z.infer<typeof workerEnvSchema>
 

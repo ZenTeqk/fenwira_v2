@@ -1,13 +1,12 @@
-import { GraphError } from './errors'
-import { type GraphConfig, graphUrl } from './graph'
+import { type GraphClientOptions, GraphHttp } from './http'
+
+export type { GraphClientOptions } from './http'
 
 /**
- * Typed Meta Graph API client (docs/META_INTEGRATION.md → Graph endpoints). It never reads the
- * database: callers pass the decrypted token per call. Tokens travel only in the Authorization
- * header (or, for the code exchange, the app secret in the query as Meta requires) and are never
- * included in error messages.
+ * Typed Meta Graph API client for account management and media reads (docs/META_INTEGRATION.md →
+ * Graph endpoints). It never reads the database: callers pass the decrypted token per call.
+ * Sending lives in `@fenwira/whatsapp/send`, which only the outbound worker may import.
  */
-export type GraphClientOptions = GraphConfig & { timeoutMs?: number; fetch?: typeof fetch }
 
 export type WabaDetails = {
   id: string
@@ -38,15 +37,11 @@ export type TokenInfo = {
   granularTargets: Record<string, string[]>
 }
 
-export type SendResult = { messageId: string }
-
 export class GraphClient {
-  private readonly timeoutMs: number
-  private readonly doFetch: typeof fetch
+  private readonly http: GraphHttp
 
-  constructor(private readonly options: GraphClientOptions) {
-    this.timeoutMs = options.timeoutMs ?? 15_000
-    this.doFetch = options.fetch ?? fetch
+  constructor(options: GraphClientOptions) {
+    this.http = new GraphHttp(options)
   }
 
   /** Embedded Signup: code → business integration system user token. */
@@ -129,75 +124,24 @@ export class GraphClient {
     })
   }
 
-  /**
-   * Phase 4 "Test connection" only: sends Meta's built-in `hello_world` template directly.
-   * TODO(phase-5): route through MessagingService → whatsapp.outbound; no other caller may send.
-   */
-  async sendTestTemplate(token: string, phoneNumberId: string, to: string): Promise<SendResult> {
-    const body = await this.request<{ messages?: Array<{ id: string }> }>(
-      'POST',
-      `${phoneNumberId}/messages`,
-      token,
-      {
-        json: {
-          messaging_product: 'whatsapp',
-          to,
-          type: 'template',
-          template: { name: 'hello_world', language: { code: 'en_US' } },
-        },
-      },
-    )
-    return { messageId: body.messages?.[0]?.id ?? '' }
+  /** Media metadata; `url` is short-lived and must be fetched with the same token. */
+  getMediaUrl(
+    token: string,
+    mediaId: string,
+  ): Promise<{ url: string; mime_type?: string; file_size?: number; sha256?: string }> {
+    return this.request('GET', mediaId, token)
   }
 
-  private async request<T>(
+  downloadMedia(token: string, url: string): Promise<{ bytes: Buffer; mimeType?: string }> {
+    return this.http.download(url, token)
+  }
+
+  private request<T>(
     method: 'GET' | 'POST' | 'DELETE',
     path: string,
     token: string | undefined,
     opts: { query?: Record<string, string>; json?: unknown } = {},
   ): Promise<T> {
-    const url = graphUrl(this.options, path, opts.query)
-    const headers: Record<string, string> = { Accept: 'application/json' }
-    if (token) headers.Authorization = `Bearer ${token}`
-    if (opts.json !== undefined) headers['Content-Type'] = 'application/json'
-    let res: Response
-    try {
-      res = await this.doFetch(url, {
-        method,
-        headers,
-        body: opts.json === undefined ? undefined : JSON.stringify(opts.json),
-        signal: AbortSignal.timeout(this.timeoutMs),
-      })
-    } catch (err) {
-      const timedOut =
-        err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
-      throw new GraphError(
-        timedOut ? `Meta did not respond within ${this.timeoutMs} ms` : 'Could not reach Meta',
-        undefined,
-        undefined,
-      )
-    }
-    const text = await res.text()
-    let body: unknown = null
-    try {
-      body = text ? JSON.parse(text) : null
-    } catch {
-      body = null
-    }
-    if (!res.ok) {
-      const e = (
-        body as {
-          error?: { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string }
-        } | null
-      )?.error
-      throw new GraphError(
-        e?.message ?? `Meta returned HTTP ${res.status}`,
-        res.status,
-        e?.code,
-        e?.error_subcode,
-        e?.fbtrace_id,
-      )
-    }
-    return body as T
+    return this.http.request<T>(method, path, token, opts)
   }
 }

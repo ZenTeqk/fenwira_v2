@@ -8,7 +8,10 @@ import { type Job } from 'bullmq'
 export interface QueueProcessor<Data = unknown, Result = unknown> {
   readonly queue: QueueName
   readonly concurrency?: number
-  process(job: Job<Data>): Promise<Result>
+  /** Custom delay for jobs added with `backoff: { type: 'custom' }` (ms before the next try). */
+  backoffStrategy?(attemptsMade: number, err: Error | undefined, job: Job<Data> | undefined): number
+  /** `token` is the lock token BullMQ needs for job.moveToDelayed(). */
+  process(job: Job<Data>, token?: string): Promise<Result>
 }
 
 export const QUEUE_PROCESSORS = Symbol('QUEUE_PROCESSORS')

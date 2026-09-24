@@ -137,7 +137,12 @@ describe('RBAC: every role gets 403 for every permission it lacks (generated)', 
         (r) => r.method === 'GET' && r.permission && roleHasPermission(role, r.permission),
       )) {
         const res = await call(byRole[role], route)
-        if (res.status !== 200) failures.push(`${role} ${route.path} → ${res.status}`)
+        // Routes with an :id get a random id: past the permission gate that is a plain 404
+        // NOT_FOUND for the unknown resource (never 403, never TENANT_NOT_FOUND).
+        const allowed = route.path.includes(':')
+          ? res.status === 200 || (res.status === 404 && res.body.error?.code === 'NOT_FOUND')
+          : res.status === 200
+        if (!allowed) failures.push(`${role} ${route.path} → ${res.status}`)
       }
     }
     expect(failures).toEqual([])

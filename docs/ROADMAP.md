@@ -17,7 +17,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 2 | Design system + application shell | ✅ all acceptance criteria pass locally (see below). The CI workflow includes every check but hasn't run on GitHub yet (no remote). | [PHASE_02](prompts/PHASE_02_DESIGN_SYSTEM.md) |
 | 3 | Authentication + tenant + RBAC + RLS | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_03](prompts/PHASE_03_AUTH_TENANCY.md) |
 | 4 | Meta onboarding + WhatsApp account management | 🔵 every criterion passes against the simulated Graph API (see below). Real Embedded Signup needs Meta Tech Provider approval (MI1). |  [PHASE_04](prompts/PHASE_04_META_ONBOARDING.md) |
-| 5 | Webhook + messaging engine | ⬜ | [PHASE_05](prompts/PHASE_05_MESSAGING_ENGINE.md) |
+| 5 | Webhook + messaging engine | 🔵 every criterion passes against the simulated Graph API (see below). The real-test-number run needs Meta credentials (MI1). | [PHASE_05](prompts/PHASE_05_MESSAGING_ENGINE.md) |
 | 6 | Contacts + consent + CRM foundation | ⬜ | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
 | 7 | Multi-agent shared inbox | ⬜ | [PHASE_07](prompts/PHASE_07_INBOX.md) |
 | 8 | Template management / builder | ⬜ | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
@@ -124,4 +124,28 @@ Test counts: 126 integration (62 database, 10 API, 54 system), 33 Playwright e2e
 Bugs found and fixed during the phase:
 
 - The worker couldn't boot the sync processor because `AuditModule` was imported only by the API root module. Nest aborted the whole test process.
+
+## Phase 5 verification (2026-09-25)
+
+| Acceptance criterion | Result | Evidence |
+| --- | --- | --- |
+| Replaying the same webhook payload 10 times creates exactly one message | ✅ | `apps/worker/test/messaging.int.test.ts`: 10 concurrent signed deliveries → 1 message, 1 `webhook_events` row (PROCESSED), contact with profile name, and a service window of exactly 24 h from the customer's timestamp. |
+| A bad signature returns 401 and persists nothing | ✅ | Wrong secret, missing header, and a valid signature over re-serialized JSON all return 401, with 0 `webhook_events` rows and no conversations. The handshake echoes `hub.challenge` only with the right verify token. |
+| CREATED → QUEUED → SENDING → SENT → DELIVERED → READ on a real test number, and the UI updates live | ✅ / ⏳ | Against the mock: the integration test receives exactly `QUEUED, SENDING, SENT, DELIVERED, READ` over Socket.IO in the `conversation:{id}` room. e2e: the Test connection dialog's test message reaches Read, and the test asserts the `message.status` frames arrived over the WebSocket. A real test number needs Meta credentials (MI1). |
+| Out-of-order statuses (READ before DELIVERED) end in READ | ✅ | READ → DELIVERED → SENT webhooks end READ with `delivered_at` backfilled; a later `failed` is recorded (`META_131026`) without regressing the status. |
+| Killing the worker mid-send and restarting gives no duplicate and no lost message | ✅ | Integration: graceful stop mid-send (the in-flight send completes, one queued while down is sent after restart) and a simulated crash recovered through `biz_opaque_callback_data` with zero resends. Live stack: `docker kill fenwira-worker` while Meta was processing the send → final READ with exactly **1** Meta call. |
+| Killing Redis, sending, then restoring Redis: the outbox delivers once Redis is back | ✅ | Live stack (`docker stop fenwira-redis` with the send pending): the message stayed CREATED and its outbox event PENDING while retrying; after `docker start fenwira-redis` it reached READ with exactly **1** Meta call. The worker now starts even while Redis is down, since the sync scheduler registers in the background. |
+| A 5xx is retried with backoff; a permanent error fails with no retries; exhausted retries land in the DLQ | ✅ | 2 injected 500s → SENT on the 3rd call; 131026 → FAILED `META_UNDELIVERABLE` after exactly 1 call; 10 injected 503s → FAILED `RETRIES_EXHAUSTED` after 5 calls, with the job in `whatsapp.outbound.dlq`. `pnpm --filter @fenwira/worker dlq --message <id>` replays it to SENT. |
+| A freeform send outside the 24h window is rejected server-side with a typed error | ✅ | 422 `CONVERSATION_WINDOW_CLOSED`; a template to the same number is accepted and sent. The worker re-checks the window at send time. |
+| A static check proves only the outbound worker imports the Meta send functions | ✅ | dependency-cruiser rule `meta-send-only-in-outbound` over `@fenwira/whatsapp/send`. A planted import in another messaging file made `pnpm lint:deps` fail. The Phase 4 direct test send was removed; test messages go through `POST /conversations`. |
+
+Also verified: the Idempotency-Key replay returns the same message with `Idempotent-Replayed: true` and sends once (a different body is 409, a missing key 400); inbound media lands in MinIO and downloads through a presigned URL; presigned upload → magic-byte check → image send; mark-as-read reaches Meta; the security matrix covers the 10 new routes; and metrics (`webhook_received_total`, `meta_api_requests_total`, `queue_depth`, `dlq_size` and others) carry no tenant labels.
+
+Test counts: 168 integration (88 database, 10 API, 70 system), 33 Playwright e2e and 131 unit tests.
+
+Bugs found and fixed during the phase:
+
+- The generated RBAC check expected 200 from every allowed GET, but routes with an `:id` correctly answer 404 NOT_FOUND for a random id. The check now requires 200, or 404 NOT_FOUND for `:id` routes.
+- A type-only import between `core-config` and `storage.service` formed a dependency cycle, which dependency-cruiser caught.
+- Worker boot awaited the sync scheduler registration, so a Redis outage at startup would crash-loop the worker.
 

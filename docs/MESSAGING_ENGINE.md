@@ -151,6 +151,22 @@ After commit: emit WS `message.created` and `conversation.updated`.
 
 `message.created`, `message.status` (`{messageId, conversationId, status, errorCode?}`), `conversation.updated`.
 
+## Implementation notes (Phase 5)
+
+- **Code map.** `apps/api/src/modules/messaging`: `MessagingService` (the only send path), `WebhookIngestService` + `WhatsAppWebhookController` (`/api/v1/webhooks/whatsapp`, raw body kept via Nest `rawBody`), and the processors `InboundProcessor`, `StatusProcessor`, `OutboundProcessor`, `MediaProcessor`. `@fenwira/whatsapp` provides `normalizeWebhook`, `verifyWebhookSignature` and, in the `@fenwira/whatsapp/send` subpath, `MessageSender` + `buildSendPayload`.
+- **Static guarantee.** dependency-cruiser rule `meta-send-only-in-outbound` fails `pnpm lint:deps` if anything but `outbound.processor.ts` imports `@fenwira/whatsapp/send` (verified by planting a violation).
+- **Outbox → queue.** The relay enqueues `message.outbound.requested` with `jobId = send__{messageId}` and the queue's retry policy (`QUEUE_JOB_OPTIONS` in `@fenwira/queue`), then runs the dispatch hook the outbound processor registers (CREATED → QUEUED).
+- **Retries.** Outbound: 5 attempts, custom backoff `2^n × WHATSAPP_OUTBOUND_BACKOFF_MS` ±20 % (default 1 s → 2, 4, 8, 16 s); Meta rate limits (`RETRYABLE_RATE`) wait 60× longer. On the last attempt the message becomes FAILED `RETRIES_EXHAUSTED` and the job data is copied to `whatsapp.outbound.dlq`. Replay: `pnpm --filter @fenwira/worker dlq [--message <id> | --all]` (resets to QUEUED with a new attempt budget).
+- **Per-number throughput.** A Redis fixed one-second window `rl:wa:{phoneId}:{second}` allows `throughput_mps` sends; over the limit the job is delayed 250–500 ms without using an attempt.
+- **Interrupted sends (crash recovery).** Every send carries `biz_opaque_callback_data = message.id`, which Meta echoes in status webhooks. If the worker dies after Meta accepted a send but before SENT was written, the status processor attaches the wamid by that id. A re-run that finds the message still SENDING waits up to 60 s for that webhook before resending, so a crash no longer produces a duplicate as long as Meta's status arrives within the grace period (verified with `docker kill` mid-send).
+- **Status before send.** A status for an unknown wamid (and no callback match) throws `MessageNotYetKnown`; after 5 attempts the event is stored as IGNORED.
+- **WABA-level events.** `phone_number_quality_update` and `account_update` queue a `whatsapp.sync` refresh of that WABA's numbers; template events are stored and IGNORED until Phase 8.
+- **Media.** Inbound media is copied from Meta to MinIO by `whatsapp.media` (a READY `files` row linked to the message). Outbound media is uploaded to Meta (`POST /{phone}/media`) at send time, so it works without Meta reaching MinIO.
+- **Mark as read** is a `mark-read` job on `whatsapp.outbound`, so it stays inside the one module allowed to call Meta.
+- **Realtime.** `RealtimeEmitter` (core) publishes through the Socket.IO Redis adapter from api and worker: `message.created`, `message.status` and `message.updated` go to `tenant:{id}` and `conversation:{id}`, and `conversation.updated` to both. Sockets join `conversation:{id}` with `conversation.join`, which checks the conversation belongs to the socket's tenant.
+- **Metrics** (`prom-client`; OpenTelemetry comes in Phase 12): `webhook_received_total{kind,result}`, `webhook_ingest_duration_ms`, `meta_api_requests_total{endpoint,result,error_code}`, `meta_api_duration_ms`, `messages_status_total{direction,status}`, `queue_depth{queue,state}`, `dlq_size{queue}`. Served on the worker's internal health port (`/metrics`) and the api's internal `METRICS_PORT`.
+- **Not yet built:** the consent check (Phase 6), compose lock and takeover guards (Phase 7), template validation (Phase 8), balance check (Phase 11), and `POST /messages/:id/retry` (Phase 7).
+
 ## Open questions
 
 | # | Question | Owner |

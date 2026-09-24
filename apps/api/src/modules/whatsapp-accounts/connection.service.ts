@@ -411,16 +411,13 @@ export class WhatsAppConnectionService {
   // ------------------------------------------------------------------------------------------
 
   /**
-   * Live Graph check plus an optional hello_world to `to`.
-   * TODO(phase-5): send through MessagingService → whatsapp.outbound instead of calling Graph here.
+   * Live Graph check of the number and its token. Test messages go through MessagingService
+   * (POST /conversations with a template), never from here.
    */
-  async test(id: string, to?: string): Promise<TestConnectionResult> {
+  async test(id: string): Promise<TestConnectionResult> {
     const { tenantId } = currentTenant()
     await this.limits.consume([
       { bucket: 'whatsapp-test:tenant', key: tenantId, limit: 30, windowSeconds: 3600 },
-      ...(to
-        ? [{ bucket: 'whatsapp-test-send:tenant', key: tenantId, limit: 10, windowSeconds: 3600 }]
-        : []),
     ])
     const { phone, credential, token } = await this.tenantDb.run((tx) => this.loadWithToken(tx, id))
     const result = (error?: { code: string; message: string }): TestConnectionResult => ({
@@ -440,16 +437,7 @@ export class WhatsAppConnectionService {
           data: { qualityRating: phone.qualityRating, lastSyncedAt: new Date() },
         }),
       )
-      if (!to) return result()
-      const sent = await this.graph.sendTestTemplate(token, phone.phoneNumberId, to)
-      await this.tenantDb.run((tx) =>
-        this.audit.write(tx, {
-          action: 'whatsapp.test_message_sent',
-          targetType: 'whatsapp_phone_number',
-          targetId: phone.id,
-        }),
-      )
-      return { ...result(), message: sent }
+      return result()
     } catch (err) {
       if (!(err instanceof GraphError)) throw err
       if (err.classification === 'CREDENTIAL')

@@ -2,8 +2,10 @@ import {
   type CoreConfig,
   CoreModule,
   HealthModule,
+  MetricsController,
   PostgresHealthIndicator,
   RedisHealthIndicator,
+  storageConfigFromEnv,
   WorkerRuntimeModule,
 } from '@fenwira/api/core'
 import { IdentityProcessor, IdentityWorkerModule } from '@fenwira/api/modules/identity'
@@ -14,6 +16,7 @@ import {
   PlatformWorkerModule,
 } from '@fenwira/api/modules/platform'
 import { TenancyModule, TenancyProcessor } from '@fenwira/api/modules/tenancy'
+import { MESSAGING_PROCESSORS, MessagingModule } from '@fenwira/api/modules/messaging'
 import {
   WhatsAppAccountsModule,
   WhatsAppSyncProcessor,
@@ -31,6 +34,7 @@ export function coreConfigFromWorkerEnv(env: WorkerEnv): CoreConfig {
     databaseUrl: env.DATABASE_URL,
     dbPoolSize: env.DB_POOL_SIZE,
     redisUrl: env.REDIS_URL,
+    storage: storageConfigFromEnv(env),
   }
 }
 
@@ -47,8 +51,18 @@ export class WorkerModule {
     })
     const identity = IdentityWorkerModule.forWorker({ webOrigin: env.WEB_ORIGIN })
     const tenancy = TenancyModule.forWorker({ webOrigin: env.WEB_ORIGIN })
+    const keyRing = parseKeyRing(env.ENCRYPTION_KEYS, env.ENCRYPTION_ACTIVE_KEY_ID)
+    const messaging = MessagingModule.forWorker(
+      {
+        keyRing,
+        graphBaseUrl: env.META_GRAPH_BASE_URL,
+        graphVersion: env.META_GRAPH_API_VERSION,
+        outboundBackoffBaseMs: env.WHATSAPP_OUTBOUND_BACKOFF_MS,
+      },
+      [platform],
+    )
     const whatsapp = WhatsAppAccountsModule.forWorker({
-      keyRing: parseKeyRing(env.ENCRYPTION_KEYS, env.ENCRYPTION_ACTIVE_KEY_ID),
+      keyRing,
       appId: env.META_APP_ID,
       appSecret: env.META_APP_SECRET,
       graphVersion: env.META_GRAPH_API_VERSION,
@@ -57,17 +71,19 @@ export class WorkerModule {
       syncIntervalHours: env.WHATSAPP_SYNC_INTERVAL_HOURS,
     })
     const runtime = WorkerRuntimeModule.forRoot({
-      imports: [platform, identity, tenancy, whatsapp],
+      imports: [platform, identity, tenancy, whatsapp, messaging],
       processors: [
         ...PLATFORM_PROCESSORS,
         IdentityProcessor,
         TenancyProcessor,
         WhatsAppSyncProcessor,
+        ...MESSAGING_PROCESSORS,
       ],
     })
 
     return {
       module: WorkerModule,
+      controllers: [MetricsController],
       imports: [
         CoreModule.forRoot(coreConfigFromWorkerEnv(env)),
         EmailModule.forRoot({ smtpUrl: env.SMTP_URL, from: env.MAIL_FROM }),
@@ -75,6 +91,7 @@ export class WorkerModule {
         identity,
         tenancy,
         whatsapp,
+        messaging,
         runtime,
         HealthModule.forRoot({
           imports: [platform, runtime],

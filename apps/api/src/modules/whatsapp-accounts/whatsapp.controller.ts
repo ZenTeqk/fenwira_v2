@@ -3,7 +3,6 @@ import {
   devConnectWhatsAppRequestSchema,
   rotateTokenRequestSchema,
   type TestConnectionResult,
-  testConnectionRequestSchema,
   updateConnectionRequestSchema,
   type WhatsAppConnection,
   type WhatsAppSignupConfig,
@@ -64,12 +63,8 @@ export class WhatsAppConnectionsController {
   @Post('whatsapp/connections/:id/test')
   @RequirePermission('whatsapp.manage')
   @HttpCode(200)
-  async test(
-    @Param('id', uuidParam) id: string,
-    @Body(new ZodValidationPipe(testConnectionRequestSchema))
-    body: z.infer<typeof testConnectionRequestSchema>,
-  ): Promise<{ data: TestConnectionResult }> {
-    return { data: await this.connections.test(id, body.to) }
+  async test(@Param('id', uuidParam) id: string): Promise<{ data: TestConnectionResult }> {
+    return { data: await this.connections.test(id) }
   }
 
   @Post('whatsapp/connections/:id/sync')

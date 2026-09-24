@@ -33,9 +33,6 @@ describe('GraphClient against meta-mock', () => {
     expect(phones.map((p) => p.id)).toEqual([DEMO_PHONE_ID])
     await client.subscribeApp(token, DEMO_WABA_ID)
     await client.registerPhoneNumber(token, DEMO_PHONE_ID, '123456')
-    expect((await client.sendTestTemplate(token, DEMO_PHONE_ID, '15550100002')).messageId).toMatch(
-      /^wamid\./,
-    )
     const register = state.calls.find((c) => c.path.endsWith('/register'))
     expect(register?.authorization).toBe(`Bearer ${token}`)
   })

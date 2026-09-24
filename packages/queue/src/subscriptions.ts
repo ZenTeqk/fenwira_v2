@@ -11,6 +11,11 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'identity.password_reset.requested': [QUEUES.identityEvents],
   'tenancy.invitation.sent': [QUEUES.tenancyEvents],
   'whatsapp.connection.changed': [],
+  'message.outbound.requested': [QUEUES.whatsappOutbound],
+  // Subscribers (contacts keywords, automation, analytics, billing, campaigns) arrive in P6–P11.
+  'message.inbound.received': [],
+  'message.status.changed': [],
+  'conversation.opened': [],
 }
 
 export function subscribersFor(eventType: string): readonly QueueName[] {

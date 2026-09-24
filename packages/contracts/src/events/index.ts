@@ -26,6 +26,21 @@ export const EVENT_PAYLOAD_SCHEMAS = {
   'identity.password_reset.requested': z.object({ userId: z.uuid() }),
   // Tenancy (tenant events). The worker (re)generates the invitation token and emails it.
   'tenancy.invitation.sent': z.object({ invitationId: z.uuid() }),
+  // Messaging (Phase 5). IDs only; consumers reload what they need inside withTenant.
+  'message.outbound.requested': z.object({ messageId: z.uuid() }),
+  'message.inbound.received': z.object({
+    messageId: z.uuid(),
+    conversationId: z.uuid(),
+    contactId: z.uuid(),
+  }),
+  'message.status.changed': z.object({
+    messageId: z.uuid(),
+    from: z.string(),
+    to: z.string(),
+    errorCode: z.string().optional(),
+    pricing: z.unknown().optional(),
+  }),
+  'conversation.opened': z.object({ conversationId: z.uuid(), contactId: z.uuid() }),
   // WhatsApp accounts (Phase 4). Subscribers arrive with the inbox/notifications phases.
   'whatsapp.connection.changed': z.object({
     phoneId: z.uuid(),

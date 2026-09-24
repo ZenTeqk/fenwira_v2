@@ -239,12 +239,27 @@ describe('managing a connection', () => {
     const { id } = (await connect(owner, ids)).body.data
     const live = track(await owner.client.post(`/whatsapp/connections/${id}/test`, {}))
     expect(live.body.data).toMatchObject({ ok: true, status: 'CONNECTED' })
+    // Test messages go through MessagingService (a hello_world template via POST /conversations).
     const sent = track(
-      await owner.client.post(`/whatsapp/connections/${id}/test`, { to: '+91 98765 43210' }),
+      await owner.client.post(
+        '/conversations',
+        {
+          to: '+91 98765 43210',
+          phoneNumberId: id,
+          content: { type: 'TEMPLATE', name: 'hello_world', language: 'en_US' },
+        },
+        { 'Idempotency-Key': `test-send-${id}` },
+      ),
     )
-    expect(sent.body.data.message.messageId).toMatch(/^wamid\./)
-    const msg = mock.state.calls.filter((c) => c.path === `${ids.phoneNumberId}/messages`).at(-1)
-    expect(msg?.body).toMatchObject({ to: '919876543210', template: { name: 'hello_world' } })
+    expect(sent.status, sent.text).toBe(201)
+    const deadline = Date.now() + 10_000
+    while (
+      !mock.state.sent.some((m) => m.phoneNumberId === ids.phoneNumberId) &&
+      Date.now() < deadline
+    )
+      await new Promise((r) => setTimeout(r, 100))
+    const msg = mock.state.sent.filter((m) => m.phoneNumberId === ids.phoneNumberId).at(-1)
+    expect(msg?.payload).toMatchObject({ to: '919876543210', template: { name: 'hello_world' } })
 
     const token = mock.state.calls
       .filter((c) => c.path.startsWith(ids.phoneNumberId))

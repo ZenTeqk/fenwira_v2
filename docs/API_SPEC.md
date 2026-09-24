@@ -69,7 +69,7 @@ Error codes are a closed enum in `packages/contracts/src/errors.ts`, and the web
 
 ### Idempotency
 
-- `Idempotency-Key`: 8–128 characters, unique per `(tenant, scope)` for 24 hours.
+- `Idempotency-Key`: 8–128 characters, unique per `(tenant, scope)` for 24 hours. Implemented by `IdempotencyInterceptor` (`idempotency_keys` table); a missing key on an **IK** endpoint is 400. Replays carry `Idempotent-Replayed: true`, and a failed request releases its key.
 - First request: the key row is locked, the handler runs, and the status and body are stored.
 - Replay with the same body hash returns the stored response. With a different body it returns 409 `IDEMPOTENCY_KEY_REUSED`. While the first request is still running, it returns 409 `IDEMPOTENCY_IN_PROGRESS`.
 
@@ -163,11 +163,11 @@ Implementation notes (Phase 4):
 
 - A connection (`WhatsAppConnection` in `@fenwira/contracts`) carries status, quality, tier, webhook status, `lastSyncedAt`, `steps[]` and `credential {status, tokenType, maskedToken, expiresAt}`. No response ever contains a token. `maskedToken` looks like `EAAG…9f2c`.
 - `POST /whatsapp/connections` and `/dev`: a failure before anything is stored (EXCHANGE, VERIFY, FETCH) returns **422 `WHATSAPP_CONNECT_FAILED`** with `details {step, steps}`. The user restarts signup, because the code is single-use. A number that is live in another workspace returns **409 `PHONE_NUMBER_ALREADY_CONNECTED`**, which never reveals that workspace. A failure after storing (SUBSCRIBE, REGISTER, VALIDATE) returns **201** with `status: ERROR` and the failed step, and `POST /:id/retry` resumes from it.
-- Connecting is naturally idempotent per `(tenant, phoneNumberId)`: repeating it reuses the row and re-runs the steps. The generic `Idempotency-Key` middleware (IK) is not built yet and arrives with messaging in Phase 5.
-- `POST /:id/test {to?}`: in Phase 4, the optional message is Meta's `hello_world` template sent by a direct Graph call, marked `TODO(phase-5)` to go through `MessagingService`. The response is `{ok, status, qualityRating, error?, message?}` and is 200 even when Meta rejects the call.
+- Connecting is naturally idempotent per `(tenant, phoneNumberId)`: repeating it reuses the row and re-runs the steps.
+- `POST /:id/test`: a live Graph check of the number and its token, returning `{ok, status, qualityRating, error?}` (200 even when Meta rejects the call). Since Phase 5 a test message is an ordinary send: `POST /conversations` with the `hello_world` template.
 - `POST /:id/rotate-token`: `{code}` (Embedded Signup) or `{accessToken}` (developer connect only).
 - `PATCH /:id`: `{isDefault: true}` and/or `{label}`.
-- Rate limits per tenant: connect/rotate 20/h, test 30/h (with a message 10/h), sync 30/h.
+- Rate limits per tenant: connect/rotate 20/h, test 30/h, sync 30/h.
 
 ### Webhooks (P5). Public, no auth.
 
@@ -195,7 +195,9 @@ Implementation notes (Phase 4):
 | POST | `/files/upload-url` | Authenticated. `{purpose, mimeType, sizeBytes}` → `{fileId, url, headers}` |
 | POST | `/files/:id/complete` | Verifies the object and sniffs its type → READY or REJECTED |
 | GET | `/files/:id/download-url` | Scoped by file purpose permission |
-| POST | `/messages/:id/retry` | `inbox.reply`. Only for FAILED messages with a retryable error. |
+| POST | `/messages/:id/retry` | `inbox.reply`. Only for FAILED messages with a retryable error. (Phase 7) |
+
+Implemented in Phase 5: `GET /conversations` (newest first, cursor; inbox filters arrive in Phase 7), `POST /conversations` **IK** (`{to, phoneNumberId?, content}` starts or continues a conversation with a phone number, usually a template), `GET /conversations/:id`, `GET /conversations/:id/messages` (newest first, `before` cursor), `POST /conversations/:id/messages` **IK** (`{content}`), `POST /conversations/:id/read` (queues Meta's read receipt), `GET /messages/:id`, and the three `/files` endpoints for message media (`inbox.reply` to upload, `inbox.read` to download). Sendable content in v1: `TEXT`, `IMAGE`/`DOCUMENT`/`AUDIO`/`VIDEO` with a READY `fileId`, and `TEMPLATE {name, language, components?}` (template management is Phase 8). Send errors: 422 `NO_CONNECTED_NUMBER`, `CONTACT_BLOCKED`, `CONVERSATION_WINDOW_CLOSED`, `FILE_NOT_READY`. Uploads are checked on `complete`: the size must match and JPEG, PNG, PDF and MP4 files must carry the right magic bytes, or the file becomes REJECTED.
 
 ### Contacts (P6)
 

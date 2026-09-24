@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run --exclude '**/*.int.test.ts'",
     "test:integration": "vitest run --config vitest.integration.config.mts",
-    "watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput"
+    "watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "dlq": "node dist/cli/replay-dlq.js"
   },
   "dependencies": {
     "@fenwira/api": "workspace:*",

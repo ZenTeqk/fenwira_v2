@@ -43,6 +43,7 @@ export const STATUS_PRESETS = {
   RED: { tone: 'danger', label: 'Low quality', icon: XCircle },
   UNKNOWN: { tone: 'neutral', label: 'Quality unknown', icon: CircleDashed },
   // Messages
+  RECEIVED: { tone: 'neutral', label: 'Received', icon: CheckCircle2 },
   CREATED: { tone: 'neutral', label: 'Created', icon: CircleDashed },
   QUEUED: { tone: 'neutral', label: 'Queued', icon: Clock },
   SENDING: { tone: 'info', label: 'Sending', icon: Loader2 },

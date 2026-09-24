@@ -247,6 +247,15 @@ messages                                        T
   idx (tenant_id, conversation_id, created_at desc), GIN (text_search)
 ```
 
+Implemented in Phase 5 (migration `20260926000000_messaging`), with these differences from the draft above:
+
+- `messages.attempts int` counts outbound send attempts; `files.filename` keeps the original name for downloads.
+- `messages.text_search` (full-text search) is deferred to Phase 7, where inbox search needs it; Prisma can't manage generated `tsvector` columns, so it will be added in SQL then.
+- The status ladder is `public.fenwira_message_status_rank(message_status)` (CREATED 0 … READ 5; FAILED and RECEIVED −1), used by every status update's `WHERE`.
+- Partial unique indexes in `post-migrate.sql`: `contacts (tenant_id, phone_e164) WHERE deleted_at IS NULL`, `messages (tenant_id, provider_message_id)` and `messages (tenant_id, idempotency_key)` where not null.
+- `webhook_events.payload` is the normalized event plus `phoneId` (the number's row id); raw bodies are not stored (`raw_ref` dropped).
+- `contacts` has its core columns only (id, tenant, phone_e164, name, email, language, country, source, status, wa_profile_name, last_inbound_at, timestamps, deleted_at); owner and the Phase 6 tables arrive then.
+
 ## Contacts & consent (P6; `contacts` core in P5)
 
 ```text

@@ -3,6 +3,7 @@ import {
   type DomainEventType,
   type EventEnvelope,
 } from '@fenwira/contracts'
+import { type JobsOptions } from 'bullmq'
 import { type QueueName } from './names'
 
 /** Every job carries correlation and (except system.*) tenant context — docs/ARCHITECTURE.md. */
@@ -35,4 +36,26 @@ export function jobId(...parts: Array<string | number>): string {
 /** Job id for the relay fan-out of one outbox event to one subscriber queue. */
 export function eventJobId(eventId: string, subscriber: QueueName): string {
   return jobId(eventId, subscriber)
+}
+
+/**
+ * Retry policy per queue (docs/MESSAGING_ENGINE.md → Retry policy). Outbound uses the processor's
+ * custom backoff (exponential with jitter; long delays for Meta rate limits).
+ */
+export const QUEUE_JOB_OPTIONS: Partial<Record<QueueName, JobsOptions>> = {
+  'whatsapp.outbound': { attempts: 5, backoff: { type: 'custom' } },
+  'whatsapp.inbound': { attempts: 8, backoff: { type: 'exponential', delay: 1000 } },
+  'whatsapp.status': { attempts: 8, backoff: { type: 'exponential', delay: 1000 } },
+  'whatsapp.media': { attempts: 5, backoff: { type: 'exponential', delay: 2000 } },
+}
+
+/** Job id for an outbox event on a queue. An outbound send is keyed by its message id. */
+export function outboxJobId(
+  event: { id: string; eventType: string; payload: unknown },
+  queue: QueueName,
+): string {
+  const messageId = (event.payload as { messageId?: unknown } | null)?.messageId
+  if (event.eventType === 'message.outbound.requested' && typeof messageId === 'string')
+    return jobId('send', messageId)
+  return eventJobId(event.id, queue)
 }

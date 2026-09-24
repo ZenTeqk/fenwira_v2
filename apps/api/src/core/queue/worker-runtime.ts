@@ -9,7 +9,7 @@ import {
   type OnApplicationShutdown,
   type Type,
 } from '@nestjs/common'
-import { type Job, Worker } from 'bullmq'
+import { type Job, type MinimalJob, Worker } from 'bullmq'
 import type IORedis from 'ioredis'
 import { PinoLogger } from 'nestjs-pino'
 import { CORE_CONFIG, type CoreConfig } from '../config/core-config'
@@ -35,11 +35,27 @@ export class QueueWorkersService implements OnApplicationBootstrap, OnApplicatio
   onApplicationBootstrap(): void {
     this.connection = createRedisConnection(this.config.redisUrl, 'worker')
     for (const processor of this.processors) {
-      const worker = new Worker(processor.queue, (job: Job) => this.run(processor, job), {
-        connection: this.connection,
-        concurrency: processor.concurrency ?? 1,
-        autorun: true,
-      })
+      const worker = new Worker(
+        processor.queue,
+        (job: Job, token?: string) => this.run(processor, job, token),
+        {
+          connection: this.connection,
+          concurrency: processor.concurrency ?? 1,
+          autorun: true,
+          ...(processor.backoffStrategy
+            ? {
+                settings: {
+                  backoffStrategy: (
+                    attemptsMade: number,
+                    _type?: string,
+                    err?: Error,
+                    job?: MinimalJob,
+                  ) => processor.backoffStrategy!(attemptsMade, err, job as Job | undefined),
+                },
+              }
+            : {}),
+        },
+      )
       worker.on('failed', (job, err) =>
         this.logger.warn(
           { queue: processor.queue, jobId: job?.id, attempt: job?.attemptsMade, err },
@@ -57,7 +73,7 @@ export class QueueWorkersService implements OnApplicationBootstrap, OnApplicatio
     }
   }
 
-  private run(processor: QueueProcessor, job: Job): Promise<unknown> {
+  private run(processor: QueueProcessor, job: Job, token?: string): Promise<unknown> {
     const data = (job.data ?? {}) as JobData
     return requestContext.run(
       {
@@ -66,7 +82,7 @@ export class QueueWorkersService implements OnApplicationBootstrap, OnApplicatio
         jobId: job.id,
         queue: processor.queue,
       },
-      () => processor.process(job),
+      () => processor.process(job, token),
     )
   }
 

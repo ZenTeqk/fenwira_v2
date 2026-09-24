@@ -1,6 +1,11 @@
 import { Database } from '@fenwira/database'
 import { jobId, QUEUES } from '@fenwira/queue'
-import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common'
+import {
+  Inject,
+  Injectable,
+  type OnApplicationBootstrap,
+  type OnApplicationShutdown,
+} from '@nestjs/common'
 import { type Job } from 'bullmq'
 import { PinoLogger } from 'nestjs-pino'
 import { type QueueProcessor } from '../../core/queue/queue-processor'
@@ -21,7 +26,10 @@ type SyncJob = { tenantId?: string | null; phoneId?: string; correlationId?: str
  * one `sync-phone` job per number. Job ids are bucketed by interval so a slow run can't duplicate.
  */
 @Injectable()
-export class WhatsAppSyncProcessor implements QueueProcessor<SyncJob>, OnApplicationBootstrap {
+export class WhatsAppSyncProcessor
+  implements QueueProcessor<SyncJob>, OnApplicationBootstrap, OnApplicationShutdown
+{
+  private retryTimer?: NodeJS.Timeout
   readonly queue = QUEUES.whatsappSync
   readonly concurrency = 5
 
@@ -39,14 +47,32 @@ export class WhatsAppSyncProcessor implements QueueProcessor<SyncJob>, OnApplica
     return (this.options.syncIntervalHours ?? 6) * 3600 * 1000
   }
 
-  async onApplicationBootstrap(): Promise<void> {
-    await this.queues
-      .get(this.queue)
-      .upsertJobScheduler(
-        'whatsapp-sync-due',
-        { every: FAN_OUT_EVERY_MS },
-        { name: SYNC_DUE_JOB, data: {}, opts: { removeOnComplete: 100, removeOnFail: 100 } },
+  /** Registers the repeatable fan-out. Retries in the background so a Redis outage at boot
+   * doesn't stop the worker from starting (the relay and processors recover on their own). */
+  onApplicationBootstrap(): void {
+    void this.registerScheduler(0)
+  }
+
+  private async registerScheduler(attempt: number): Promise<void> {
+    try {
+      await this.queues
+        .get(this.queue)
+        .upsertJobScheduler(
+          'whatsapp-sync-due',
+          { every: FAN_OUT_EVERY_MS },
+          { name: SYNC_DUE_JOB, data: {}, opts: { removeOnComplete: 100, removeOnFail: 100 } },
+        )
+    } catch (err) {
+      this.logger.warn({ err, attempt }, 'could not register the sync scheduler; retrying')
+      this.retryTimer = setTimeout(
+        () => void this.registerScheduler(attempt + 1),
+        Math.min(30_000, 1000 * 2 ** attempt),
       )
+    }
+  }
+
+  onApplicationShutdown(): void {
+    clearTimeout(this.retryTimer)
   }
 
   async process(job: Job<SyncJob>): Promise<unknown> {

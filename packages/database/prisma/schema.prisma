@@ -197,6 +197,12 @@ model Tenant {
   whatsappPhoneNumbers     WhatsAppPhoneNumber[]
   metaCredentials          MetaCredential[]
   webhookSubscriptions     WebhookSubscription[]
+  contacts                 Contact[]
+  conversations            Conversation[]
+  messages                 Message[]
+  webhookEvents            WebhookEvent[]
+  files                    File[]
+  idempotencyKeys          IdempotencyKey[]
 
   @@map("tenants")
 }
@@ -430,8 +436,9 @@ model WhatsAppPhoneNumber {
   createdAt                 DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                 DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  waba   WhatsAppBusinessAccount @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba          WhatsAppBusinessAccount @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
 
   @@unique([tenantId, phoneNumberId])
   @@index([tenantId, status])
@@ -504,4 +511,296 @@ model WebhookSubscription {
 
   @@unique([tenantId, wabaId])
   @@map("webhook_subscriptions")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Messaging (Phase 5, docs/MESSAGING_ENGINE.md). Contacts get their core columns now; consent,
+// tags and properties arrive in Phase 6, inbox columns in Phase 7.
+// ---------------------------------------------------------------------------------------------
+
+enum ContactSource {
+  INBOUND
+  MANUAL
+  IMPORT
+  API
+  CAMPAIGN
+  AUTOMATION
+
+  @@map("contact_source")
+}
+
+enum ContactStatus {
+  ACTIVE
+  BLOCKED
+
+  @@map("contact_status")
+}
+
+/// One live contact per (tenant, phone_e164) — partial unique index in post-migrate.sql.
+model Contact {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  phoneE164     String        @map("phone_e164")
+  name          String?
+  email         String?       @db.Citext
+  language      String?
+  country       String?       @db.Char(2)
+  source        ContactSource
+  status        ContactStatus @default(ACTIVE)
+  waProfileName String?       @map("wa_profile_name")
+  lastInboundAt DateTime?     @map("last_inbound_at") @db.Timestamptz(3)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime?     @map("deleted_at") @db.Timestamptz(3)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  messages      Message[]
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("contacts")
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  SNOOZED
+  RESOLVED
+
+  @@map("conversation_status")
+}
+
+enum AutomationState {
+  AUTOMATION_ACTIVE
+  AGENT_TAKEOVER
+  AUTOMATION_PAUSED
+
+  @@map("automation_state")
+}
+
+/// One thread per contact per number. service_window_expires_at = last inbound + 24 h.
+model Conversation {
+  id                       String             @id @default(uuid(7)) @db.Uuid
+  tenantId                 String             @map("tenant_id") @db.Uuid
+  contactId                String             @map("contact_id") @db.Uuid
+  phoneNumberId            String             @map("phone_number_id") @db.Uuid
+  status                   ConversationStatus @default(OPEN)
+  assigneeId               String?            @map("assignee_id") @db.Uuid
+  automationState          AutomationState    @default(AUTOMATION_ACTIVE) @map("automation_state")
+  automationStateChangedAt DateTime?          @map("automation_state_changed_at") @db.Timestamptz(3)
+  automationStateChangedBy String?            @map("automation_state_changed_by") @db.Uuid
+  lastMessageId            String?            @map("last_message_id") @db.Uuid
+  lastMessageAt            DateTime?          @map("last_message_at") @db.Timestamptz(3)
+  lastMessagePreview       String?            @map("last_message_preview")
+  lastCustomerMessageAt    DateTime?          @map("last_customer_message_at") @db.Timestamptz(3)
+  serviceWindowExpiresAt   DateTime?          @map("service_window_expires_at") @db.Timestamptz(3)
+  firstResponseAt          DateTime?          @map("first_response_at") @db.Timestamptz(3)
+  resolvedAt               DateTime?          @map("resolved_at") @db.Timestamptz(3)
+  snoozedUntil             DateTime?          @map("snoozed_until") @db.Timestamptz(3)
+  createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact     Contact             @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  phoneNumber WhatsAppPhoneNumber @relation(fields: [phoneNumberId], references: [id], onDelete: Cascade)
+  messages    Message[]
+
+  @@unique([tenantId, contactId, phoneNumberId])
+  @@index([tenantId, status, lastMessageAt(sort: Desc)])
+  @@index([tenantId, assigneeId, status])
+  @@map("conversations")
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+  SYSTEM
+
+  @@map("message_direction")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  DOCUMENT
+  AUDIO
+  VIDEO
+  STICKER
+  LOCATION
+  CONTACTS
+  TEMPLATE
+  INTERACTIVE
+  REACTION
+  SYSTEM_EVENT
+  UNSUPPORTED
+
+  @@map("message_type")
+}
+
+enum MessageStatus {
+  RECEIVED
+  CREATED
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+
+  @@map("message_status")
+}
+
+enum MessageSource {
+  CUSTOMER
+  INBOX
+  CAMPAIGN
+  AUTOMATION
+  SYSTEM
+  API
+
+  @@map("message_source")
+}
+
+/// Outbound rows follow the state machine in docs/MESSAGING_ENGINE.md; status only moves forward
+/// (fenwira_message_status_rank). Partial unique indexes on provider_message_id and
+/// idempotency_key live in post-migrate.sql.
+model Message {
+  id                    String           @id @default(uuid(7)) @db.Uuid
+  tenantId              String           @map("tenant_id") @db.Uuid
+  conversationId        String           @map("conversation_id") @db.Uuid
+  contactId             String           @map("contact_id") @db.Uuid
+  direction             MessageDirection
+  type                  MessageType
+  status                MessageStatus
+  source                MessageSource
+  content               Json
+  fileId                String?          @map("file_id") @db.Uuid
+  providerMessageId     String?          @map("provider_message_id")
+  replyToMessageId      String?          @map("reply_to_message_id") @db.Uuid
+  idempotencyKey        String?          @map("idempotency_key")
+  sentByUserId          String?          @map("sent_by_user_id") @db.Uuid
+  campaignId            String?          @map("campaign_id") @db.Uuid
+  automationExecutionId String?          @map("automation_execution_id") @db.Uuid
+  attempts              Int              @default(0)
+  errorCode             String?          @map("error_code")
+  errorDetail           String?          @map("error_detail")
+  queuedAt              DateTime?        @map("queued_at") @db.Timestamptz(3)
+  sendingAt             DateTime?        @map("sending_at") @db.Timestamptz(3)
+  sentAt                DateTime?        @map("sent_at") @db.Timestamptz(3)
+  deliveredAt           DateTime?        @map("delivered_at") @db.Timestamptz(3)
+  readAt                DateTime?        @map("read_at") @db.Timestamptz(3)
+  failedAt              DateTime?        @map("failed_at") @db.Timestamptz(3)
+  providerTimestamp     DateTime?        @map("provider_timestamp") @db.Timestamptz(3)
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  contact      Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  file         File?        @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, conversationId, createdAt(sort: Desc)])
+  @@map("messages")
+}
+
+enum WebhookEventKind {
+  MESSAGE
+  STATUS
+  TEMPLATE_STATUS
+  TEMPLATE_QUALITY
+  TEMPLATE_CATEGORY
+  PHONE_QUALITY
+  ACCOUNT_UPDATE
+
+  @@map("webhook_event_kind")
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  IGNORED
+
+  @@map("webhook_event_status")
+}
+
+/// Every accepted webhook event, deduplicated per tenant. Retention 30 days.
+model WebhookEvent {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  tenantId      String             @map("tenant_id") @db.Uuid
+  dedupeKey     String             @map("dedupe_key")
+  kind          WebhookEventKind
+  phoneNumberId String?            @map("phone_number_id")
+  payload       Json
+  status        WebhookEventStatus @default(RECEIVED)
+  attempts      Int                @default(0)
+  lastError     String?            @map("last_error")
+  receivedAt    DateTime           @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt   DateTime?          @map("processed_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, dedupeKey])
+  @@index([tenantId, receivedAt(sort: Desc)])
+  @@map("webhook_events")
+}
+
+enum FilePurpose {
+  MESSAGE_MEDIA
+  IMPORT
+  EXPORT
+  AVATAR
+  TEMPLATE_SAMPLE
+
+  @@map("file_purpose")
+}
+
+enum FileStatus {
+  PENDING_UPLOAD
+  READY
+  REJECTED
+
+  @@map("file_status")
+}
+
+/// Objects in MinIO/S3. Browsers upload with presigned URLs; READY after the server checks it.
+model File {
+  id         String      @id @default(uuid(7)) @db.Uuid
+  tenantId   String      @map("tenant_id") @db.Uuid
+  bucket     String
+  objectKey  String      @map("object_key")
+  mimeType   String      @map("mime_type")
+  sizeBytes  BigInt      @map("size_bytes")
+  filename   String?
+  sha256     Bytes?
+  purpose    FilePurpose
+  status     FileStatus  @default(PENDING_UPLOAD)
+  uploadedBy String?     @map("uploaded_by") @db.Uuid
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([bucket, objectKey])
+  @@map("files")
+}
+
+/// HTTP Idempotency-Key records (docs/API_SPEC.md → Idempotency). Expire after 24 h.
+model IdempotencyKey {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  key            String
+  scope          String
+  requestHash    Bytes     @map("request_hash")
+  responseStatus Int?      @map("response_status")
+  responseBody   Json?     @map("response_body")
+  lockedUntil    DateTime? @map("locked_until") @db.Timestamptz(3)
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scope, key])
+  @@map("idempotency_keys")
 }

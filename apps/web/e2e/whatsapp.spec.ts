@@ -25,6 +25,13 @@ test('connect a number with developer connect, test it, and disconnect it', asyn
   expect(seeded.ok).toBe(true)
   const token = `mock-dev:${wabaId}:e2e-token`
 
+  const frames: string[] = []
+  page.on('websocket', (ws) =>
+    ws.on('framereceived', (f) => {
+      if (typeof f.payload === 'string' && f.payload.includes('message.status'))
+        frames.push(f.payload)
+    }),
+  )
   await signInAsNewOwner(page, 'ui-whatsapp')
   await page.goto('/settings/whatsapp')
   await expect(page.getByText('No WhatsApp number connected')).toBeVisible()
@@ -47,6 +54,12 @@ test('connect a number with developer connect, test it, and disconnect it', asyn
   const testDialog = page.getByRole('dialog', { name: 'Test connection' })
   await testDialog.getByRole('button', { name: 'Run test' }).click()
   await expect(testDialog.getByText('Meta reached this number')).toBeVisible()
+  // A test message goes through the messaging engine; its status updates live as the
+  // simulated Meta posts sent → delivered → read webhooks.
+  await testDialog.getByLabel('Send a test message to').fill('+91 98765 43210')
+  await testDialog.getByRole('button', { name: 'Send test message' }).click()
+  await expect(testDialog.locator('[data-status="READ"]')).toBeVisible({ timeout: 20_000 })
+  expect(frames.some((f) => f.includes('"READ"'))).toBe(true)
   await testDialog.getByRole('button', { name: 'Close' }).first().click()
 
   // The token never reaches browser storage.
