@@ -83,6 +83,6 @@ Test counts: 46 unit tests (9 packages) and 29 integration tests (16 RLS/outbox,
 | Shell renders at 1440, 1024 and 375 px without horizontal scroll | ✅ | `e2e/responsive.spec.ts`: dashboard and gallery at all three widths, a persistent sidebar at 1024 px, the drawer at 375 px, collapse to a 64 px rail that persists across reload |
 | The CI check finds zero raw colors in `apps/web`, and introducing one fails | ✅ | `pnpm lint:design` passes. Throwaway commit `e2607ce` (a `#ff0000` style plus `text-[#00A884]`) made it exit 1 with 3 findings; the branch was then deleted. |
 | Command palette opens with ⌘K/Ctrl+K and navigates to every visible nav item | ✅ | `e2e/keyboard.spec.ts`: passes with the shipped navigation (Dashboard) and in preview mode (all 26 items) |
-| Every StatusBadge renders a text label, never color alone | ✅ | A unit test renders all 26 `STATUS_PRESETS` and asserts each label |
+| Every StatusBadge renders a text label, never color alone | ✅ | A unit test renders all 27 `STATUS_PRESETS` and asserts each label |
 
 Test counts: 87 unit tests (32 in `@fenwira/ui`), 29 integration tests and 19 Playwright e2e tests. 29 components, plus `Field`/`Label`.
