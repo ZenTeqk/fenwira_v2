@@ -9,6 +9,8 @@ export type StorageConfig = {
   secretAccessKey: string
   forcePathStyle: boolean
   mediaBucket: string
+  importsBucket: string
+  exportsBucket: string
 }
 
 export type ServiceName = 'api' | 'worker'

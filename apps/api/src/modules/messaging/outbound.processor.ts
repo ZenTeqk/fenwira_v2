@@ -113,11 +113,11 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
       })
       if (!message || !SENDABLE.includes(message.status as 'CREATED')) return null
       const phone = message.conversation.phoneNumber
-      const guard = this.guard(
-        message.type,
-        phone.status,
-        message.conversation.serviceWindowExpiresAt,
-      )
+      const guard =
+        this.guard(message.type, phone.status, message.conversation.serviceWindowExpiresAt) ??
+        (message.purpose === 'MARKETING' && message.contact.marketingConsent !== 'GRANTED'
+          ? { code: 'CONSENT_REQUIRED', detail: 'The contact withdrew marketing consent.' }
+          : null)
       if (guard) {
         await this.fail(tx, message.id, guard.code, guard.detail)
         return { failed: true as const }
@@ -238,6 +238,22 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
       }
       await this.db.withTenant(tenantId, async (tx) => {
         await this.fail(tx, message.id, err.fenwiraCode, err.message.slice(0, 500))
+        // Consumers react to permanent failures (e.g. 131050 revokes marketing consent).
+        await tx.outboxEvent.create({
+          data: {
+            tenantId,
+            eventType: 'message.status.changed',
+            aggregateType: 'message',
+            aggregateId: message.id,
+            payload: {
+              messageId: message.id,
+              from: 'SENDING',
+              to: 'FAILED',
+              errorCode: err.fenwiraCode,
+            },
+            correlationId: job.data.correlationId ?? null,
+          },
+        })
         if (err.classification === 'CREDENTIAL')
           await markCredentialInvalid(tx, tenantId, credential.credentialId, phone.id)
       })

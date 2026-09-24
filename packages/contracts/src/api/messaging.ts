@@ -205,6 +205,7 @@ export const MEDIA_LIMITS: Record<
 }
 
 export const uploadUrlRequestSchema = z.object({
+  /** Message attachments. Contact CSVs use POST /imports/upload-url. */
   purpose: z.literal('MESSAGE_MEDIA'),
   mimeType: z.string().min(3).max(127),
   sizeBytes: z

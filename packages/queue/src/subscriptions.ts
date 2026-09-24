@@ -13,8 +13,13 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'whatsapp.connection.changed': [],
   'message.outbound.requested': [QUEUES.whatsappOutbound],
   // Subscribers (contacts keywords, automation, analytics, billing, campaigns) arrive in P6–P11.
-  'message.inbound.received': [],
-  'message.status.changed': [],
+  // Contacts handles opt-in/out keywords and Meta's 131050 opt-out; automation, analytics,
+  // billing and campaigns subscribe in P9–P11.
+  'message.inbound.received': [QUEUES.contactsEvents],
+  'message.status.changed': [QUEUES.contactsEvents],
+  'contact.created': [],
+  'contact.updated': [],
+  'consent.changed': [],
   'conversation.opened': [],
 }
 

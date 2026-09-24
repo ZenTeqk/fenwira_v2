@@ -41,6 +41,15 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     pricing: z.unknown().optional(),
   }),
   'conversation.opened': z.object({ conversationId: z.uuid(), contactId: z.uuid() }),
+  // Contacts (Phase 6). Subscribers (automation, analytics) arrive in P10–P11.
+  'contact.created': z.object({ contactId: z.uuid(), source: z.string() }),
+  'contact.updated': z.object({ contactId: z.uuid(), changedFields: z.array(z.string()) }),
+  'consent.changed': z.object({
+    contactId: z.uuid(),
+    purpose: z.string(),
+    status: z.string(),
+    source: z.string(),
+  }),
   // WhatsApp accounts (Phase 4). Subscribers arrive with the inbox/notifications phases.
   'whatsapp.connection.changed': z.object({
     phoneId: z.uuid(),

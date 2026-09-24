@@ -133,7 +133,9 @@ export class InboundProcessor implements QueueProcessor<WebhookJob> {
     })
     const conversation =
       before ?? (await tx.conversation.create({ data: { ...key, status: 'OPEN' } }))
-    const opened = !before || before.status === 'RESOLVED'
+    // Blocked contacts: messages are still recorded, but the conversation stays resolved.
+    const blocked = contact.status === 'BLOCKED'
+    const opened = !blocked && (!before || before.status === 'RESOLVED')
 
     const message = await tx.message.create({
       data: {
@@ -164,6 +166,7 @@ export class InboundProcessor implements QueueProcessor<WebhookJob> {
       where: { id: conversation.id },
       data: {
         ...(opened ? { status: 'OPEN', resolvedAt: null } : {}),
+        ...(blocked ? { status: 'RESOLVED', resolvedAt: new Date() } : {}),
         ...(newer ? { lastCustomerMessageAt: at, serviceWindowExpiresAt: windowEnd } : {}),
         lastMessageId: message.id,
         lastMessageAt: message.createdAt,

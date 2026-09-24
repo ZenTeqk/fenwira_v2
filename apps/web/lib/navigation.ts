@@ -19,7 +19,7 @@ import {
  * "coming soon" entries; NEXT_PUBLIC_NAV_PREVIEW=true (development only) reveals everything
  * with a placeholder page so the shell can be reviewed.
  */
-export const SHIPPED_PHASE = 4
+export const SHIPPED_PHASE = 6
 
 /** `permission`: hidden unless the member's role grants it (the API enforces it regardless). */
 export type NavLeaf = {
@@ -41,10 +41,34 @@ export const NAVIGATION: NavItem[] = [
     phase: 6,
     icon: Users,
     children: [
-      { id: 'contacts-all', label: 'All Contacts', href: '/contacts', phase: 6 },
-      { id: 'contacts-segments', label: 'Segments', href: '/contacts/segments', phase: 6 },
-      { id: 'contacts-tags', label: 'Tags', href: '/contacts/tags', phase: 6 },
-      { id: 'contacts-imports', label: 'Imports', href: '/contacts/imports', phase: 6 },
+      {
+        id: 'contacts-all',
+        label: 'All Contacts',
+        href: '/contacts',
+        phase: 6,
+        permission: 'contacts.read',
+      },
+      {
+        id: 'contacts-segments',
+        label: 'Segments',
+        href: '/contacts/segments',
+        phase: 6,
+        permission: 'contacts.read',
+      },
+      {
+        id: 'contacts-tags',
+        label: 'Tags',
+        href: '/contacts/tags',
+        phase: 6,
+        permission: 'contacts.read',
+      },
+      {
+        id: 'contacts-imports',
+        label: 'Imports',
+        href: '/contacts/imports',
+        phase: 6,
+        permission: 'contacts.import',
+      },
     ],
   },
   {

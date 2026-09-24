@@ -18,7 +18,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 3 | Authentication + tenant + RBAC + RLS | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_03](prompts/PHASE_03_AUTH_TENANCY.md) |
 | 4 | Meta onboarding + WhatsApp account management | 🔵 every criterion passes against the simulated Graph API (see below). Real Embedded Signup needs Meta Tech Provider approval (MI1). |  [PHASE_04](prompts/PHASE_04_META_ONBOARDING.md) |
 | 5 | Webhook + messaging engine | 🔵 every criterion passes against the simulated Graph API (see below). The real-test-number run needs Meta credentials (MI1). | [PHASE_05](prompts/PHASE_05_MESSAGING_ENGINE.md) |
-| 6 | Contacts + consent + CRM foundation | ⬜ | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
+| 6 | Contacts + consent + CRM foundation | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
 | 7 | Multi-agent shared inbox | ⬜ | [PHASE_07](prompts/PHASE_07_INBOX.md) |
 | 8 | Template management / builder | ⬜ | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
 | 9 | Campaign / broadcast engine | ⬜ | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
@@ -148,4 +148,19 @@ Bugs found and fixed during the phase:
 - The generated RBAC check expected 200 from every allowed GET, but routes with an `:id` correctly answer 404 NOT_FOUND for a random id. The check now requires 200, or 404 NOT_FOUND for `:id` routes.
 - A type-only import between `core-config` and `storage.service` formed a dependency cycle, which dependency-cruiser caught.
 - Worker boot awaited the sync scheduler registration, so a Redis outage at startup would crash-loop the worker.
+
+## Phase 6 verification (2026-09-25)
+
+| Acceptance criterion | Result | Evidence |
+| --- | --- | --- |
+| Importing a 50k-row CSV with 5% invalid rows and 10% duplicates completes, the counts match, and the error CSV is correct | ✅ | `apps/worker/test/contacts.int.test.ts`: preview `total 50,000 / valid 47,500 / invalid 2,500 / new 42,500 / existing 5,000`, and the import creates 42,500 and skips 5,000. The error CSV has exactly the 2,500 invalid rows (row numbers match), with the original columns and `INVALID_PHONE`. It takes about 60 s including a 5k-row seed import. The column mapping was auto-suggested from the headers. |
+| An inbound "STOP" revokes marketing consent within seconds, and the Consent tab shows the evidence message | ✅ | Revoked in under 10 s (the test asserts it); the history row has `source INBOUND_KEYWORD` and `evidence {messageId, keyword}`, and the grant it ends gets `revoke_source`. The confirmation reply goes out through `MessagingService`. A repeated STOP adds no row, and START opts back in. The Consent tab renders the evidence (e2e for manual changes). |
+| A marketing send to a contact without consent is rejected by `MessagingService` (test) | ✅ | `CONSENT_REQUIRED`. The outbound worker re-checks at send time. Meta 131050 on a send revokes consent with `META_OPT_OUT` evidence. UTILITY sends are blocked only after an explicit revocation. |
+| A segment count equals the filtered list count for the same DSL (property-based test on generated filters) | ✅ | fast-check, 40 generated filters up to depth 3: search IDs, `/contacts/count` and `/segments/:id/count` all equal an independent reference evaluator. It found and fixed a real bug (Prisma drops `{}` inside `OR`). |
+| The cross-tenant matrix covers contacts, search, segments, imports and exports | ✅ | Tenant matrix fixtures for all 11 new tables (contact activities are append-only). The security matrix covers every new route. Another workspace's segment inside a filter is a 400. |
+| Deleting contacts is a soft delete, and it is audit-logged | ✅ | `DELETE /contacts/:id` → 404 afterwards, a `contact.deleted` audit entry, and the phone can be reused. A bulk delete writes `contacts.bulk_deleted` with the count. |
+
+UI: Contacts (list with search, filter builder, bulk tag, untag and delete, save as segment, export), Contact 360 (Overview, Conversations, Campaigns placeholder, Activities, Consent, Notes), Segments (builder with a live count), Tags, Imports (upload → map → preview → progress → error report), and Settings → Workspace → Contact fields and Opt-out keywords. e2e covers create → consent → notes, filter → segment, and the import wizard. axe runs on the four contacts pages.
+
+Test counts: 219 integration (132 database, 10 API, 77 system), 36 Playwright e2e and 134 unit tests.
 

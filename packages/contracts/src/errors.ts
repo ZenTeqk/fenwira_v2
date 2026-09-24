@@ -38,6 +38,8 @@ export const ERROR_CODES = [
   'CONSENT_REQUIRED',
   'INVALID_PHONE',
   'FILE_NOT_READY',
+  'LIMIT_EXCEEDED',
+  'IMPORT_NOT_READY',
   // 429
   'RATE_LIMITED',
   // 5xx

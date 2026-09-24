@@ -35,6 +35,10 @@ test('signed-in pages have no WCAG 2.1 AA violations', async ({ page }) => {
     '/settings/team',
     '/settings/roles',
     '/settings/whatsapp',
+    '/contacts',
+    '/contacts/segments',
+    '/contacts/tags',
+    '/contacts/imports',
     '/settings/security',
     '/settings/audit-logs',
   ]) {

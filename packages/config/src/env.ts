@@ -64,6 +64,8 @@ const storageEnv = {
   S3_FORCE_PATH_STYLE: booleanString.default(true),
   S3_BUCKET_MEDIA: z.string().min(3).default('fenwira-media'),
   S3_BUCKET_UPLOADS: z.string().min(3).default('fenwira-uploads'),
+  S3_BUCKET_IMPORTS: z.string().min(3).default('fenwira-imports'),
+  S3_BUCKET_EXPORTS: z.string().min(3).default('fenwira-exports'),
 }
 
 const optionalPem = z

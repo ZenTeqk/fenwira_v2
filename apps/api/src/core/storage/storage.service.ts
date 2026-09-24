@@ -1,5 +1,6 @@
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { type Readable } from 'node:stream'
 import { Inject, Injectable, type OnApplicationShutdown } from '@nestjs/common'
 import { CORE_CONFIG, type CoreConfig, type StorageConfig } from '../config/core-config'
 
@@ -14,6 +15,8 @@ export function storageConfigFromEnv(env: {
   S3_SECRET_ACCESS_KEY: string
   S3_FORCE_PATH_STYLE: boolean
   S3_BUCKET_MEDIA: string
+  S3_BUCKET_IMPORTS: string
+  S3_BUCKET_EXPORTS: string
 }): StorageConfig {
   return {
     endpoint: env.S3_ENDPOINT,
@@ -23,6 +26,8 @@ export function storageConfigFromEnv(env: {
     secretAccessKey: env.S3_SECRET_ACCESS_KEY,
     forcePathStyle: env.S3_FORCE_PATH_STYLE,
     mediaBucket: env.S3_BUCKET_MEDIA,
+    importsBucket: env.S3_BUCKET_IMPORTS,
+    exportsBucket: env.S3_BUCKET_EXPORTS,
   }
 }
 
@@ -35,6 +40,8 @@ export class StorageService implements OnApplicationShutdown {
   private readonly internal: S3Client
   private readonly publicClient: S3Client
   readonly mediaBucket: string
+  readonly importsBucket: string
+  readonly exportsBucket: string
 
   constructor(@Inject(CORE_CONFIG) config: CoreConfig) {
     const s = config.storage
@@ -47,6 +54,8 @@ export class StorageService implements OnApplicationShutdown {
     this.internal = new S3Client({ ...base, endpoint: s.endpoint })
     this.publicClient = new S3Client({ ...base, endpoint: s.publicEndpoint ?? s.endpoint })
     this.mediaBucket = s.mediaBucket
+    this.importsBucket = s.importsBucket
+    this.exportsBucket = s.exportsBucket
   }
 
   presignPut(
@@ -99,6 +108,12 @@ export class StorageService implements OnApplicationShutdown {
       new GetObjectCommand({ Bucket: bucket, Key: key, ...(range ? { Range: range } : {}) }),
     )
     return Buffer.from(await res.Body!.transformToByteArray())
+  }
+
+  /** Streams an object (large CSV imports) instead of buffering it. */
+  async getStream(bucket: string, key: string): Promise<Readable> {
+    const res = await this.internal.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
+    return res.Body as Readable
   }
 
   async put(bucket: string, key: string, bytes: Buffer, contentType: string): Promise<void> {

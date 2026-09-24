@@ -89,13 +89,15 @@ export class FilesService {
   }
 
   async complete(id: string): Promise<FileDto> {
-    const file = await this.tenantDb.run((tx) => tx.file.findFirst({ where: { id } }))
+    const file = await this.tenantDb.run((tx) =>
+      tx.file.findFirst({ where: { id, purpose: 'MESSAGE_MEDIA' } }),
+    )
     if (!file) throw AppError.notFound('File not found.')
     if (file.status !== 'PENDING_UPLOAD') return toFile(file)
     const head = await this.storage.head(file.bucket, file.objectKey)
     if (!head) throw new AppError('FILE_NOT_READY', 422, 'The upload has not finished yet.')
     let ok = head.size === Number(file.sizeBytes)
-    const signature = SIGNATURES.find((s) => s.mime.test(file.mimeType))
+    const signature = SIGNATURES.find((sig) => sig.mime.test(file.mimeType))
     if (ok && signature)
       ok = signature.test(await this.storage.getBytes(file.bucket, file.objectKey, 'bytes=0-15'))
     const updated = await this.tenantDb.run((tx) =>

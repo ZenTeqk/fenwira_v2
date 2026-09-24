@@ -130,6 +130,16 @@ A header with name, phone (monospace), status, owner, tags and quick actions (me
 | Consent | Full history with evidence |
 | Notes | Contact notes |
 
+## Implementation notes (Phase 6)
+
+- **Code map.** `apps/api/src/modules/contacts`: `ContactsService` (CRUD, search, count, bulk, notes, consent, timeline), `ContactCatalogService` (tags, properties, segments, keyword settings), `filter/compile.ts` (`FilterCompiler`, the only DSL → Prisma compiler), `consent.ts` (`recordConsent`, `addActivity`), `imports/` (CSV reader, row validator, `ImportsService`, `ImportProcessor`), `exports.ts`, and `ContactsEventsProcessor` (keywords, 131050). The DSL lives in `packages/contracts/src/contacts/filter.ts`.
+- **Current consent** is stored on the contact (`marketing_consent`, `utility_consent`: NONE, GRANTED or REVOKED) and updated in the same transaction as each `consents` history row, instead of a `current_consents` view. Filters, segments and campaign audiences then use a plain indexed column. `recordConsent` is a no-op when the state doesn't change, which makes keyword handling idempotent.
+- **Compiler semantics.** Negative operators (NOT_EQUALS, NOT_CONTAINS, NOT_IN, NOT_IN_LAST_DAYS, HAS_NONE) match contacts that have no value, so `A` and `NOT A` partition the contacts. "Match everything" is an explicit `deleted_at IS NULL`, never `{}`, because Prisma silently drops `{}` inside `OR`. The property-based test caught this. A `segment` rule inlines that segment's filter, one level only. A foreign or deleted segment is a 400.
+- **Verification.** `apps/worker/test/contacts.int.test.ts` generates 40 random filters (depth ≤ 3, over text, tags, consent, and number and select properties) with fast-check. For each, the API's search IDs, count and segment count must equal an independent in-memory evaluator of the DSL over 60 seeded contacts.
+- **Imports.** `POST /imports/upload-url` (presigned PUT to `fenwira-imports`) → `POST /imports {fileId}` verifies size and text content, then **analyze** (headers, first 50 rows, total ≤ 100k, suggested mapping) → `PATCH /imports/:id` (mapping, SKIP/UPDATE, default consent) → **validate** (per-row errors, in-file duplicates, existing phones, 50-row preview) → `POST /imports/:id/confirm` → **import** (1,000-row transactions, `import.progress` events, cancellable between batches) → an error CSV (original columns plus `error_row`, `error_field`, `error_code`, `error_message`). Every step streams the file from MinIO. A 50k-row file with 5 % invalid rows and 10 % existing phones validates and imports in under a minute locally. `contact.created` events are only emitted when `suppressAutomations` is false.
+- **Messaging.** `MessagingService.send` takes `purpose` (default UTILITY for templates, SERVICE otherwise). It is stored on `messages.purpose` and re-checked by the outbound worker at send time. A permanent send failure emits `message.status.changed` with the error code, so an outbound 131050 revokes marketing consent the same way a status webhook does.
+- **Workspace settings.** `GET/PATCH /workspace/consent-settings` (opt-out and opt-in keywords, which may not overlap, and the reply text). Custom fields are managed in Settings → Workspace → Contact fields.
+
 ## Open questions
 
 | # | Question | Owner |

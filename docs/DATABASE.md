@@ -325,6 +325,15 @@ export_jobs                                     T
   file_id null, row_count int null, expires_at, created_at, updated_at
 ```
 
+Implemented in Phase 6 (migration `20260927000000_contacts_consent`), with these differences from the draft:
+
+- `contacts.marketing_consent` / `utility_consent` (`consent_state` NONE, GRANTED or REVOKED) mirror the latest `consents` row per purpose and replace the `current_consents` view.
+- `contact_property_values.value_number` is `numeric(24,6)`, and the table has `tenant_id` for RLS.
+- `import_jobs` also keeps `headers`, `sample`, `suggested_mapping`, `preview`, `new_rows`, `existing_rows`, `processed_rows` and `failure_reason`.
+- `tenants` gained `opt_out_keywords`, `opt_in_keywords` and `opt_out_reply` (see the workspace consent settings).
+- `messages.purpose consent_purpose null` (the consent purpose of outbound sends).
+- Trigram GIN indexes on `contacts.name`, `phone_e164` and `email` serve CONTAINS and quick search.
+
 ## Inbox (P7)
 
 ```text

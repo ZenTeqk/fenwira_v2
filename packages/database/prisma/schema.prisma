@@ -67,6 +67,8 @@ model User {
   memberships             Membership[]
   ownedTenants            Tenant[]                 @relation("TenantOwner")
   sentInvitations         Invitation[]             @relation("InvitationInviter")
+  ownedContacts           Contact[]                @relation("ContactOwner")
+  contactNotes            ContactNote[]            @relation("ContactNoteAuthor")
 
   @@map("users")
 }
@@ -182,12 +184,17 @@ model Tenant {
   timezone       String    @default("Asia/Kolkata")
   currency       String    @default("INR") @db.Char(3)
   require2fa     Boolean   @default(false) @map("require_2fa")
+  /// Whole-message keywords that revoke / grant MARKETING consent (case-insensitive).
+  optOutKeywords String[]  @default(["STOP", "UNSUBSCRIBE", "CANCEL", "STOP ALL", "OPT OUT"]) @map("opt_out_keywords")
+  optInKeywords  String[]  @default(["START", "SUBSCRIBE", "OPT IN"]) @map("opt_in_keywords")
+  /// Reply after an opt-out (a SERVICE message). Empty = no reply.
+  optOutReply    String?   @default("You're unsubscribed from marketing messages. Reply START to subscribe again.") @map("opt_out_reply")
   ownerUserId    String    @map("owner_user_id") @db.Uuid
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  owner                    User                      @relation("TenantOwner", fields: [ownerUserId], references: [id])
+  owner                    User                        @relation("TenantOwner", fields: [ownerUserId], references: [id])
   memberships              Membership[]
   invitations              Invitation[]
   auditLogs                AuditLog[]
@@ -203,6 +210,17 @@ model Tenant {
   webhookEvents            WebhookEvent[]
   files                    File[]
   idempotencyKeys          IdempotencyKey[]
+  contactPropertyDefs      ContactPropertyDefinition[]
+  contactPropertyValues    ContactPropertyValue[]
+  tags                     Tag[]
+  contactTags              ContactTag[]
+  contactNotes             ContactNote[]
+  consents                 Consent[]
+  contactActivities        ContactActivity[]
+  segments                 Segment[]
+  importJobs               ImportJob[]
+  importJobErrors          ImportJobError[]
+  exportJobs               ExportJob[]
 
   @@map("tenants")
 }
@@ -538,26 +556,37 @@ enum ContactStatus {
 
 /// One live contact per (tenant, phone_e164) — partial unique index in post-migrate.sql.
 model Contact {
-  id            String        @id @default(uuid(7)) @db.Uuid
-  tenantId      String        @map("tenant_id") @db.Uuid
-  phoneE164     String        @map("phone_e164")
-  name          String?
-  email         String?       @db.Citext
-  language      String?
-  country       String?       @db.Char(2)
-  source        ContactSource
-  status        ContactStatus @default(ACTIVE)
-  waProfileName String?       @map("wa_profile_name")
-  lastInboundAt DateTime?     @map("last_inbound_at") @db.Timestamptz(3)
-  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt     DateTime?     @map("deleted_at") @db.Timestamptz(3)
+  id               String        @id @default(uuid(7)) @db.Uuid
+  tenantId         String        @map("tenant_id") @db.Uuid
+  phoneE164        String        @map("phone_e164")
+  name             String?
+  email            String?       @db.Citext
+  language         String?
+  country          String?       @db.Char(2)
+  source           ContactSource
+  status           ContactStatus @default(ACTIVE)
+  waProfileName    String?       @map("wa_profile_name")
+  ownerId          String?       @map("owner_id") @db.Uuid
+  /// Current consent per purpose, kept in step with the latest `consents` row (same transaction).
+  marketingConsent ConsentState  @default(NONE) @map("marketing_consent")
+  utilityConsent   ConsentState  @default(NONE) @map("utility_consent")
+  lastInboundAt    DateTime?     @map("last_inbound_at") @db.Timestamptz(3)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?     @map("deleted_at") @db.Timestamptz(3)
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversations Conversation[]
-  messages      Message[]
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner          User?                  @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  conversations  Conversation[]
+  messages       Message[]
+  tags           ContactTag[]
+  notes          ContactNote[]
+  consents       Consent[]
+  activities     ContactActivity[]
+  propertyValues ContactPropertyValue[]
 
   @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, marketingConsent])
   @@map("contacts")
 }
 
@@ -673,6 +702,8 @@ model Message {
   type                  MessageType
   status                MessageStatus
   source                MessageSource
+  /// Consent purpose checked at accept and again at send time (outbound only).
+  purpose               ConsentPurpose?
   content               Json
   fileId                String?          @map("file_id") @db.Uuid
   providerMessageId     String?          @map("provider_message_id")
@@ -779,8 +810,9 @@ model File {
   createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  messages Message[]
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages   Message[]
+  importJobs ImportJob[] @relation("ImportFile")
 
   @@unique([bucket, objectKey])
   @@map("files")
@@ -803,4 +835,321 @@ model IdempotencyKey {
 
   @@unique([tenantId, scope, key])
   @@map("idempotency_keys")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Contacts & consent (Phase 6, docs/CONTACTS_AND_CONSENT.md)
+// ---------------------------------------------------------------------------------------------
+
+enum ConsentState {
+  NONE
+  GRANTED
+  REVOKED
+
+  @@map("consent_state")
+}
+
+enum PropertyType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+
+  @@map("property_type")
+}
+
+/// Tenant-defined custom fields. Keys are immutable snake_case; archiving hides but keeps values.
+model ContactPropertyDefinition {
+  id         String       @id @default(uuid(7)) @db.Uuid
+  tenantId   String       @map("tenant_id") @db.Uuid
+  key        String
+  label      String
+  type       PropertyType
+  options    Json?
+  required   Boolean      @default(false)
+  archivedAt DateTime?    @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  values ContactPropertyValue[]
+
+  @@unique([tenantId, key])
+  @@map("contact_property_definitions")
+}
+
+model ContactPropertyValue {
+  tenantId     String    @map("tenant_id") @db.Uuid
+  contactId    String    @map("contact_id") @db.Uuid
+  definitionId String    @map("definition_id") @db.Uuid
+  valueText    String?   @map("value_text")
+  valueNumber  Decimal?  @map("value_number") @db.Decimal(24, 6)
+  valueDate    DateTime? @map("value_date") @db.Date
+  valueBool    Boolean?  @map("value_bool")
+
+  tenant     Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact    Contact                   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  definition ContactPropertyDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, definitionId])
+  @@index([tenantId, definitionId, valueText])
+  @@index([tenantId, definitionId, valueNumber])
+  @@index([tenantId, definitionId, valueDate])
+  @@map("contact_property_values")
+}
+
+enum TagColor {
+  NEUTRAL
+  PRIMARY
+  INFO
+  WARNING
+  DANGER
+  SUCCESS
+
+  @@map("tag_color")
+}
+
+/// Shared by contact tags and (Phase 7) conversation tags. Names are case-insensitive unique.
+model Tag {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String   @db.Citext
+  color     TagColor @default(NEUTRAL)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contacts ContactTag[]
+
+  @@unique([tenantId, name])
+  @@map("tags")
+}
+
+model ContactTag {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  contactId String   @map("contact_id") @db.Uuid
+  tagId     String   @map("tag_id") @db.Uuid
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+  @@index([tenantId, tagId])
+  @@map("contact_tags")
+}
+
+model ContactNote {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  contactId String    @map("contact_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  body      String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  author  User    @relation("ContactNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([tenantId, contactId, createdAt(sort: Desc)])
+  @@map("contact_notes")
+}
+
+enum ConsentChannel {
+  WHATSAPP
+
+  @@map("consent_channel")
+}
+
+enum ConsentPurpose {
+  MARKETING
+  UTILITY
+  SERVICE
+
+  @@map("consent_purpose")
+}
+
+enum ConsentStatus {
+  GRANTED
+  REVOKED
+
+  @@map("consent_status")
+}
+
+enum ConsentSource {
+  INBOUND_KEYWORD
+  MANUAL
+  IMPORT
+  API
+  FORM
+  META_OPT_OUT
+
+  @@map("consent_source")
+}
+
+/// Consent history: one row per change. Only revoked_at/revoke_source of the latest GRANTED row
+/// are ever updated. The contact's *_consent columns mirror the latest row per purpose.
+model Consent {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  tenantId     String         @map("tenant_id") @db.Uuid
+  contactId    String         @map("contact_id") @db.Uuid
+  channel      ConsentChannel @default(WHATSAPP)
+  purpose      ConsentPurpose
+  status       ConsentStatus
+  source       ConsentSource
+  capturedAt   DateTime       @default(now()) @map("captured_at") @db.Timestamptz(3)
+  revokedAt    DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  revokeSource ConsentSource? @map("revoke_source")
+  evidence     Json
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, contactId, channel, purpose, capturedAt(sort: Desc)])
+  @@map("consents")
+}
+
+/// Contact timeline. Append-only (UPDATE/DELETE revoked from fenwira_app).
+model ContactActivity {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  contactId  String    @map("contact_id") @db.Uuid
+  type       String
+  actorType  ActorType @map("actor_type")
+  actorId    String?   @map("actor_id") @db.Uuid
+  data       Json
+  occurredAt DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, contactId, occurredAt(sort: Desc)])
+  @@map("contact_activities")
+}
+
+/// Saved named filters (dynamic). cached_count is advisory ("≈").
+model Segment {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  name          String
+  filter        Json
+  createdBy     String    @map("created_by") @db.Uuid
+  cachedCount   Int?      @map("cached_count")
+  cachedCountAt DateTime? @map("cached_count_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("segments")
+}
+
+enum ImportStatus {
+  UPLOADED
+  MAPPING
+  VALIDATING
+  PREVIEW_READY
+  IMPORTING
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@map("import_status")
+}
+
+enum ImportDuplicatePolicy {
+  SKIP
+  UPDATE
+
+  @@map("import_duplicate_policy")
+}
+
+model ImportJob {
+  id                  String                @id @default(uuid(7)) @db.Uuid
+  tenantId            String                @map("tenant_id") @db.Uuid
+  fileId              String                @map("file_id") @db.Uuid
+  createdBy           String                @map("created_by") @db.Uuid
+  status              ImportStatus          @default(UPLOADED)
+  headers             Json?
+  sample              Json?
+  suggestedMapping    Json?                 @map("suggested_mapping")
+  columnMapping       Json?                 @map("column_mapping")
+  duplicatePolicy     ImportDuplicatePolicy @default(SKIP) @map("duplicate_policy")
+  defaultConsent      Json?                 @map("default_consent")
+  suppressAutomations Boolean               @default(true) @map("suppress_automations")
+  preview             Json?
+  totalRows           Int                   @default(0) @map("total_rows")
+  validRows           Int                   @default(0) @map("valid_rows")
+  invalidRows         Int                   @default(0) @map("invalid_rows")
+  newRows             Int                   @default(0) @map("new_rows")
+  existingRows        Int                   @default(0) @map("existing_rows")
+  processedRows       Int                   @default(0) @map("processed_rows")
+  createdCount        Int                   @default(0) @map("created_count")
+  updatedCount        Int                   @default(0) @map("updated_count")
+  skippedCount        Int                   @default(0) @map("skipped_count")
+  errorFileId         String?               @map("error_file_id") @db.Uuid
+  failureReason       String?               @map("failure_reason")
+  startedAt           DateTime?             @map("started_at") @db.Timestamptz(3)
+  completedAt         DateTime?             @map("completed_at") @db.Timestamptz(3)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  file   File             @relation("ImportFile", fields: [fileId], references: [id])
+  errors ImportJobError[]
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("import_jobs")
+}
+
+model ImportJobError {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  tenantId    String  @map("tenant_id") @db.Uuid
+  importJobId String  @map("import_job_id") @db.Uuid
+  rowNumber   Int     @map("row_number")
+  field       String?
+  code        String
+  message     String
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([importJobId, rowNumber])
+  @@map("import_job_errors")
+}
+
+enum ExportStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  EXPIRED
+
+  @@map("export_status")
+}
+
+model ExportJob {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  tenantId  String       @map("tenant_id") @db.Uuid
+  createdBy String       @map("created_by") @db.Uuid
+  filter    Json
+  status    ExportStatus @default(QUEUED)
+  fileId    String?      @map("file_id") @db.Uuid
+  rowCount  Int?         @map("row_count")
+  expiresAt DateTime     @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("export_jobs")
 }

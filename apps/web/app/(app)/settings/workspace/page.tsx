@@ -1,5 +1,8 @@
 'use client'
 
+import { ConsentKeywordsCard } from '@/components/settings/consent-keywords-card'
+import { ContactFieldsCard } from '@/components/settings/contact-fields-card'
+
 import { type Member, type Workspace } from '@fenwira/contracts'
 import {
   Button,
@@ -196,6 +199,9 @@ export default function WorkspaceSettingsPage() {
           ) : null}
         </form>
       </Card>
+
+      <ContactFieldsCard canManage={can('contacts.properties.manage')} />
+      <ConsentKeywordsCard canManage={can('workspace.manage')} />
 
       {isOwner ? (
         <Card>

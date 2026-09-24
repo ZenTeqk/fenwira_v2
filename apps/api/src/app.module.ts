@@ -16,6 +16,7 @@ import { AuthGuard, IdentityModule } from './modules/identity'
 import { PlatformApiModule } from './modules/platform/platform-api.module'
 import { RealtimeModule } from './modules/realtime'
 import { PermissionGuard, TenancyModule, TenantGuard } from './modules/tenancy'
+import { ContactsModule } from './modules/contacts'
 import { MessagingModule } from './modules/messaging'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
 
@@ -58,6 +59,7 @@ export class ApiModule {
         identity,
         tenancy,
         AuditApiModule,
+        ContactsModule.forApi(),
         MessagingModule.forApi({
           keyRing,
           graphBaseUrl: env.META_GRAPH_BASE_URL,

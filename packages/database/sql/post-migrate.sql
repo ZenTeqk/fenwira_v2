@@ -102,6 +102,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS messages_provider_message_id_unique
 CREATE UNIQUE INDEX IF NOT EXISTS messages_idempotency_key_unique
   ON public.messages (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 
+-- Phase 6: contact search (CONTAINS on name/phone/email uses ILIKE) and one open segment name.
+CREATE INDEX IF NOT EXISTS contacts_name_trgm ON public.contacts USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS contacts_phone_trgm ON public.contacts USING gin (phone_e164 gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS contacts_email_trgm ON public.contacts USING gin ((email::text) gin_trgm_ops);
+
 -- Outbound status ordering (docs/MESSAGING_ENGINE.md): a status applies only when its rank is
 -- higher than the current one. FAILED and RECEIVED sit outside the ladder.
 CREATE OR REPLACE FUNCTION public.fenwira_message_status_rank(s public.message_status)

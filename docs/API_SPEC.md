@@ -218,8 +218,14 @@ Implemented in Phase 5: `GET /conversations` (newest first, cursor; inbox filter
 | PATCH | `/imports/:id` | `{columnMapping, duplicatePolicy, defaultConsent}` → validate |
 | GET | `/imports/:id`, `/imports/:id/preview`, `/imports` | `contacts.import` |
 | POST | `/imports/:id/confirm` / `/cancel` | `contacts.import` |
-| POST | `/exports` | `contacts.export`. `{filter}` |
+| POST | `/imports/upload-url` | `contacts.import`. `{mimeType, sizeBytes, filename?}` → presigned PUT (CSV ≤ 50 MB) |
+| GET | `/imports/:id/error-report` | `contacts.import`. Download URL of the error CSV |
+| POST | `/segments/:id/count` | `contacts.read`. Live count; refreshes `cachedCount` |
+| GET / PATCH | `/workspace/consent-settings` | `workspace.read` / `workspace.manage`. Opt-out and opt-in keywords and the reply text |
+| POST | `/exports` | `contacts.export`. `{filter, q?}` |
 | GET | `/exports/:id` | `contacts.export`. Includes a download URL when complete. |
+
+Implementation notes (Phase 6): search uses an opaque offset cursor, `limit` ≤ 200, and a quick search `q` over name, email, WhatsApp name and phone digits. Sorting is by `createdAt`, `name` or `lastInboundAt`. `POST /contacts` normalizes the phone with the workspace country and returns 422 `INVALID_PHONE` with a reason, or 409 if the number exists (`details.contactId`). Consents on create need a `source` (`MANUAL`, `FORM` or `API`). Bulk actions take `contactIds` (≤ 1,000) or a `filter` (≤ 100,000). A bulk delete writes one audit entry. `POST /exports` answers 202, and the job's download URL is valid for 5 minutes.
 
 ### Templates (P8)
 

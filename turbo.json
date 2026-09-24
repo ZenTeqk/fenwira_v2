@@ -55,7 +55,9 @@
         "S3_SECRET_ACCESS_KEY",
         "S3_FORCE_PATH_STYLE",
         "S3_BUCKET_MEDIA",
-        "S3_BUCKET_UPLOADS"
+        "S3_BUCKET_UPLOADS",
+        "S3_BUCKET_IMPORTS",
+        "S3_BUCKET_EXPORTS"
       ]
     },
     "dev": {

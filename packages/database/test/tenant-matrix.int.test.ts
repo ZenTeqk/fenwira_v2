@@ -33,6 +33,28 @@ const conversation = async (tx: TenantTx, tenantId: string) => {
   })
 }
 
+const definition = (tx: TenantTx, tenantId: string) =>
+  tx.contactPropertyDefinition.create({
+    data: { tenantId, key: `k_${metaId()}`, label: 'Matrix', type: 'TEXT' },
+  })
+const tag = (tx: TenantTx, tenantId: string) =>
+  tx.tag.create({ data: { tenantId, name: `tag-${metaId()}` } })
+const file = (tx: TenantTx, tenantId: string) =>
+  tx.file.create({
+    data: {
+      tenantId,
+      bucket: 'fenwira-imports',
+      objectKey: `${tenantId}/${metaId()}`,
+      mimeType: 'text/csv',
+      sizeBytes: 1,
+      purpose: 'IMPORT',
+    },
+  })
+const importJob = async (tx: TenantTx, tenantId: string, userId: string) =>
+  tx.importJob.create({
+    data: { tenantId, fileId: (await file(tx, tenantId)).id, createdBy: userId },
+  })
+
 const FIXTURES: Record<string, Fixture> = {
   outbox_events: (tx, { tenantId }) =>
     tx.outboxEvent.create({ data: { tenantId, eventType: 'test.event', payload: {} } }),
@@ -74,6 +96,74 @@ const FIXTURES: Record<string, Fixture> = {
       },
     }),
   contacts: (tx, { tenantId }) => contact(tx, tenantId),
+  contact_property_definitions: (tx, { tenantId }) => definition(tx, tenantId),
+  contact_property_values: async (tx, { tenantId }) =>
+    tx.contactPropertyValue.create({
+      data: {
+        tenantId,
+        contactId: (await contact(tx, tenantId)).id,
+        definitionId: (await definition(tx, tenantId)).id,
+        valueText: 'x',
+      },
+    }),
+  tags: (tx, { tenantId }) => tag(tx, tenantId),
+  contact_tags: async (tx, { tenantId }) =>
+    tx.contactTag.create({
+      data: {
+        tenantId,
+        contactId: (await contact(tx, tenantId)).id,
+        tagId: (await tag(tx, tenantId)).id,
+      },
+    }),
+  contact_notes: async (tx, { tenantId, userId }) =>
+    tx.contactNote.create({
+      data: { tenantId, contactId: (await contact(tx, tenantId)).id, authorId: userId, body: 'n' },
+    }),
+  consents: async (tx, { tenantId }) =>
+    tx.consent.create({
+      data: {
+        tenantId,
+        contactId: (await contact(tx, tenantId)).id,
+        purpose: 'MARKETING',
+        status: 'GRANTED',
+        source: 'MANUAL',
+        evidence: {},
+      },
+    }),
+  contact_activities: async (tx, { tenantId }) =>
+    tx.contactActivity.create({
+      data: {
+        tenantId,
+        contactId: (await contact(tx, tenantId)).id,
+        type: 'contact.created',
+        actorType: 'SYSTEM',
+        data: {},
+      },
+    }),
+  segments: (tx, { tenantId, userId }) =>
+    tx.segment.create({
+      data: { tenantId, name: 'Matrix', filter: { op: 'AND', rules: [] }, createdBy: userId },
+    }),
+  import_jobs: (tx, { tenantId, userId }) => importJob(tx, tenantId, userId),
+  import_job_errors: async (tx, { tenantId, userId }) =>
+    tx.importJobError.create({
+      data: {
+        tenantId,
+        importJobId: (await importJob(tx, tenantId, userId)).id,
+        rowNumber: 2,
+        code: 'INVALID_PHONE',
+        message: 'x',
+      },
+    }),
+  export_jobs: (tx, { tenantId, userId }) =>
+    tx.exportJob.create({
+      data: {
+        tenantId,
+        createdBy: userId,
+        filter: { op: 'AND', rules: [] },
+        expiresAt: new Date(Date.now() + 3600_000),
+      },
+    }),
   conversations: (tx, { tenantId }) => conversation(tx, tenantId),
   messages: async (tx, { tenantId }) => {
     const c = await conversation(tx, tenantId)
@@ -122,7 +212,7 @@ const FIXTURES: Record<string, Fixture> = {
     }),
 }
 
-const APPEND_ONLY = new Set(['audit_logs'])
+const APPEND_ONLY = new Set(['audit_logs', 'contact_activities'])
 
 const appUrl = process.env.DATABASE_URL!
 const ownerUrl = process.env.MIGRATION_DATABASE_URL!

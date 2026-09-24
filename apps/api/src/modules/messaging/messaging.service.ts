@@ -10,7 +10,8 @@ import { Inject, Injectable } from '@nestjs/common'
 import { requestContext } from '../../core/context/request-context'
 import { AppError } from '../../core/http/app-error'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
-import { previewOf, toE164, toMessage } from './messaging.mapper'
+import { normalizePhone } from '../../core/phone'
+import { previewOf, toMessage } from './messaging.mapper'
 
 export type SendTarget = { conversationId: string } | { phoneE164: string; phoneNumberId?: string }
 
@@ -22,6 +23,8 @@ export type SendInput = {
   /** Required for every caller; the same key returns the same message and never sends twice. */
   idempotencyKey: string
   actorUserId?: string
+  /** Consent purpose. Default: UTILITY for templates (categories arrive in Phase 8), SERVICE otherwise. */
+  purpose?: 'MARKETING' | 'UTILITY' | 'SERVICE'
 }
 
 const SENDABLE_PHONE_STATUSES = ['CONNECTED', 'FLAGGED'] as const
@@ -96,7 +99,19 @@ export class MessagingService {
     if (conversation.contact.status === 'BLOCKED' || conversation.contact.deletedAt)
       throw new AppError('CONTACT_BLOCKED', 422, 'This contact is blocked.')
 
-    // 4. Consent: Phase 6 checks MARKETING consent here (templates carry the category then).
+    // 4. Consent (docs/CONTACTS_AND_CONSENT.md → Enforcement).
+    const purpose = input.purpose ?? (content.type === 'TEMPLATE' ? 'UTILITY' : 'SERVICE')
+    if (purpose === 'MARKETING' && conversation.contact.marketingConsent !== 'GRANTED')
+      throw new AppError(
+        'CONSENT_REQUIRED',
+        422,
+        'This contact has not opted in to marketing messages.',
+        { purpose },
+      )
+    if (purpose === 'UTILITY' && conversation.contact.utilityConsent === 'REVOKED')
+      throw new AppError('CONSENT_REQUIRED', 422, 'This contact opted out of these messages.', {
+        purpose,
+      })
     // 5. Service window: anything but a template needs an open 24-hour window.
     const now = new Date()
     if (
@@ -119,6 +134,7 @@ export class MessagingService {
         type: content.type,
         status: 'CREATED',
         source: input.source,
+        purpose,
         content: stored as Prisma.InputJsonValue,
         fileId: 'fileId' in stored ? (stored.fileId ?? null) : null,
         idempotencyKey: input.idempotencyKey,
@@ -184,7 +200,16 @@ export class MessagingService {
         422,
         'Connect a WhatsApp number before sending messages.',
       )
-    const phoneE164 = toE164(input.target.phoneE164)
+    const tenant = await tx.tenant.findUniqueOrThrow({
+      where: { id: input.tenantId },
+      select: { defaultCountry: true },
+    })
+    const normalized = normalizePhone(input.target.phoneE164, tenant.defaultCountry)
+    if (!normalized.ok)
+      throw new AppError('INVALID_PHONE', 422, normalized.reason, undefined, [
+        { path: 'to', code: 'invalid_phone', message: normalized.reason },
+      ])
+    const phoneE164 = normalized.e164
     const contact =
       (await tx.contact.findFirst({ where: { phoneE164, deletedAt: null } })) ??
       (await tx.contact.create({
