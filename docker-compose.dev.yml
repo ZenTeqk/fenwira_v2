@@ -66,8 +66,10 @@ services:
       - ./apps/web/lib:/repo/apps/web/lib:ro
       - ./apps/web/public:/repo/apps/web/public:ro
       - ./packages/contracts/src:/repo/packages/contracts/src:ro
+    env_file: [.env.development]
     environment:
       WATCHPACK_POLLING: 'true'
+      API_INTERNAL_URL: http://fenwira-api:4000
     healthcheck:
       test:
         [

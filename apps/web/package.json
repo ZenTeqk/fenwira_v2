@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@fenwira/contracts": "workspace:*",
+    "@fenwira/ui": "workspace:*",
+    "lucide-react": "1.47.0",
     "next": "16.3.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -20,11 +22,14 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@fenwira/config": "workspace:*",
     "@next/eslint-plugin-next": "16.3.6",
     "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "tailwindcss": "4.3.3",
     "vitest": "3.2.7"
   }
 }

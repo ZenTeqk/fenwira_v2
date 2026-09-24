@@ -1,0 +1,65 @@
+import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
+import { type ReactNode } from 'react'
+import { cn } from '../lib/cn'
+import { Card } from './card'
+import { Skeleton } from './skeleton'
+
+export type KpiDelta = {
+  /** Pre-formatted, e.g. "+4.2%" */
+  value: string
+  direction: 'up' | 'down' | 'flat'
+  /** Whether this direction is good news; decides the icon tone. The sign/arrow carries meaning too. */
+  sentiment?: 'positive' | 'negative' | 'neutral'
+  /** e.g. "vs last week" */
+  label?: string
+}
+
+export type KpiCardProps = {
+  label: string
+  value: ReactNode
+  delta?: KpiDelta
+  icon?: ReactNode
+  hint?: ReactNode
+  loading?: boolean
+  className?: string
+}
+
+const deltaIcon = { up: ArrowUpRight, down: ArrowDownRight, flat: Minus }
+const sentimentTone = {
+  positive: 'text-primary-strong',
+  negative: 'text-danger-strong',
+  neutral: 'text-muted',
+}
+
+export function KpiCard({ label, value, delta, icon, hint, loading, className }: KpiCardProps) {
+  const DeltaIcon = delta ? deltaIcon[delta.direction] : null
+  return (
+    <Card data-slot="kpi-card" className={cn('flex flex-col gap-3 p-5', className)}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-muted">{label}</p>
+        {icon ? (
+          <span className="text-muted [&_svg]:size-4" aria-hidden="true">
+            {icon}
+          </span>
+        ) : null}
+      </div>
+      {loading ? (
+        <Skeleton className="h-8 w-24" />
+      ) : (
+        <p className="text-2xl font-semibold text-slate tabular-nums">{value}</p>
+      )}
+      {delta && DeltaIcon && !loading ? (
+        <p className="flex items-center gap-1 text-sm text-muted">
+          <DeltaIcon
+            className={cn('size-4', sentimentTone[delta.sentiment ?? 'neutral'])}
+            aria-hidden="true"
+          />
+          <span className="font-medium text-slate">{delta.value}</span>
+          {delta.label ? <span>{delta.label}</span> : null}
+        </p>
+      ) : hint ? (
+        <p className="text-sm text-muted">{hint}</p>
+      ) : null}
+    </Card>
+  )
+}

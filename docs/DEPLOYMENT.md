@@ -55,7 +55,8 @@ Base image: `node:22-bookworm-slim`. The pnpm version is pinned in the Dockerfil
 | `docker compose up -d` | Production-like built images (the default) |
 | `pnpm dev` (= `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`) | Hot reload. api and worker run `tsc --watch` plus `node --watch`; web runs `next dev`. Only `src/` directories are bind-mounted (read-only), so host `node_modules` never enter the Linux containers. `.env.development` is layered on top of `.env`. |
 | `pnpm test:integration` (= `docker compose --profile test run --rm --build fenwira-test`) | Migrates `fenwira_test`, then runs every `test:integration` task as `fenwira_app` against Postgres and Redis db 1 |
-| `pnpm smoke` | `scripts/smoke.sh` against a running stack: readiness, web status page, and the `system.ping` round trip |
+| `pnpm smoke` | `scripts/smoke.sh` against a running stack: readiness, the web dashboard, and the `system.ping` round trip |
+| `pnpm --filter @fenwira/web test:e2e` | Playwright (axe WCAG 2.1 AA, responsive, keyboard) against the running stack at `E2E_BASE_URL` (default `http://localhost:3000`). Needs `ENABLE_UI_GALLERY=true`. |
 
 ### Postgres initialization
 
@@ -99,6 +100,8 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 | `WORKER_HEALTH_PORT` | `4100` | worker (internal only) | 1 |
 | `OUTBOX_POLL_INTERVAL_MS` | `250` | worker (outbox relay fallback poll) | 1 |
 | `SYSTEM_PING_ENABLED` | `true` locally, **must be `false` in production** | api (`POST /api/v1/system/ping`) | 1 |
+| `ENABLE_UI_GALLERY` | `true` locally (runtime) | web: serves `/dev/ui`, which the e2e accessibility suite needs. Off in production. | 2 |
+| `NEXT_PUBLIC_NAV_PREVIEW` | `false` (`true` in `.env.development`) | web **build arg**: shows navigation for unshipped phases, with placeholder pages. Development only. | 2 |
 | `S3_ENDPOINT`, `S3_PUBLIC_ENDPOINT`, `S3_REGION`, `S3_FORCE_PATH_STYLE`, `S3_BUCKET_*` | | api, worker | 5 |
 | `SMTP_URL`, `MAIL_FROM` | `smtp://fenwira-mailpit:1025` | api, worker | 3 |
 | `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` | Ed25519 PEM (base64) | api | 3 |

@@ -21,6 +21,12 @@ export const colorTokens = {
   surface: '#FFFFFF',
   border: '#E2E8F0',
   'neutral-soft': '#F1F5F9',
+  // WCAG AA shades for filled buttons and colored text (docs/DESIGN_SYSTEM.md, decided 2026-09-23)
+  'primary-strong': '#007F64',
+  'primary-strong-hover': '#006B54',
+  'danger-strong': '#C81E1E',
+  'danger-strong-hover': '#A51919',
+  'info-strong': '#4F46E5',
 } as const
 
 export type ColorToken = keyof typeof colorTokens

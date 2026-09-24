@@ -24,7 +24,8 @@ RUN --mount=type=cache,id=fenwira-pnpm-store,target=/pnpm/store pnpm install --f
 FROM deps AS build
 # NEXT_PUBLIC_* values are inlined at build time.
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_NAV_PREVIEW=false
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} NEXT_PUBLIC_NAV_PREVIEW=${NEXT_PUBLIC_NAV_PREVIEW}
 COPY --from=pruned /repo/out/full/ ./
 RUN pnpm turbo run build --filter=@fenwira/web...
 

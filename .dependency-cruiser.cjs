@@ -18,7 +18,11 @@ module.exports = {
       comment:
         'Workspace packages are consumed through their package exports, never by reaching into src/.',
       from: { path: '^(apps|packages)/([^/]+)/' },
-      to: { path: '^packages/([^/]+)/src/', pathNot: '^packages/$2/src/' },
+      // @fenwira/ui is consumed as source (ADR-0021): its index.ts is the public surface.
+      to: {
+        path: '^packages/([^/]+)/src/',
+        pathNot: ['^packages/$2/src/', '^packages/ui/src/index\\.ts$'],
+      },
     },
     {
       name: 'packages-never-import-apps',

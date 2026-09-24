@@ -24,3 +24,4 @@ Format: Context → Decision → Consequences → Alternatives rejected. Status 
 | [0018](0018-compiled-internal-packages.md) | Internal packages ship compiled CommonJS |
 | [0019](0019-dependency-version-policy.md) | Dependency version policy |
 | [0020](0020-worker-runtime.md) | In-house worker runtime instead of @nestjs/bullmq |
+| [0021](0021-ui-package-as-source.md) | @fenwira/ui is consumed as TypeScript source |

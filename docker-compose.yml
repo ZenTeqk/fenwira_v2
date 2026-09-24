@@ -158,10 +158,12 @@ services:
       target: runtime
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api/v1}
+        NEXT_PUBLIC_NAV_PREVIEW: ${NEXT_PUBLIC_NAV_PREVIEW:-false}
     image: fenwira/web:local
     restart: unless-stopped
     environment:
       API_INTERNAL_URL: http://fenwira-api:4000
+      ENABLE_UI_GALLERY: ${ENABLE_UI_GALLERY:-false}
     ports:
       - '${WEB_PORT:-3000}:3000'
     depends_on:

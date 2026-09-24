@@ -41,7 +41,7 @@ apps/web          Next.js app
 apps/api          NestJS HTTP + WebSocket
 apps/worker       NestJS BullMQ consumers
 packages/database Prisma schema, migrations, RLS SQL, tenant-scoped client
-packages/ui       Design tokens + shared components (the only place UI primitives live)
+packages/ui       Design tokens, Tailwind theme + shared components (consumed as source, ADR-0021)
 packages/contracts Zod schemas + TS types shared by web/api/worker
 packages/whatsapp Meta Cloud API client, webhook parser, signature verification
 packages/queue    Queue names, job payload types, BullMQ factories
@@ -84,11 +84,16 @@ Danger Soft                    #FEE2E2   --color-danger-soft
 Warning                        #F59E0B   --color-warning
 Danger                         #EF4444   --color-danger
 Information / Human Takeover   #6366F1   --color-info
+Primary Strong (filled/text)   #007F64   --color-primary-strong        (+ hover #006B54)
+Danger Strong (filled/text)    #C81E1E   --color-danger-strong         (+ hover #A51919)
+Info Strong (text)             #4F46E5   --color-info-strong
 ```
+
+The `-strong` shades exist for WCAG AA contrast (white on `#00A884` is only 3.03:1). See docs/DESIGN_SYSTEM.md.
 
 Rules:
 
-1. `#00A884` is reserved for primary actions, active navigation, focus states and selected states.
+1. `#00A884` is reserved for primary actions, active navigation, focus states and selected states. Filled primary buttons and green text use `primary-strong`.
 2. `#25D366` represents operational success and live state.
 3. `#F59E0B` represents warnings and pending state.
 4. `#EF4444` represents errors, failures and destructive actions.

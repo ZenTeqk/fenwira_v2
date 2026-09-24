@@ -22,6 +22,21 @@ export default [
               message: 'The web app never talks to Redis.',
             },
             { group: ['@fenwira/api', '@fenwira/api/*'], message: 'Call the API over HTTP.' },
+            {
+              group: [
+                'radix-ui',
+                '@radix-ui/*',
+                'cmdk',
+                'sonner',
+                '@tanstack/react-table',
+                'class-variance-authority',
+              ],
+              message: 'UI primitives come from @fenwira/ui only (AGENTS.md → design system).',
+            },
+            {
+              group: ['**/components/ui/*'],
+              message: 'UI primitives live in packages/ui; import from @fenwira/ui.',
+            },
           ],
         },
       ],

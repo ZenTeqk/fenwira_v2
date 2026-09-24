@@ -6,6 +6,8 @@ const config: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../../'),
   poweredByHeader: false,
+  // @fenwira/ui ships TypeScript source (ADR-0021); Next compiles it with the app.
+  transpilePackages: ['@fenwira/ui'],
   reactStrictMode: true,
 }
 
