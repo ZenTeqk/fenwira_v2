@@ -14,7 +14,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | --- | --- | --- | --- |
 | 0 | Product + architecture specification | 🔵 all 18 docs and 17 ADRs drafted; waiting for owner review of the open questions in `PRODUCT.md` | [PHASE_00](prompts/PHASE_00_SPECIFICATION.md) |
 | 1 | Monorepo + Docker Compose + engineering foundation | 🔵 every local acceptance criterion passes (see below). Only remaining item: CI green on a PR, which needs a GitHub remote. | [PHASE_01](prompts/PHASE_01_FOUNDATION.md) |
-| 2 | Design system + application shell | 🟡 palette defined | [PHASE_02](prompts/PHASE_02_DESIGN_SYSTEM.md) |
+| 2 | Design system + application shell | ✅ all acceptance criteria pass locally (see below). The CI workflow includes every check but hasn't run on GitHub yet (no remote). | [PHASE_02](prompts/PHASE_02_DESIGN_SYSTEM.md) |
 | 3 | Authentication + tenant + RBAC + RLS | ⬜ | [PHASE_03](prompts/PHASE_03_AUTH_TENANCY.md) |
 | 4 | Meta onboarding + WhatsApp account management | ⬜ | [PHASE_04](prompts/PHASE_04_META_ONBOARDING.md) |
 | 5 | Webhook + messaging engine | ⬜ | [PHASE_05](prompts/PHASE_05_MESSAGING_ENGINE.md) |
@@ -74,3 +74,15 @@ Nav items for modules from later phases are hidden until their phase ships. Don'
 | `docs/DEPLOYMENT.md` documents every env var and port | ✅ | Updated, including the phase each variable is introduced in |
 
 Test counts: 46 unit tests (9 packages) and 29 integration tests (16 RLS/outbox, 10 API HTTP, 3 worker round trip).
+
+## Phase 2 verification (2026-09-24)
+
+| Acceptance criterion | Result | Evidence |
+| --- | --- | --- |
+| `/dev/ui` shows every component and variant with no axe violations at AA | ✅ | `e2e/a11y.spec.ts` runs axe (WCAG 2.1 A/AA) on the gallery, the dashboard, the open modal, menu, confirm dialog and command palette, and the mobile drawer, against the composed stack. Fixes it forced: the `-strong` shades (product-owner decision) and `slate-800` table headers. |
+| Shell renders at 1440, 1024 and 375 px without horizontal scroll | ✅ | `e2e/responsive.spec.ts`: dashboard and gallery at all three widths, a persistent sidebar at 1024 px, the drawer at 375 px, collapse to a 64 px rail that persists across reload |
+| The CI check finds zero raw colors in `apps/web`, and introducing one fails | ✅ | `pnpm lint:design` passes. Throwaway commit `e2607ce` (a `#ff0000` style plus `text-[#00A884]`) made it exit 1 with 3 findings; the branch was then deleted. |
+| Command palette opens with ⌘K/Ctrl+K and navigates to every visible nav item | ✅ | `e2e/keyboard.spec.ts`: passes with the shipped navigation (Dashboard) and in preview mode (all 26 items) |
+| Every StatusBadge renders a text label, never color alone | ✅ | A unit test renders all 26 `STATUS_PRESETS` and asserts each label |
+
+Test counts: 87 unit tests (32 in `@fenwira/ui`), 29 integration tests and 19 Playwright e2e tests. 29 components, plus `Field`/`Label`.
