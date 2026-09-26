@@ -15,6 +15,7 @@ import { StorageService } from '../../core/storage/storage.service'
 import { OutboxRelayService } from '../platform'
 import { loadLiveToken, markCredentialInvalid } from '../whatsapp-accounts'
 import { MARK_READ_JOB } from './constants'
+import { MessageEligibilityService, type MessagePurpose } from './eligibility'
 import { toWaId } from './messaging.mapper'
 import { MESSAGING_OPTIONS, type MessagingOptions } from './messaging.options'
 import type IORedis from 'ioredis'
@@ -58,6 +59,7 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
     private readonly relay: OutboxRelayService,
     private readonly logger: PinoLogger,
     private readonly metrics: MetricsService,
+    private readonly eligibility: MessageEligibilityService,
   ) {
     this.logger.setContext('OutboundProcessor')
     this.sender = new MessageSender({
@@ -113,11 +115,16 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
       })
       if (!message || !SENDABLE.includes(message.status as 'CREATED')) return null
       const phone = message.conversation.phoneNumber
+      // Send-time re-check: the number, then eligibility (MessageEligibilityService), then takeover.
+      const eligibility = this.eligibility.evaluate({
+        purpose: (message.purpose ?? 'SERVICE') as MessagePurpose,
+        contentType: message.type,
+        contact: message.contact,
+        serviceWindowExpiresAt: message.conversation.serviceWindowExpiresAt,
+      })
       const guard =
-        this.guard(message.type, phone.status, message.conversation.serviceWindowExpiresAt) ??
-        (message.purpose === 'MARKETING' && message.contact.marketingConsent !== 'GRANTED'
-          ? { code: 'CONSENT_REQUIRED', detail: 'The contact withdrew marketing consent.' }
-          : null) ??
+        this.guard(phone.status) ??
+        (eligibility.allowed ? null : { code: eligibility.code, detail: eligibility.reason }) ??
         (message.source === 'AUTOMATION' &&
         message.conversation.automationState !== 'AUTOMATION_ACTIVE'
           ? {
@@ -270,14 +277,9 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
   }
 
   /** Send-time guards (the state may have changed since MessagingService accepted it). */
-  private guard(type: string, phoneStatus: string, windowEnd: Date | null) {
+  private guard(phoneStatus: string) {
     if (!PHONE_OK.has(phoneStatus))
       return { code: 'NO_CONNECTED_NUMBER', detail: 'The WhatsApp number is not connected.' }
-    if (type !== 'TEMPLATE' && !(windowEnd && windowEnd > new Date()))
-      return {
-        code: 'CONVERSATION_WINDOW_CLOSED',
-        detail: 'The 24-hour window closed before sending.',
-      }
     return null
   }
 

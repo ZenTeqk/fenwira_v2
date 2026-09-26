@@ -112,6 +112,8 @@ describe('route discovery', () => {
         'GET /audit-logs',
         'DELETE /workspace',
         'GET /roles',
+        'POST /canned-replies',
+        'PATCH /canned-replies/:id',
       ]),
     )
   })

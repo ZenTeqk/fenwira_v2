@@ -1,5 +1,6 @@
 'use client'
 
+import { CannedRepliesCard } from '@/components/settings/canned-replies-card'
 import { ConsentKeywordsCard } from '@/components/settings/consent-keywords-card'
 import { ContactFieldsCard } from '@/components/settings/contact-fields-card'
 
@@ -202,6 +203,9 @@ export default function WorkspaceSettingsPage() {
 
       <ContactFieldsCard canManage={can('contacts.properties.manage')} />
       <ConsentKeywordsCard canManage={can('workspace.manage')} />
+      {can('inbox.reply') ? (
+        <CannedRepliesCard canManage={can('inbox.canned_replies.manage')} />
+      ) : null}
 
       {isOwner ? (
         <Card>

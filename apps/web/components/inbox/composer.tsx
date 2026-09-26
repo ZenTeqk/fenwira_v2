@@ -6,20 +6,32 @@ import {
   type Message,
   type SendableContent,
 } from '@fenwira/contracts'
-import { Alert, Button, cn, Input, toast } from '@fenwira/ui'
+import {
+  Alert,
+  Button,
+  cn,
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownTrigger,
+  Input,
+  toast,
+} from '@fenwira/ui'
 import { type InfiniteData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Paperclip, Send } from 'lucide-react'
+import { MessageSquareText, Paperclip, Send } from 'lucide-react'
 import {
   type ChangeEvent,
   type KeyboardEvent,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, del, get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
+import { matchCanned, useCannedReplies } from '@/lib/canned-replies'
 import { useNow } from '@/lib/inbox'
 import { useRealtimeEvent, useSocket } from '@/lib/realtime'
 import { Segmented } from './segmented'
@@ -57,6 +69,13 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     !!conversation.serviceWindow.expiresAt &&
     new Date(conversation.serviceWindow.expiresAt).getTime() > now
   const canForce = conversation.assignee?.id === me.user.id || can('inbox.reassign')
+  // Canned replies: "/" at the start of the reply box opens a picker (docs/INBOX.md).
+  const canned = useCannedReplies().data ?? []
+  const listId = useId()
+  const [active, setActive] = useState(0)
+  const [dismissed, setDismissed] = useState(false)
+  const slash = mode === 'reply' && /^\/\S*$/.test(text) && !dismissed
+  const matches = slash ? matchCanned(canned, text) : []
 
   const current = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox', 'lock', id),
@@ -103,6 +122,8 @@ export function Composer({ conversation }: { conversation: Conversation }) {
 
   const onType = (value: string) => {
     setText(value)
+    setActive(0)
+    if (!value.startsWith('/')) setDismissed(false)
     if (mode === 'reply' && value.trim() && !lock?.holder) void take()
     if (mode === 'reply' && !value.trim() && holding) release()
   }
@@ -223,7 +244,30 @@ export function Composer({ conversation }: { conversation: Conversation }) {
       )
     if (text.trim()) send.mutate({ type: 'TEXT', text: text.trim() })
   }
+  /** Inserts a canned reply for editing; it never sends by itself. */
+  const insert = (body: string) => {
+    onType(body)
+    setDismissed(true)
+  }
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (matches.length) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        const step = e.key === 'ArrowDown' ? 1 : -1
+        setActive((i) => (i + step + matches.length) % matches.length)
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        insert(matches[active]!.body)
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setDismissed(true)
+        return
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       submit()
@@ -287,11 +331,49 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           </div>
         </div>
       ) : (
-        <div className="flex items-end gap-2">
+        <div className="relative flex items-end gap-2">
+          {matches.length ? (
+            <ul
+              id={listId}
+              role="listbox"
+              aria-label="Canned replies"
+              className="absolute bottom-full left-0 z-10 mb-2 flex max-h-64 w-full max-w-md flex-col overflow-y-auto rounded-md border border-border bg-surface py-1 shadow-md"
+            >
+              {matches.map((r, i) => (
+                <li
+                  key={r.id}
+                  id={`${listId}-${i}`}
+                  role="option"
+                  aria-selected={i === active}
+                  className={cn(
+                    'flex cursor-pointer flex-col px-3 py-2 text-left',
+                    i === active ? 'bg-primary-soft' : 'hover:bg-neutral-soft',
+                  )}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    insert(r.body)
+                  }}
+                >
+                  <span className="flex gap-2 text-sm">
+                    <span className="font-mono text-slate">{r.shortcut}</span>
+                    <span className="font-medium text-slate">{r.title}</span>
+                  </span>
+                  <span className="truncate text-sm text-slate">{r.body}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <textarea
             aria-label={mode === 'note' ? 'Internal note' : 'Reply'}
+            aria-autocomplete={mode === 'reply' ? 'list' : undefined}
+            aria-controls={matches.length ? listId : undefined}
+            aria-activedescendant={matches.length ? `${listId}-${active}` : undefined}
             placeholder={
-              mode === 'note' ? 'Only your team sees notes' : 'Type a reply… (Enter to send)'
+              mode === 'note'
+                ? 'Only your team sees notes'
+                : canned.length
+                  ? 'Type a reply, or / for canned replies (Enter to send)'
+                  : 'Type a reply… (Enter to send)'
             }
             className={cn(
               'min-h-11 flex-1 resize-none rounded-md border border-border px-3 py-2 text-base text-slate',
@@ -305,6 +387,22 @@ export function Composer({ conversation }: { conversation: Conversation }) {
             onKeyDown={onKeyDown}
             onBlur={() => !text.trim() && release()}
           />
+          {mode === 'reply' && canned.length ? (
+            <Dropdown>
+              <DropdownTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Canned replies" disabled={disabled}>
+                  <MessageSquareText aria-hidden="true" />
+                </Button>
+              </DropdownTrigger>
+              <DropdownContent className="max-h-72 w-72 overflow-y-auto">
+                {canned.map((r) => (
+                  <DropdownItem key={r.id} onSelect={() => insert(r.body)}>
+                    <span className="font-mono text-sm">{r.shortcut}</span> {r.title}
+                  </DropdownItem>
+                ))}
+              </DropdownContent>
+            </Dropdown>
+          ) : null}
           {mode === 'reply' ? (
             <label
               className={cn(

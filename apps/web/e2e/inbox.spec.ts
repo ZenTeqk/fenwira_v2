@@ -115,3 +115,46 @@ test('internal notes, resolve, and the mobile single-pane layout', async ({ page
     page.getByRole('list', { name: 'Conversation list' }).or(page.getByText('Nothing here')),
   ).toBeVisible()
 })
+
+test('canned replies: created in settings, inserted with / in the composer, then edited and sent', async ({
+  page,
+}) => {
+  const owner = await signInAsNewOwner(page, 'ui-inbox-canned')
+  const customer = await customerWritesIn(page, owner, 'Thank you so much!')
+
+  await page.goto('/settings/workspace')
+  await page.getByRole('button', { name: 'Add reply' }).click()
+  const dialog = page.getByRole('dialog', { name: 'New canned reply' })
+  await dialog.getByLabel('Shortcut').fill('/thanks')
+  await dialog.getByLabel('Title').fill('Thank you')
+  await dialog.getByLabel('Message').fill('You are welcome! Anything else we can help with?')
+  await dialog.getByRole('button', { name: 'Add reply' }).click()
+  await expect(
+    page
+      .getByRole('list', { name: 'Canned replies' })
+      .getByRole('button', { name: 'Edit /thanks' }),
+  ).toBeVisible()
+  expect(
+    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations,
+  ).toEqual([])
+
+  await page.goto('/inbox')
+  await page.getByRole('list', { name: 'Conversation list' }).getByText(customer).click()
+  const reply = page.getByLabel('Reply', { exact: true })
+  await reply.fill('/tha')
+  const picker = page.getByRole('listbox', { name: 'Canned replies' })
+  await expect(picker.getByRole('option', { name: /\/thanks/ })).toBeVisible()
+  expect(
+    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations,
+  ).toEqual([])
+  await reply.press('Enter') // inserts, never sends
+  await expect(reply).toHaveValue('You are welcome! Anything else we can help with?')
+  await expect(picker).toBeHidden()
+  await reply.press('End')
+  await reply.type(' 😊')
+  await reply.press('Enter')
+  await expect(
+    page.getByRole('log', { name: 'Messages' }).getByText('Anything else we can help with? 😊'),
+  ).toBeVisible()
+  await expect(reply).toHaveValue('')
+})

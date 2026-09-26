@@ -79,7 +79,12 @@ Mutable aggregates edited in forms (contacts, templates drafts, campaigns drafts
 
 ### OpenAPI
 
-An OpenAPI document is maintained for the API (decision API1). It is generated from the Zod contracts in `packages/contracts` (via `zod-openapi`), so it can't drift from the validation the API runs. The external/public API (API keys and its documentation) is delivered in Phase 11. The generator is not built yet; it is a spec-freeze follow-up in `ROADMAP.md`.
+An OpenAPI 3.1 document is maintained for the API (decision API1) at `docs/openapi.json`. `apps/api/src/openapi/openapi.ts` generates it from the NestJS route metadata and the Zod schemas the routes validate with (Zod's JSON Schema output), so it can't drift from what the API accepts.
+
+- It covers every route: path, query and body schemas, `X-Tenant-Id`, `X-CSRF-Token` and `Idempotency-Key` headers where required, the session cookie, and the permission (`x-permission`) or role (`x-role`) each route needs.
+- Success responses are documented as the `{ data, page?, meta? }` envelope, and errors as the error envelope. Per-route typed response bodies are not generated yet.
+- `pnpm openapi` regenerates it. A unit test validates it against the OpenAPI 3.1 schema and fails when the committed file is stale, and CI runs `openapi.mjs --check`.
+- The external/public API (API keys) is delivered in Phase 11.
 
 ### Versioning
 

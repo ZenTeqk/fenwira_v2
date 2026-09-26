@@ -8,3 +8,11 @@ export { StatusProcessor } from './status.processor'
 export { MARK_READ_JOB } from './constants'
 export { previewOf, toMessage } from './messaging.mapper'
 export { type SystemEvent, writeSystemEvent } from './system-events'
+export {
+  evaluateEligibility,
+  MessageEligibilityService,
+  RULES as ELIGIBILITY_RULES,
+  TEMPORARY_RULES,
+  type EligibilityDecision,
+  type EligibilityInput,
+} from './eligibility'

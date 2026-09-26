@@ -231,6 +231,10 @@ const FIXTURES: Record<string, Fixture> = {
     tx.notification.create({
       data: { tenantId, userId, type: 'test', title: 't', body: 'b' },
     }),
+  canned_replies: (tx, { tenantId, userId }) =>
+    tx.cannedReply.create({
+      data: { tenantId, shortcut: `/t${Date.now()}`, title: 't', body: 'b', createdBy: userId },
+    }),
   webhook_subscriptions: async (tx, { tenantId }) =>
     tx.webhookSubscription.create({
       data: { tenantId, wabaId: (await waba(tx, tenantId)).id, subscribedFields: ['messages'] },

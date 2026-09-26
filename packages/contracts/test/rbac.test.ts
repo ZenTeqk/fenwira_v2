@@ -43,6 +43,17 @@ describe('RBAC matrix', () => {
     expect(roleHasPermission('VIEWER', 'analytics.read')).toBe(true)
   })
 
+  it('matches decision I3 for canned replies: managers and up manage, agents only use', () => {
+    for (const role of ['OWNER', 'ADMIN', 'MANAGER'] as const) {
+      expect(roleHasPermission(role, 'inbox.canned_replies.manage')).toBe(true)
+      expect(roleHasPermission(role, 'inbox.reply')).toBe(true)
+    }
+    expect(roleHasPermission('AGENT', 'inbox.canned_replies.manage')).toBe(false)
+    expect(roleHasPermission('AGENT', 'inbox.reply')).toBe(true)
+    expect(roleHasPermission('VIEWER', 'inbox.canned_replies.manage')).toBe(false)
+    expect(roleHasPermission('VIEWER', 'inbox.reply')).toBe(false)
+  })
+
   it('never lets anyone assign OWNER or a role above their own', () => {
     expect(canAssignRole('OWNER', 'ADMIN')).toBe(true)
     expect(canAssignRole('ADMIN', 'ADMIN')).toBe(true)

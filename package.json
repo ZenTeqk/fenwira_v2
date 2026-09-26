@@ -12,6 +12,8 @@
     "lint:deps": "depcruise apps packages --config .dependency-cruiser.cjs",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "openapi": "pnpm --filter @fenwira/api build && node apps/api/scripts/openapi.mjs",
+    "openapi:check": "pnpm --filter @fenwira/api build && node apps/api/scripts/openapi.mjs --check",
     "test:integration": "docker compose --profile test run --rm --build fenwira-test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

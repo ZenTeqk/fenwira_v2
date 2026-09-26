@@ -350,7 +350,7 @@ conversation_tags                               T
 ```text
 canned_replies                                  T   P7 (decisions I2, I3)
   id, tenant_id, shortcut text (e.g. /hello), title text, body text, created_by → users, created_at, updated_at
-  unique (tenant_id, lower(shortcut))
+  unique (tenant_id, shortcut)   -- shortcuts are stored lowercase, so this is case-insensitive
 ```
 
 Compose locks and presence live in Redis only (`INBOX.md`).

@@ -263,6 +263,31 @@ export const inboxSettingsSchema = z.object({
 })
 export type InboxSettings = z.infer<typeof inboxSettingsSchema>
 
+/** Workspace-shared canned replies (docs/INBOX.md → Canned replies, decisions I2/I3). */
+export const cannedReplyShortcutSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^\/[a-z0-9_-]{1,32}$/, 'Use / followed by up to 32 letters, digits, - or _')
+export const cannedReplySchema = z.object({
+  id: idSchema,
+  shortcut: z.string(),
+  title: z.string(),
+  body: z.string(),
+  createdBy: idSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+export type CannedReply = z.infer<typeof cannedReplySchema>
+export const createCannedReplySchema = z.object({
+  shortcut: cannedReplyShortcutSchema,
+  title: z.string().trim().min(1).max(80),
+  body: z.string().trim().min(1).max(4096),
+})
+export type CreateCannedReply = z.infer<typeof createCannedReplySchema>
+export const updateCannedReplySchema = createCannedReplySchema.partial()
+export const cannedRepliesQuerySchema = z.object({ q: z.string().trim().max(80).optional() })
+
 export const sendMessageRequestSchema = z.object({ content: sendableContentSchema })
 export type SendMessageRequest = z.infer<typeof sendMessageRequestSchema>
 

@@ -183,6 +183,8 @@ export const contactFilterSchema: z.ZodType<ContactFilter> = z
         code: 'custom',
         message: `Filters can have at most ${MAX_FILTER_RULES} rules.`,
       })
-  }) as z.ZodType<ContactFilter>
+  })
+  // A stable name for the recursive schema in generated docs (docs/openapi.json).
+  .meta({ id: 'ContactFilter' }) as z.ZodType<ContactFilter>
 
 export const EMPTY_FILTER: ContactFilter = { op: 'AND', rules: [] }

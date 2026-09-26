@@ -1,4 +1,5 @@
 import { type DynamicModule, Module } from '@nestjs/common'
+import { MessageEligibilityService } from './eligibility'
 import { FilesController } from './messaging.controller'
 import { FilesService } from './files.service'
 import { InboundProcessor } from './inbound.processor'
@@ -27,6 +28,7 @@ export class MessagingModule {
       providers: [
         { provide: MESSAGING_OPTIONS, useValue: options },
         MessagingService,
+        MessageEligibilityService,
         FilesService,
         WebhookIngestService,
       ],
@@ -42,6 +44,7 @@ export class MessagingModule {
       providers: [
         { provide: MESSAGING_OPTIONS, useValue: options },
         MessagingService,
+        MessageEligibilityService,
         ...MESSAGING_PROCESSORS,
       ],
       exports: [MessagingService, ...MESSAGING_PROCESSORS],

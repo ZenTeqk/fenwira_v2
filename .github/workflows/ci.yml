@@ -37,6 +37,8 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+      - name: OpenAPI document is current (decision API1)
+        run: node apps/api/scripts/openapi.mjs --check
       - name: Prettier
         run: pnpm format:check
 

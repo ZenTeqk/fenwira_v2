@@ -19,7 +19,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 4 | Meta onboarding + WhatsApp account management | 🔵 every criterion passes against the simulated Graph API (see below). Real Embedded Signup needs Meta Tech Provider approval (MI1). |  [PHASE_04](prompts/PHASE_04_META_ONBOARDING.md) |
 | 5 | Webhook + messaging engine | 🔵 every criterion passes against the simulated Graph API (see below). The real-test-number run needs Meta credentials (MI1). | [PHASE_05](prompts/PHASE_05_MESSAGING_ENGINE.md) |
 | 6 | Contacts + consent + CRM foundation | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
-| 7 | Multi-agent shared inbox | 🔵 the original criteria pass locally (see below). Canned replies (decisions I2 and I3) are being added. CI hasn't run on GitHub yet (no remote). | [PHASE_07](prompts/PHASE_07_INBOX.md) |
+| 7 | Multi-agent shared inbox | ✅ all acceptance criteria pass locally, including canned replies (decisions I2 and I3; see below). CI hasn't run on GitHub yet (no remote). | [PHASE_07](prompts/PHASE_07_INBOX.md) |
 | 8 | Template management / builder | ⬜ | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
 | 9 | Campaign / broadcast engine | ⬜ | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
 | 10 | Automation / visual flow builder | ⬜ | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
@@ -198,10 +198,23 @@ The decisions in `PRODUCT.md` → Decision register need this work in already-bu
 
 | Decision | Work | Where |
 | --- | --- | --- |
-| I2, I3 | Workspace-shared canned replies with RBAC, RLS and tests | Phase 7 (now) |
-| C1, C3 | Move the Phase 6 consent checks into `MessageEligibilityService`, with the temporary rules marked and tested | Phase 6 code (now) |
-| API1 | Generate and verify the OpenAPI document from the Zod contracts | Cross-cutting (now) |
-| — | Run the Phase 0–7 acceptance and regression suite | Now |
+| I2, I3 | ✅ Workspace-shared canned replies with RBAC, RLS and tests | Phase 7 (done 2026-09-26) |
+| C1, C3 | ✅ The Phase 6 consent checks now go through `MessageEligibilityService`, with the temporary rules marked and tested | Phase 6 code (done 2026-09-26) |
+| API1 | ✅ `docs/openapi.json` is generated and verified from the Zod contracts | Cross-cutting (done 2026-09-26) |
+| — | ✅ Phase 0–7 acceptance and regression suite | Done 2026-09-26 (below) |
 | AE2, AE3 | `flows.priority`, sequential trigger runs and `automation_trigger_runs` | Phase 10 |
 | B3, B4 | Wallet reservations, available-funds enforcement for every billable source, and `PAUSED_INSUFFICIENT_FUNDS` | Phase 9 (enum), Phase 11 |
 | T2, T3 | OWNER restore, the per-tenant purge job and a retention-category CI check | Not yet scheduled in a phase |
+
+### Spec-freeze verification (2026-09-26)
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Canned replies (Phase 7 criterion) | ✅ | `inbox.int.test.ts`: MANAGER creates `/Hello` (stored `/hello`); a duplicate in any case is 409, and a bad shortcut 400. AGENT lists and searches but gets 403 on create, edit and delete; VIEWER gets 403 on list. Another workspace sees none, gets 404 on edit and delete, and can reuse the shortcut. Create, update and delete are audited. The tenant matrix has a `canned_replies` fixture, and the security matrix covers the 4 routes. e2e: added in Settings → Workspace, `/tha` in the reply box shows the picker, Enter inserts (never sends), edit, send; axe passes with the picker open. |
+| `MessageEligibilityService` (C1/C3) | ✅ | Unit tests: MARKETING needs GRANTED; category beats purpose; suppression; the service window; fixed rule order; `TEMPORARY_RULES` pinned to exactly `TEMP_UTILITY_BLOCK_ON_REVOKED` and `TEMP_AUTHENTICATION_BLOCK_ON_REVOKED`; and a source scan finding no consent comparison outside `eligibility.ts`. MessagingService (accept) and the outbound worker (send) both call it, and the existing consent integration tests still pass. |
+| OpenAPI (API1) | ✅ | `docs/openapi.json`: 121 operations over 93 paths, valid OpenAPI 3.1 (`@seriousme/openapi-schema-validator`), unique operation IDs, typed request bodies and parameters, and `x-permission` per route. The unit test and CI step `openapi.mjs --check` fail when it's stale. |
+| Regression | ✅ | Static: lint, typecheck, 148 unit tests, format, design tokens, dependency rules. Integration: **249** (152 database, 10 API, 87 system). e2e: **39** Playwright. Lighthouse accessibility on `/inbox`: **100**. `pnpm smoke` passes. |
+
+Known issue (not introduced here): Lighthouse's best-practice `heading-order` audit flags Settings → Workspace (98), because card titles are `h3` directly under the page `h1`. axe WCAG 2.1 AA passes on the page.
+
+**Fenwira Core (Phases 0–7) is complete locally.** What's still open: CI on a GitHub remote, and real Meta runs (production onboarding is a separate business milestone, MI1). Phase 8 can start.

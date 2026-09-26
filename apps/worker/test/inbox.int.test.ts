@@ -413,4 +413,88 @@ describe('assignment and lifecycle', () => {
     expect(seen).toHaveLength(1)
     expect((await agent.client.get(`/conversations/${c1.id}`)).status).toBe(404)
   })
+
+  it('canned replies: workspace-shared, unique shortcuts, role-gated, tenant-isolated', async () => {
+    const w = await workspace('ib-canned')
+    const manager = await addMember(api, w.owner, 'MANAGER')
+    const agent = await addMember(api, w.owner, 'AGENT')
+    const viewer = await addMember(api, w.owner, 'VIEWER')
+
+    const created = await manager.client.post('/canned-replies', {
+      shortcut: '/Hello',
+      title: 'Greeting',
+      body: 'Hi! How can we help?',
+    })
+    expect(created.status).toBe(201)
+    expect(created.body.data.shortcut).toBe('/hello') // stored lowercase
+    const id = created.body.data.id as string
+
+    // Unique per workspace, case-insensitively; invalid shortcuts are rejected.
+    const dup = await w.owner.client.post('/canned-replies', {
+      shortcut: '/HELLO',
+      title: 'x',
+      body: 'y',
+    })
+    expect([dup.status, dup.body.error.code]).toEqual([409, 'CONFLICT'])
+    const bad = await w.owner.client.post('/canned-replies', {
+      shortcut: 'hello',
+      title: 'x',
+      body: 'y',
+    })
+    expect(bad.status).toBe(400)
+    await w.owner.client.post('/canned-replies', {
+      shortcut: '/price',
+      title: 'Price',
+      body: 'From ₹499',
+    })
+
+    // AGENT uses (lists) but can't modify; VIEWER can do neither.
+    const listed = await agent.client.get('/canned-replies')
+    expect(listed.body.data.map((r: { shortcut: string }) => r.shortcut)).toEqual([
+      '/hello',
+      '/price',
+    ])
+    expect((await agent.client.get('/canned-replies?q=pri')).body.data).toHaveLength(1)
+    expect(
+      (await agent.client.post('/canned-replies', { shortcut: '/a', title: 'a', body: 'a' }))
+        .status,
+    ).toBe(403)
+    expect((await agent.client.patch(`/canned-replies/${id}`, { title: 'x' })).status).toBe(403)
+    expect((await agent.client.delete(`/canned-replies/${id}`)).status).toBe(403)
+    expect((await viewer.client.get('/canned-replies')).status).toBe(403)
+
+    // Managers edit and delete; renaming onto a taken shortcut is a conflict.
+    const edited = await manager.client.patch(`/canned-replies/${id}`, { body: 'Hello there!' })
+    expect(edited.body.data.body).toBe('Hello there!')
+    expect(
+      (await manager.client.patch(`/canned-replies/${id}`, { shortcut: '/price' })).status,
+    ).toBe(409)
+
+    // Another workspace sees none of them and can reuse the shortcut.
+    const other = await workspace('ib-canned-b')
+    expect((await other.owner.client.get('/canned-replies')).body.data).toEqual([])
+    expect((await other.owner.client.patch(`/canned-replies/${id}`, { title: 'x' })).status).toBe(
+      404,
+    )
+    expect((await other.owner.client.delete(`/canned-replies/${id}`)).status).toBe(404)
+    const reuse = await other.owner.client.post('/canned-replies', {
+      shortcut: '/hello',
+      title: 'h',
+      body: 'b',
+    })
+    expect(reuse.status).toBe(201)
+
+    expect((await manager.client.delete(`/canned-replies/${id}`)).status).toBe(204)
+    expect((await agent.client.get('/canned-replies')).body.data).toHaveLength(1)
+    const audit = (await w.owner.client.get('/audit-logs?limit=50')).body.data as Array<{
+      action: string
+    }>
+    expect(audit.map((a) => a.action)).toEqual(
+      expect.arrayContaining([
+        'canned_reply.created',
+        'canned_reply.updated',
+        'canned_reply.deleted',
+      ]),
+    )
+  })
 })

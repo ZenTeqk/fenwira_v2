@@ -1,4 +1,6 @@
 import { type DynamicModule, Module } from '@nestjs/common'
+import { CannedRepliesController } from './canned-replies.controller'
+import { CannedRepliesService } from './canned-replies.service'
 import { ComposeLockService } from './compose-lock.service'
 import { ConversationsController, InboxController } from './inbox.controller'
 import { InboxEventsProcessor } from './inbox-events.processor'
@@ -13,8 +15,14 @@ export class InboxModule {
     return {
       module: InboxModule,
       imports,
-      controllers: [ConversationsController, InboxController],
-      providers: [InboxService, ComposeLockService, PresenceService, InboxGateway],
+      controllers: [ConversationsController, InboxController, CannedRepliesController],
+      providers: [
+        InboxService,
+        ComposeLockService,
+        PresenceService,
+        InboxGateway,
+        CannedRepliesService,
+      ],
     }
   }
 

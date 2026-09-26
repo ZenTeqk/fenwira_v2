@@ -11,6 +11,7 @@ import { requestContext } from '../../core/context/request-context'
 import { AppError } from '../../core/http/app-error'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { normalizePhone } from '../../core/phone'
+import { MessageEligibilityService } from './eligibility'
 import { previewOf, toMessage } from './messaging.mapper'
 import { writeSystemEvent } from './system-events'
 
@@ -49,6 +50,7 @@ export class MessagingService {
   constructor(
     @Inject(Database) private readonly db: Database,
     private readonly realtime: RealtimeEmitter,
+    private readonly eligibility: MessageEligibilityService,
   ) {}
 
   async send(input: SendInput): Promise<Message> {
@@ -97,33 +99,18 @@ export class MessagingService {
         422,
         'This WhatsApp number is not connected. Check Settings → WhatsApp.',
       )
-    if (conversation.contact.status === 'BLOCKED' || conversation.contact.deletedAt)
-      throw new AppError('CONTACT_BLOCKED', 422, 'This contact is blocked.')
 
-    // 4. Consent (docs/CONTACTS_AND_CONSENT.md → Enforcement).
+    // 3–5. Eligibility: suppression, consent by purpose/category, service window — decided only
+    // by MessageEligibilityService (docs/CONTACTS_AND_CONSENT.md → Eligibility, C1/C3).
     const purpose = input.purpose ?? (content.type === 'TEMPLATE' ? 'UTILITY' : 'SERVICE')
-    if (purpose === 'MARKETING' && conversation.contact.marketingConsent !== 'GRANTED')
-      throw new AppError(
-        'CONSENT_REQUIRED',
-        422,
-        'This contact has not opted in to marketing messages.',
-        { purpose },
-      )
-    if (purpose === 'UTILITY' && conversation.contact.utilityConsent === 'REVOKED')
-      throw new AppError('CONSENT_REQUIRED', 422, 'This contact opted out of these messages.', {
-        purpose,
-      })
-    // 5. Service window: anything but a template needs an open 24-hour window.
     const now = new Date()
-    if (
-      content.type !== 'TEMPLATE' &&
-      !(conversation.serviceWindowExpiresAt && conversation.serviceWindowExpiresAt > now)
-    )
-      throw new AppError(
-        'CONVERSATION_WINDOW_CLOSED',
-        422,
-        'The 24-hour window is closed. Send an approved template to restart the conversation.',
-      )
+    this.eligibility.assert({
+      purpose,
+      contentType: content.type,
+      contact: conversation.contact,
+      serviceWindowExpiresAt: conversation.serviceWindowExpiresAt,
+      now,
+    })
 
     // 7. Human takeover: automation never sends while an agent has the conversation.
     if (input.source === 'AUTOMATION' && conversation.automationState !== 'AUTOMATION_ACTIVE')

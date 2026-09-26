@@ -73,6 +73,7 @@ model User {
   readStates              ConversationReadState[]  @relation("ConversationReader")
   conversationNotes       ConversationNote[]       @relation("ConversationNoteAuthor")
   notifications           Notification[]           @relation("NotificationRecipient")
+  cannedReplies           CannedReply[]            @relation("CannedReplyAuthor")
 
   @@map("users")
 }
@@ -233,6 +234,7 @@ model Tenant {
   conversationNotes        ConversationNote[]
   conversationTags         ConversationTag[]
   notifications            Notification[]
+  cannedReplies            CannedReply[]
 
   @@map("tenants")
 }
@@ -1272,4 +1274,23 @@ enum InboxVisibility {
   ASSIGNED_ONLY
 
   @@map("inbox_visibility")
+}
+
+/// Workspace-shared saved replies for the inbox composer (docs/INBOX.md → Canned replies).
+/// The shortcut is stored lowercase, so the unique index is case-insensitive.
+model CannedReply {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  shortcut  String
+  title     String
+  body      String
+  createdBy String   @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  author User   @relation("CannedReplyAuthor", fields: [createdBy], references: [id])
+
+  @@unique([tenantId, shortcut])
+  @@map("canned_replies")
 }
