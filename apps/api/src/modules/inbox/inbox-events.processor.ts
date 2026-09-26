@@ -1,4 +1,3 @@
-import { type Role, roleHasPermission } from '@fenwira/contracts'
 import { Database } from '@fenwira/database'
 import { type EventJob, QUEUES } from '@fenwira/queue'
 import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common'
@@ -8,7 +7,7 @@ import { type QueueProcessor } from '../../core/queue/queue-processor'
 import { QueueRegistry } from '../../core/queue/queue-registry'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { writeSystemEvent } from '../messaging'
-import { assignConversation } from './inbox.core'
+import { assignRoundRobin } from './round-robin'
 import { PresenceService } from './presence.service'
 
 export const MAINTENANCE_JOB = 'maintenance'
@@ -69,63 +68,29 @@ export class InboxEventsProcessor implements QueueProcessor<InboxJob>, OnApplica
     return 'ignored'
   }
 
-  /** ONLINE agent with inbox.reply and the fewest OPEN assigned conversations; ties → least recently assigned. */
+  /** Auto-assign on open when the tenant uses ROUND_ROBIN (docs/INBOX.md → Assignment). */
   async autoAssign(tenantId: string, conversationId: string): Promise<string> {
-    const setup = await this.db.withTenant(tenantId, async (tx) => {
+    const enabled = await this.db.withTenant(tenantId, async (tx) => {
       const tenant = await tx.tenant.findUniqueOrThrow({
         where: { id: tenantId },
         select: { autoAssign: true },
       })
       const c = await tx.conversation.findFirst({ where: { id: conversationId } })
-      if (tenant.autoAssign !== 'ROUND_ROBIN' || !c || c.assigneeId) return null
-      const members = await tx.membership.findMany({
-        where: { status: 'ACTIVE' },
-        select: { userId: true, role: true },
-      })
-      return {
-        c,
-        agents: members
-          .filter((m) => roleHasPermission(m.role as Role, 'inbox.reply'))
-          .map((m) => m.userId),
-      }
+      return tenant.autoAssign === 'ROUND_ROBIN' && !!c && !c.assigneeId
     })
-    if (!setup) return 'skipped'
-    const online: string[] = []
-    for (const id of setup.agents)
-      if ((await this.presence.read(tenantId, id)) === 'ONLINE') online.push(id)
-    if (!online.length) return 'nobody-online'
-    const pushed = await this.db.withTenant(tenantId, async (tx) => {
-      const load = await tx.conversation.groupBy({
-        by: ['assigneeId'],
-        where: { assigneeId: { in: online }, status: 'OPEN' },
-        _count: { _all: true },
-        _max: { assignedAt: true },
-      })
-      const stats = new Map(
-        load.map((l) => [
-          l.assigneeId!,
-          { open: l._count._all, last: l._max.assignedAt?.getTime() ?? 0 },
-        ]),
-      )
-      const pick = [...online].sort((a, b) => {
-        const x = stats.get(a) ?? { open: 0, last: 0 }
-        const y = stats.get(b) ?? { open: 0, last: 0 }
-        return x.open - y.open || x.last - y.last
-      })[0]!
-      const fresh = await tx.conversation.findFirstOrThrow({ where: { id: conversationId } })
-      if (fresh.assigneeId) return null
-      return assignConversation(tx, {
-        tenantId,
-        conversation: fresh,
-        assigneeId: pick,
-        actor: { id: null, name: null },
-      })
-    })
-    if (pushed) this.realtime.toUser(pushed.userId, 'notification.created', pushed.notification)
-    this.realtime.toConversation(tenantId, conversationId, 'conversation.assigned', {
+    if (!enabled) return 'skipped'
+    const result = await assignRoundRobin(
+      this.db,
+      this.presence,
+      tenantId,
       conversationId,
-    })
-    return 'assigned'
+      this.realtime,
+    )
+    if (result === 'assigned')
+      this.realtime.toConversation(tenantId, conversationId, 'conversation.assigned', {
+        conversationId,
+      })
+    return result
   }
 
   async maintenance(now = new Date()): Promise<number> {

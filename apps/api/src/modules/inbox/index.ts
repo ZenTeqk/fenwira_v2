@@ -1,2 +1,5 @@
 export { InboxModule } from './inbox.module'
 export { InboxEventsProcessor, MAINTENANCE_JOB } from './inbox-events.processor'
+export { assignConversation } from './inbox.core'
+export { PresenceService } from './presence.service'
+export { assignRoundRobin, type RoundRobinResult } from './round-robin'

@@ -74,7 +74,7 @@ The API returns `{ valid, errors: [{ nodeId?, edgeId?, code, message }] }`, and 
 
 ### Triggering
 
-- The `automation.trigger` processor subscribes to `message.inbound.received`, `contact.created`, `contact.updated` (reserved for later triggers) and `conversation.automation_state.changed` (ignored in v1).
+- The `automation.trigger` processor subscribes to `message.inbound.received`, `contact.created` and `conversation.automation_state.changed` (which stops the conversation's executions, P10-D2). `contact.updated` stays unsubscribed until a trigger needs it. The inbound webhook trigger is handled synchronously by the API (below).
 - It loads PUBLISHED versions of ACTIVE flows whose `trigger_type` matches (indexed), and evaluates each trigger config against the event.
 - **Keyword vs message-received precedence:** if any `trigger.keyword` flow matches, `trigger.message_received` flows do **not** start for that message.
 - **Priority and multiple matches (decisions AE2 and AE3).** All matching active flows may execute. They are ordered by `priority` ascending (default 100), then `created_at` ascending, then `id` ascending. For example, priority 10 → Flow A, 20 → Flow B, 30 → Flow C.
@@ -86,6 +86,14 @@ The API returns `{ valid, errors: [{ nodeId?, edgeId?, code, message }] }`, and 
 - **Takeover gate:** message-based triggers don't start while the conversation is in `AGENT_TAKEOVER` or `AUTOMATION_PAUSED`.
 - **Re-entry policy** (per flow): `ALWAYS`; `ONCE_PER_CONTACT` (never again after any execution for the contact); or `AFTER_COMPLETION` (default: not while an execution is RUNNING/WAITING for the same flow and conversation, which the DB partial unique index enforces).
 - Webhook trigger: `POST /webhooks/automation/:token`. The token hash resolves the tenant and flow (`system.resolve_flow_webhook`). The contact is found or created by the phone at `contactPhonePath`. If `requireSignature`, the `X-Fenwira-Signature` HMAC is checked with the flow's secret. Returns 202 with `executionId`.
+
+### Decisions P10-D1–D4 (2026-09-26, ADR-0025)
+
+- **Execution states:** RUNNING, WAITING, COMPLETED, FAILED, CANCELLED, STOPPED_TAKEOVER. Trigger-run entries: PENDING, STARTED, COMPLETED, FAILED, CANCELLED, STOPPED_TAKEOVER, SKIPPED_TAKEOVER, SKIPPED (re-entry or inactive, with reason), SKIPPED_ENTITLEMENT.
+- **Insufficient funds (P10-D1):** error code `INSUFFICIENT_FUNDS`; error branch or FAILED; never retried or waited on.
+- **Takeover (P10-D2):** supersedes "ends as COMPLETED" below. The execution becomes STOPPED_TAKEOVER, the event's remaining flows SKIPPED_TAKEOVER, and nothing resumes.
+- **Entitlements (P10-D3):** one boundary; no plan names in code; allow-all until Phase 11.
+- **Outbound webhooks (P10-D4):** see `SECURITY.md` → Outbound webhooks.
 
 ### Execution semantics
 
@@ -101,7 +109,7 @@ The API returns `{ valid, errors: [{ nodeId?, edgeId?, code, message }] }`, and 
      - **Webhooks** are called outside the transaction. The step row is committed first with `status = WAITING` plus the request, then updated with the response. A retry repeats the HTTP call; outbound webhooks are documented as at-least-once.
   5. Choose the next node from the edge matching the result (`yes`/`no`/`next`/`error`). Update `current_node_id` and `step_count`.
   6. `delay`: set status WAITING and `wait_until`, and enqueue a delayed job. Otherwise continue the loop in the same job, up to 25 steps per job, then re-enqueue to yield.
-- **Takeover during an execution:** before each send step, re-check `automation_state`. If it is not ACTIVE, the step is recorded as `SKIPPED` with `AUTOMATION_BLOCKED_BY_TAKEOVER`, and the execution ends as COMPLETED with `error_code = AUTOMATION_BLOCKED_BY_TAKEOVER`. (An execution never waits for takeover to end.)
+- **Takeover during an execution (P10-D2):** before each step, `automation_state` is re-checked; if it is not ACTIVE (or a send is refused with `AUTOMATION_BLOCKED_BY_TAKEOVER`), the step is recorded SKIPPED and the execution ends **STOPPED_TAKEOVER**. The remaining flows of the trigger run become SKIPPED_TAKEOVER. `conversation.automation_state.changed` also stops RUNNING/WAITING executions of that conversation immediately. Nothing resumes when takeover ends.
 - **Errors:** a failed node follows its `error` edge if one exists. Otherwise the execution becomes FAILED with the error code. Retryable infrastructure errors (DB or Redis) are retried by BullMQ (3 attempts). Business errors aren't retried.
 - **Loop guard:** at most 500 steps per execution. Beyond that the execution is FAILED (`FLOW_STEP_LIMIT`).
 
@@ -125,6 +133,34 @@ Test: replay a recorded trigger against a fixture DB twice and assert identical 
 ### Builder colors
 
 Trigger `slate`, message `surface`, condition `warning`, action `info`. The selected node gets a `primary` ring. Idle edges are `slate-400` and active or highlighted edges are `primary` (from `DESIGN_SYSTEM.md`).
+
+## Implementation (Phase 10)
+
+Module `apps/api/src/modules/automation` (API and worker sides, like campaigns); contracts in `packages/contracts/src/automation/` (`graph.ts`, `validate.ts`, `expressions.ts`) and `api/automation.ts`.
+
+| Piece | Where |
+| --- | --- |
+| Shared primitives: plan ordering, trigger runs, `startNextFlow`, `finishExecution`, takeover stop, job ids | `automation.core.ts` |
+| In-transaction node handlers (conditions, tags, update contact, assign to a user, delay, end) | `engine.ts` |
+| Trigger matching and takeover events | `automation-trigger.processor.ts` (`automation.trigger`) |
+| Step interpreter, external actions, recovery | `automation-execute.processor.ts` (`automation.execute`) |
+| Server publish gate (shared validator + reference checks) | `references.ts` |
+| API, inbound webhook | `flows.service.ts`, `flows.controller.ts` |
+| Entitlement boundary (P10-D3) | `modules/entitlements` (`EntitlementsService`, allow-all source) |
+| SSRF-safe HTTP (P10-D4) | `core/http/safe-fetch.ts` |
+| Builder | `apps/web/components/automation/*`, `apps/web/lib/automation.ts`, `/automations`, `/automations/new`, `/automations/[id]`, `/automations/[id]/history` |
+
+**A step, precisely.** Phase 1 runs in one transaction holding the execution row lock (`FOR UPDATE`): wake a due WAITING execution (or re-delay it by 1 minute while the flow is PAUSED), apply the 500-step limit, check takeover, load the context, and either run an internal node and record its step in the same transaction, or render what an external node will do. Phase 2 (external nodes only, no transaction): `MessagingService.send` with `auto:{executionId}:{seq}`, the round-robin assignment, or `safeFetch`. Phase 3 re-takes the lock and records the step only if the execution is still RUNNING at the same step and node; otherwise the result is dropped (`superseded`), which is how duplicate workers and a concurrent takeover or cancel resolve. Webhook calls therefore happen at least once, with `Idempotency-Key: auto:{executionId}:{seq}`.
+
+**Trigger runs.** `unique (tenant_id, event_id)` makes a redelivered outbox event a no-op, and `unique (trigger_run_id, flow_id)` allows one execution per flow per event. The run's plan is advanced in the same transaction as each terminal state; a conversation that has left `AUTOMATION_ACTIVE` when the next flow's turn comes stops the run (remaining flows SKIPPED_TAKEOVER). The trigger node is the first recorded step.
+
+**Delays and recovery.** A delay commits WAITING, `wait_until` and the next node, then enqueues a delayed job `exec__{id}__{seq}`. Every 60 s, recovery (X16) re-enqueues WAITING executions past `wait_until` and RUNNING ones untouched for 2 minutes, with a per-minute suffix on the job id so a retained completed job never swallows it. The row lock and state checks make duplicate jobs harmless.
+
+**Webhook trigger.** The API resolves the token hash (X8), verifies `X-Fenwira-Signature` with the flow's decrypted secret (when the trigger requires it), finds or creates the contact from `contactPhonePath` (source `API`, emitting `contact.created`), and creates the trigger run and execution in the same request so it can return the execution id (202). An `Idempotency-Key` header maps to a deterministic event id. Webhook runs have no conversation, so sends go to the contact through the default (or the template's WABA) number, and MessagingService's service-window rule applies as usual.
+
+**Refusals.** MessagingService refusals become FAILED steps with the refusal code (`CONVERSATION_WINDOW_CLOSED`, `CONSENT_REQUIRED`, `TEMPLATE_NOT_APPROVED`, …) and follow the error edge; `INSUFFICIENT_BALANCE` is recorded as `INSUFFICIENT_FUNDS` (P10-D1); `AUTOMATION_BLOCKED_BY_TAKEOVER` ends the execution STOPPED_TAKEOVER. Non-business errors are retried by BullMQ (3 attempts); the idempotency key prevents a duplicate send.
+
+**Builder.** React Flow (`@xyflow/react` 12.11.6) and dagre (`@dagrejs/dagre` 3.1.1), pinned. The canvas and the keyboard Outline edit the same `DraftGraph`; drafts autosave (800 ms) with `If-Match`, and the shared validator runs on every change, with server reference problems from the last save added. Drafts may hold incomplete settings; the strict schema applies at publish and at run time. The builder's send-message form handles text; media sends are supported by the API and runtime (`mediaFileId`) but not yet by the builder form.
 
 ## Open questions
 

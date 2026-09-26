@@ -47,6 +47,8 @@ test('signed-in pages have no WCAG 2.1 AA violations', async ({ page }) => {
     '/contacts/imports',
     '/settings/security',
     '/settings/audit-logs',
+    '/automations',
+    '/automations/new',
   ]) {
     await page.goto(path)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()

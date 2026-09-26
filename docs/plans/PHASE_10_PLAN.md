@@ -1,6 +1,6 @@
 # Phase 10 implementation plan: Automation and Flow Builder
 
-**Status:** for review (2026-09-26). No Phase 10 code is written until this plan is approved.
+**Status:** approved (2026-09-26) with decisions P10-D1–D4 (below, and ADR-0025); implemented on branch `phase-10-automation` (see `ROADMAP.md` → Phase 10 verification). Where this plan and the approved decisions differ (§9 takeover, §10 funds, §13 queue table), the decisions and `AUTOMATION_ENGINE.md` → Implementation are authoritative.
 **Inputs:** `docs/AUTOMATION_ENGINE.md`, `docs/prompts/PHASE_10_AUTOMATION.md`, `docs/DATABASE.md` → Automation, `docs/API_SPEC.md` → Automation, ADR-0022/0023 (AE1–AE3), and the Phase 0–9 code as it stands.
 
 Principle: the automation engine is an **orchestrator of existing services**. It adds no send path, consent logic, template resolution, queue runtime, RLS pattern or realtime channel of its own.
@@ -170,7 +170,14 @@ Every new table has `tenant_id` and RLS (the post-migrate loop plus the CI check
 - **e2e (Playwright):** build a flow in the canvas (keyword trigger → condition → send message), see inline validation, publish, simulate an inbound keyword through the mock → the reply appears in the inbox and the execution timeline shows the path; the same flow edited through the Outline view by keyboard only. axe on the builder, outline, list and history pages; Lighthouse accessibility on the flows list and builder.
 - **Regression:** the full Phase 0–9 suite, and OpenAPI regeneration and check.
 
-## Questions for the product owner before coding
+## Approved decisions (2026-09-26)
+
+- **P10-D1, insufficient funds.** A billable send that can't reserve funds records `INSUFFICIENT_FUNDS`, then follows the node's error branch if configured, otherwise fails the execution. It is never retried as a transient error and never waits for credits. A "Wait for Funds" capability may be designed separately later.
+- **P10-D2, human takeover.** Takeover **terminates** the current execution as `STOPPED_TAKEOVER`. No further actions run; the event's remaining matched flows are recorded `SKIPPED_TAKEOVER`; nothing resumes when takeover ends (a new qualifying event starts a new execution normally). Takeover is detected before every step, on send refusal, when a delay wakes, and immediately on `conversation.automation_state.changed`. History distinguishes FAILED, CANCELLED, STOPPED_TAKEOVER and SKIPPED_TAKEOVER.
+- **P10-D3, entitlements.** No plan names or commercial limits in code. A single entitlement boundary (`EntitlementsService`, backed by a replaceable source) is consulted for `automation_enabled` and `max_active_flows` at publish and `automation_execution_limit` at execution start. Phase 10 ships an allow-all source; Phase 11 plugs in plan data.
+- **P10-D4, outbound webhook security.** HTTPS only in production. SSRF protection blocks loopback, private, link-local, CGNAT, multicast/reserved, cloud metadata and internal hostnames. DNS is resolved once and the connection is pinned to the validated address (no rebinding); every redirect hop is re-validated (limit 3). Connect and response timeouts, a response-size cap, GET/POST only, and secret header values redacted from history and logs. A development exception (`AUTOMATION_WEBHOOK_DEV_HOSTS`, refused when `NODE_ENV=production`) allows named local hosts for simulated receivers.
+
+## Questions answered (see Approved decisions)
 
 1. **Insufficient funds in automation:** should a template send that can't be funded follow the error edge / fail the execution (proposed), or wait and retry once funds arrive?
 2. **Takeover mid-flow:** confirm "the execution ends (COMPLETED with `AUTOMATION_BLOCKED_BY_TAKEOVER`) and the remaining flows of that event stop", per `AUTOMATION_ENGINE.md`, rather than the prompt's "waits or ends per config".

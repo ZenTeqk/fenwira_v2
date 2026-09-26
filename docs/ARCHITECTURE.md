@@ -122,14 +122,14 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `message.status.changed` | messaging (status processor) | `messageId, from, to, errorCode?, pricing?` | `campaign.events`, `analytics.events`, `billing.usage`, `contacts.events` (on 131050) |
 | `conversation.opened` | messaging | `conversationId, contactId` | `analytics.events`, `inbox.events` (auto-assign) |
 | `conversation.assigned` | inbox | `conversationId, assigneeId, previousAssigneeId?` | `notifications.dispatch` |
-| `conversation.automation_state.changed` | inbox | `conversationId, from, to, actorId?` | `automation.trigger` |
-| `contact.created` | contacts | `contactId, source` | `automation.trigger`, `analytics.events` |
+| `conversation.automation_state.changed` | inbox, messaging (an agent's first reply) | `conversationId, from, to, actorId?` | `automation.trigger` (stops the conversation's executions, P10-D2) |
+| `contact.created` | contacts, messaging (first message from a new number), automation webhook | `contactId, source` | `automation.trigger`, `analytics.events` |
 | `contact.updated` | contacts | `contactId, changedFields[]` | `automation.trigger` |
 | `consent.changed` | contacts | `contactId, purpose, status, source` | `analytics.events` |
 | `template.status.changed` | templates | `templateVersionId, from, to, reason?` | `notifications.dispatch` |
 | `campaign.launched` | campaigns | `campaignId` | `campaign.dispatch`, `analytics.events` |
 | `campaign.completed` | campaigns | `campaignId, counts` | `notifications.dispatch`, `analytics.events` |
-| `automation.execution.finished` | automation | `executionId, flowId, status` | `analytics.events` |
+| `automation.execution.finished` | automation (not emitted yet; Phase 11 analytics) | `executionId, flowId, status` | `analytics.events` |
 | `wallet.low_balance` | billing | `walletId, balanceMinor` | `notifications.dispatch` |
 | `whatsapp.connection.changed` | whatsapp-accounts | `phoneNumberId, status` | `notifications.dispatch` |
 
@@ -153,8 +153,8 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `inbox.events` | outbox relay | Auto-assignment | 10 |
 | `campaign.dispatch` | outbox relay / scheduler | Snapshot and batch-dispatch recipients | 4 |
 | `campaign.events` | outbox relay | Recipient status sync, completion detection | 10 |
-| `automation.trigger` | outbox relay | Match events to active flows, start executions | 10 |
-| `automation.execute` | automation (self), delayed jobs | Run execution steps | 20 |
+| `automation.trigger` | outbox relay | Match events to active flows, store the ordered plan (trigger run), start the first flow; stop executions on takeover | 5 |
+| `automation.execute` | automation (self), delayed jobs, 60 s recovery scheduler (X16) | Run execution steps: job id `exec__{executionId}__{stepCount}`, ≤ 25 steps per job | 10 |
 | `analytics.events` | outbox relay | Append analytics events | 10 |
 | `billing.usage` | outbox relay | Price billable messages, debit the wallet | 5 |
 | `notifications.dispatch` | outbox relay | In-app notification + email | 5 |

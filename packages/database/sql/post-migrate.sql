@@ -94,6 +94,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_phone_numbers_one_default
   ON public.whatsapp_phone_numbers (tenant_id) WHERE is_default;
 CREATE UNIQUE INDEX IF NOT EXISTS meta_credentials_one_live_per_waba
   ON public.meta_credentials (waba_id) WHERE status IN ('VALID', 'EXPIRING');
+-- Re-entry AFTER_COMPLETION (docs/AUTOMATION_ENGINE.md): one active execution per flow and
+-- conversation, or per flow and contact when there is no conversation (contact/webhook triggers).
+CREATE UNIQUE INDEX IF NOT EXISTS automation_executions_one_active_conversation
+  ON public.automation_executions (flow_id, conversation_id)
+  WHERE status IN ('RUNNING', 'WAITING') AND conversation_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS automation_executions_one_active_contact
+  ON public.automation_executions (flow_id, contact_id)
+  WHERE status IN ('RUNNING', 'WAITING') AND conversation_id IS NULL;
 -- One live template per (WABA, name, language), like Meta (docs/DATABASE.md → Templates).
 CREATE UNIQUE INDEX IF NOT EXISTS templates_live_identity
   ON public.templates (tenant_id, waba_id, name, language) WHERE deleted_at IS NULL;
@@ -351,6 +359,28 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT p_limit;
 $$;
 
+-- X8: automation inbound webhook → (tenant, flow). The token is 256-bit; only its hash is stored.
+GRANT SELECT (id, tenant_id, status, webhook_token_hash, deleted_at) ON public.flows TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.resolve_flow_webhook(p_token_hash bytea)
+RETURNS TABLE (tenant_id uuid, flow_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT f.tenant_id, f.id FROM public.flows f
+  WHERE f.webhook_token_hash = p_token_hash AND f.deleted_at IS NULL
+  LIMIT 1;
+$$;
+
+-- X16: automation recovery (Redis lost a delayed job, or a worker died mid-run). IDs only.
+GRANT SELECT (id, tenant_id, status, wait_until, updated_at) ON public.automation_executions TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.due_automation_executions(p_now timestamptz, p_stale timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid, execution_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT e.tenant_id, e.id FROM public.automation_executions e
+  WHERE (e.status = 'WAITING' AND e.wait_until <= p_now)
+     OR (e.status = 'RUNNING' AND e.updated_at < p_stale)
+  ORDER BY e.id
+  LIMIT p_limit;
+$$;
+
 -- X2: webhook tenant resolution. Called only after the platform HMAC is verified; returns IDs of
 -- the live number (or, for WABA-level events, of the WABA's tenant) and nothing else.
 GRANT SELECT (id, tenant_id, phone_number_id, status) ON public.whatsapp_phone_numbers TO fenwira_system;
@@ -411,7 +441,9 @@ BEGIN
     'system.inbox_maintenance_due(timestamptz, integer)',
     'system.wabas_due_for_template_sync(timestamptz, integer)',
     'system.due_scheduled_campaigns(timestamptz, integer)',
-    'system.active_campaigns(integer)'
+    'system.active_campaigns(integer)',
+    'system.resolve_flow_webhook(bytea)',
+    'system.due_automation_executions(timestamptz, timestamptz, integer)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

@@ -14,6 +14,20 @@ const metaId = () => String(Math.floor(Math.random() * 1e15)).padStart(15, '1')
 const waba = (tx: TenantTx, tenantId: string) =>
   tx.whatsAppBusinessAccount.create({ data: { tenantId, wabaId: metaId(), name: 'Matrix WABA' } })
 
+const execution = async (tx: TenantTx, tenantId: string) => {
+  const f = await tx.flow.create({ data: { tenantId, name: 'Matrix exec flow' } })
+  const v = await tx.flowVersion.create({ data: { tenantId, flowId: f.id, version: 1, graph: {} } })
+  return tx.automationExecution.create({
+    data: {
+      tenantId,
+      flowId: f.id,
+      flowVersionId: v.id,
+      contactId: (await contact(tx, tenantId)).id,
+      triggerEvent: {},
+    },
+  })
+}
+
 const wallet = (tx: TenantTx, tenantId: string) =>
   tx.wallet.upsert({ where: { tenantId }, create: { tenantId }, update: {} })
 
@@ -309,6 +323,34 @@ const FIXTURES: Record<string, Fixture> = {
         currency: 'INR',
       },
     }),
+  flows: (tx, { tenantId }) => tx.flow.create({ data: { tenantId, name: 'Matrix flow' } }),
+  flow_versions: async (tx, { tenantId }) => {
+    const f = await tx.flow.create({ data: { tenantId, name: 'Matrix flow v' } })
+    return tx.flowVersion.create({ data: { tenantId, flowId: f.id, version: 1, graph: {} } })
+  },
+  automation_trigger_runs: async (tx, { tenantId }) =>
+    tx.automationTriggerRun.create({
+      data: {
+        tenantId,
+        eventId: crypto.randomUUID(),
+        triggerType: 'trigger.keyword',
+        contactId: (await contact(tx, tenantId)).id,
+        triggerEvent: {},
+        plan: [],
+      },
+    }),
+  automation_executions: async (tx, { tenantId }) => execution(tx, tenantId),
+  automation_execution_steps: async (tx, { tenantId }) =>
+    tx.automationExecutionStep.create({
+      data: {
+        tenantId,
+        executionId: (await execution(tx, tenantId)).id,
+        seq: 1,
+        nodeId: 't',
+        nodeType: 'trigger.keyword',
+        status: 'SUCCEEDED',
+      },
+    }),
   canned_replies: (tx, { tenantId, userId }) =>
     tx.cannedReply.create({
       data: { tenantId, shortcut: `/t${Date.now()}`, title: 't', body: 'b', createdBy: userId },
@@ -324,6 +366,7 @@ const APPEND_ONLY = new Set([
   'contact_activities',
   'wallet_transactions',
   'usage_events',
+  'automation_execution_steps',
 ])
 
 const appUrl = process.env.DATABASE_URL!

@@ -434,7 +434,8 @@ flows                                           T SD
   active_version_id uuid null, draft_version_id uuid null
   reentry_policy (ALWAYS|ONCE_PER_CONTACT|AFTER_COMPLETION) default AFTER_COMPLETION
   priority int not null default 100          -- AE2: lower runs first; ties by created_at, then id
-  webhook_token_hash bytea null unique       -- inbound webhook trigger
+  webhook_token_hash bytea null unique       -- inbound webhook trigger (sha256 of a 256-bit token)
+  webhook_secret_ciphertext bytea null       -- HMAC key for X-Fenwira-Signature (app crypto)
   created_by, created_at, updated_at, deleted_at
 
 flow_versions                                   T   (immutable once PUBLISHED)
@@ -447,16 +448,21 @@ flow_versions                                   T   (immutable once PUBLISHED)
 
 automation_executions                           T
   id, tenant_id, flow_id, flow_version_id, contact_id, conversation_id null
-  trigger_event jsonb, status execution_status (RUNNING|WAITING|COMPLETED|FAILED|CANCELLED)
+  trigger_event jsonb, status execution_status (RUNNING|WAITING|COMPLETED|FAILED|CANCELLED|STOPPED_TAKEOVER)
   current_node_id text null, wait_until null, context jsonb (variables), step_count int
   error_code null, error_detail null, started_at, finished_at null, updated_at
-  unique (flow_id, conversation_id) WHERE status IN ('RUNNING','WAITING')   -- one active per flow+conversation
+  unique (flow_id, conversation_id) WHERE status IN ('RUNNING','WAITING') AND conversation_id IS NOT NULL
+  unique (flow_id, contact_id) WHERE status IN ('RUNNING','WAITING') AND conversation_id IS NULL
   trigger_run_id uuid null → automation_trigger_runs
+  unique (trigger_run_id, flow_id)           -- one execution per flow per triggering event
   idx (tenant_id, flow_id, started_at desc)
 
 automation_trigger_runs                         T   (AE3: one row per triggering event)
-  id, tenant_id, event_id uuid unique, trigger_type, contact_id, conversation_id null
-  plan jsonb      -- ordered [{flowId, flowVersionId, priority, status: PENDING|STARTED|COMPLETED|FAILED|SKIPPED|STOPPED, reason null, executionId null}]
+  id, tenant_id, event_id uuid, trigger_type, contact_id, conversation_id null
+  trigger_event jsonb   -- what executions see as trigger.* (message, webhook body, contact source)
+  plan jsonb      -- ordered [{flowId, flowName, flowVersionId, priority, status, reason null, executionId null}]
+                  -- status: PENDING|STARTED|COMPLETED|FAILED|CANCELLED|STOPPED_TAKEOVER|SKIPPED_TAKEOVER|SKIPPED|SKIPPED_ENTITLEMENT
+  unique (tenant_id, event_id)   -- a redelivered event creates no second run
   status (RUNNING|COMPLETED|STOPPED), stop_reason text null, created_at, finished_at null
 
 automation_execution_steps                      T AO
@@ -466,6 +472,8 @@ automation_execution_steps                      T AO
   started_at, finished_at
   unique (execution_id, seq)
 ```
+
+Implemented in Phase 10 (migration `20261003000000_automation`). The partial uniques and X8/X16 live in `post-migrate.sql`. `messages.automation_execution_id` is not populated; automation messages are linked by their idempotency key `auto:{executionId}:{seq}` and `source = AUTOMATION`.
 
 ## Billing (P11)
 

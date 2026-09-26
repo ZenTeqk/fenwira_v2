@@ -34,13 +34,15 @@ export async function createApiApp(
   app.enableCors({
     origin: env.WEB_ORIGIN,
     credentials: true,
-    exposedHeaders: ['X-Correlation-Id', 'Retry-After'],
+    exposedHeaders: ['X-Correlation-Id', 'Retry-After', 'ETag'],
     allowedHeaders: [
       'Content-Type',
       'X-Tenant-Id',
       'X-CSRF-Token',
       'X-Correlation-Id',
       'Idempotency-Key',
+      // Automation drafts: optimistic concurrency (PUT /flows/:id/draft).
+      'If-Match',
     ],
   })
   const ws = new RedisIoAdapter(app, env.REDIS_URL, env.WEB_ORIGIN)

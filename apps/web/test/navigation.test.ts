@@ -37,8 +37,13 @@ describe('navigation', () => {
       'contacts',
       'campaigns',
       'templates',
+      'automations',
       'integrations',
       'settings',
+    ])
+    expect(visible.find((i) => i.id === 'automations')!.children!.map((c) => c.label)).toEqual([
+      'Flows',
+      'New automation',
     ])
     expect(visible.find((i) => i.id === 'templates')!.children!.map((c) => c.label)).toEqual([
       'Templates',

@@ -129,6 +129,7 @@ Everything that must run before a tenant is known, or across tenants, goes throu
 | X6 | Invitation acceptance | `system.resolve_invitation(token_hash bytea)` | `(tenant_id, invitation_id)` | Hash of a 256-bit token |
 | X7 | API key authentication | `system.resolve_api_key(prefix text)` | `(tenant_id, api_key_id, key_hash, scopes, revoked_at)` | The hash is verified in app code with a constant-time compare |
 | X8 | Automation inbound webhook trigger | `system.resolve_flow_webhook(token_hash bytea)` | `(tenant_id, flow_id)` | Hash of a 256-bit token |
+| X16 | Automation recovery (delays whose job Redis lost, stalled runs) | `system.due_automation_executions(now timestamptz, stale timestamptz, limit int)` | `(tenant_id, execution_id)[]` for WAITING past `wait_until` and RUNNING idle since `stale` | IDs only. Each execution re-enters `withTenant` under a row lock and re-checks its state. |
 | X9 | Maintenance and retention | `system.purge_expired(now)` | Row counts | Deletes by age only, with no data returned |
 | X10 | Analytics rollups | `system.tenants_with_activity(since)` | `tenant_id[]` | IDs only. Rollups run per tenant. |
 | X11 | Phone number uniqueness at connect | `system.phone_number_owner_exists(phone_number_id text, tenant_id uuid)` | boolean: live in a tenant other than the caller's | Doesn't reveal which tenant. The partial unique index `whatsapp_phone_numbers_active_number_unique` is the real guarantee. |
@@ -136,7 +137,7 @@ Everything that must run before a tenant is known, or across tenants, goes throu
 | X14 | Template sync fan-out | `system.wabas_due_for_template_sync(older_than timestamptz, limit int)` | `(tenant_id, waba_id)[]` (row IDs) for ACTIVE/RESTRICTED WABAs not synced since `older_than` | IDs only. Each sync re-enters `withTenant`. |
 | X13 | Inbox maintenance (snooze expiry, idle takeover release) | `system.inbox_maintenance_due(now timestamptz, limit int)` | `(tenant_id, conversation_id, kind)[]`, kind `UNSNOOZE` or `RELEASE_TAKEOVER` | IDs only. Each change re-enters `withTenant` and re-checks the condition. |
 
-Implemented so far: X1 (policies plus `withUser`), X2 (Phase 5), X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID), X5 and X11 (Phase 4), X6 (`resolve_invitation`), X12, X13 (Phase 7), X14 (Phase 8), and X4 and X15 (Phase 9). The rest arrive with their phases.
+Implemented so far: X1 (policies plus `withUser`), X2 (Phase 5), X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID), X5 and X11 (Phase 4), X6 (`resolve_invitation`), X12, X13 (Phase 7), X14 (Phase 8), X4 and X15 (Phase 9), and X8 and X16 (Phase 10). The rest arrive with their phases.
 
 Adding a row to this table requires an ADR amendment and a security review.
 

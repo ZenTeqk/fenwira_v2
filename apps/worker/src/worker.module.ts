@@ -27,6 +27,11 @@ import {
   CampaignsModule,
 } from '@fenwira/api/modules/campaigns'
 import {
+  AutomationExecuteProcessor,
+  AutomationModule,
+  AutomationTriggerProcessor,
+} from '@fenwira/api/modules/automation'
+import {
   WhatsAppAccountsModule,
   WhatsAppSyncProcessor,
 } from '@fenwira/api/modules/whatsapp-accounts'
@@ -99,6 +104,10 @@ export class WorkerModule {
       },
       [messaging],
     )
+    const automation = AutomationModule.forWorker(
+      { webhookDevHosts: env.AUTOMATION_WEBHOOK_DEV_HOSTS },
+      [messaging],
+    )
     const runtime = WorkerRuntimeModule.forRoot({
       imports: [
         platform,
@@ -111,6 +120,7 @@ export class WorkerModule {
         templates,
         billing,
         campaigns,
+        automation,
       ],
       processors: [
         ...PLATFORM_PROCESSORS,
@@ -124,6 +134,8 @@ export class WorkerModule {
         BillingUsageProcessor,
         CampaignDispatchProcessor,
         CampaignEventsProcessor,
+        AutomationTriggerProcessor,
+        AutomationExecuteProcessor,
       ],
     })
 

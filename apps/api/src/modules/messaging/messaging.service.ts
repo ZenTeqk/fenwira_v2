@@ -219,7 +219,22 @@ export class MessagingService {
           : {}),
       },
     })
-    if (input.source === 'INBOX' && conversation.automationState === 'AUTOMATION_ACTIVE')
+    if (input.source === 'INBOX' && conversation.automationState === 'AUTOMATION_ACTIVE') {
+      // Running automation for this conversation stops (P10-D2).
+      await tx.outboxEvent.create({
+        data: {
+          tenantId,
+          eventType: 'conversation.automation_state.changed',
+          aggregateType: 'conversation',
+          aggregateId: conversation.id,
+          payload: {
+            conversationId: conversation.id,
+            from: 'AUTOMATION_ACTIVE',
+            to: 'AGENT_TAKEOVER',
+            actorId: input.actorUserId ?? null,
+          },
+        },
+      })
       await writeSystemEvent(
         tx,
         { tenantId, conversationId: conversation.id, contactId: conversation.contactId },
@@ -231,6 +246,7 @@ export class MessagingService {
           automatic: true,
         },
       )
+    }
     return { message: toMessage(message), conversationId: conversation.id }
   }
 

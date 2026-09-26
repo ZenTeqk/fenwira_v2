@@ -70,6 +70,38 @@ export class MetricsService implements OnApplicationBootstrap, OnApplicationShut
     registers: [this.registry],
   })
 
+  // Automation (Phase 10). No tenant, flow or execution labels.
+  readonly automationTriggerRuns = new Counter({
+    name: 'automation_trigger_runs_total',
+    help: 'Triggering events evaluated by the automation engine, by result',
+    labelNames: ['result'] as const,
+    registers: [this.registry],
+  })
+  readonly automationExecutions = new Counter({
+    name: 'automation_executions_total',
+    help: 'Automation executions reaching a terminal state (or started), by status',
+    labelNames: ['status'] as const,
+    registers: [this.registry],
+  })
+  readonly automationSteps = new Counter({
+    name: 'automation_steps_total',
+    help: 'Automation steps executed, by node type and status',
+    labelNames: ['node_type', 'status'] as const,
+    registers: [this.registry],
+  })
+  readonly automationStepDuration = new Histogram({
+    name: 'automation_step_duration_seconds',
+    help: 'Time to execute one automation step, by node type',
+    labelNames: ['node_type'] as const,
+    buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+    registers: [this.registry],
+  })
+  readonly automationRetries = new Counter({
+    name: 'automation_job_retries_total',
+    help: 'Automation jobs run again after a failure',
+    registers: [this.registry],
+  })
+
   readonly messageStatus = new Counter({
     name: 'messages_status_total',
     help: 'Message status transitions',

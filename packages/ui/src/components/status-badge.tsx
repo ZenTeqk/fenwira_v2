@@ -73,6 +73,13 @@ export const STATUS_PRESETS = {
   PAUSED: { tone: 'warning', label: 'Paused', icon: Pause },
   STOPPED: { tone: 'neutral', label: 'Stopped', icon: Square },
   COMPLETED: { tone: 'success', label: 'Completed', icon: CheckCircle2 },
+  // Automation executions and trigger runs (docs/AUTOMATION_ENGINE.md, P10-D2/D3)
+  WAITING: { tone: 'info', label: 'Waiting', icon: Clock },
+  STARTED: { tone: 'primary', label: 'Started', icon: Zap },
+  STOPPED_TAKEOVER: { tone: 'info', label: 'Stopped: takeover', icon: Hand },
+  SKIPPED_TAKEOVER: { tone: 'neutral', label: 'Skipped: takeover', icon: Hand },
+  SKIPPED_ENTITLEMENT: { tone: 'warning', label: 'Skipped: plan limit', icon: Ban },
+  SUCCEEDED: { tone: 'success', label: 'Succeeded', icon: CheckCircle2 },
   // Conversations
   OPEN: { tone: 'primary', label: 'Open', icon: Circle },
   RESOLVED: { tone: 'neutral', label: 'Resolved', icon: CheckCircle2 },

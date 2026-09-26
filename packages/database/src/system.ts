@@ -129,6 +129,26 @@ export class SystemGateway {
     return rows.map((r) => ({ tenantId: r.tenant_id, campaignId: r.campaign_id, status: r.status }))
   }
 
+  /** X8 — the flow (and tenant) of an automation webhook token hash. */
+  async resolveFlowWebhook(
+    tokenHash: Uint8Array,
+  ): Promise<{ tenantId: string; flowId: string } | null> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; flow_id: string }>>`
+      SELECT * FROM system.resolve_flow_webhook(${Buffer.from(tokenHash)})`
+    return rows[0] ? { tenantId: rows[0].tenant_id, flowId: rows[0].flow_id } : null
+  }
+
+  /** X16 — WAITING executions past their time, and RUNNING ones idle since `stale` (IDs only). */
+  async dueAutomationExecutions(
+    now: Date,
+    stale: Date,
+    limit: number,
+  ): Promise<Array<{ tenantId: string; executionId: string }>> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; execution_id: string }>>`
+      SELECT * FROM system.due_automation_executions(${now}, ${stale}, ${limit}::int)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, executionId: r.execution_id }))
+  }
+
   /** X2 — tenant (and number row) of a live phone_number_id, for webhook routing. */
   async resolveTenantByPhoneNumberId(
     phoneNumberId: string,

@@ -22,6 +22,7 @@ import { MessagingModule } from './modules/messaging'
 import { TemplatesModule } from './modules/templates'
 import { BillingModule } from './modules/billing'
 import { CampaignsModule } from './modules/campaigns'
+import { AutomationModule } from './modules/automation'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
 
 export function coreConfigFromApiEnv(
@@ -81,6 +82,7 @@ export class ApiModule {
         CampaignsModule.forApi({
           billing: { enforced: env.BILLING_ENFORCED, trialCreditMinor: env.TRIAL_CREDIT_MINOR },
         }),
+        AutomationModule.forApi({ keyRing, publicApiUrl: env.PUBLIC_API_URL }),
         TemplatesModule.forApi({
           keyRing,
           appId: env.META_APP_ID,

@@ -301,6 +301,16 @@ Implemented in Phase 9:
 | POST | `/flows/:id/webhook-token` | `automations.write`. Rotates the token and returns it once. |
 | GET | `/flows/:id/executions`, `/executions/:id` (with steps) | read |
 | POST | `/executions/:id/cancel` | `automations.publish` |
+| GET | `/flows/:id/versions/:versionId` | read (the pinned graph, for "show on canvas") |
+| GET | `/flows/:id/trigger-runs/:runId` | read (the ordered plan for one event, with each flow's outcome) |
+| POST | `/webhooks/automation/:token` | Public. `X-Fenwira-Signature: sha256=<hex HMAC-SHA256(secret, raw body)>`; optional `Idempotency-Key` (the same key returns the same execution). 202 `{executionId, triggerRunId, status}`; 401 bad signature; 404 unknown token; 409 `FLOW_INVALID_STATE` when the flow isn't active; 422 `INVALID_PHONE`. |
+
+Implemented in Phase 10:
+- `GET /flows/:id/draft` returns the draft (or the active version when there is none) with `etag` (also the `ETag` header). `PUT /flows/:id/draft {graph}` requires `If-Match: <etag>`: missing → 400, stale → 409 `VERSION_CONFLICT`. Drafts may hold incomplete step settings; the response carries `validation {valid, errors[{code, message, nodeId?, edgeId?}]}`. The first save after publishing creates a new DRAFT version.
+- `POST /flows/:id/publish` → 422 `FLOW_INVALID` with `details.errors` (the shared validator plus server reference checks), 403 `ENTITLEMENT_REQUIRED` (P10-D3), 409 `FLOW_INVALID_STATE` with nothing to publish.
+- `/pause` and `/resume` → 409 `FLOW_INVALID_STATE` from the wrong status. `DELETE /flows/:id` archives: no new runs, running ones finish, the webhook token stops working.
+- `GET /executions/:id` includes `steps`; viewers without `automations.write` get customer data in step input/output redacted.
+- Realtime: `automation.execution.updated {executionId, flowId, status}` to `tenant:{id}`.
 
 ### Billing, analytics, developer (P11)
 

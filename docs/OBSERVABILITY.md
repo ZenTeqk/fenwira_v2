@@ -50,6 +50,11 @@ Logging, correlation, metrics, tracing, health checks and alerting. Phases 1–1
 | `meta_api_duration_ms` | histogram | endpoint |
 | `messages_status_total` | counter | direction, status, source |
 | `dlq_size` | gauge | queue |
+| `automation_trigger_runs_total` | counter | result (`planned` \| `no-match` \| `no-flows` \| `duplicate` \| `stopped` \| `webhook` …) |
+| `automation_executions_total` | counter | status (`STARTED`, then the terminal status) |
+| `automation_steps_total` | counter | node_type, status |
+| `automation_step_duration_seconds` | histogram | node_type |
+| `automation_job_retries_total` | counter | |
 | `ws_connections` | gauge | |
 | `db_pool_in_use` / `db_pool_waiting` | gauge | service |
 | `redis_memory_used_bytes` | gauge | (from INFO, polled) |

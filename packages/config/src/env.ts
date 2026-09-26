@@ -123,27 +123,51 @@ export const apiEnvSchema = baseEnvSchema
   })
 export type ApiEnv = z.infer<typeof apiEnvSchema>
 
-export const workerEnvSchema = baseEnvSchema.extend({
-  WORKER_HEALTH_PORT: z.coerce.number().int().positive().default(4100),
-  DATABASE_URL: postgresUrl,
-  DB_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
-  REDIS_URL: redisUrl,
-  OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(50).max(60_000).default(250),
-  /** Links in emails point here. */
-  WEB_ORIGIN: z.url(),
-  SMTP_URL: z.string().refine((v) => /^smtps?:\/\//.test(v), 'must be an smtp:// or smtps:// URL'),
-  MAIL_FROM: z.string().min(3),
-  ENCRYPTION_KEYS: z.string().min(1),
-  ENCRYPTION_ACTIVE_KEY_ID: z.string().min(1),
-  ...metaEnv,
-  /** How often each connected number is refreshed from Meta (quality, tier, token expiry). */
-  WHATSAPP_SYNC_INTERVAL_HOURS: z.coerce.number().min(0.01).max(168).default(6),
-  /** Campaign recipients handed to MessagingService per dispatch job (docs/CAMPAIGN_ENGINE.md). */
-  CAMPAIGN_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(50),
-  /** Outbound retry base delay; attempts wait 2^n × base with jitter. Tests shorten it. */
-  WHATSAPP_OUTBOUND_BACKOFF_MS: z.coerce.number().int().min(10).max(60_000).default(1000),
-  ...storageEnv,
-})
+export const workerEnvSchema = baseEnvSchema
+  .extend({
+    WORKER_HEALTH_PORT: z.coerce.number().int().positive().default(4100),
+    DATABASE_URL: postgresUrl,
+    DB_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+    REDIS_URL: redisUrl,
+    OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(50).max(60_000).default(250),
+    /** Links in emails point here. */
+    WEB_ORIGIN: z.url(),
+    SMTP_URL: z
+      .string()
+      .refine((v) => /^smtps?:\/\//.test(v), 'must be an smtp:// or smtps:// URL'),
+    MAIL_FROM: z.string().min(3),
+    ENCRYPTION_KEYS: z.string().min(1),
+    ENCRYPTION_ACTIVE_KEY_ID: z.string().min(1),
+    ...metaEnv,
+    /** How often each connected number is refreshed from Meta (quality, tier, token expiry). */
+    WHATSAPP_SYNC_INTERVAL_HOURS: z.coerce.number().min(0.01).max(168).default(6),
+    /** Campaign recipients handed to MessagingService per dispatch job (docs/CAMPAIGN_ENGINE.md). */
+    CAMPAIGN_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(50),
+    /** Outbound retry base delay; attempts wait 2^n × base with jitter. Tests shorten it. */
+    WHATSAPP_OUTBOUND_BACKOFF_MS: z.coerce.number().int().min(10).max(60_000).default(1000),
+    /**
+     * P10-D4 development exception: comma-separated host names the automation webhook action may
+     * call over http: or at private addresses (local simulated receivers). Refused in production.
+     */
+    AUTOMATION_WEBHOOK_DEV_HOSTS: z
+      .string()
+      .optional()
+      .transform((v) =>
+        (v ?? '')
+          .split(',')
+          .map((h) => h.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ...storageEnv,
+  })
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV === 'production' && env.AUTOMATION_WEBHOOK_DEV_HOSTS.length)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AUTOMATION_WEBHOOK_DEV_HOSTS'],
+        message: 'must be empty in production',
+      })
+  })
 export type WorkerEnv = z.infer<typeof workerEnvSchema>
 
 export const migrateEnvSchema = baseEnvSchema.extend({

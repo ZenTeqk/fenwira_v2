@@ -211,6 +211,8 @@ export class InboundProcessor implements QueueProcessor<WebhookJob> {
       conversationId: conversation.id,
       contactId: contact.id,
     })
+    // A first message from a new number creates the contact ("contact created" automations).
+    if (!existing) await outbox('contact.created', { contactId: contact.id, source: 'INBOUND' })
     if (opened)
       await outbox('conversation.opened', {
         conversationId: conversation.id,

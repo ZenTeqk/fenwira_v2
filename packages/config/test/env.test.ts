@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { apiEnvSchema, EnvValidationError, loadEnv } from '../src/env'
+import { apiEnvSchema, EnvValidationError, loadEnv, workerEnvSchema } from '../src/env'
 
 const valid = {
   WEB_ORIGIN: 'http://localhost:3000',
@@ -63,5 +63,22 @@ describe('loadEnv', () => {
     expect(() => loadEnv(apiEnvSchema, { ...valid, META_GRAPH_API_VERSION: '23' })).toThrow(
       /META_GRAPH_API_VERSION/,
     )
+  })
+
+  it('allows automation webhook dev hosts only outside production (P10-D4)', () => {
+    const worker = { ...valid, SMTP_URL: 'smtp://mail:1025', MAIL_FROM: 'a@b.c' }
+    const dev = loadEnv(workerEnvSchema, {
+      ...worker,
+      AUTOMATION_WEBHOOK_DEV_HOSTS: ' Receiver , meta-mock ',
+    })
+    expect(dev.AUTOMATION_WEBHOOK_DEV_HOSTS).toEqual(['receiver', 'meta-mock'])
+    expect(loadEnv(workerEnvSchema, worker).AUTOMATION_WEBHOOK_DEV_HOSTS).toEqual([])
+    expect(() =>
+      loadEnv(workerEnvSchema, {
+        ...worker,
+        NODE_ENV: 'production',
+        AUTOMATION_WEBHOOK_DEV_HOSTS: 'receiver',
+      }),
+    ).toThrow(/AUTOMATION_WEBHOOK_DEV_HOSTS: must be empty in production/)
   })
 })

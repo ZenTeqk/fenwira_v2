@@ -22,7 +22,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 7 | Multi-agent shared inbox | ✅ all acceptance criteria pass locally, including canned replies (decisions I2 and I3; see below). CI hasn't run on GitHub yet (no remote). | [PHASE_07](prompts/PHASE_07_INBOX.md) |
 | 8 | Template management / builder | 🔵 every criterion passes against the simulated Graph API (see below). The real-WABA round trip needs Meta production onboarding (MI1). | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
 | 9 | Campaign / broadcast engine | ✅ complete (closed 2026-09-26 with decisions P9-D1–D3; see below). Real sends need MI1. | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
-| 10 | Automation / visual flow builder | 🟡 implementation plan for review: [plans/PHASE_10_PLAN.md](plans/PHASE_10_PLAN.md) | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
+| 10 | Automation / visual flow builder | ✅ implemented with decisions P10-D1–D4 (ADR-0025); every criterion passes locally (see below). Real sends need MI1. | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
 | 11 | Billing + analytics + administration | ⬜ | [PHASE_11](prompts/PHASE_11_BILLING_ANALYTICS.md) |
 | 12 | Hardening + testing + production readiness | ⬜ | [PHASE_12](prompts/PHASE_12_HARDENING.md) |
 
@@ -46,7 +46,7 @@ Inbox
 Contacts      All Contacts · Segments · Tags · Imports
 Campaigns     Campaigns · Create Campaign · Analytics
 Templates     Templates · Create Template
-Automations   Flows · Flow Builder
+Automations   Flows · New automation (the builder opens per flow)
 Analytics
 Integrations  WhatsApp · Webhooks · API
 Billing       Subscription · Wallet · Usage
@@ -277,6 +277,37 @@ Known limitations moved to the product backlog (`PRODUCT.md`) at closure: send w
 | P9-D3 | `PAUSED_TEMPLATE_UNAVAILABLE` replaces FAILED and TEMPLATE_PAUSED; remaining recipients preserved and unsent; resume only with the same version; no template switching; audit via `template_snapshot` and `messages.template_version_id` | `campaigns.int.test.ts`: paused and disabled templates both pause the campaign, pending counts don't move, nothing is skipped, resume is refused while unavailable, cancel works, and every message used the frozen version |
 
 Regression at closure: 313 integration (185 database, 10 API, 118 system), 41 e2e, 170 unit; lint, typecheck, format, design tokens, dependency rules and the OpenAPI check pass. ADR-0024 records the decisions.
+
+## Phase 10 verification (2026-09-26)
+
+Plan: [plans/PHASE_10_PLAN.md](plans/PHASE_10_PLAN.md). Decisions P10-D1–D4 (ADR-0025). Tests: `automation.int.test.ts` (19), `automation-billing.int.test.ts`, `safe-fetch.test.ts`, `automation.test.ts` (contracts, api, web), `e2e/automation.spec.ts`.
+
+| # | Requirement | Result | Evidence |
+| --- | --- | --- | --- |
+| 1 | Immutable, pinned versions | ✅ | Publishing v2 while a v1 execution waits in a delay: it finishes on v1 (`v1 after`), new triggers use v2; versions list shows v2 PUBLISHED, v1 ARCHIVED. |
+| 2 | Deterministic ordering (AE2/AE3) | ✅ | Flows created at priorities 30, 10, 20 run 10 → 20 → 30, each starting after the previous finished; plan stored on the trigger run; unit test of the priority/created_at/id order. Two identical triggers produce identical step sequences. |
+| 3 | Idempotency: messages, mutations, tags, assignments, webhooks | ✅ | Sends keyed `auto:{executionId}:{seq}`; duplicate event delivery (sequential and concurrent) → one run, one execution, one message; two recovery passes plus two workers racing one execution → unique step seqs, one send. Tags and contact updates commit with their step row; webhook calls carry `Idempotency-Key` (at-least-once, documented). |
+| 4 | Durable delays, recovery across workers | ✅ | WAITING + `wait_until` in Postgres; the delayed job removed from Redis → X16 recovery re-enqueues → completes once. Paused flow: waiting executions re-delay and finish after resume. |
+| 5 | 500-step limit | ✅ | FAILED `FLOW_STEP_LIMIT` with a readable detail. |
+| 6 | P10-D1 insufficient funds | ✅ | Billing enforced, empty wallet: with an error branch → step FAILED `INSUFFICIENT_FUNDS`, branch sends free text, execution COMPLETED; without → execution FAILED `INSUFFICIENT_FUNDS`; one attempt, no reservation left. |
+| 7 | P10-D2 takeover | ✅ | An agent reply (now emitting `conversation.automation_state.changed`) stops a waiting execution: STOPPED_TAKEOVER with a SKIPPED step, the next flow SKIPPED_TAKEOVER, run STOPPED `AGENT_TAKEOVER`; no resume; new messages during takeover start nothing. State changed without an event is caught before the next step (`AUTOMATION_PAUSED`). |
+| 8 | P10-D3 entitlements | ✅ | One boundary (`EntitlementsService`, allow-all source); a zero execution limit → SKIPPED_ENTITLEMENT; automation disabled → publish 403 `ENTITLEMENT_REQUIRED`. No plan names in code. |
+| 9 | P10-D4 webhook security | ✅ | 46 unit tests (address ranges incl. IPv4-mapped/NAT64/6to4, internal names, rebinding answers, pinned connection, redirect re-validation and limit, size cap, timeout, redaction). Integration: metadata IP and `localhost` blocked, `http:` refused, 500 → error branch; dev receiver call carries `Idempotency-Key`, secret header and query token redacted in history; env refuses the dev-host list in production. |
+| 10 | Webhook trigger | ✅ | Token + HMAC → 202 with the execution; bad or missing signature 401; unknown or rotated token 404; same `Idempotency-Key` → same execution; contact created from the body; service-window rule still enforced by MessagingService. |
+| 11 | Builder/runtime separation | ✅ | Runtime reads only nodes and edges of the pinned version; `layout` is editor-only; drafts may be incomplete, the strict schema applies at publish and run time. |
+| 12 | Builder, Outline, history | ✅ | e2e: canvas build with live validation, expression insert, publish, customer keyword → reply in the inbox, history timeline and "show on canvas"; Outline built and re-wired with the keyboard only. |
+| 13 | Validation and concurrency | ✅ | Publish 422 `FLOW_INVALID` pinpointing node ids; reference checks (deleted tag); stale `If-Match` → 409 `VERSION_CONFLICT`, missing → 400. |
+| 14 | Tenant isolation | ✅ | Another workspace gets 404 on get, draft, executions, execution, cancel, publish, pause and token rotation; its customers can't trigger A's flows; tenant-matrix fixtures for the 5 new tables (steps append-only); security matrix covers the new routes. |
+| 15 | Accessibility | ✅ | axe (WCAG 2.1 AA) on the list, new, builder canvas, Outline, history detail and replay canvas. |
+| 16 | Phase 0–10 regression | ✅ | 352 integration (205 database, 10 API, 137 worker; the opt-in perf probe skipped), 43 e2e, 244 unit; lint, typecheck, format, design tokens, dependency rules and the OpenAPI check pass. |
+
+Also found and fixed:
+
+- An agent's first reply set AGENT_TAKEOVER without emitting `conversation.automation_state.changed`; it now does, so running automation stops immediately.
+- The API's CORS allow-list didn't include `If-Match`, so browser draft saves failed (caught by e2e); `ETag` is now exposed too.
+- A first message from a new number didn't emit `contact.created`; it now does (source INBOUND).
+
+Performance (local Docker, one worker, meta-mock): 200 keyword events × 3 flows = 600 executions and 1,800 steps in 25.1 s (≈ 24 executions/s, 72 steps/s; 8 events/s because each event's flows run one after another by design). Probe: `PERF=1 … test/automation-perf.int.test.ts`.
 
 ## Production-readiness backlog
 

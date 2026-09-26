@@ -22,16 +22,17 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   // Subscribers (contacts keywords, automation, analytics, billing, campaigns) arrive in P6–P11.
   // Contacts handles opt-in/out keywords and Meta's 131050 opt-out; automation, analytics,
   // billing and campaigns subscribe in P9–P11.
-  'message.inbound.received': [QUEUES.contactsEvents],
+  'message.inbound.received': [QUEUES.contactsEvents, QUEUES.automationTrigger],
   // Contacts (131050 opt-out), campaign recipient status, billing settlement.
   'message.status.changed': [QUEUES.contactsEvents, QUEUES.campaignEvents, QUEUES.billingUsage],
-  'contact.created': [],
+  'contact.created': [QUEUES.automationTrigger],
   'contact.updated': [],
   'consent.changed': [],
   // Auto-assign (round robin) on open; analytics subscribes in P11.
   'conversation.opened': [QUEUES.inboxEvents],
   'conversation.assigned': [],
-  'conversation.automation_state.changed': [],
+  // Takeover stops running automation immediately (P10-D2).
+  'conversation.automation_state.changed': [QUEUES.automationTrigger],
 }
 
 export function subscribersFor(eventType: string): readonly QueueName[] {

@@ -186,6 +186,17 @@ These describe what shipped where it refines the decisions above.
 | Elevation | Role escalation | Rank check on role changes, permission guards generated from the matrix |
 | SSRF | Automation webhook node | IP-range blocklist after DNS resolution, egress timeout and cap |
 
+### Outbound webhooks (automation, decision P10-D4)
+
+- HTTPS only (`http:` refused in every environment except for the development hosts below). Methods: GET and POST.
+- **SSRF guard** (`apps/api/src/core/http/safe-fetch.ts`): the hostname is rejected when it is `localhost`, `*.localhost`, `*.local`, `*.internal`, single-label, or a known metadata name. It is resolved once (all A/AAAA records), and **every** address must be public: loopback, RFC 1918, link-local (incl. 169.254.169.254), CGNAT, unique-local and link-local IPv6, IPv4-mapped IPv6, multicast, reserved and unspecified ranges are blocked. The TCP connection is pinned to the validated address (no second lookup, so no DNS rebinding).
+- Redirects are followed manually, at most 3, each hop fully re-validated.
+- Connect timeout 3 s, total timeout ≤ 10 s, response body capped at 64 KB.
+- Request headers whose names look secret (`authorization`, `cookie`, `*token*`, `*secret*`, `*key*`, `*signature*`) are stored and logged as `[REDACTED]`. History shows the status, duration, a truncated response and the error.
+- Credentials never follow a redirect to another origin (secret-looking headers are dropped). Credentials in the URL are refused.
+- The inbound webhook trigger's token is 256-bit and stored only as its SHA-256 (X8); the HMAC secret is encrypted with the app key ring and shown once. The browser API's CORS allow-list includes `If-Match` (draft saves) and exposes `ETag`.
+- Development exception: `AUTOMATION_WEBHOOK_DEV_HOSTS` (comma-separated host names) allows `http:` and private addresses **for those hosts only**. The env schema refuses it when `NODE_ENV=production`.
+
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

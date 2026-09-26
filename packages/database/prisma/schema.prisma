@@ -246,6 +246,11 @@ model Tenant {
   walletTransactions       WalletTransaction[]
   walletReservations       WalletReservation[]
   usageEvents              UsageEvent[]
+  flows                    Flow[]
+  flowVersions             FlowVersion[]
+  automationTriggerRuns    AutomationTriggerRun[]
+  automationExecutions     AutomationExecution[]
+  automationSteps          AutomationExecutionStep[]
   templateVersions         TemplateVersion[]
 
   @@map("tenants")
@@ -1635,4 +1640,189 @@ enum BillingMode {
   PREPAID
 
   @@map("billing_mode")
+}
+
+enum FlowStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+
+  @@map("flow_status")
+}
+
+enum FlowVersionState {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("flow_version_state")
+}
+
+enum ReentryPolicy {
+  ALWAYS
+  ONCE_PER_CONTACT
+  AFTER_COMPLETION
+
+  @@map("reentry_policy")
+}
+
+enum ExecutionStatus {
+  RUNNING
+  WAITING
+  COMPLETED
+  FAILED
+  CANCELLED
+  STOPPED_TAKEOVER
+
+  @@map("execution_status")
+}
+
+enum StepStatus {
+  SUCCEEDED
+  FAILED
+  SKIPPED
+  WAITING
+
+  @@map("step_status")
+}
+
+enum TriggerRunStatus {
+  RUNNING
+  COMPLETED
+  STOPPED
+
+  @@map("trigger_run_status")
+}
+
+/// An automation (docs/AUTOMATION_ENGINE.md). Executions pin the version they started with.
+model Flow {
+  id                      String        @id @default(uuid(7)) @db.Uuid
+  tenantId                String        @map("tenant_id") @db.Uuid
+  name                    String
+  description             String?
+  status                  FlowStatus    @default(DRAFT)
+  activeVersionId         String?       @map("active_version_id") @db.Uuid
+  draftVersionId          String?       @map("draft_version_id") @db.Uuid
+  reentryPolicy           ReentryPolicy @default(AFTER_COMPLETION) @map("reentry_policy")
+  /// AE2: lower runs first; ties by created_at, then id.
+  priority                Int           @default(100)
+  webhookTokenHash        Bytes?        @unique @map("webhook_token_hash")
+  webhookSecretCiphertext Bytes?        @map("webhook_secret_ciphertext")
+  createdBy               String?       @map("created_by") @db.Uuid
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt               DateTime?     @map("deleted_at") @db.Timestamptz(3)
+
+  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  versions   FlowVersion[]
+  executions AutomationExecution[]
+
+  @@index([tenantId, status])
+  @@map("flows")
+}
+
+/// Immutable once PUBLISHED. `graph` is the executable definition; its `layout` is editor-only.
+model FlowVersion {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  flowId           String           @map("flow_id") @db.Uuid
+  version          Int
+  graph            Json
+  triggerType      String?          @map("trigger_type")
+  triggerConfig    Json?            @map("trigger_config")
+  state            FlowVersionState @default(DRAFT)
+  validationErrors Json?            @map("validation_errors")
+  publishedBy      String?          @map("published_by") @db.Uuid
+  publishedAt      DateTime?        @map("published_at") @db.Timestamptz(3)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  flow       Flow                  @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  executions AutomationExecution[]
+
+  @@unique([flowId, version])
+  @@index([tenantId, triggerType, state])
+  @@map("flow_versions")
+}
+
+/// One triggering event: the ordered plan of matched flows and each one's outcome (AE3).
+model AutomationTriggerRun {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  tenantId       String           @map("tenant_id") @db.Uuid
+  eventId        String           @map("event_id") @db.Uuid
+  triggerType    String           @map("trigger_type")
+  contactId      String           @map("contact_id") @db.Uuid
+  conversationId String?          @map("conversation_id") @db.Uuid
+  /// What executions of this run see as `trigger.*` (message, webhook body, contact source).
+  triggerEvent   Json             @map("trigger_event")
+  plan           Json
+  status         TriggerRunStatus @default(RUNNING)
+  stopReason     String?          @map("stop_reason")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  finishedAt     DateTime?        @map("finished_at") @db.Timestamptz(3)
+
+  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  executions AutomationExecution[]
+
+  @@unique([tenantId, eventId])
+  @@map("automation_trigger_runs")
+}
+
+model AutomationExecution {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  tenantId       String          @map("tenant_id") @db.Uuid
+  flowId         String          @map("flow_id") @db.Uuid
+  flowVersionId  String          @map("flow_version_id") @db.Uuid
+  triggerRunId   String?         @map("trigger_run_id") @db.Uuid
+  contactId      String          @map("contact_id") @db.Uuid
+  conversationId String?         @map("conversation_id") @db.Uuid
+  triggerEvent   Json            @map("trigger_event")
+  status         ExecutionStatus @default(RUNNING)
+  currentNodeId  String?         @map("current_node_id")
+  waitUntil      DateTime?       @map("wait_until") @db.Timestamptz(3)
+  /// Variables saved by steps (webhook responses): `vars`.
+  context        Json            @default("{}")
+  stepCount      Int             @default(0) @map("step_count")
+  errorCode      String?         @map("error_code")
+  errorDetail    String?         @map("error_detail")
+  startedAt      DateTime        @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt     DateTime?       @map("finished_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  flow        Flow                      @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  flowVersion FlowVersion               @relation(fields: [flowVersionId], references: [id], onDelete: Cascade)
+  triggerRun  AutomationTriggerRun?     @relation(fields: [triggerRunId], references: [id], onDelete: SetNull)
+  steps       AutomationExecutionStep[]
+
+  /// One execution per flow per triggering event (redelivered events and retries can't add one).
+  @@unique([triggerRunId, flowId])
+  @@index([tenantId, flowId, startedAt(sort: Desc)])
+  @@index([tenantId, conversationId, status])
+  @@map("automation_executions")
+}
+
+/// Append-only step history (UPDATE/DELETE revoked). One row per executed node.
+model AutomationExecutionStep {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  tenantId    String     @map("tenant_id") @db.Uuid
+  executionId String     @map("execution_id") @db.Uuid
+  seq         Int
+  nodeId      String     @map("node_id")
+  nodeType    String     @map("node_type")
+  status      StepStatus
+  input       Json       @default("{}")
+  output      Json       @default("{}")
+  errorCode   String?    @map("error_code")
+  errorDetail String?    @map("error_detail")
+  startedAt   DateTime   @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt  DateTime?  @map("finished_at") @db.Timestamptz(3)
+
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  execution AutomationExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@unique([executionId, seq])
+  @@map("automation_execution_steps")
 }
