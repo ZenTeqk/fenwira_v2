@@ -6,6 +6,8 @@ The Docker Compose topology (the only deployment target in v2), images, environm
 
 ## Decisions
 
+Docker Compose is the current deployment target (decision DP1). The production AWS architecture is finalized during production-readiness/migration work, and nothing in the code depends on Compose beyond environment variables.
+
 ### Quick start
 
 ```bash
@@ -151,6 +153,4 @@ Without a Meta app, local development uses `fenwira-meta-mock`, a small simulate
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| DP1 | Which production host comes after v2? Not needed until after Phase 12. | Ops |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

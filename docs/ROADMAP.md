@@ -6,20 +6,20 @@ Fenwira v2 is a new application built from scratch. Each phase leaves the system
 
 ## Status
 
-Spec index: every doc in `docs/` plus `docs/adr/`. Open questions are in `PRODUCT.md` → Open questions register.
+Spec index: every doc in `docs/` plus `docs/adr/`. Frozen decisions are in `PRODUCT.md` → Decision register, and the remaining open questions are in `PRODUCT.md` → Open questions register.
 
 Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · ✅ done (all acceptance criteria pass)
 
 | Phase | Scope | Status | Prompt |
 | --- | --- | --- | --- |
-| 0 | Product + architecture specification | 🔵 all 18 docs and 17 ADRs drafted; waiting for owner review of the open questions in `PRODUCT.md` | [PHASE_00](prompts/PHASE_00_SPECIFICATION.md) |
+| 0 | Product + architecture specification | ✅ frozen 2026-09-26: all 30 open questions decided (`PRODUCT.md` → Decision register, ADR-0022). Five detail questions (T3, C3, I3, AE3, B4) remain open, each blocking only the work named in the register. | [PHASE_00](prompts/PHASE_00_SPECIFICATION.md) |
 | 1 | Monorepo + Docker Compose + engineering foundation | 🔵 every local acceptance criterion passes (see below). Only remaining item: CI green on a PR, which needs a GitHub remote. | [PHASE_01](prompts/PHASE_01_FOUNDATION.md) |
 | 2 | Design system + application shell | ✅ all acceptance criteria pass locally (see below). The CI workflow includes every check but hasn't run on GitHub yet (no remote). | [PHASE_02](prompts/PHASE_02_DESIGN_SYSTEM.md) |
 | 3 | Authentication + tenant + RBAC + RLS | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_03](prompts/PHASE_03_AUTH_TENANCY.md) |
 | 4 | Meta onboarding + WhatsApp account management | 🔵 every criterion passes against the simulated Graph API (see below). Real Embedded Signup needs Meta Tech Provider approval (MI1). |  [PHASE_04](prompts/PHASE_04_META_ONBOARDING.md) |
 | 5 | Webhook + messaging engine | 🔵 every criterion passes against the simulated Graph API (see below). The real-test-number run needs Meta credentials (MI1). | [PHASE_05](prompts/PHASE_05_MESSAGING_ENGINE.md) |
 | 6 | Contacts + consent + CRM foundation | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
-| 7 | Multi-agent shared inbox | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_07](prompts/PHASE_07_INBOX.md) |
+| 7 | Multi-agent shared inbox | 🔵 the original criteria pass locally (see below). Decision I2 added canned replies to this phase; they wait on open question I3. CI hasn't run on GitHub yet (no remote). | [PHASE_07](prompts/PHASE_07_INBOX.md) |
 | 8 | Template management / builder | ⬜ | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
 | 9 | Campaign / broadcast engine | ⬜ | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
 | 10 | Automation / visual flow builder | ⬜ | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
@@ -190,4 +190,17 @@ Bugs found and fixed during the phase:
 
 Not covered by a test yet: idle-takeover auto-release (same X13 job as the snooze path) and the lock's 30 s expiry (the Redis TTL).
 
-**Fenwira Core (Phases 0–7) is complete locally.** What's still open: the Phase 0 owner review, CI on a GitHub remote, and real Meta runs (MI1).
+Fenwira Core (Phases 0–7) was complete locally, except for CI on a GitHub remote and real Meta runs (MI1). The specification freeze then added canned replies to Phase 7 (see below).
+
+## Specification freeze follow-ups (2026-09-26)
+
+The decisions in `PRODUCT.md` → Decision register need this work in already-built or upcoming phases. Nothing else changes scope.
+
+| Decision | Work | Where | Waits on |
+| --- | --- | --- | --- |
+| C1 | Move the consent checks from `MessagingService` step 4 and the outbound worker into one centralized, purpose/category-aware policy service. Keep the UTILITY check as interim behavior. | Phase 6 code, before Phase 9 | Nothing (the UTILITY policy itself waits on C3) |
+| I2 | Lightweight canned replies in the inbox composer (new Phase 7 acceptance criterion) | Phase 7 | I3 |
+| API1 | Generate and maintain the OpenAPI document from the Zod contracts | Cross-cutting, now | Nothing |
+| AE2 | `flows.priority` with the deterministic order | Phase 10 | AE3, only for single versus all-matching |
+| B3 | Usable-balance enforcement for every billable outbound source, and `wallets.credit_limit_minor` | Phase 11 | B4 |
+| T2 | Restore path and per-tenant purge job, plus a new `system.*` function | Scheduled once T3 is answered | T3 |

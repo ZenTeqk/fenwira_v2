@@ -77,6 +77,10 @@ Error codes are a closed enum in `packages/contracts/src/errors.ts`, and the web
 
 Mutable aggregates edited in forms (contacts, templates drafts, campaigns drafts, flow drafts) return `updatedAt`. Updates send `If-Match: "<updatedAt>"`, and a stale value returns 409 `VERSION_CONFLICT`.
 
+### OpenAPI
+
+An OpenAPI document is maintained for the API (decision API1). It is generated from the Zod contracts in `packages/contracts` (via `zod-openapi`), so it can't drift from the validation the API runs. The external/public API (API keys and its documentation) is delivered in Phase 11. The generator is not built yet; it is a spec-freeze follow-up in `ROADMAP.md`.
+
 ### Versioning
 
 Breaking changes go to `/api/v2`. Additive changes (new optional fields, new endpoints, new enum values documented as extensible) are allowed in v1.
@@ -131,7 +135,7 @@ Every route needs `X-Tenant-Id` plus an ACTIVE membership. A missing, malformed,
 | Method | Path | P | Notes |
 | --- | --- | --- | --- |
 | GET / PATCH | `/workspace` | `workspace.read` / `workspace.manage` | PATCH `{name?, country?, timezone?, require2fa?}`, audited as a diff |
-| DELETE | `/workspace` | OWNER | Soft delete, 204 |
+| DELETE | `/workspace` | OWNER | Soft delete, 204. Recoverable for 30 days, then purged or anonymized (T2, `MULTI_TENANCY.md` → Tenant deletion). |
 | POST | `/workspace/transfer-ownership` | OWNER | `{membershipId}` → 204. The old owner becomes ADMIN, atomically. |
 | GET | `/team/members` | `team.read` | `[{membershipId, userId, name, email, role, status, twoFactorEnabled, joinedAt}]` |
 | PATCH | `/team/members/:id` | `team.manage` | `{role}` (never OWNER). 403 above the caller's own rank; 409 for self or for the owner. |
@@ -297,6 +301,4 @@ See `ARCHITECTURE.md` → Realtime. Payload schemas are in `packages/contracts/s
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| API1 | Should we publish an OpenAPI document for the public API (generated from Zod via `zod-openapi`) in Phase 11? Assumed yes. | Eng |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

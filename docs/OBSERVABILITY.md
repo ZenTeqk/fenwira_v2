@@ -9,6 +9,7 @@ Logging, correlation, metrics, tracing, health checks and alerting. Phases 1–1
 ### Logs
 
 - **pino** JSON to stdout in every Node process. No log files; Docker collects stdout.
+- Logs are structured, and retention is configurable (decision O2). Production log storage and its retention period are decided during production infrastructure design.
 - Levels: `fatal`, `error`, `warn`, `info` (default in production), `debug` (default in dev) and `trace`.
 - Base fields on every line:
 
@@ -73,6 +74,8 @@ The worker serves health on an internal port (`WORKER_HEALTH_PORT`, default 4100
 
 ### Alerts (Phase 12; Grafana alerting or Alertmanager)
 
+Alerts initially go to the configured operations email address (decision O1). Routing is configuration, so Slack or paging destinations can be added without code changes.
+
 | Alert | Condition (5-minute window unless noted) | Severity |
 | --- | --- | --- |
 | Webhook failures | `bad_signature` + 5xx on the webhook route > 5% | critical |
@@ -91,7 +94,4 @@ The worker serves health on an internal port (`WORKER_HEALTH_PORT`, default 4100
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| O1 | Where do alerts route in production (email, Slack, PagerDuty)? | Ops |
-| O2 | Log retention and destination in production (for example Loki)? Decided at the production migration. | Ops |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

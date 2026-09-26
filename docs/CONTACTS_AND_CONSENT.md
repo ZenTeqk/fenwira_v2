@@ -57,6 +57,11 @@ Operator (valid per field type):
 - Invalid field/operator combinations are rejected by the Zod schema. Unknown `property.*` keys return `VALIDATION_FAILED`.
 - A property-based test (fast-check) generates filters and asserts `count(filter) == search(filter).length` over a seeded dataset.
 
+### Identity and duplicates
+
+- A contact's identity within a tenant is its normalized E.164 phone number (decision D2), enforced by a partial unique index. There is no fuzzy deduplication (name or email similarity).
+- There is no manual contact merge in v2 (decision C2). Duplicates are prevented at creation and import by the phone number.
+
 ### Segments
 
 - Saved named filters. They are dynamic: membership is evaluated at query time.
@@ -73,13 +78,13 @@ Operator (valid per field type):
 | Evidence | Every row stores `source` plus `evidence` JSON (actor, IP, message ID, import job ID, file ID, note). Rows are never updated except to set `revoked_at`/`revoke_source` on the latest row. |
 | History | The Consent tab shows every row, newest first, with its evidence. |
 
-**Enforcement** (in `MessagingService`, see `MESSAGING_ENGINE.md`):
+**Eligibility** (decision C1). One centralized, purpose/category-aware consent and policy service decides whether a message may be sent. `MessagingService` calls it at accept time, and the outbound worker calls it again at send time. No other module makes this decision, and no universal per-purpose rule is hard-coded outside it.
 
 | Purpose | Requirement |
 | --- | --- |
-| MARKETING | Current consent must be `GRANTED` |
-| UTILITY | Allowed unless the current UTILITY consent is `REVOKED` (Meta requires opt-in for business-initiated messages; tenants attest to this at connect time, and an explicit revocation always blocks) |
-| SERVICE | Always allowed inside the service window (the customer initiated) |
+| MARKETING | Recorded consent/eligibility is required: the current MARKETING consent must be `GRANTED`. |
+| UTILITY, AUTHENTICATION | Defined by the policy service. The exact requirement is open question C3. Until it is answered, the implementation keeps its Phase 6 interim check (blocked when UTILITY consent is `REVOKED`). That check is not a product rule and moves into the policy service unchanged. |
+| SERVICE | Replies inside the customer-initiated service window. |
 
 **How consent changes**
 
@@ -137,6 +142,7 @@ A header with name, phone (monospace), status, owner, tags and quick actions (me
 - **Compiler semantics.** Negative operators (NOT_EQUALS, NOT_CONTAINS, NOT_IN, NOT_IN_LAST_DAYS, HAS_NONE) match contacts that have no value, so `A` and `NOT A` partition the contacts. "Match everything" is an explicit `deleted_at IS NULL`, never `{}`, because Prisma silently drops `{}` inside `OR`. The property-based test caught this. A `segment` rule inlines that segment's filter, one level only. A foreign or deleted segment is a 400.
 - **Verification.** `apps/worker/test/contacts.int.test.ts` generates 40 random filters (depth ≤ 3, over text, tags, consent, and number and select properties) with fast-check. For each, the API's search IDs, count and segment count must equal an independent in-memory evaluator of the DSL over 60 seeded contacts.
 - **Imports.** `POST /imports/upload-url` (presigned PUT to `fenwira-imports`) → `POST /imports {fileId}` verifies size and text content, then **analyze** (headers, first 50 rows, total ≤ 100k, suggested mapping) → `PATCH /imports/:id` (mapping, SKIP/UPDATE, default consent) → **validate** (per-row errors, in-file duplicates, existing phones, 50-row preview) → `POST /imports/:id/confirm` → **import** (1,000-row transactions, `import.progress` events, cancellable between batches) → an error CSV (original columns plus `error_row`, `error_field`, `error_code`, `error_message`). Every step streams the file from MinIO. A 50k-row file with 5 % invalid rows and 10 % existing phones validates and imports in under a minute locally. `contact.created` events are only emitted when `suppressAutomations` is false.
+- **Consolidation (decision C1).** The Phase 6 checks live in two places, `MessagingService` step 4 and the outbound worker's send-time guard. They must move into the centralized policy service (a spec-freeze follow-up in `ROADMAP.md`).
 - **Messaging.** `MessagingService.send` takes `purpose` (default UTILITY for templates, SERVICE otherwise). It is stored on `messages.purpose` and re-checked by the outbound worker at send time. A permanent send failure emits `message.status.changed` with the error code, so an outbound 131050 revokes marketing consent the same way a status webhook does.
 - **Workspace settings.** `GET/PATCH /workspace/consent-settings` (opt-out and opt-in keywords, which may not overlap, and the reply text). Custom fields are managed in Settings → Workspace → Contact fields.
 
@@ -144,5 +150,6 @@ A header with name, phone (monospace), status, owner, tags and quick actions (me
 
 | # | Question | Owner |
 | --- | --- | --- |
-| C1 | Is the UTILITY consent rule acceptable to legal: allowed unless explicitly revoked? | Legal |
-| C2 | Is merging contacts (two contacts → one) needed in v2? Assumed no. | Product |
+| C3 | The eligibility policy for UTILITY and AUTHENTICATION messages: what recorded consent or opt-in each requires, and whether it depends on the template category or the service window. | Legal |
+
+C1 and C2: Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

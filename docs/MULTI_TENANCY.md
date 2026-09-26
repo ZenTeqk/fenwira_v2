@@ -98,6 +98,17 @@ Implementation: a Prisma interactive transaction whose first statement is `SELEC
 - WebSocket: the tenant is given in the handshake `auth.tenantId`, membership is verified before the socket joins `tenant:{id}`, and `tenant.switch` repeats the check and leaves the old rooms.
 - Web client: switching tenant clears the whole TanStack Query cache and reconnects the socket.
 
+### Data residency
+
+No per-tenant data residency in v2 (decision T1). All tenants live in the one configured production region.
+
+### Tenant deletion (decision T2)
+
+- The OWNER deletes a workspace with `DELETE /workspace`. That is a soft delete: `tenants.deleted_at` is set, and the tenant resolves as `TENANT_NOT_FOUND` everywhere.
+- The workspace is **recoverable for 30 days**. After that, a purge job removes or anonymizes that tenant's data under the retention policy (`DATABASE.md` → Retention). It runs for one tenant at a time inside `withTenant`, with due tenants found by a new `system.*` function (a row in the table below, added with its security review).
+- There is **never** an unrestricted database-wide hard delete.
+- Still undecided (open question T3): who can restore and how, which records are anonymized and kept versus deleted, and when connected numbers are disconnected. The purge job isn't built until T3 is answered.
+
 ### Cross-tenant code paths (complete list)
 
 Everything that must run before a tenant is known, or across tenants, goes through a **named SECURITY DEFINER function in schema `system`**, owned by `fenwira_system`, with `SET search_path = pg_catalog, public`. The app can only `EXECUTE` these functions, and no ad hoc cross-tenant SQL exists.
@@ -134,5 +145,6 @@ Adding a row to this table requires an ADR amendment and a security review.
 
 | # | Question | Owner |
 | --- | --- | --- |
-| T1 | Per-tenant data residency (for example an India-only region) is out of scope for v2. Please confirm. | Product |
-| T2 | Tenant deletion: hard delete after a 30-day grace period (assumed), or keep an anonymized archive? | Product/Legal |
+| T3 | Tenant deletion details: who can restore during the grace period and how; which records are anonymized and kept versus deleted at purge; and whether connected numbers are disconnected at deletion or at purge. | Product/Legal/Finance |
+
+T1 and T2: Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

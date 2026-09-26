@@ -50,7 +50,7 @@ The union of the `include` entries, minus the `exclude` entries, then deduped by
 
 ### Launch
 
-1. Checks: `campaigns.launch` permission, status DRAFT or SCHEDULED-due, template version APPROVED, phone number CONNECTED, variable mapping complete, audience non-empty. For MARKETING templates in Phase 11+, the wallet balance must be at least the minimum.
+1. Checks: `campaigns.launch` permission, status DRAFT or SCHEDULED-due, template version APPROVED, phone number CONNECTED, variable mapping complete, audience non-empty. From Phase 11, each billable send is also checked against the usable balance (decision B3, `BILLING.md` → Balance enforcement).
 2. Set status RUNNING (or SCHEDULED if `schedule_at` is in the future), set `launched_by`/`launched_at`, write outbox `campaign.launched`, and audit it. (`Idempotency-Key` is required.)
 3. The `campaign.dispatch` processor handles `campaign.launched`:
    - **Snapshot:** evaluate the audience in pages of 1,000 contacts, and insert `campaign_recipients` rows (`ON CONFLICT (campaign_id, contact_id) DO NOTHING`) with the `phone_e164` snapshot and the **resolved variables**. Set `audience_snapshot_at` and `total_recipients`. The snapshot is resumable: it restarts after the last inserted contact ID.
@@ -119,9 +119,11 @@ type VariableSource =
 - The dashboard shows Recipients, Sent, Delivered, Read, Failed and Skipped (with rates against the sendable count), plus a funnel, failure reasons grouped by `error_code` with human titles, and skip reasons.
 - The recipient table supports status and skip-reason filters and CSV export (`contacts.export`).
 
+### Scope boundaries (decisions)
+
+- Campaigns are **immediate or one-time scheduled** (`schedule_at`). No recurring campaigns in v2 (CE2).
+- No A/B testing or split templates in v2 (CE1).
+
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| CE1 | Is A/B testing (split templates) needed in v2? Assumed no. | Product |
-| CE2 | Should recurring campaigns exist? Assumed no; use automations. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

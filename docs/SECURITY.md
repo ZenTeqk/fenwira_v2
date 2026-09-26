@@ -27,12 +27,13 @@ Authentication, sessions, RBAC, secret handling, PII and logging rules, rate lim
 
 For cookie-authenticated **mutating** requests: double-submit. The `X-CSRF-Token` header must equal the `fw_csrf` cookie, and the `Origin` header must match `WEB_ORIGIN`. API-key-authenticated requests are exempt because they don't use cookies.
 
-### 2FA (optional per user; tenants can require it, Phase 3)
+### 2FA (optional by default; a workspace can require it, Phase 3)
 
 - TOTP (RFC 6238, SHA-1, 6 digits, 30 s, ±1 step). The secret is encrypted with the app crypto.
 - 10 single-use backup codes, Argon2id-hashed.
 - Login with 2FA returns `202 {challenge: 'TOTP', challengeToken}` (a 5-minute signed token). `POST /auth/2fa/verify` completes it.
-- A tenant setting `require_2fa` makes members without 2FA enroll before they can access that tenant.
+- 2FA is optional by default (decision S2). The workspace setting `require_2fa` (default `false`) makes members without 2FA enroll before they can access that workspace.
+- No SSO/SAML in v2 (decision S1).
 
 ### RBAC
 
@@ -92,6 +93,11 @@ Permission catalog and matrix (● = granted):
 - Keys: `ENCRYPTION_KEYS="k1:base64key,k2:base64key"` and `ENCRYPTION_ACTIVE_KEY_ID=k2`. Decryption picks the key by `kid`. The `system.maintenance` re-encrypt job rewrites old-`kid` rows.
 - Applies to: Meta tokens, phone registration PINs, TOTP secrets and tenant webhook signing secrets.
 - Decrypted values exist only in memory inside the module that uses them. They never appear in contracts, logs, errors or audit `changes`.
+
+### Data protection (decision D1)
+
+- Normal message content is **not** encrypted at the application/column level in v2. Production relies on encryption at rest for the database, object storage and backups, and TLS for all traffic in transit.
+- Credentials, Meta tokens, secrets and equivalent authentication material are protected separately: encrypted as described above (Secret encryption) or stored as one-way hashes (passwords, API keys, invitation and reset tokens). They never reach the browser, logs, errors or audit entries.
 
 ### PII and logging
 
@@ -181,7 +187,4 @@ These describe what shipped where it refines the decisions above.
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| S1 | Is SSO/SAML needed for the Business plan in v2? Assumed no. | Product |
-| S2 | Should `require_2fa` be the default for new tenants? Assumed off. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

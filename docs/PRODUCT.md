@@ -76,39 +76,51 @@ Deals and pipelines, AI assistants or AI replies, other channels (SMS, email, In
 
 ---
 
+## Decision register (specification frozen 2026-09-26)
+
+The product owner resolved every question from the original register. These decisions are binding, and each spec reflects them. Changing one needs a new decision recorded here (and an ADR where it's architectural). ADR-0022 lists the ones that change architecture.
+
+| # | Source | Decision |
+| --- | --- | --- |
+| A1 | ARCHITECTURE | No read replica in v2. Add one only when production database metrics justify it. |
+| T1 | MULTI_TENANCY | No per-tenant data residency in v2. All tenants use the configured production region. |
+| T2 | MULTI_TENANCY | Tenant deletion has a 30-day recoverable grace period, followed by purge or anonymization under the documented retention policy. No unrestricted database-wide hard delete. |
+| D1 | DATABASE / SECURITY | No application-level column encryption for normal message content. Production uses encryption at rest and TLS in transit. Credentials, Meta tokens, secrets and equivalent authentication material are protected separately and never reach the browser or logs. |
+| D2 | DATABASE | The normalized phone number is the contact deduplication identity within a tenant. No fuzzy deduplication. |
+| S1 | SECURITY | No SSO/SAML in v2. |
+| S2 | SECURITY | 2FA is optional by default. The architecture allows workspace-level enforcement. |
+| API1 | API_SPEC | Maintain OpenAPI documentation. The external/public API is delivered in Phase 11. |
+| M1 | MESSAGING_ENGINE | Typing indicators are optional, built only if the WhatsApp API reliably supports them, and never block Phase 7. |
+| M2 | MESSAGING_ENGINE | Interactive messages may be sent from the inbox once core text, media and template messaging is stable. |
+| MI1 | META_INTEGRATION | Meta Tech Provider production onboarding is not complete. Development uses the existing development/test Meta environment. Production onboarding is a separate business milestone. |
+| MI2 | META_INTEGRATION | The CTWA 72-hour entry point is out of the initial v2 scope. The messaging architecture stays extensible for it. |
+| MI3 | META_INTEGRATION | WhatsApp Business App coexistence is not an initial v2 requirement. |
+| C1 | CONTACTS | No universal "UTILITY is allowed unless revoked" rule. Eligibility is evaluated by one centralized, purpose/category-aware consent and policy service. Marketing requires recorded consent/eligibility. |
+| C2 | CONTACTS | No manual contact merge in v2. Duplicates are prevented mainly by the normalized phone number. |
+| I1 | INBOX | Phase 7 assigns to individual agents. Teams/queues are deferred, and nothing may prevent adding them later. |
+| I2 | INBOX | Lightweight canned/quick replies are part of Phase 7. Advanced shared reply libraries may come later. |
+| TE1 | TEMPLATES | No multi-language template grouping. Each template/language is managed independently. |
+| TE2 | TEMPLATES | Carousel and LTO template building are out of the initial v2 scope. |
+| CE1 | CAMPAIGNS | No campaign A/B testing in v2. |
+| CE2 | CAMPAIGNS | No recurring campaigns. Campaigns are immediate or one-time scheduled. |
+| AE1 | AUTOMATION | No Wait-for-Reply node in the initial automation release. The execution model must allow durable waiting later. |
+| AE2 | AUTOMATION | Deterministic priority-based execution replaces "oldest flow wins": each flow has a priority value, with a stable tie-break. |
+| B1 | BILLING | Prices and entitlement values are configuration, never hard-coded in the application. Final pricing is decided before billing launch. |
+| B2 | BILLING | Manual payment/top-up and invoicing operations in v2. A payment-provider integration waits until it's commercially needed. |
+| B3 | BILLING | No unlimited negative wallet balance. New billable outbound operations are blocked when the usable balance is insufficient. Inbound messages, status updates and essential non-billable processing continue. Configurable credit limits must be possible later. |
+| O1 | OBSERVABILITY | Operational alerts go to the configured operations email address. Alert routing stays extensible. |
+| O2 | OBSERVABILITY | Structured logging with configurable retention. Production log storage and retention are decided in production infrastructure design. |
+| DP1 | DEPLOYMENT | Docker Compose remains the deployment target. The production AWS architecture is finalized in production-readiness/migration work. |
+| DS1 | DESIGN_SYSTEM | No dark mode in v2. Every component uses semantic tokens so dark mode can come later without redesigning the components. |
+
 ## Open questions register
 
-Every open question from every spec, in one place. Until an item is answered, the listed **assumption** stands and is what gets built.
+Details the decisions above left undecided. Nothing here may be settled by an implementation assumption: the affected work waits, or is built so the answer can be plugged in.
 
-| # | Source | Question | Assumption until answered | Owner |
+| # | Source | Question | Blocks | Owner |
 | --- | --- | --- | --- | --- |
-| A1 | ARCHITECTURE | Read replica before Phase 12? | No | Eng |
-| T1 | MULTI_TENANCY | Per-tenant data residency? | Out of scope | Product |
-| T2 | MULTI_TENANCY | Tenant deletion: hard delete or anonymized archive? | Hard delete after a 30-day grace period | Product/Legal |
-| D1 | DATABASE | Column-level encryption of message content? | No (disk encryption in production) | Security |
-| D2 | DATABASE | Contact dedupe beyond phone? | Phone only | Product |
-| S1 | SECURITY | SSO/SAML for Business? | No | Product |
-| S2 | SECURITY | `require_2fa` on by default? | Off | Product |
-| API1 | API_SPEC | Public OpenAPI doc in Phase 11? | Yes | Eng |
-| M1 | MESSAGING_ENGINE | Typing indicators in the inbox? | Yes, if the API supports it | Product |
-| M2 | MESSAGING_ENGINE | Interactive (buttons/list) messages from the inbox? | Automation only | Product |
-| MI1 | META_INTEGRATION | Meta Tech Provider onboarding and business verification done? | **Not done.** Phase 4 uses dev connect until it is. | Business |
-| MI2 | META_INTEGRATION | 72-hour free entry point window (CTWA)? | No | Product |
-| MI3 | META_INTEGRATION | Coexistence with the WhatsApp Business app? | No | Product |
-| C1 | CONTACTS | UTILITY consent rule acceptable? | Allowed unless explicitly revoked | Legal |
-| C2 | CONTACTS | Contact merge? | No | Product |
-| I1 | INBOX | Agent teams or queues? | No; assign to individuals | Product |
-| I2 | INBOX | Canned responses? | Not in Phase 7 | Product |
-| TE1 | TEMPLATES | Multi-language template groups? | No | Product |
-| TE2 | TEMPLATES | Carousel / LTO templates? | No | Product |
-| CE1 | CAMPAIGNS | A/B testing? | No | Product |
-| CE2 | CAMPAIGNS | Recurring campaigns? | No | Product |
-| AE1 | AUTOMATION | "Wait for reply" node? | No (top candidate for v1.1) | Product |
-| AE2 | AUTOMATION | Configurable flow priority? | Oldest flow wins | Product |
-| B1 | BILLING | Plan prices and entitlement values? | Placeholders in `BILLING.md` | Business |
-| B2 | BILLING | Payment provider and GST invoicing? | Manual in v2 | Business/Finance |
-| B3 | BILLING | Overdraft cap? | No cap. A negative balance blocks launches only. | Business |
-| O1 | OBSERVABILITY | Alert routing destination? | Email to the ops address | Ops |
-| O2 | OBSERVABILITY | Production log retention and destination? | Decided at the production migration | Ops |
-| DP1 | DEPLOYMENT | Production host? | After Phase 12 | Ops |
-| DS1 | DESIGN_SYSTEM | Dark mode in v2? | No; tokens allow it later | Product |
+| T3 | MULTI_TENANCY (T2) | Tenant deletion details: (a) who can restore a workspace during the grace period, and how; (b) which records are anonymized and kept after purge (for example the wallet ledger, usage events and audit logs, for finance and legal) and which are deleted; (c) whether connected numbers are disconnected at deletion or at purge. | The tenant purge job | Product/Legal/Finance |
+| C3 | CONTACTS (C1) | The eligibility policy for UTILITY and AUTHENTICATION messages: what recorded consent or opt-in each requires, and whether it depends on the template category or the service window. | Replacing the interim UTILITY check in the policy service | Legal |
+| I3 | INBOX (I2) | Canned replies: are they personal, workspace-shared, or both, and which permission manages the shared ones? | The Phase 7 canned-replies build | Product |
+| AE3 | AUTOMATION (AE2) | When several flows match one event, does only the highest-priority flow start (as today), or do all matching flows run in priority order? | Phase 10 triggering | Product |
+| B4 | BILLING (B3) | How in-flight billable sends count against the usable balance so concurrent sends can't exceed the credit limit (a hold at accept time, or a check against an estimate), and what a running campaign does when a send is refused (pause, or fail the remaining recipients). | Phase 11 balance enforcement | Eng/Business |

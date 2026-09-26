@@ -2,7 +2,7 @@
 
 ## Scope
 
-Subscription plans, entitlements, the prepaid wallet with its immutable ledger, message usage pricing, and the billing UI. A payment provider is **out of scope for v2**: plan changes and credits are admin-driven, behind interfaces a provider can implement later.
+Subscription plans, entitlements, the prepaid wallet with its immutable ledger, message usage pricing, and the billing UI. A payment provider is **out of scope for v2** (decision B2): payments, top-ups and invoicing are manual operations, and plan changes and credits are admin-driven, behind interfaces a provider can implement when it's commercially needed.
 
 ## Decisions
 
@@ -15,7 +15,7 @@ Subscription plans, entitlements, the prepaid wallet with its immutable ledger, 
 | `GROWTH` | Growth | Growing teams running campaigns and automations |
 | `BUSINESS` | Business | Larger teams, API access, long analytics retention |
 
-Prices live in `plans.price_minor` and are set by the business (open question B1). **Plan keys are never referenced in feature code.** Only entitlements are.
+Prices live in `plans.price_minor`. **All prices, entitlement values and price-book entries are configuration data** (decision B1): seeded rows, changed by an admin, never hard-coded in the application. Final commercial pricing is decided before billing launch. **Plan keys are never referenced in feature code.** Only entitlements are.
 
 ### Entitlements
 
@@ -31,7 +31,7 @@ Prices live in `plans.price_minor` and are set by the business (open question B1
 | `webhooks_enabled` | bool | false | false | true | true |
 | `analytics_retention` | days | 30 | 90 | 365 | 730 |
 
-(These numbers are placeholders pending open question B1. The mechanism is what's fixed.)
+(These numbers are placeholder configuration. Final values are set before billing launch (B1). The mechanism is what's fixed.)
 
 - **Resolution:** `tenant_entitlement_overrides[key]` ?? `plan_entitlements[plan][key]`.
 - `EntitlementService.check(key)` returns the value. `EntitlementService.assertWithin(key, currentUsage)` throws `LIMIT_EXCEEDED {key, limit, current}`. `@RequireEntitlement('api_enabled')` guards whole routes (`ENTITLEMENT_REQUIRED`).
@@ -54,7 +54,8 @@ Prices live in `plans.price_minor` and are set by the business (open question B1
 ```sql
 BEGIN;  -- inside withTenant
 SELECT balance_minor FROM wallets WHERE id = $w FOR UPDATE;          -- serialize per wallet
--- DEBIT: if balance - amount < -overdraft_limit (0 by default) and not allowOverdraft → INSUFFICIENT_BALANCE
+-- DEBIT: the balance may not go below -credit_limit_minor (0 by default) → INSUFFICIENT_BALANCE,
+--        except as the in-flight accounting rule allows (open question B4)
 INSERT INTO wallet_transactions (..., amount_minor, balance_after_minor, idempotency_key) VALUES (...)
   ON CONFLICT (tenant_id, idempotency_key) DO NOTHING;               -- replay-safe
 COMMIT;
@@ -62,12 +63,16 @@ COMMIT;
 
 | Type | Sign | Created by |
 | --- | --- | --- |
-| `CREDIT` | + | Add Credits (admin in v2, the provider later) |
+| `CREDIT` | + | A manual top-up recorded by an admin in v2 (a provider later, B2) |
 | `DEBIT` | − | Usage pricing (`billing.usage` processor) |
 | `ADJUSTMENT` | ± | Platform admin, with a required reason |
 | `REFUND` | + | Reversal of a DEBIT (for example a message later marked non-billable) |
 
-- **Message debits are allowed to overdraw** (`allowOverdraft: true`). The message was already sent, and we must record the cost. The negative balance then blocks new campaign launches.
+- **Balance enforcement (decision B3).** Unlimited negative balances are not allowed.
+  - **Usable balance** = `balance_minor + credit_limit_minor`. The credit limit is 0 by default, and per-tenant limits are configuration later.
+  - Every **new billable outbound message**, from any source (an inbox template, a campaign, an automation or the API), is checked before it is accepted. If the usable balance can't cover its estimated cost (price book by category and recipient country), it is refused with `INSUFFICIENT_BALANCE`.
+  - **Never blocked by balance:** inbound messages, status webhooks, non-billable sends (for example freeform replies inside the service window), and essential processing such as consent keywords, sync and maintenance.
+  - The final DEBIT still posts from Meta's pricing in the status webhook, because the message was sent and its cost must be recorded. How in-flight sends are accounted, so concurrent sends can't push the balance past the credit limit, is open question B4.
 - `wallet.low_balance` is emitted when the balance crosses below `low_balance_threshold_minor` (on the crossing only, not on every debit).
 
 ### Usage pricing
@@ -84,14 +89,14 @@ COMMIT;
 
 | Condition | Blocks | Doesn't block |
 | --- | --- | --- |
-| Wallet balance ≤ 0 | Campaign launch (`INSUFFICIENT_BALANCE`); flow **publish** of flows containing `send_template` with MARKETING | Inbox replies, running automations, already-running campaigns (they may overdraw) |
+| Usable balance below a message's estimated cost | That billable outbound message, from any source (`INSUFFICIENT_BALANCE`). What a running campaign does next is part of B4. | Inbound messages, status updates, non-billable sends, essential processing |
 | Balance < campaign estimate | Warning in the Review step only | |
 | Subscription inactive (trial expired or CANCELLED) | All outbound sends (`SUBSCRIPTION_INACTIVE`) | Reading, exporting |
 
 ### Billing UI
 
 - **Subscription:** current plan, status, renewal or trial end, an entitlement usage table (for example "Users 4 / 5"), and a plan comparison with "Contact us to upgrade" (manual in v2).
-- **Wallet:** Available Credits (large, formatted `₹4,827.42`), This Month's spend, a low-balance threshold setting, Add Credits (shows instructions in v2), and Transaction History (DataTable: date, type, reason, reference link, amount, balance after; export CSV).
+- **Wallet:** Available Credits (large, formatted `₹4,827.42`), This Month's spend, a low-balance threshold setting, Add Credits (shows the manual top-up instructions in v2), and Transaction History (DataTable: date, type, reason, reference link, amount, balance after; export CSV).
 - **Usage:** billable messages by category and country per day, cost per campaign, cost per phone number.
 
 ### Money formatting
@@ -102,6 +107,6 @@ Always format from minor units with `Intl.NumberFormat(locale, {style:'currency'
 
 | # | Question | Owner |
 | --- | --- | --- |
-| B1 | Final plan prices and entitlement values | Business |
-| B2 | Which payment provider comes after v2 (Razorpay, Stripe)? GST invoicing requirements? | Business/Finance |
-| B3 | Should the overdraft for message debits be capped (for example −₹500), after which even inbox template sends are blocked? | Business |
+| B4 | How in-flight billable sends count against the usable balance, so concurrent sends can't exceed the credit limit (a hold at accept time, or a check against an estimate), and what a running campaign does when a send is refused (pause, or fail the remaining recipients). | Eng/Business |
+
+B1, B2 and B3: Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

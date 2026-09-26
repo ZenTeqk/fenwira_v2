@@ -26,12 +26,12 @@ send(input: {
 1. **Idempotency.** An existing message with `(tenant_id, idempotency_key)` is returned as-is.
 2. **Phone number.** Resolve the conversation's number, or the tenant default. It must be `CONNECTED` → `NO_CONNECTED_NUMBER`.
 3. **Contact.** Must be `ACTIVE` and not deleted → `CONTACT_BLOCKED`.
-4. **Consent** (Phase 6 hook). For `purpose = MARKETING` there must be a current GRANTED marketing consent → `CONSENT_REQUIRED`.
+4. **Eligibility** (Phase 6, decision C1). The centralized consent and policy service evaluates the purpose and template category. MARKETING needs recorded GRANTED consent; the other purposes follow `CONTACTS_AND_CONSENT.md` → Eligibility → `CONSENT_REQUIRED`.
 5. **Service window.** Any non-template content requires `now < conversation.service_window_expires_at` → `CONVERSATION_WINDOW_CLOSED`.
 6. **Template** (Phase 8). The version must be APPROVED, and the variables must match → `TEMPLATE_NOT_APPROVED`, `TEMPLATE_VARIABLES_INVALID`.
 7. **Takeover** (Phase 7). If `source = AUTOMATION` and the conversation's `automation_state ≠ AUTOMATION_ACTIVE` → `AUTOMATION_BLOCKED_BY_TAKEOVER`.
 8. **Compose lock** (Phase 7). If `source = INBOX`, the actor must hold the lock or be the assignee → `COMPOSE_LOCKED`.
-9. **Entitlement/balance** (Phase 11). If `source = CAMPAIGN` and the wallet is below the minimum → `INSUFFICIENT_BALANCE`.
+9. **Balance** (Phase 11, decision B3). A billable message from **any** source is refused when the usable balance can't cover its estimated cost → `INSUFFICIENT_BALANCE` (`BILLING.md` → Balance enforcement). Non-billable sends are never blocked by balance.
 
 **Write, in one `withTenant` transaction:**
 
@@ -116,7 +116,7 @@ After commit: emit WS `message.created` and `conversation.updated`.
 ### `whatsapp.outbound` processor
 
 1. Load the message inside `withTenant`. If its status is not CREATED or QUEUED, exit (idempotent re-run).
-2. **Re-check the send-time guards**: phone still CONNECTED, service window (for non-template content), takeover (for AUTOMATION), consent (for MARKETING). A guard that now fails means FAILED with the guard's error code, and no Meta call.
+2. **Re-check the send-time guards**: phone still CONNECTED, service window (for non-template content), takeover (for AUTOMATION), eligibility (the policy service, C1). A guard that now fails means FAILED with the guard's error code, and no Meta call.
 3. Acquire a rate-limit token for the phone number (Redis token bucket `rl:wa:{phoneNumberId}`, capacity and refill = `throughput_mps`). If none is available, `moveToDelayed(+ms)` and exit.
 4. Set SENDING. Call `packages/whatsapp.sendMessage(credential, phoneNumberId, payload)` with a 15 s timeout.
 5. Success means SENT, with the wamid, plus WS `message.status`.
@@ -165,13 +165,17 @@ After commit: emit WS `message.created` and `conversation.updated`.
 - **Mark as read** is a `mark-read` job on `whatsapp.outbound`, so it stays inside the one module allowed to call Meta.
 - **Realtime.** `RealtimeEmitter` (core) publishes through the Socket.IO Redis adapter from api and worker: `message.created`, `message.status` and `message.updated` go to `tenant:{id}` and `conversation:{id}`, and `conversation.updated` to both. Sockets join `conversation:{id}` with `conversation.join`, which checks the conversation belongs to the socket's tenant.
 - **Metrics** (`prom-client`; OpenTelemetry comes in Phase 12): `webhook_received_total{kind,result}`, `webhook_ingest_duration_ms`, `meta_api_requests_total{endpoint,result,error_code}`, `meta_api_duration_ms`, `messages_status_total{direction,status}`, `queue_depth{queue,state}`, `dlq_size{queue}`. Served on the worker's internal health port (`/metrics`) and the api's internal `METRICS_PORT`.
-- **Consent** (Phase 6): `purpose` is stored on the message and checked at accept and send time: MARKETING needs GRANTED, and UTILITY is blocked only by an explicit REVOKED. The error is 422 `CONSENT_REQUIRED` (at send time, the message fails with that code).
+- **Consent** (Phase 6): `purpose` is stored on the message and checked at accept and send time: MARKETING needs GRANTED, and UTILITY is blocked by an explicit REVOKED as an interim check pending C3. Both checks move into the centralized policy service (C1). The error is 422 `CONSENT_REQUIRED` (at send time, the message fails with that code).
 - **Takeover** (Phase 7): step 7 is enforced at accept time (422 `AUTOMATION_BLOCKED_BY_TAKEOVER`) and again by the outbound worker at send time (the message fails with that code). The compose lock is an inbox rule, checked by `InboxService` before it calls `MessagingService` (`INBOX.md`).
 - **Not yet built:** template validation (Phase 8), balance check (Phase 11) and `POST /messages/:id/retry` (deferred from Phase 7).
 
+### Scope boundaries (decisions)
+
+- **Typing indicators** (M1) are optional. They are built only if the WhatsApp Cloud API reliably supports them, and they never block inbox work.
+- **Interactive messages** (buttons/lists) from the inbox (M2) may come after text, media and template messaging is stable. No phase schedules them yet. `MessageContent` already includes `INTERACTIVE`, so adding them is additive.
+- **Entry-point windows** (CTWA 72-hour, MI2) are out of the initial scope. Only the inbound processor computes `service_window_expires_at`, and every sender reads it through the service-window check, so another window type can be added there without changing any caller.
+- **Coexistence** with the WhatsApp Business App (MI3) is not supported in v2.
+
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| M1 | Should we support Meta "typing indicators" (mark as read + typing) in the inbox? Assumed yes in Phase 7, if the API is available. | Product |
-| M2 | Do we need an interactive message builder (buttons/lists) for inbox freeform replies in v2? Assumed automation-only. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

@@ -90,9 +90,11 @@ Campaigns resolve variables from mapping expressions (`CAMPAIGN_ENGINE.md`) befo
 
 Two panes: the editor (category, language, name, header, body with a "+ Variable" inserter, footer, buttons, samples) and a live WhatsApp-style preview (phone frame, bubble, buttons). Variables render as `primary-soft` chips with `primary` text in both the editor and the preview (the preview shows the sample value on hover). The Version history tab lists versions with status, submitted and decided times, and the rejection reason.
 
+### Scope boundaries (decisions)
+
+- Each template and language is managed independently. There is no multi-language grouping in the initial v2 (TE1).
+- Carousel and limited-time-offer (LTO) template building are out of the initial v2 scope (TE2).
+
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| TE1 | Do we need multi-language template groups (one logical template, many languages) in the UI? Assumed each language is a separate template in v2. | Product |
-| TE2 | Carousel and limited-time-offer templates: assumed out of scope for v2. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

@@ -11,14 +11,16 @@
 - `Plan` (Free/Trial, Starter, Growth, Business), `Subscription` (tenant, plan, status, period, trial end) and `Entitlement` values per plan: `max_users`, `max_contacts`, `max_campaigns`, `automation_enabled`, `api_enabled`, `analytics_retention`.
 - One `EntitlementService.check(tenant, key)` plus a `@RequireEntitlement()` guard. **Plan names are never hard-coded in feature code.**
 - Limit breaches return a typed error, and the UI shows an upgrade prompt.
-- A payment provider is **out of scope**. Plan changes are admin-driven, behind an interface ready for a provider later.
+- A payment provider is **out of scope** (decision B2). Payments, top-ups and invoicing are manual operations. Plan changes are admin-driven, behind an interface ready for a provider later.
+- Prices, entitlement values and the price book are configuration data, never hard-coded (decision B1).
 
 ### Wallet (immutable ledger)
 
 - `Wallet`, `WalletTransaction` (append-only: credit/debit, amount in minor units, currency, reason, reference, balance_after) and `UsageEvent` (billable messages by category/country, priced from a `PriceBook`).
 - The balance is derived from the ledger, never set directly. UPDATE and DELETE are revoked on the transactions table.
 - Debits happen when Meta confirms a billable message (from the status/pricing webhook), with idempotency on the message ID.
-- A low-balance threshold sends a notification. Insufficient balance blocks new campaign launches (not inbox replies), per `BILLING.md`.
+- A low-balance threshold sends a notification.
+- No unlimited negative balance (decision B3): every new billable outbound message, from any source, is refused with `INSUFFICIENT_BALANCE` when the usable balance (balance plus a credit limit, 0 by default) can't cover its estimated cost. Inbound messages, status updates and non-billable processing always continue. The in-flight accounting mechanism depends on open question B4 (`BILLING.md`).
 - UI: available credits, this month's spend, Add Credits (admin/manual for now), and transaction history with filters and export.
 
 ### Analytics

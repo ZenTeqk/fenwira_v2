@@ -182,6 +182,10 @@ A Socket.IO gateway on the api (path `/ws`) with `@socket.io/redis-adapter`, so 
 
 Server → client events: `message.created`, `message.status`, `conversation.updated`, `conversation.assigned`, `compose.lock` (a lock was taken or released), `presence.updated`, `import.progress`, `campaign.progress`, `notification.created`. Workers emit through the Redis adapter emitter (`@socket.io/redis-emitter`). Client → server events: `conversation.join`, `conversation.leave`, `compose.heartbeat`, `presence.heartbeat`, `tenant.switch`.
 
+### Database scaling
+
+One primary Postgres, with no read replica in v2 (decision A1). A replica is added only when production database metrics justify it. Reads go through the same `withTenant` path, so adding one later doesn't change module code.
+
 ### Storage
 
 S3 API only (`@aws-sdk/client-s3`), pointed at MinIO locally. There is one bucket per purpose: `fenwira-media` (message media), `fenwira-imports` and `fenwira-exports` (7-day lifecycle), and `fenwira-uploads` (avatars, template samples). Object keys always begin `{tenantId}/…`. Browsers upload and download through presigned URLs (5-minute TTL), and every object is recorded in `files`.
@@ -192,6 +196,4 @@ SMTP via Nodemailer (`SMTP_URL`), pointed at Mailpit locally. Templates are Reac
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| A1 | Do we need a separate read replica before Phase 12? (Assumed no.) | Eng |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

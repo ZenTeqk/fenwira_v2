@@ -77,12 +77,14 @@ The API returns `{ valid, errors: [{ nodeId?, edgeId?, code, message }] }`, and 
 - The `automation.trigger` processor subscribes to `message.inbound.received`, `contact.created`, `contact.updated` (reserved for later triggers) and `conversation.automation_state.changed` (ignored in v1).
 - It loads PUBLISHED versions of ACTIVE flows whose `trigger_type` matches (indexed), and evaluates each trigger config against the event.
 - **Keyword vs message-received precedence:** if any `trigger.keyword` flow matches, `trigger.message_received` flows do **not** start for that message.
-- Multiple matching flows of the same trigger type: the oldest flow wins (by created time). Tenants reorder priority later (open question AE2).
+- **Priority (decision AE2).** Each flow has an integer `priority` (default 100; lower runs first). Matching flows are ordered by `priority`, then `created_at`, then `id`, so the order is always deterministic. Only the first flow in that order starts. Whether all matching flows should run in order instead is open question AE3.
 - **Takeover gate:** message-based triggers don't start while the conversation is in `AGENT_TAKEOVER` or `AUTOMATION_PAUSED`.
 - **Re-entry policy** (per flow): `ALWAYS`; `ONCE_PER_CONTACT` (never again after any execution for the contact); or `AFTER_COMPLETION` (default: not while an execution is RUNNING/WAITING for the same flow and conversation, which the DB partial unique index enforces).
 - Webhook trigger: `POST /webhooks/automation/:token`. The token hash resolves the tenant and flow (`system.resolve_flow_webhook`). The contact is found or created by the phone at `contactPhonePath`. If `requireSignature`, the `X-Fenwira-Signature` HMAC is checked with the flow's secret. Returns 202 with `executionId`.
 
 ### Execution semantics
+
+- **Durable waiting (decision AE1).** There is no Wait-for-Reply node in the initial release. The execution model already supports durable waits: an execution in `WAITING` with `wait_until` is resumed by a job, as `delay` uses it. A future wait-for-reply node can add a resume-on-event path without changing how steps or versions work.
 
 - `automation.execute` job data: `{ tenantId, executionId }`, with `jobId = jobId('exec', executionId, step_count)`.
 - The processor loop, in which each step is its own transaction:
@@ -123,5 +125,6 @@ Trigger `slate`, message `surface`, condition `warning`, action `info`. The sele
 
 | # | Question | Owner |
 | --- | --- | --- |
-| AE1 | Do we need "wait for reply" (a node that pauses until the customer answers, with a timeout) in v1? Assumed no, but it is the most requested node type. | Product |
-| AE2 | Should tenants be able to set flow priority ordering when multiple flows match? Assumed oldest-wins in v1. | Product |
+| AE3 | When several flows match one event, does only the highest-priority flow start, or do all matching flows run in priority order? | Product |
+
+AE1 and AE2: Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

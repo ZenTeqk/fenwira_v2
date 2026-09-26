@@ -344,7 +344,7 @@ conversation_tags                               T
   tenant_id, conversation_id, tag_id → tags, created_at, created_by; pk (conversation_id, tag_id)
 ```
 
-Compose locks and presence live in Redis only (`INBOX.md`).
+Compose locks and presence live in Redis only (`INBOX.md`). The canned replies table (decision I2) is designed once open question I3 settles whether replies are personal, shared, or both.
 
 Implemented in Phase 7 (migration `20260928000000_inbox`), with these differences from the draft:
 
@@ -408,6 +408,7 @@ flows                                           T SD
   status flow_status (DRAFT|ACTIVE|PAUSED|ARCHIVED)
   active_version_id uuid null, draft_version_id uuid null
   reentry_policy (ALWAYS|ONCE_PER_CONTACT|AFTER_COMPLETION) default AFTER_COMPLETION
+  priority int not null default 100          -- AE2: lower runs first; ties by created_at, then id
   webhook_token_hash bytea null unique       -- inbound webhook trigger
   created_by, created_at, updated_at, deleted_at
 
@@ -456,7 +457,9 @@ tenant_entitlement_overrides                    T
 wallets                                         T
   id, tenant_id unique, currency char(3)
   balance_minor bigint default 0                 -- cache, maintained ONLY by ledger insert trigger; CHECK consistency job
-  low_balance_threshold_minor bigint, created_at, updated_at
+  low_balance_threshold_minor bigint
+  credit_limit_minor bigint not null default 0  -- B3: usable = balance + credit limit; configurable per tenant later
+  created_at, updated_at
 
 wallet_transactions                             T AO
   id, tenant_id, wallet_id, type (CREDIT|DEBIT|ADJUSTMENT|REFUND)
@@ -510,12 +513,10 @@ webhook_deliveries                              T   (retention 30d)
 | `webhook_deliveries` | 30 days | `system.purge_expired` |
 | `analytics_events` | Per `analytics_retention` entitlement | Maintenance job |
 | `audit_logs` | ≥ 1 year | Never auto-purged in v2 |
-| Messages, contacts | Until the tenant or the contact is deleted | Tenant deletion → cascade |
+| Messages, contacts | Until the contact is deleted, or the tenant is purged | Contact soft delete; tenant purge (below) |
+| A deleted tenant's data | 30 days recoverable, then purged or anonymized (decision T2) | Tenant purge job, one tenant at a time. What is anonymized and kept versus deleted is open question T3. There is no database-wide hard delete. |
 | Import/export files | 7 days | MinIO lifecycle + `files` cleanup |
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| D1 | Should message content be encrypted at the column level? Assumed no for v2 (disk-level encryption in production). | Security |
-| D2 | Is contact dedupe by phone only enough, or do we also need email-based merge? Assumed phone only. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

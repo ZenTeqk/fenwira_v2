@@ -34,6 +34,8 @@ The multi-agent shared inbox: conversation lifecycle, assignment, the service wi
 | Unassign | Assignee, or `inbox.reassign` | |
 | Auto-assign | Tenant setting `auto_assign = OFF \| ROUND_ROBIN` | On `conversation.opened`, pick the ONLINE agent with `inbox.reply` and the fewest OPEN assigned conversations (ties broken by last-assigned time). If no one is online, leave it unassigned. |
 
+Assignment is to individual users (decision I1). Teams and queues are deferred. Nothing in the API or schema assumes an individual is the only possible routing target: `assign` takes an object body, and a team would be a separate nullable column.
+
 Assignment emits `conversation.assigned` (in-app notification to the assignee) and a WS `conversation.assigned`.
 
 ### Human takeover
@@ -66,7 +68,7 @@ Assignment emits `conversation.assigned` (in-app notification to the assignee) a
 
 - `conversation_read_states (conversation, user)` rows are created lazily for users who have opened the conversation, and for the assignee.
 - Inbound messages increment `unread_count` for all existing read-state rows of that conversation.
-- `POST /conversations/:id/read` sets `unread_count = 0` and `last_read_message_id`. It also queues a Meta mark-as-read for the latest inbound message (and a typing indicator when the agent starts composing, subject to open question M1).
+- `POST /conversations/:id/read` sets `unread_count = 0` and `last_read_message_id`. It also queues a Meta mark-as-read for the latest inbound message. Typing indicators are optional (decision M1): they are built only if the WhatsApp API reliably supports them.
 - The list shows the current user's unread count. The nav badge is the number of conversations with unread > 0 visible to the user.
 
 ### Visibility
@@ -81,6 +83,12 @@ Built-in views: **Mine**, **Unassigned**, **All**, **Takeover** and **Resolved**
 
 - Postgres full-text search over `messages.text_search` (config `simple`, so it works across languages without stemming), plus a trigram match on contact name and a prefix match on phone.
 - The endpoint is `GET /conversations?q=…`, which returns conversations with the matching message snippet. It is tenant-scoped via RLS.
+
+### Canned replies (decision I2, Phase 7)
+
+- Lightweight saved replies: each one is a short title and a plain-text body. The composer offers them in a picker, and choosing one **inserts** the text into the reply box to edit. It never sends by itself, so the normal reply path (compose lock, service window, `MessagingService`) applies unchanged.
+- Out of scope: variables, media, templates, folders and analytics. Advanced shared reply libraries may come later.
+- Whether replies are personal, workspace-shared or both, and who manages shared ones, is open question I3. The data model, endpoints and permission are designed once it is answered.
 
 ### Attachments
 
@@ -113,11 +121,12 @@ Upload through `POST /files/upload-url` (purpose `MESSAGE_MEDIA`) → PUT to Min
 - **Maintenance.** A 60 s repeatable job calls `system.inbox_maintenance_due` (X13) and, per tenant, reopens expired snoozes (`status_changed` with `reason: snooze_ended`) and releases idle takeovers (`automation_resumed` with `reason: auto_release`).
 - **Notifications.** An in-app `notifications` table (assignment, a mention in a note) with a bell in the top bar. The payload goes to `user:{id}` as `notification.created`.
 - **Presence.** `AWAY` is accepted from the client heartbeat; the browser idle timer that sets it is not built yet. A socket disconnect marks the user OFFLINE once they have no other open sockets.
-- **Not built in Phase 7:** Meta typing indicators (M1 is still open), the `POST /messages/:id/retry` endpoint, and canned responses (I2).
+- **Not built yet:** canned replies (added to Phase 7 by decision I2, waiting on I3) and the `POST /messages/:id/retry` endpoint. Meta typing indicators are optional (M1) and are not built.
 
 ## Open questions
 
 | # | Question | Owner |
 | --- | --- | --- |
-| I1 | Are teams or queues (grouping agents) needed in v2? Assumed no: assignment is to individual users. | Product |
-| I2 | Are canned responses or saved replies needed in Phase 7? Assumed no (candidate for Phase 8+). | Product |
+| I3 | Canned replies: personal, workspace-shared, or both, and which permission manages the shared ones? | Product |
+
+I1 and I2: Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

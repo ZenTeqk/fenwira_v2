@@ -122,14 +122,16 @@ Mapped errors expose `{class, code, title, fenwiraCode}`. The mapping table has 
 
 Status webhooks contain `pricing {billable, pricing_model, category}`. The billing module prices each billable message by category and recipient country (`BILLING.md`). Idempotent on `message_id`.
 
+### Status and scope (decisions)
+
+- **Production onboarding (MI1).** Meta Tech Provider production onboarding is not complete. Development uses the existing development/test Meta environment (dev connect plus `fenwira-meta-mock`). Production onboarding is a separate business milestone, and criteria that need it stay ⏳ in `ROADMAP.md`.
+- **CTWA 72-hour entry point (MI2)** is out of the initial v2 scope (see `MESSAGING_ENGINE.md` → Scope boundaries).
+- **WhatsApp Business App coexistence (MI3)** is not an initial v2 requirement.
+
 ### Testing
 
 A `meta-mock` HTTP server (`@fenwira/whatsapp/testing`) implements the Phase 4 endpoints with realistic shapes. Control routes (`POST /__mock/seed|fail|revoke|quality|reset`, `GET /__mock/calls`) script accounts, errors and revocations. Since Phase 5 it also records sends, stores uploaded media, serves media URLs, echoes `biz_opaque_callback_data`, and (with a webhook target) posts signed `sent → delivered → read` status webhooks after each send; `POST /__mock/inbound` simulates a customer message and `POST /__mock/delay` slows a Graph path. Integration tests run it in-process; local development and e2e use the `fenwira-meta-mock` compose service (profile `meta-mock`, see `DEPLOYMENT.md`). Token conventions: code `code-for:<wabaId>` exchanges to `mock-token:<wabaId>:<n>`, and developer tokens look like `mock-dev:<wabaId>[:suffix]`. A token containing `expiring` reports expiry in 3 days. Signature helpers generate valid and invalid `X-Hub-Signature-256` for webhook tests. A small smoke suite runs against the real Meta test number manually, before each release.
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| MI1 | Has Fenwira's Meta app completed Tech Provider onboarding and business verification? This gates real Embedded Signup. | Business |
-| MI2 | Should we support the 72-hour free entry point (click-to-WhatsApp ads) window in v2? Assumed no. | Product |
-| MI3 | Should we support coexistence (numbers that also use the WhatsApp Business app)? Assumed no. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

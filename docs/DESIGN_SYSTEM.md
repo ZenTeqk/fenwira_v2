@@ -8,6 +8,8 @@ The visual contract for every Fenwira screen: tokens, semantic color rules, typo
 
 This is a contract, not a suggestion. Tokens live in `packages/ui` and are the only source of color in the app. Feature code uses semantic Tailwind classes (`bg-primary`, `text-muted`, `border-border`) and never uses hex values.
 
+No dark mode in v2 (decision DS1). Because every component uses semantic tokens only, dark mode can be added later by supplying a second set of token values, without redesigning components. The design-token lint that forbids raw colors and arbitrary values protects this.
+
 ## Color tokens
 
 | Token | Hex | Use |
@@ -131,6 +133,4 @@ Implemented in Phase 2:
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| DS1 | Dark mode in v2? Assumed no; the token structure must allow it later. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
