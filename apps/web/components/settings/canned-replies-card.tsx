@@ -131,7 +131,7 @@ export function CannedRepliesCard({ canManage }: { canManage: boolean }) {
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <CardTitle>Canned replies</CardTitle>
+          <CardTitle as="h2">Canned replies</CardTitle>
           <CardDescription>
             Saved answers your team inserts in the inbox by typing their shortcut.
           </CardDescription>

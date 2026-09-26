@@ -231,6 +231,30 @@ const FIXTURES: Record<string, Fixture> = {
     tx.notification.create({
       data: { tenantId, userId, type: 'test', title: 't', body: 'b' },
     }),
+  templates: async (tx, { tenantId }) =>
+    tx.template.create({
+      data: {
+        tenantId,
+        wabaId: (await waba(tx, tenantId)).id,
+        name: `t_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        language: 'en',
+        category: 'UTILITY',
+      },
+    }),
+  template_versions: async (tx, { tenantId }) => {
+    const t = await tx.template.create({
+      data: {
+        tenantId,
+        wabaId: (await waba(tx, tenantId)).id,
+        name: `v_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        language: 'en',
+        category: 'UTILITY',
+      },
+    })
+    return tx.templateVersion.create({
+      data: { tenantId, templateId: t.id, version: 1, components: {}, variableSamples: {} },
+    })
+  },
   canned_replies: (tx, { tenantId, userId }) =>
     tx.cannedReply.create({
       data: { tenantId, shortcut: `/t${Date.now()}`, title: 't', body: 'b', createdBy: userId },

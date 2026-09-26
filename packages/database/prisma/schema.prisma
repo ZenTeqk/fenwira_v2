@@ -74,6 +74,7 @@ model User {
   conversationNotes       ConversationNote[]       @relation("ConversationNoteAuthor")
   notifications           Notification[]           @relation("NotificationRecipient")
   cannedReplies           CannedReply[]            @relation("CannedReplyAuthor")
+  templateVersions        TemplateVersion[]        @relation("TemplateVersionAuthor")
 
   @@map("users")
 }
@@ -235,6 +236,8 @@ model Tenant {
   conversationTags         ConversationTag[]
   notifications            Notification[]
   cannedReplies            CannedReply[]
+  templates                Template[]
+  templateVersions         TemplateVersion[]
 
   @@map("tenants")
 }
@@ -411,6 +414,8 @@ model WhatsAppBusinessAccount {
   timezoneId               String?    @map("timezone_id")
   messageTemplateNamespace String?    @map("message_template_namespace")
   status                   WabaStatus @default(ACTIVE)
+  /// Last successful template sync from Meta (docs/TEMPLATE_ENGINE.md → Sync from Meta).
+  templatesSyncedAt        DateTime?  @map("templates_synced_at") @db.Timestamptz(3)
   createdAt                DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -419,6 +424,7 @@ model WhatsAppBusinessAccount {
   phoneNumbers         WhatsAppPhoneNumber[]
   credentials          MetaCredential[]
   webhookSubscriptions WebhookSubscription[]
+  templates            Template[]
 
   @@unique([tenantId, wabaId])
   @@map("whatsapp_business_accounts")
@@ -733,6 +739,7 @@ model Message {
   sentByUserId          String?          @map("sent_by_user_id") @db.Uuid
   campaignId            String?          @map("campaign_id") @db.Uuid
   automationExecutionId String?          @map("automation_execution_id") @db.Uuid
+  templateVersionId     String?          @map("template_version_id") @db.Uuid
   attempts              Int              @default(0)
   errorCode             String?          @map("error_code")
   errorDetail           String?          @map("error_detail")
@@ -746,10 +753,11 @@ model Message {
   createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  contact      Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  file         File?        @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation    Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  contact         Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  file            File?            @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  templateVersion TemplateVersion? @relation(fields: [templateVersionId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, conversationId, createdAt(sort: Desc)])
   @@map("messages")
@@ -831,9 +839,10 @@ model File {
   createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  messages   Message[]
-  importJobs ImportJob[] @relation("ImportFile")
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages        Message[]
+  importJobs      ImportJob[]       @relation("ImportFile")
+  templateSamples TemplateVersion[] @relation("TemplateSampleFile")
 
   @@unique([bucket, objectKey])
   @@map("files")
@@ -1293,4 +1302,89 @@ model CannedReply {
 
   @@unique([tenantId, shortcut])
   @@map("canned_replies")
+}
+
+enum TemplateCategory {
+  MARKETING
+  UTILITY
+  AUTHENTICATION
+
+  @@map("template_category")
+}
+
+enum TemplateStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PAUSED
+  DISABLED
+  ARCHIVED
+
+  @@map("template_status")
+}
+
+enum TemplateOrigin {
+  FENWIRA
+  META
+
+  @@map("template_origin")
+}
+
+/// A WhatsApp message template, identified like Meta: (WABA, name, language) (docs/TEMPLATE_ENGINE.md).
+model Template {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  tenantId          String           @map("tenant_id") @db.Uuid
+  wabaId            String           @map("waba_id") @db.Uuid
+  name              String
+  language          String
+  category          TemplateCategory
+  /// Mirrors the current version's status.
+  status            TemplateStatus   @default(DRAFT)
+  currentVersionId  String?          @map("current_version_id") @db.Uuid
+  approvedVersionId String?          @map("approved_version_id") @db.Uuid
+  qualityScore      String?          @map("quality_score")
+  createdBy         String?          @map("created_by") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?        @map("deleted_at") @db.Timestamptz(3)
+
+  tenant   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba     WhatsAppBusinessAccount @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+  versions TemplateVersion[]       @relation("TemplateVersions")
+
+  @@index([tenantId, status])
+  @@map("templates")
+}
+
+/// Immutable once submitted; editing an approved/rejected template creates version N+1.
+model TemplateVersion {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  tenantId        String         @map("tenant_id") @db.Uuid
+  templateId      String         @map("template_id") @db.Uuid
+  version         Int
+  components      Json
+  variableSamples Json           @map("variable_samples")
+  sampleFileId    String?        @map("sample_file_id") @db.Uuid
+  metaTemplateId  String?        @map("meta_template_id")
+  status          TemplateStatus @default(DRAFT)
+  origin          TemplateOrigin @default(FENWIRA)
+  qualityScore    String?        @map("quality_score")
+  rejectionReason String?        @map("rejection_reason")
+  lastError       String?        @map("last_error")
+  submittedAt     DateTime?      @map("submitted_at") @db.Timestamptz(3)
+  decidedAt       DateTime?      @map("decided_at") @db.Timestamptz(3)
+  createdBy       String?        @map("created_by") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template   Template  @relation("TemplateVersions", fields: [templateId], references: [id], onDelete: Cascade)
+  sampleFile File?     @relation("TemplateSampleFile", fields: [sampleFileId], references: [id], onDelete: SetNull)
+  author     User?     @relation("TemplateVersionAuthor", fields: [createdBy], references: [id], onDelete: SetNull)
+  messages   Message[]
+
+  @@unique([templateId, version])
+  @@index([tenantId, metaTemplateId])
+  @@map("template_versions")
 }

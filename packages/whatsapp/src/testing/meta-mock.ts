@@ -1,5 +1,11 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import { deliverWebhook, inboundMessageWebhook, statusWebhook } from './webhooks'
+import {
+  deliverWebhook,
+  inboundMessageWebhook,
+  statusWebhook,
+  templateStatusWebhook,
+  wabaFieldWebhook,
+} from './webhooks'
 
 /**
  * Simulated Meta Graph API for local development and tests (docs/META_INTEGRATION.md → Testing).
@@ -25,6 +31,24 @@ type Waba = {
   currency: string
   timezone_id: string
   phones: Map<string, Phone>
+  templates: Map<string, MockTemplate>
+}
+export type MockTemplate = {
+  id: string
+  name: string
+  language: string
+  category: string
+  status: string
+  components: Array<Record<string, unknown>>
+  quality_score?: { score: string }
+  rejected_reason?: string
+}
+/** How the simulated review answers new/edited templates (default: approve after 400 ms). */
+export type TemplateReview = {
+  decision: 'APPROVED' | 'REJECTED' | 'NONE'
+  reason?: string
+  delayMs?: number
+  /** Re-categorize MARKETING-sounding UTILITY templates, like Meta may. */
 }
 type Failure = {
   method?: string
@@ -57,6 +81,9 @@ export type MetaMockState = {
   /** Slow responses for matching Graph paths (e.g. to stop a worker mid-send). */
   delays: Array<{ pathContains: string; ms: number; times: number }>
   webhookTarget?: WebhookTarget
+  templateReview: TemplateReview
+  uploads: Map<string, { bytes: Buffer; mimeType: string }>
+  templateSeq: number
 }
 
 export const DEMO_WABA_ID = '100000000000001'
@@ -90,6 +117,28 @@ function seedWaba(
     currency: 'INR',
     timezone_id: '71',
     phones: new Map(),
+    templates: new Map(),
+  }
+  // Meta creates hello_world in every WABA; it is APPROVED and ready to send.
+  if (![...waba.templates.values()].some((t) => t.name === 'hello_world')) {
+    state.templateSeq += 1
+    const id = String(900000000000000 + state.templateSeq)
+    waba.templates.set(id, {
+      id,
+      name: 'hello_world',
+      language: 'en_US',
+      category: 'UTILITY',
+      status: 'APPROVED',
+      components: [
+        { type: 'HEADER', format: 'TEXT', text: 'Hello World' },
+        {
+          type: 'BODY',
+          text: 'Welcome and congratulations!! This message demonstrates your ability to send a WhatsApp message notification from the Cloud API, hosted by Meta. Thank you for taking the time to test with us.',
+        },
+        { type: 'FOOTER', text: 'WhatsApp Business Platform sample message' },
+      ],
+      quality_score: { score: 'UNKNOWN' },
+    })
   }
   for (const p of input.phones) {
     waba.phones.set(p.id, {
@@ -114,6 +163,9 @@ export function createMetaMockState(): MetaMockState {
     sent: [],
     media: new Map(),
     delays: [],
+    templateReview: { decision: 'APPROVED', delayMs: 400 },
+    uploads: new Map(),
+    templateSeq: 0,
   }
   seedDemo(state)
   return state
@@ -170,6 +222,35 @@ function scheduleStatuses(state: MetaMockState, waba: Waba, sent: SentMessage): 
   })
 }
 
+/** Meta reviews a new or edited template, then posts `message_template_status_update`. */
+function scheduleReview(state: MetaMockState, waba: Waba, t: MockTemplate): void {
+  const review = state.templateReview
+  if (review.decision === 'NONE') return
+  setTimeout(() => {
+    t.status = review.decision
+    if (review.decision === 'REJECTED') t.rejected_reason = review.reason ?? 'INVALID_FORMAT'
+    const target = state.webhookTarget
+    if (!target) return
+    void deliverWebhook(
+      target.url,
+      target.appSecret,
+      templateStatusWebhook(waba.id, {
+        id: t.id,
+        name: t.name,
+        language: t.language,
+        event: review.decision,
+        reason: review.decision === 'REJECTED' ? t.rejected_reason : undefined,
+      }),
+    ).catch(() => undefined)
+  }, review.delayMs ?? 400)
+}
+
+const findTemplate = (state: MetaMockState, id: string) => {
+  for (const waba of state.wabas.values())
+    if (waba.templates.has(id)) return { waba, template: waba.templates.get(id)! }
+  return undefined
+}
+
 const grantedWaba = (token: string): string | undefined => {
   const m = /^mock-(?:token|dev):([^:]+)/.exec(token)
   return m?.[1]
@@ -207,6 +288,8 @@ export function createMetaMockHandler(state: MetaMockState) {
           state.sent = []
           state.delays = []
           state.media.clear()
+          state.uploads.clear()
+          state.templateReview = { decision: 'APPROVED', delayMs: 400 }
           seedDemo(state)
           return send(res, 200, { ok: true })
         case 'seed':
@@ -262,6 +345,59 @@ export function createMetaMockHandler(state: MetaMockState) {
         case 'revoke':
           state.revoked.add(String(input.token))
           return send(res, 200, { ok: true })
+        case 'template-review':
+          state.templateReview = { decision: 'APPROVED', delayMs: 400, ...(input as object) }
+          return send(res, 200, { ok: true })
+        case 'templates': {
+          // Inspect (GET-like) or seed templates of a WABA; e.g. one created outside Fenwira.
+          const waba = state.wabas.get(String(input.wabaId))
+          if (!waba) return send(res, 404, { error: 'unknown waba' })
+          for (const t of (input.add ?? []) as MockTemplate[]) {
+            state.templateSeq += 1
+            const id = t.id ?? String(900000000000000 + state.templateSeq)
+            waba.templates.set(id, { ...t, id })
+          }
+          return send(res, 200, { templates: [...waba.templates.values()] })
+        }
+        case 'template-event': {
+          // Meta changes a template (approve/reject/pause/disable, quality, category) and tells us.
+          const found = findTemplate(state, String(input.id))
+          const target = state.webhookTarget
+          if (!found || !target) return send(res, 409, { error: 'unknown template or no target' })
+          const { waba, template } = found
+          let payload: unknown
+          if (input.quality) {
+            template.quality_score = { score: String(input.quality) }
+            payload = wabaFieldWebhook(waba.id, 'message_template_quality_update', {
+              message_template_id: Number(template.id),
+              message_template_name: template.name,
+              message_template_language: template.language,
+              new_quality_score: String(input.quality),
+            })
+          } else if (input.category) {
+            const previous = template.category
+            template.category = String(input.category)
+            payload = wabaFieldWebhook(waba.id, 'template_category_update', {
+              message_template_id: Number(template.id),
+              message_template_name: template.name,
+              message_template_language: template.language,
+              previous_category: previous,
+              new_category: template.category,
+            })
+          } else {
+            template.status = String(input.event)
+            if (input.reason) template.rejected_reason = String(input.reason)
+            payload = templateStatusWebhook(waba.id, {
+              id: template.id,
+              name: template.name,
+              language: template.language,
+              event: String(input.event),
+              reason: input.reason ? String(input.reason) : undefined,
+            })
+          }
+          const status = await deliverWebhook(target.url, target.appSecret, payload)
+          return send(res, 200, { webhookStatus: status })
+        }
         case 'quality': {
           const found = findPhone(state, String(input.phoneId))
           if (!found) return send(res, 404, { error: 'unknown phone' })
@@ -312,7 +448,7 @@ export function createMetaMockHandler(state: MetaMockState) {
       })
     }
 
-    const token = authorization?.replace(/^Bearer\s+/i, '')
+    const token = authorization?.replace(/^(Bearer|OAuth)\s+/i, '')
     if (!token) return graphError(res, 401, 190, 'An active access token must be used.')
 
     if (path === 'debug_token') {
@@ -353,6 +489,36 @@ export function createMetaMockHandler(state: MetaMockState) {
     if (!granted) return graphError(res, 401, 190, 'Invalid OAuth access token.')
 
     const [first, second] = parts.slice(1)
+
+    // Resumable upload (template header samples): session, then the bytes → handle.
+    if (second === 'uploads' && method === 'POST') {
+      const id = `upload:${Date.now()}${Math.random().toString(36).slice(2, 8)}`
+      state.uploads.set(id, {
+        bytes: Buffer.alloc(0),
+        mimeType: url.searchParams.get('file_type') ?? 'application/octet-stream',
+      })
+      return send(res, 200, { id })
+    }
+    if (first?.startsWith('upload:') && !second && method === 'POST') {
+      const upload = state.uploads.get(first)
+      if (!upload) return graphError(res, 400, 100, 'Invalid upload session')
+      if (!/^OAuth /.test(authorization ?? ''))
+        return graphError(res, 401, 190, 'Uploads authenticate with OAuth')
+      upload.bytes = raw
+      return send(res, 200, { h: `4::${Buffer.from(first).toString('base64url')}` })
+    }
+
+    // Edit an existing template (Meta re-reviews it).
+    const existing = first && !second ? findTemplate(state, first) : undefined
+    if (existing && method === 'POST') {
+      if (existing.waba.id !== granted) return graphError(res, 403, 200, 'Permissions error')
+      const payload = (body ?? {}) as Record<string, unknown>
+      if (payload.components) existing.template.components = payload.components as never
+      if (payload.category) existing.template.category = String(payload.category)
+      existing.template.status = 'PENDING'
+      scheduleReview(state, existing.waba, existing.template)
+      return send(res, 200, { success: true })
+    }
     if (first && !second && method === 'GET' && state.media.has(first)) {
       const item = state.media.get(first)!
       return send(res, 200, {
@@ -381,6 +547,54 @@ export function createMetaMockHandler(state: MetaMockState) {
       }
       if (second === 'subscribed_apps' && (method === 'POST' || method === 'DELETE'))
         return send(res, 200, { success: true })
+      if (second === 'message_templates' && method === 'GET') {
+        const all = [...waba.templates.values()]
+        const limit = Number(url.searchParams.get('limit') ?? 100)
+        const start = Number(url.searchParams.get('after') ?? 0)
+        const page = all.slice(start, start + limit)
+        const next = start + limit < all.length
+        return send(res, 200, {
+          data: page,
+          paging: { cursors: { after: String(start + limit) }, ...(next ? { next: 'more' } : {}) },
+        })
+      }
+      if (second === 'message_templates' && method === 'POST') {
+        const p = (body ?? {}) as Record<string, unknown>
+        const name = String(p.name ?? '')
+        const language = String(p.language ?? '')
+        if (!/^[a-z0-9_]+$/.test(name)) return graphError(res, 400, 100, 'Invalid parameter')
+        if ([...waba.templates.values()].some((t) => t.name === name && t.language === language))
+          return send(res, 400, {
+            error: {
+              message: 'Invalid parameter',
+              type: 'OAuthException',
+              code: 100,
+              error_subcode: 2388024,
+              error_user_msg: `Content in this language already exists for ${name}.`,
+            },
+          })
+        state.templateSeq += 1
+        const id = String(900000000000000 + state.templateSeq)
+        const t: MockTemplate = {
+          id,
+          name,
+          language,
+          category: String(p.category ?? 'UTILITY'),
+          status: 'PENDING',
+          components: (p.components ?? []) as MockTemplate['components'],
+        }
+        waba.templates.set(id, t)
+        scheduleReview(state, waba, t)
+        return send(res, 200, { id, status: 'PENDING', category: t.category })
+      }
+      if (second === 'message_templates' && method === 'DELETE') {
+        const name = url.searchParams.get('name')
+        let removed = 0
+        for (const [id, t] of waba.templates)
+          if (t.name === name) removed += Number(waba.templates.delete(id))
+        if (!removed) return graphError(res, 404, 100, 'Template not found')
+        return send(res, 200, { success: true })
+      }
     }
 
     const phone = first ? findPhone(state, first) : undefined
@@ -396,6 +610,17 @@ export function createMetaMockHandler(state: MetaMockState) {
         const payload = (body ?? {}) as Record<string, unknown>
         if (payload.status === 'read') return send(res, 200, { success: true })
         const type = String(payload.type ?? '')
+        if (type === 'template') {
+          const t = payload.template as { name?: string; language?: { code?: string } }
+          const match = [...phone.waba.templates.values()].find(
+            (x) => x.name === t?.name && x.language === t?.language?.code,
+          )
+          if (!match)
+            return graphError(res, 404, 132001, 'Template name does not exist in the translation')
+          if (match.status === 'PAUSED') return graphError(res, 400, 132015, 'Template is paused')
+          if (match.status !== 'APPROVED')
+            return graphError(res, 400, 132016, 'Template is disabled')
+        }
         const media = payload[type] as { id?: string } | undefined
         if (
           ['image', 'document', 'audio', 'video'].includes(type) &&

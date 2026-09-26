@@ -94,6 +94,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_phone_numbers_one_default
   ON public.whatsapp_phone_numbers (tenant_id) WHERE is_default;
 CREATE UNIQUE INDEX IF NOT EXISTS meta_credentials_one_live_per_waba
   ON public.meta_credentials (waba_id) WHERE status IN ('VALID', 'EXPIRING');
+-- One live template per (WABA, name, language), like Meta (docs/DATABASE.md → Templates).
+CREATE UNIQUE INDEX IF NOT EXISTS templates_live_identity
+  ON public.templates (tenant_id, waba_id, name, language) WHERE deleted_at IS NULL;
 -- Phase 5: one live contact per phone, one message per Meta id, one message per idempotency key.
 CREATE UNIQUE INDEX IF NOT EXISTS contacts_one_live_per_phone
   ON public.contacts (tenant_id, phone_e164) WHERE deleted_at IS NULL;
@@ -289,6 +292,19 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT p_limit;
 $$;
 
+-- X14: template sync fan-out (docs/TEMPLATE_ENGINE.md → Sync from Meta). IDs only; each WABA's
+-- sync re-enters withTenant.
+GRANT SELECT (id, tenant_id, status, templates_synced_at) ON public.whatsapp_business_accounts TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.wabas_due_for_template_sync(p_older_than timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid, waba_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT w.tenant_id, w.id FROM public.whatsapp_business_accounts w
+  WHERE w.status IN ('ACTIVE', 'RESTRICTED')
+    AND (w.templates_synced_at IS NULL OR w.templates_synced_at < p_older_than)
+  ORDER BY w.templates_synced_at NULLS FIRST
+  LIMIT p_limit;
+$$;
+
 -- X2: webhook tenant resolution. Called only after the platform HMAC is verified; returns IDs of
 -- the live number (or, for WABA-level events, of the WABA's tenant) and nothing else.
 GRANT SELECT (id, tenant_id, phone_number_id, status) ON public.whatsapp_phone_numbers TO fenwira_system;
@@ -346,7 +362,8 @@ BEGIN
     'system.phone_numbers_due_for_sync(timestamptz, integer)',
     'system.resolve_tenant_by_phone_number_id(text)',
     'system.resolve_tenant_by_waba_id(text)',
-    'system.inbox_maintenance_due(timestamptz, integer)'
+    'system.inbox_maintenance_due(timestamptz, integer)',
+    'system.wabas_due_for_template_sync(timestamptz, integer)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

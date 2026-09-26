@@ -205,6 +205,46 @@ describe('platform events via system.* functions', () => {
   })
 })
 
+describe('X14 system.wabas_due_for_template_sync', () => {
+  it('returns only tenant and WABA row IDs for live WABAs not synced recently', async () => {
+    const [due, fresh, gone] = [uuidv7(), uuidv7(), uuidv7()]
+    await db.withTenant(tenantA, (tx) =>
+      tx.whatsAppBusinessAccount.createMany({
+        data: [
+          { id: due, tenantId: tenantA, wabaId: `x14-${due}`, name: 'due' },
+          {
+            id: fresh,
+            tenantId: tenantA,
+            wabaId: `x14-${fresh}`,
+            name: 'fresh',
+            templatesSyncedAt: new Date(),
+          },
+          {
+            id: gone,
+            tenantId: tenantA,
+            wabaId: `x14-${gone}`,
+            name: 'gone',
+            status: 'DISCONNECTED',
+          },
+        ],
+      }),
+    )
+    const { rows, fields } = await rawApp.query(
+      `SELECT * FROM system.wabas_due_for_template_sync(now() - interval '6 hours', 1000)`,
+    )
+    expect(fields.map((f) => f.name)).toEqual(['tenant_id', 'waba_id'])
+    const ids = rows.map((r: { waba_id: string }) => r.waba_id)
+    expect(ids).toContain(due)
+    expect(ids).not.toContain(fresh)
+    expect(ids).not.toContain(gone)
+    expect(
+      (await db.system.wabasDueForTemplateSync(new Date(Date.now() - 6 * 3600_000), 1000)).find(
+        (r) => r.wabaId === due,
+      ),
+    ).toEqual({ tenantId: tenantA, wabaId: due })
+  })
+})
+
 describe('RLS coverage check', () => {
   it('reports no violations on the migrated schema', async () => {
     expect(await findRlsViolations(owner)).toEqual([])

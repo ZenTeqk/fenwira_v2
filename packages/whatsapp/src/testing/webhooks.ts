@@ -89,6 +89,27 @@ export function statusWebhook(
   })
 }
 
+/** A WABA-level change (template status/quality/category) with Meta's envelope. */
+export function wabaFieldWebhook(wabaId: string, field: string, value: Record<string, unknown>) {
+  return {
+    object: 'whatsapp_business_account',
+    entry: [{ id: wabaId, time: Math.floor(Date.now() / 1000), changes: [{ field, value }] }],
+  }
+}
+
+export function templateStatusWebhook(
+  wabaId: string,
+  t: { id: string; name: string; language: string; event: string; reason?: string },
+) {
+  return wabaFieldWebhook(wabaId, 'message_template_status_update', {
+    event: t.event,
+    message_template_id: Number(t.id),
+    message_template_name: t.name,
+    message_template_language: t.language,
+    reason: t.reason ?? 'NONE',
+  })
+}
+
 /** POSTs a signed webhook like Meta does. Returns the HTTP status. */
 export async function deliverWebhook(
   url: string,

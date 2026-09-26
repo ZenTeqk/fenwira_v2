@@ -9,6 +9,7 @@ export const QUEUES = {
   whatsappOutboundDlq: 'whatsapp.outbound.dlq',
   whatsappMedia: 'whatsapp.media',
   whatsappSync: 'whatsapp.sync',
+  templatesSync: 'templates.sync',
   identityEvents: 'identity.events',
   tenancyEvents: 'tenancy.events',
   contactsEvents: 'contacts.events',

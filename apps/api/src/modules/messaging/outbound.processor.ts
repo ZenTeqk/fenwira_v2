@@ -15,7 +15,12 @@ import { StorageService } from '../../core/storage/storage.service'
 import { OutboxRelayService } from '../platform'
 import { loadLiveToken, markCredentialInvalid } from '../whatsapp-accounts'
 import { MARK_READ_JOB } from './constants'
-import { MessageEligibilityService, type MessagePurpose } from './eligibility'
+import { TEMPLATES_SYNC_WABA_JOB } from '../templates'
+import {
+  MessageEligibilityService,
+  type MessagePurpose,
+  type TemplateCategory,
+} from './eligibility'
 import { toWaId } from './messaging.mapper'
 import { MESSAGING_OPTIONS, type MessagingOptions } from './messaging.options'
 import type IORedis from 'ioredis'
@@ -118,6 +123,7 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
       // Send-time re-check: the number, then eligibility (MessageEligibilityService), then takeover.
       const eligibility = this.eligibility.evaluate({
         purpose: (message.purpose ?? 'SERVICE') as MessagePurpose,
+        category: (message.content as { category?: TemplateCategory }).category ?? null,
         contentType: message.type,
         contact: message.contact,
         serviceWindowExpiresAt: message.conversation.serviceWindowExpiresAt,
@@ -271,6 +277,16 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
         if (err.classification === 'CREDENTIAL')
           await markCredentialInvalid(tx, tenantId, credential.credentialId, phone.id)
       })
+      // Meta says the template is missing, paused or disabled: refresh our copy of its status.
+      if (err.fenwiraCode === 'META_TEMPLATE_ERROR')
+        await this.queues
+          .get(QUEUES.templatesSync)
+          .add(
+            TEMPLATES_SYNC_WABA_JOB,
+            { tenantId, wabaId: phone.wabaId },
+            { jobId: jobId('tplsync', phone.wabaId, 'send', message.id), attempts: 3 },
+          )
+          .catch(() => undefined)
       await this.emitStatus(tenantId, message.id)
       return 'failed'
     }

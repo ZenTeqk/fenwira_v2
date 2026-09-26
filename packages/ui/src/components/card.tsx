@@ -16,8 +16,13 @@ export function CardHeader({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('flex flex-col gap-1 p-5 pb-3', className)} {...props} />
 }
 
-export function CardTitle({ className, ...props }: ComponentProps<'h3'>) {
-  return <h3 className={cn('text-md font-semibold text-slate', className)} {...props} />
+/** Card heading. `as` sets the level so pages keep a correct outline (h1 → h2 → h3). */
+export function CardTitle({
+  className,
+  as: Heading = 'h3',
+  ...props
+}: ComponentProps<'h3'> & { as?: 'h2' | 'h3' | 'h4' }) {
+  return <Heading className={cn('text-md font-semibold text-slate', className)} {...props} />
 }
 
 export function CardDescription({ className, ...props }: ComponentProps<'p'>) {

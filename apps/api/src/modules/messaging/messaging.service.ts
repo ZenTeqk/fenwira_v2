@@ -11,6 +11,7 @@ import { requestContext } from '../../core/context/request-context'
 import { AppError } from '../../core/http/app-error'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { normalizePhone } from '../../core/phone'
+import { resolveTemplateForSend, type ResolvedTemplate } from '../templates'
 import { MessageEligibilityService } from './eligibility'
 import { previewOf, toMessage } from './messaging.mapper'
 import { writeSystemEvent } from './system-events'
@@ -25,7 +26,7 @@ export type SendInput = {
   /** Required for every caller; the same key returns the same message and never sends twice. */
   idempotencyKey: string
   actorUserId?: string
-  /** Consent purpose. Default: UTILITY for templates (categories arrive in Phase 8), SERVICE otherwise. */
+  /** Consent purpose. Default: MARKETING for marketing templates, UTILITY for other templates, SERVICE otherwise. */
   purpose?: 'MARKETING' | 'UTILITY' | 'SERVICE'
 }
 
@@ -100,12 +101,30 @@ export class MessagingService {
         'This WhatsApp number is not connected. Check Settings → WhatsApp.',
       )
 
+    // 6. Template (docs/TEMPLATE_ENGINE.md → Rendering and sending): an APPROVED version of this
+    // number's WABA with every variable. Its category decides the purpose and eligibility.
+    const template =
+      content.type === 'TEMPLATE'
+        ? await resolveTemplateForSend(tx, {
+            wabaRowId: conversation.phoneNumber.wabaId,
+            templateVersionId: content.templateVersionId,
+            name: content.name,
+            language: content.language,
+            variables: content.variables,
+            rawComponents: content.components,
+          })
+        : null
+    const purpose =
+      template?.category === 'MARKETING'
+        ? 'MARKETING'
+        : (input.purpose ?? (template ? 'UTILITY' : 'SERVICE'))
+
     // 3–5. Eligibility: suppression, consent by purpose/category, service window — decided only
     // by MessageEligibilityService (docs/CONTACTS_AND_CONSENT.md → Eligibility, C1/C3).
-    const purpose = input.purpose ?? (content.type === 'TEMPLATE' ? 'UTILITY' : 'SERVICE')
     const now = new Date()
     this.eligibility.assert({
       purpose,
+      category: template?.category,
       contentType: content.type,
       contact: conversation.contact,
       serviceWindowExpiresAt: conversation.serviceWindowExpiresAt,
@@ -122,7 +141,10 @@ export class MessagingService {
       )
     // 8. Compose lock: enforced by the inbox before it calls send (docs/INBOX.md).
 
-    const stored = await this.storedContent(tx, content)
+    const stored =
+      template && content.type === 'TEMPLATE'
+        ? await this.templateContent(tx, template, content)
+        : await this.storedContent(tx, content)
     const message = await tx.message.create({
       data: {
         tenantId,
@@ -134,7 +156,12 @@ export class MessagingService {
         source: input.source,
         purpose,
         content: stored as Prisma.InputJsonValue,
-        fileId: 'fileId' in stored ? (stored.fileId ?? null) : null,
+        fileId: template
+          ? template.headerFileId
+          : 'fileId' in stored
+            ? (stored.fileId ?? null)
+            : null,
+        templateVersionId: template?.versionId ?? null,
         idempotencyKey: input.idempotencyKey,
         sentByUserId: input.actorUserId ?? null,
       },
@@ -241,8 +268,34 @@ export class MessagingService {
   }
 
   /** Media sends reference a READY file of a type Meta accepts for that message type. */
+  /** What a template send stores: what was sent (for display) plus the Meta components. */
+  private async templateContent(
+    tx: TenantTx,
+    t: ResolvedTemplate,
+    content: Extract<SendableContent, { type: 'TEMPLATE' }>,
+  ): Promise<MessageContent> {
+    if (t.headerFileId) {
+      const file = await tx.file.findFirst({
+        where: { id: t.headerFileId, purpose: { in: ['MESSAGE_MEDIA', 'TEMPLATE_SAMPLE'] } },
+      })
+      if (!file || file.status !== 'READY')
+        throw new AppError('FILE_NOT_READY', 422, "The template header file isn't uploaded yet.")
+    }
+    return {
+      type: 'TEMPLATE',
+      name: t.name,
+      language: t.language,
+      components: t.components,
+      templateId: t.templateId,
+      templateVersionId: t.versionId,
+      category: t.category,
+      ...(content.variables ? { variables: content.variables } : {}),
+    }
+  }
+
   private async storedContent(tx: TenantTx, content: SendableContent): Promise<MessageContent> {
-    if (content.type === 'TEXT' || content.type === 'TEMPLATE') return content
+    if (content.type === 'TEMPLATE') throw new Error('templates use templateContent')
+    if (content.type === 'TEXT') return content
     const file = await tx.file.findFirst({
       where: { id: content.fileId, purpose: 'MESSAGE_MEDIA' },
     })

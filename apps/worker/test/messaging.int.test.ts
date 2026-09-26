@@ -19,7 +19,7 @@ import { type Server } from 'node:http'
 import { io, type Socket } from 'socket.io-client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { bootApi, bootWorker, Client } from './support/harness'
-import { createOwner, type Member } from './support/workspace'
+import { createOwner, type Member, waitForTemplate } from './support/workspace'
 
 /**
  * Phase 5 acceptance (docs/prompts/PHASE_05_MESSAGING_ENGINE.md) against the in-process
@@ -70,6 +70,7 @@ async function setup(label: string): Promise<Setup> {
     accessToken: `mock-dev:${ids.wabaId}`,
   })
   expect(res.status, res.text).toBe(201)
+  await waitForTemplate(owner, 'hello_world')
   return { owner, ids, phoneId: res.body.data.id }
 }
 

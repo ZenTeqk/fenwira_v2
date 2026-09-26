@@ -384,6 +384,14 @@ template_versions                               T   (immutable once submitted)
   unique (template_id, version)
 ```
 
+Implemented in Phase 8 (migration `20260930000000_templates`), with these differences from the draft:
+
+- `templates` also has `quality_score`, `created_by`; `current_version_id` is always the newest version, and `approved_version_id` the version Meta serves. The live-identity unique index `(tenant_id, waba_id, name, language) WHERE deleted_at IS NULL` is in `post-migrate.sql`.
+- `template_versions` also has `variable_samples`, `sample_file_id → files` (the media header sample), `origin template_origin (FENWIRA|META)` for versions recorded by a sync, and `last_error` (a submit that never reached Meta). A superseded approved version becomes `ARCHIVED`.
+- `whatsapp_business_accounts.templates_synced_at` drives the 6-hourly sync (X14).
+- `messages.template_version_id → template_versions` records which version a template message used.
+- Header samples are `files` with purpose `TEMPLATE_SAMPLE` in the media bucket (`{tenant}/template-samples/…`), not a separate uploads bucket.
+
 ## Campaigns (P9)
 
 ```text

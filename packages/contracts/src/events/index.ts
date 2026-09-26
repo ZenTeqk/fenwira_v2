@@ -62,7 +62,14 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     status: z.string(),
     source: z.string(),
   }),
-  // WhatsApp accounts (Phase 4). Subscribers arrive with the inbox/notifications phases.
+  // Templates (Phase 8): a version's status changed (Meta review, pause, disable, sync).
+  'template.status.changed': z.object({
+    templateId: z.uuid(),
+    versionId: z.uuid(),
+    from: z.string(),
+    to: z.string(),
+  }),
+  // WhatsApp accounts (Phase 4). Templates sync a newly connected WABA.
   'whatsapp.connection.changed': z.object({
     phoneId: z.uuid(),
     change: z.enum(['CONNECTED', 'DISCONNECTED', 'STATUS_CHANGED', 'CREDENTIAL_CHANGED']),

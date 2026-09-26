@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { templateVariablesSchema } from '../templates/components'
 import { idSchema } from './common'
 
 /**
@@ -58,7 +59,13 @@ export const messageContentSchema = z.discriminatedUnion('type', [
     type: z.literal('TEMPLATE'),
     name: z.string().min(1).max(512),
     language: z.string().min(2).max(15),
+    /** Meta send components (parameters), built from the variables. */
     components: z.array(z.unknown()).optional(),
+    /** Managed template (Phase 8): what was sent, for display and the send-time checks. */
+    templateId: z.string().optional(),
+    templateVersionId: z.string().optional(),
+    category: z.enum(['MARKETING', 'UTILITY', 'AUTHENTICATION']).optional(),
+    variables: z.unknown().optional(),
   }),
   /** Inbound button/list replies: `text` is what the customer tapped. */
   z.object({
@@ -86,16 +93,29 @@ export const sendableContentSchema = z.discriminatedUnion('type', [
     caption: z.string().max(1024).optional(),
     filename: z.string().max(240).optional(),
   }),
-  z.object({
-    type: z.literal('TEMPLATE'),
-    name: z
-      .string()
-      .min(1)
-      .max(512)
-      .regex(/^[a-z0-9_]+$/),
-    language: z.string().min(2).max(15),
-    components: z.array(z.unknown()).max(20).optional(),
-  }),
+  /**
+   * A template send (docs/TEMPLATE_ENGINE.md → Rendering and sending): either an APPROVED
+   * version with positional variables, or a template name + language that resolves to an
+   * APPROVED template of the sending number's WABA (raw Meta `components` allowed).
+   */
+  z
+    .object({
+      type: z.literal('TEMPLATE'),
+      templateVersionId: idSchema.optional(),
+      variables: templateVariablesSchema.optional(),
+      name: z
+        .string()
+        .min(1)
+        .max(512)
+        .regex(/^[a-z0-9_]+$/)
+        .optional(),
+      language: z.string().min(2).max(15).optional(),
+      components: z.array(z.unknown()).max(20).optional(),
+    })
+    .refine((t) => Boolean(t.templateVersionId) !== Boolean(t.name && t.language), {
+      message: 'Send either templateVersionId (with variables) or name and language.',
+      path: ['templateVersionId'],
+    }),
 ])
 export type SendableContent = z.infer<typeof sendableContentSchema>
 

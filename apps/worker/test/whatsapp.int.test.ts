@@ -6,7 +6,7 @@ import { type Server } from 'node:http'
 import { Writable } from 'node:stream'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { bootApi, bootWorker } from './support/harness'
-import { addMember, createOwner, type Member } from './support/workspace'
+import { addMember, createOwner, type Member, waitForTemplate } from './support/workspace'
 
 /**
  * Phase 4 acceptance (docs/prompts/PHASE_04_META_ONBOARDING.md) against the in-process meta-mock.
@@ -239,6 +239,8 @@ describe('managing a connection', () => {
     const { id } = (await connect(owner, ids)).body.data
     const live = track(await owner.client.post(`/whatsapp/connections/${id}/test`, {}))
     expect(live.body.data).toMatchObject({ ok: true, status: 'CONNECTED' })
+    // Connecting imported the WABA's templates; Meta's hello_world is approved everywhere.
+    await waitForTemplate(owner, 'hello_world')
     // Test messages go through MessagingService (a hello_world template via POST /conversations).
     const sent = track(
       await owner.client.post(

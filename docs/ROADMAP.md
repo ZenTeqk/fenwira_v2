@@ -20,7 +20,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 5 | Webhook + messaging engine | 🔵 every criterion passes against the simulated Graph API (see below). The real-test-number run needs Meta credentials (MI1). | [PHASE_05](prompts/PHASE_05_MESSAGING_ENGINE.md) |
 | 6 | Contacts + consent + CRM foundation | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
 | 7 | Multi-agent shared inbox | ✅ all acceptance criteria pass locally, including canned replies (decisions I2 and I3; see below). CI hasn't run on GitHub yet (no remote). | [PHASE_07](prompts/PHASE_07_INBOX.md) |
-| 8 | Template management / builder | ⬜ | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
+| 8 | Template management / builder | 🔵 every criterion passes against the simulated Graph API (see below). The real-WABA round trip needs Meta production onboarding (MI1). | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
 | 9 | Campaign / broadcast engine | ⬜ | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
 | 10 | Automation / visual flow builder | ⬜ | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
 | 11 | Billing + analytics + administration | ⬜ | [PHASE_11](prompts/PHASE_11_BILLING_ANALYTICS.md) |
@@ -215,6 +215,26 @@ The decisions in `PRODUCT.md` → Decision register need this work in already-bu
 | OpenAPI (API1) | ✅ | `docs/openapi.json`: 121 operations over 93 paths, valid OpenAPI 3.1 (`@seriousme/openapi-schema-validator`), unique operation IDs, typed request bodies and parameters, and `x-permission` per route. The unit test and CI step `openapi.mjs --check` fail when it's stale. |
 | Regression | ✅ | Static: lint, typecheck, 148 unit tests, format, design tokens, dependency rules. Integration: **249** (152 database, 10 API, 87 system). e2e: **39** Playwright. Lighthouse accessibility on `/inbox`: **100**. `pnpm smoke` passes. |
 
-Known issue (not introduced here): Lighthouse's best-practice `heading-order` audit flags Settings → Workspace (98), because card titles are `h3` directly under the page `h1`. axe WCAG 2.1 AA passes on the page.
+Known issue (not introduced here): Lighthouse's best-practice `heading-order` audit flagged Settings → Workspace (98), because card titles were `h3` directly under the page `h1`. Fixed in Phase 8 (`CardTitle as="h2"`); the page now scores 100.
 
 **Fenwira Core (Phases 0–7) is complete locally.** What's still open: CI on a GitHub remote, and real Meta runs (production onboarding is a separate business milestone, MI1). Phase 8 can start.
+
+## Phase 8 verification (2026-09-26)
+
+| Acceptance criterion | Result | Evidence |
+| --- | --- | --- |
+| A template round-trips on a real WABA: submit → approval webhook → APPROVED → sent from the inbox template picker | ✅ / ⏳ | Against the meta-mock (`apps/worker/test/templates.int.test.ts`): create → submit (Meta receives components with `example` blocks built from the samples) → signed `message_template_status_update` APPROVED webhook → APPROVED, `approved_version_id` set, owners notified → listed by `/templates/approved` → sent with variables (a missing variable is 422 `TEMPLATE_VARIABLES_INVALID`), reaching Meta with header, body and URL-button parameters. e2e `templates.spec.ts` does the same in the browser, from the builder to the inbox picker. A real WABA needs Meta production onboarding (MI1). |
+| A rejected template shows Meta's reason. Editing it creates version 2 while version 1 stays unchanged | ✅ | REJECTED with `rejectionReason: INVALID_FORMAT`. PATCH on a rejected version is 409; `POST /versions` makes v2 as a DRAFT; v1 keeps its content and reason. Resubmitting v2 edits the same Meta template, and approval advances `approved_version_id`. While v2 is under review, the approved v1 stays in the picker. |
+| Invalid templates (variable gap, missing sample, too many buttons) are blocked identically by UI and API (shared schema test) | ✅ | For each case, the shared `validateTemplate` (which the builder runs), `POST /templates/validate` and a submit (422 `TEMPLATE_INVALID`) return the same codes. 12 unit tests cover every rule. |
+| A network failure on submit leaves the version DRAFT and retryable, never REJECTED | ✅ | An injected 503 and a revoked-token 401 each give 503 `UPSTREAM_UNAVAILABLE`, with the version still DRAFT (`lastError` set, no Meta id); the retry succeeds and is approved. Only Meta's own 4xx validation produces REJECTED (with Meta's message). A lost submit response is adopted on retry (Meta's "already exists") instead of being duplicated. |
+
+Also verified: sync imports templates created in WhatsApp Manager (and `hello_world` on connect), records content edited there as a Meta-originated version (the old approved version is archived, and a repeat sync changes nothing), and applies quality, pause/reinstate and category webhooks (a paused template leaves the picker and is refused at send); media headers go through Meta's resumable upload (`OAuth` header) and the sent file replaces the placeholder at send time; AGENT can read and send but not write or submit; another tenant gets 404 and can't send with a foreign version id; delete removes the name at Meta in every language; X14 lists only WABAs not synced within 6 hours. Lighthouse accessibility: `/templates` 100, `/templates/new` 100.
+
+Test counts: 269 integration (161 database, 10 API, 98 system), 40 Playwright e2e and 165 unit tests.
+
+Bugs found and fixed during the phase:
+
+- The e2e label "Message text" also matched the Authentication option's hint; the test targets the textbox role.
+- The X14 test compared totals capped at 500 in a long-lived test database; it now checks the workspace's own WABA.
+- A test for WhatsApp Manager edits changed a copy of the mock data, so it passed without testing anything; it now edits the mock and asserts the archive and idempotent re-sync.
+- Card titles are now `h2` on template and workspace settings pages (Lighthouse heading order).

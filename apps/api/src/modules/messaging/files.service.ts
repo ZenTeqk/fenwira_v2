@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common'
 import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { StorageService } from '../../core/storage/storage.service'
+import { verifyUpload } from '../../core/storage/uploads'
 import { currentAuth } from '../identity'
 import { currentTenant } from '../tenancy'
 
@@ -20,17 +21,6 @@ const toFile = (f: {
   status: f.status,
   createdAt: f.createdAt.toISOString(),
 })
-
-/** Magic bytes for the types we accept, so a renamed file can't pass as an image or PDF. */
-const SIGNATURES: Array<{ mime: RegExp; test: (b: Buffer) => boolean }> = [
-  { mime: /^image\/jpeg$/, test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
-  {
-    mime: /^image\/png$/,
-    test: (b) => b.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex')),
-  },
-  { mime: /^application\/pdf$/, test: (b) => b.subarray(0, 5).toString('latin1') === '%PDF-' },
-  { mime: /^video\/(mp4|3gpp)$/, test: (b) => b.subarray(4, 8).toString('latin1') === 'ftyp' },
-]
 
 const acceptedMime = (mime: string) => Object.values(MEDIA_LIMITS).some((l) => l.mime.test(mime))
 
@@ -94,12 +84,8 @@ export class FilesService {
     )
     if (!file) throw AppError.notFound('File not found.')
     if (file.status !== 'PENDING_UPLOAD') return toFile(file)
-    const head = await this.storage.head(file.bucket, file.objectKey)
-    if (!head) throw new AppError('FILE_NOT_READY', 422, 'The upload has not finished yet.')
-    let ok = head.size === Number(file.sizeBytes)
-    const signature = SIGNATURES.find((sig) => sig.mime.test(file.mimeType))
-    if (ok && signature)
-      ok = signature.test(await this.storage.getBytes(file.bucket, file.objectKey, 'bytes=0-15'))
+    const ok = await verifyUpload(this.storage, file)
+    if (ok === null) throw new AppError('FILE_NOT_READY', 422, 'The upload has not finished yet.')
     const updated = await this.tenantDb.run((tx) =>
       tx.file.update({ where: { id }, data: { status: ok ? 'READY' : 'REJECTED' } }),
     )

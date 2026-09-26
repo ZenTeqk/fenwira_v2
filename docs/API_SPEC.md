@@ -259,6 +259,11 @@ Implementation notes (Phase 6): search uses an opaque offset cursor, `limit` ≤
 | POST | `/templates/:id/submit` **IK** | `templates.submit` |
 | POST | `/templates/sync` | `templates.write`. Imports from Meta. |
 | POST | `/templates/validate` | read. Dry-run validation. |
+| GET | `/templates/accounts` | read. WABAs with a live number (the builder's account picker) |
+| POST | `/templates/samples/upload-url`, `/templates/samples/:fileId/complete` | write. Header sample upload (JPEG/PNG ≤ 5 MB, MP4 ≤ 16 MB, PDF ≤ 100 MB; magic bytes checked) |
+| GET | `/templates/samples/:fileId/url` | read. Presigned download for previews |
+
+Implemented in Phase 8. `GET /templates/approved?phoneNumberId=` lists the APPROVED version Meta serves for each template of that number's WABA (paused and disabled templates are left out). `POST /templates/validate` returns `{valid, errors[], warnings[]}` from the shared `validateTemplate` plus the server-only checks (name taken, sample file); a submit with errors is 422 `TEMPLATE_INVALID` with the same list in `details.errors`. `PATCH` edits only a DRAFT (409 `TEMPLATE_NOT_EDITABLE` otherwise; name and language are fixed once submitted). `POST /:id/versions` copies the current version into version N+1 (409 while Meta is reviewing). `POST /:id/submit` **IK**: 200 with the template (PENDING, or REJECTED with Meta's reason when Meta refuses the content); a transport, rate-limit or token failure is 503 `UPSTREAM_UNAVAILABLE` and the version stays DRAFT with `lastError`. A name clash is 409 `TEMPLATE_NAME_TAKEN`. `DELETE` deletes the name at Meta (every language) and in Fenwira. `POST /templates/sync` returns `{wabaId, imported, updated, missing}` per WABA.
 
 ### Campaigns (P9)
 

@@ -19,6 +19,7 @@ import { PermissionGuard, TenancyModule, TenantGuard } from './modules/tenancy'
 import { ContactsModule } from './modules/contacts'
 import { InboxModule } from './modules/inbox'
 import { MessagingModule } from './modules/messaging'
+import { TemplatesModule } from './modules/templates'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
 
 export function coreConfigFromApiEnv(
@@ -70,6 +71,12 @@ export class ApiModule {
         ContactsModule.forApi(),
         messaging,
         InboxModule.forApi([messaging]),
+        TemplatesModule.forApi({
+          keyRing,
+          appId: env.META_APP_ID,
+          graphVersion: env.META_GRAPH_API_VERSION,
+          graphBaseUrl: env.META_GRAPH_BASE_URL,
+        }),
         WhatsAppAccountsModule.forApi({
           keyRing,
           appId: env.META_APP_ID,

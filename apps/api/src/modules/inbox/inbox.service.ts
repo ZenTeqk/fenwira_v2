@@ -28,7 +28,7 @@ import {
   searchConversations,
   toConversation,
 } from './inbox.core'
-import { createNotification, toNotification } from './notifications'
+import { createNotification, toNotification } from '../notifications'
 
 const encodeOffset = (n: number) => Buffer.from(JSON.stringify({ o: n })).toString('base64url')
 function decodeOffset(cursor?: string): number {

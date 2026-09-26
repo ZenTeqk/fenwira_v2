@@ -28,7 +28,7 @@ send(input: {
 3. **Contact.** Must be `ACTIVE` and not deleted → `CONTACT_BLOCKED`.
 4. **Eligibility** (decisions C1 and C3). `MessageEligibilityService` evaluates category, purpose, consent, suppression/block state, the service window and tenant policy (`CONTACTS_AND_CONSENT.md` → Eligibility) → `CONTACT_BLOCKED`, `CONSENT_REQUIRED` or `CONVERSATION_WINDOW_CLOSED`. Steps 3 and 5 are part of this evaluation.
 5. **Service window.** Any non-template content requires `now < conversation.service_window_expires_at` → `CONVERSATION_WINDOW_CLOSED`.
-6. **Template** (Phase 8). The version must be APPROVED, and the variables must match → `TEMPLATE_NOT_APPROVED`, `TEMPLATE_VARIABLES_INVALID`.
+6. **Template** (Phase 8). `resolveTemplateForSend` (templates module): the template must belong to the sending number's WABA and the version must be APPROVED; every variable is required → `TEMPLATE_NOT_APPROVED`, `TEMPLATE_VARIABLES_INVALID`. Content is `{templateVersionId, variables}` or `{name, language, components?}`; a name resolves to that WABA's APPROVED template, so an unknown, paused or disabled template is refused before it reaches Meta. The template's **category** decides the purpose (MARKETING → MARKETING) and is passed to eligibility; the stored message keeps the name, category, Meta components and `template_version_id`. A media header's file rides on `messages.file_id`, and the outbound worker uploads it and substitutes the media id.
 7. **Takeover** (Phase 7). If `source = AUTOMATION` and the conversation's `automation_state ≠ AUTOMATION_ACTIVE` → `AUTOMATION_BLOCKED_BY_TAKEOVER`.
 8. **Compose lock** (Phase 7). If `source = INBOX`, the actor must hold the lock or be the assignee → `COMPOSE_LOCKED`.
 9. **Balance** (Phase 11, decision B3). A billable message from **any** source is refused when the usable balance can't cover its estimated cost → `INSUFFICIENT_BALANCE` (`BILLING.md` → Balance enforcement). Non-billable sends are never blocked by balance.
@@ -167,7 +167,8 @@ After commit: emit WS `message.created` and `conversation.updated`.
 - **Metrics** (`prom-client`; OpenTelemetry comes in Phase 12): `webhook_received_total{kind,result}`, `webhook_ingest_duration_ms`, `meta_api_requests_total{endpoint,result,error_code}`, `meta_api_duration_ms`, `messages_status_total{direction,status}`, `queue_depth{queue,state}`, `dlq_size{queue}`. Served on the worker's internal health port (`/metrics`) and the api's internal `METRICS_PORT`.
 - **Eligibility** (C1/C3): `purpose` is stored on the message, and `MessageEligibilityService` is evaluated at accept time and again at send time. The UTILITY and AUTHENTICATION rules are marked temporary (`CONTACTS_AND_CONSENT.md` → Eligibility). The error is 422 `CONSENT_REQUIRED` (at send time, the message fails with that code).
 - **Takeover** (Phase 7): step 7 is enforced at accept time (422 `AUTOMATION_BLOCKED_BY_TAKEOVER`) and again by the outbound worker at send time (the message fails with that code). The compose lock is an inbox rule, checked by `InboxService` before it calls `MessagingService` (`INBOX.md`).
-- **Not yet built:** template validation (Phase 8), balance check (Phase 11) and `POST /messages/:id/retry` (deferred from Phase 7).
+- **Templates** (Phase 8): `message_template_status_update`, `…_quality_update` and `template_category_update` go to `applyTemplateEvent`. A send failing with a Meta template error (132xxx) queues a `templates.sync` of that WABA.
+- **Not yet built:** balance check (Phase 11) and `POST /messages/:id/retry` (deferred from Phase 7).
 
 ### Scope boundaries (decisions)
 

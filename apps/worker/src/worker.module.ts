@@ -19,6 +19,7 @@ import { TenancyModule, TenancyProcessor } from '@fenwira/api/modules/tenancy'
 import { CONTACTS_PROCESSORS, ContactsModule } from '@fenwira/api/modules/contacts'
 import { InboxEventsProcessor, InboxModule } from '@fenwira/api/modules/inbox'
 import { MESSAGING_PROCESSORS, MessagingModule } from '@fenwira/api/modules/messaging'
+import { TemplatesModule, TemplatesSyncProcessor } from '@fenwira/api/modules/templates'
 import {
   WhatsAppAccountsModule,
   WhatsAppSyncProcessor,
@@ -74,8 +75,13 @@ export class WorkerModule {
       devConnect: false,
       syncIntervalHours: env.WHATSAPP_SYNC_INTERVAL_HOURS,
     })
+    const templates = TemplatesModule.forWorker({
+      keyRing,
+      graphVersion: env.META_GRAPH_API_VERSION,
+      graphBaseUrl: env.META_GRAPH_BASE_URL,
+    })
     const runtime = WorkerRuntimeModule.forRoot({
-      imports: [platform, identity, tenancy, whatsapp, messaging, contacts, inbox],
+      imports: [platform, identity, tenancy, whatsapp, messaging, contacts, inbox, templates],
       processors: [
         ...PLATFORM_PROCESSORS,
         IdentityProcessor,
@@ -84,6 +90,7 @@ export class WorkerModule {
         ...MESSAGING_PROCESSORS,
         ...CONTACTS_PROCESSORS,
         InboxEventsProcessor,
+        TemplatesSyncProcessor,
       ],
     })
 

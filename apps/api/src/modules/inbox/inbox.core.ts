@@ -2,7 +2,7 @@ import { type Conversation, type Role, roleHasPermission } from '@fenwira/contra
 import { type Prisma, type TenantTx } from '@fenwira/database'
 import { AppError } from '../../core/http/app-error'
 import { writeSystemEvent } from '../messaging'
-import { createNotification, type NewNotification } from './notifications'
+import { createNotification, type NewNotification } from '../notifications'
 
 export const CONVERSATION_INCLUDE = (userId: string) =>
   ({

@@ -1,48 +1,17 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, type Page, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import {
   API,
+  customerWritesIn,
   linkFromEmail,
-  type Owner,
+  ownerHeaders,
   PASSWORD,
   resetRateLimits,
   signInAsNewOwner,
   uniqueEmail,
 } from './support'
 
-const MOCK = process.env.E2E_META_MOCK_URL ?? 'http://127.0.0.1:4200'
-const metaId = () => String(Date.now()).slice(-9) + String(Math.random()).slice(2, 8)
-
 test.beforeEach(() => resetRateLimits())
-
-const headers = (o: Owner) => ({ 'X-CSRF-Token': o.csrf, 'X-Tenant-Id': o.tenantId })
-
-/** Connects a fresh simulated number and has a customer write in. Returns the customer's name. */
-async function customerWritesIn(page: Page, owner: Owner, text: string) {
-  const wabaId = metaId()
-  const phoneNumberId = metaId()
-  await fetch(`${MOCK}/__mock/seed`, {
-    method: 'POST',
-    body: JSON.stringify({ wabaId, phones: [{ id: phoneNumberId }] }),
-  })
-  const connected = await page.request.post(`${API}/whatsapp/connections/dev`, {
-    data: { wabaId, phoneNumberId, accessToken: `mock-dev:${wabaId}` },
-    headers: headers(owner),
-  })
-  expect(connected.status(), await connected.text()).toBe(201)
-  const name = `Customer ${metaId().slice(-4)}`
-  const res = await fetch(`${MOCK}/__mock/inbound`, {
-    method: 'POST',
-    body: JSON.stringify({
-      phoneNumberId,
-      from: `9195${String(Math.random()).slice(2, 10)}`,
-      name,
-      text,
-    }),
-  })
-  expect(res.ok).toBe(true)
-  return name
-}
 
 test('two agents: typing locks the reply box for the other, and replies arrive live', async ({
   page,
@@ -56,7 +25,7 @@ test('two agents: typing locks the reply box for the other, and replies arrive l
   const since = Date.now()
   const invited = await page.request.post(`${API}/team/invitations`, {
     data: { email: agentEmail, role: 'AGENT' },
-    headers: headers(owner),
+    headers: ownerHeaders(owner),
   })
   expect(invited.status()).toBe(201)
   const token = (await linkFromEmail(agentEmail, '/invitations/', since)).split('/invitations/')[1]

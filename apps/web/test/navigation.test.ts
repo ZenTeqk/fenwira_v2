@@ -35,8 +35,13 @@ describe('navigation', () => {
       'dashboard',
       'inbox',
       'contacts',
+      'templates',
       'integrations',
       'settings',
+    ])
+    expect(visible.find((i) => i.id === 'templates')!.children!.map((c) => c.label)).toEqual([
+      'Templates',
+      'Create Template',
     ])
     expect(visible.find((i) => i.id === 'integrations')!.children!.map((c) => c.label)).toEqual([
       'WhatsApp',

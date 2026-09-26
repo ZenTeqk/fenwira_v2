@@ -171,6 +171,8 @@ export class GraphError extends Error {
     readonly code: number | undefined,
     readonly subcode?: number,
     readonly fbtraceId?: string,
+    /** Meta's user-facing explanation (`error_user_msg`), e.g. why a template was refused. */
+    readonly userMessage?: string,
   ) {
     super(message)
     this.name = 'GraphError'

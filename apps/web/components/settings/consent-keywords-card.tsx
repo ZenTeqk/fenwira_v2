@@ -66,7 +66,7 @@ export function ConsentKeywordsCard({ canManage }: { canManage: boolean }) {
         }}
       >
         <CardHeader>
-          <CardTitle>Opt-out keywords</CardTitle>
+          <CardTitle as="h2">Opt-out keywords</CardTitle>
           <CardDescription>
             When a contact&apos;s whole message is one of these words, their marketing consent
             changes automatically and the change is logged.

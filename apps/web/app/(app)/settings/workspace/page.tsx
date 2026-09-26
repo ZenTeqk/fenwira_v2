@@ -113,7 +113,7 @@ export default function WorkspaceSettingsPage() {
           }}
         >
           <CardHeader>
-            <CardTitle>General</CardTitle>
+            <CardTitle as="h2">General</CardTitle>
             <CardDescription>
               {canManage
                 ? 'Visible to everyone in the workspace.'
@@ -210,7 +210,7 @@ export default function WorkspaceSettingsPage() {
       {isOwner ? (
         <Card>
           <CardHeader>
-            <CardTitle>Danger zone</CardTitle>
+            <CardTitle as="h2">Danger zone</CardTitle>
             <CardDescription>Only the workspace owner can do these.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">

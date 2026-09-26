@@ -1,5 +1,6 @@
 import { type SendableContent } from '@fenwira/contracts'
 import { type GraphClientOptions, GraphHttp } from './http'
+import { MEDIA_PLACEHOLDER } from './template-payload'
 
 /**
  * The only functions that deliver anything to a WhatsApp user. `@fenwira/whatsapp/send` may be
@@ -29,16 +30,23 @@ export function buildSendPayload(
         type: 'text',
         text: { body: content.text, preview_url: !!content.previewUrl },
       }
-    case 'TEMPLATE':
+    case 'TEMPLATE': {
+      // A media header's parameter carries MEDIA_PLACEHOLDER until the file is uploaded.
+      const components = mediaId
+        ? JSON.parse(
+            JSON.stringify(content.components ?? []).replaceAll(MEDIA_PLACEHOLDER, mediaId),
+          )
+        : content.components
       return {
         ...base,
         type: 'template',
         template: {
           name: content.name,
           language: { code: content.language },
-          ...(content.components?.length ? { components: content.components } : {}),
+          ...(components?.length ? { components } : {}),
         },
       }
+    }
     default: {
       if (!mediaId) throw new Error(`${content.type} send needs an uploaded media id`)
       const type = content.type.toLowerCase()

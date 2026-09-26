@@ -10,7 +10,10 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'identity.email_verification.requested': [QUEUES.identityEvents],
   'identity.password_reset.requested': [QUEUES.identityEvents],
   'tenancy.invitation.sent': [QUEUES.tenancyEvents],
-  'whatsapp.connection.changed': [],
+  // A newly connected number's WABA gets its templates imported (docs/TEMPLATE_ENGINE.md).
+  'whatsapp.connection.changed': [QUEUES.templatesSync],
+  // Campaigns subscribe in Phase 9.
+  'template.status.changed': [],
   'message.outbound.requested': [QUEUES.whatsappOutbound],
   // Subscribers (contacts keywords, automation, analytics, billing, campaigns) arrive in P6–P11.
   // Contacts handles opt-in/out keywords and Meta's 131050 opt-out; automation, analytics,

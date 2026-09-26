@@ -37,6 +37,18 @@ export type TokenInfo = {
   granularTargets: Record<string, string[]>
 }
 
+/** A template as Meta returns it from `GET /{waba_id}/message_templates`. */
+export type MetaTemplate = {
+  id: string
+  name: string
+  language: string
+  status: string
+  category: string
+  components: Array<Record<string, unknown>>
+  quality_score?: { score?: string }
+  rejected_reason?: string
+}
+
 export class GraphClient {
   private readonly http: GraphHttp
 
@@ -122,6 +134,67 @@ export class GraphClient {
     await this.request('POST', `${phoneNumberId}/register`, token, {
       json: { messaging_product: 'whatsapp', pin },
     })
+  }
+
+  // ------------------------------------------------------------------ templates (Phase 8)
+
+  /** One page of the WABA's templates; pass `after` from the previous page's cursor. */
+  async listTemplates(
+    token: string,
+    wabaId: string,
+    after?: string,
+  ): Promise<{ data: MetaTemplate[]; after?: string }> {
+    const body = await this.request<{
+      data: MetaTemplate[]
+      paging?: { cursors?: { after?: string }; next?: string }
+    }>('GET', `${wabaId}/message_templates`, token, {
+      query: {
+        fields: 'id,name,language,status,category,components,quality_score,rejected_reason',
+        limit: '100',
+        ...(after ? { after } : {}),
+      },
+    })
+    return { data: body.data, after: body.paging?.next ? body.paging.cursors?.after : undefined }
+  }
+
+  /** Creates a template (Meta returns its id and initial status, usually PENDING). */
+  createTemplate(
+    token: string,
+    wabaId: string,
+    payload: Record<string, unknown>,
+  ): Promise<{ id: string; status: string; category: string }> {
+    return this.request('POST', `${wabaId}/message_templates`, token, { json: payload })
+  }
+
+  /** Edits an existing template in place (Meta re-reviews it). */
+  async editTemplate(
+    token: string,
+    metaTemplateId: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    await this.request('POST', metaTemplateId, token, { json: payload })
+  }
+
+  /** Deletes every language of a template name. */
+  async deleteTemplate(token: string, wabaId: string, name: string): Promise<void> {
+    await this.request('DELETE', `${wabaId}/message_templates`, token, { query: { name } })
+  }
+
+  /** Resumable upload of a header sample: session, then bytes → the `h` handle for `example`. */
+  async uploadSample(
+    token: string,
+    appId: string,
+    file: { bytes: Buffer; mimeType: string; name: string },
+  ): Promise<string> {
+    const session = await this.request<{ id: string }>('POST', `${appId}/uploads`, token, {
+      query: {
+        file_name: file.name,
+        file_length: String(file.bytes.length),
+        file_type: file.mimeType,
+      },
+    })
+    const done = await this.http.upload<{ h: string }>(session.id, token, file.bytes)
+    return done.h
   }
 
   /** Media metadata; `url` is short-lived and must be fetched with the same token. */

@@ -123,3 +123,34 @@ export async function signInAsNewOwner(
   csrf = ((await me.json()) as { data: { csrfToken: string } }).data.csrfToken
   return { email, tenantId, workspaceName, csrf }
 }
+
+export const MOCK = process.env.E2E_META_MOCK_URL ?? 'http://127.0.0.1:4200'
+export const metaId = () => String(Date.now()).slice(-9) + String(Math.random()).slice(2, 8)
+export const ownerHeaders = (o: Owner) => ({ 'X-CSRF-Token': o.csrf, 'X-Tenant-Id': o.tenantId })
+
+/** Connects a fresh simulated number and has a customer write in. Returns the customer's name. */
+export async function customerWritesIn(page: Page, owner: Owner, text: string) {
+  const wabaId = metaId()
+  const phoneNumberId = metaId()
+  await fetch(`${MOCK}/__mock/seed`, {
+    method: 'POST',
+    body: JSON.stringify({ wabaId, phones: [{ id: phoneNumberId }] }),
+  })
+  const connected = await page.request.post(`${API}/whatsapp/connections/dev`, {
+    data: { wabaId, phoneNumberId, accessToken: `mock-dev:${wabaId}` },
+    headers: ownerHeaders(owner),
+  })
+  expect(connected.status(), await connected.text()).toBe(201)
+  const name = `Customer ${metaId().slice(-4)}`
+  const res = await fetch(`${MOCK}/__mock/inbound`, {
+    method: 'POST',
+    body: JSON.stringify({
+      phoneNumberId,
+      from: `9195${String(Math.random()).slice(2, 10)}`,
+      name,
+      text,
+    }),
+  })
+  expect(res.ok).toBe(true)
+  return name
+}

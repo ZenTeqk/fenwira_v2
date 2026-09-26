@@ -328,13 +328,40 @@ describe('consent', () => {
     const to = `+${customer()}`
     const created = await owner.client.post('/contacts', { phone: to, name: 'Marketing target' })
     expect(created.status, created.text).toBe(201)
+    // One approved template per category, created in WhatsApp Manager and imported by a sync.
+    await control('templates', {
+      wabaId: ids.wabaId,
+      add: [
+        {
+          name: 'spring_sale',
+          language: 'en',
+          category: 'MARKETING',
+          status: 'APPROVED',
+          components: [
+            { type: 'BODY', text: 'Our spring sale is on: 20% off everything this week.' },
+          ],
+        },
+        {
+          name: 'order_update',
+          language: 'en',
+          category: 'UTILITY',
+          status: 'APPROVED',
+          components: [{ type: 'BODY', text: 'Your order has shipped and arrives soon.' }],
+        },
+      ],
+    })
+    expect((await owner.client.post('/templates/sync', {})).status).toBe(200)
+    // The template's category decides the purpose (docs/TEMPLATE_ENGINE.md → Rendering and sending).
     const send = (key: string, purpose: 'MARKETING' | 'UTILITY') =>
       messaging.send({
         tenantId: owner.tenantId,
         target: { phoneE164: to },
-        content: { type: 'TEMPLATE', name: 'spring_sale', language: 'en' },
+        content: {
+          type: 'TEMPLATE',
+          name: purpose === 'MARKETING' ? 'spring_sale' : 'order_update',
+          language: 'en',
+        },
         source: 'API',
-        purpose,
         idempotencyKey: key,
       })
     await expect(send(`mkt-${metaId()}`, 'MARKETING')).rejects.toMatchObject({
@@ -366,7 +393,7 @@ describe('consent', () => {
       source: 'META_OPT_OUT',
       evidence: { messageId: message.id, errorCode: 'META_USER_OPTED_OUT' },
     })
-    // Utility sends are allowed unless explicitly revoked.
+    // TEMPORARY rule (TEMP_UTILITY_BLOCK_ON_REVOKED, decision C3): utility is blocked only when revoked.
     await expect(send(`utl-${metaId()}`, 'UTILITY')).resolves.toMatchObject({ status: 'CREATED' })
     await owner.client.post(`/contacts/${contact.id}/consents`, {
       purpose: 'UTILITY',

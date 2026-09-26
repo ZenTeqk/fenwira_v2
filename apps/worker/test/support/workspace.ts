@@ -67,3 +67,27 @@ export async function addMember(
   )
   return { client, email, tenantId: owner.tenantId, membershipId: membership.membershipId, role }
 }
+
+/**
+ * Connecting a number imports its WABA's templates asynchronously (templates.sync on
+ * whatsapp.connection.changed). Waits until `name` is APPROVED in Fenwira; returns the template.
+ */
+export async function waitForTemplate(
+  member: Member,
+  name: string,
+  language = 'en_US',
+  timeoutMs = 15_000,
+): Promise<{ id: string; currentVersion: { id: string } }> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const res = await member.client.get(`/templates?q=${name}`)
+    const hit = (res.body.data ?? []).find(
+      (t: { name: string; language: string; status: string }) =>
+        t.name === name && t.language === language && t.status === 'APPROVED',
+    )
+    if (hit) return hit
+    if (Date.now() > deadline)
+      throw new Error(`template ${name} (${language}) never became APPROVED`)
+    await new Promise((r) => setTimeout(r, 150))
+  }
+}

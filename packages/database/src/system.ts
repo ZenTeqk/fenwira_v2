@@ -99,6 +99,16 @@ export class SystemGateway {
     return rows.map((r) => ({ tenantId: r.tenant_id, phoneId: r.phone_id }))
   }
 
+  /** X14 — WABAs whose templates were not synced since `olderThan` (row IDs only). */
+  async wabasDueForTemplateSync(
+    olderThan: Date,
+    limit: number,
+  ): Promise<Array<{ tenantId: string; wabaId: string }>> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; waba_id: string }>>`
+      SELECT * FROM system.wabas_due_for_template_sync(${olderThan}, ${limit}::int)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, wabaId: r.waba_id }))
+  }
+
   /** X2 — tenant (and number row) of a live phone_number_id, for webhook routing. */
   async resolveTenantByPhoneNumberId(
     phoneNumberId: string,

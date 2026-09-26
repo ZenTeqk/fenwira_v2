@@ -57,6 +57,8 @@ export const STATUS_PRESETS = {
   PENDING: { tone: 'warning', label: 'Pending', icon: Clock },
   APPROVED: { tone: 'success', label: 'Approved', icon: CheckCircle2 },
   REJECTED: { tone: 'danger', label: 'Rejected', icon: Ban },
+  DISABLED: { tone: 'danger', label: 'Disabled', icon: XCircle },
+  ARCHIVED: { tone: 'neutral', label: 'Archived', icon: Square },
   SCHEDULED: { tone: 'info', label: 'Scheduled', icon: Clock },
   RUNNING: { tone: 'primary', label: 'Running', icon: Zap },
   ACTIVE: { tone: 'success', label: 'Active', icon: Zap },

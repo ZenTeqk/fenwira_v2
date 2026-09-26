@@ -5,6 +5,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { type Job } from 'bullmq'
 import { PinoLogger } from 'nestjs-pino'
 import { MetricsService } from '../../core/metrics/metrics.service'
+import { applyTemplateEvent, type TemplateEvent } from '../templates'
 import { type QueueProcessor } from '../../core/queue/queue-processor'
 import { QueueRegistry } from '../../core/queue/queue-registry'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
@@ -28,7 +29,7 @@ type Applied = { messageId: string; conversationId: string; from: string; to: st
 /**
  * whatsapp.status: message status under the ordering rule (SENT < DELIVERED < READ, never
  * regress, FAILED terminal), and WABA-level events (quality/account → a sync of the numbers;
- * template events are stored for Phase 8).
+ * template events go to the templates module).
  */
 @Injectable()
 export class StatusProcessor implements QueueProcessor<WebhookJob> {
@@ -102,9 +103,27 @@ export class StatusProcessor implements QueueProcessor<WebhookJob> {
       return 'sync-queued'
     }
 
-    // Template status/quality/category: consumed by the templates module (Phase 8).
-    await this.finish(job.data, 'IGNORED', 'handled in Phase 8 (templates)')
-    return 'ignored'
+    // Template status/quality/category (docs/TEMPLATE_ENGINE.md → Lifecycle).
+    if (event.kind === 'MESSAGE') {
+      await this.finish(job.data, 'IGNORED', 'not a status event')
+      return 'ignored'
+    }
+    const outcome = await this.db.withTenant(tenantId, async (tx) => {
+      const result = await applyTemplateEvent(tx, tenantId, {
+        kind: event.kind as TemplateEvent['kind'],
+        data: event.data,
+      })
+      await this.markDone(
+        tx,
+        webhookEventId,
+        result.applied ? 'PROCESSED' : 'IGNORED',
+        result.applied ? undefined : 'unknown template (a sync imports it)',
+      )
+      return result
+    })
+    for (const p of outcome.pushes)
+      this.realtime.toUser(p.userId, 'notification.created', p.notification)
+    return outcome.applied ? 'template-applied' : 'ignored'
   }
 
   private async applyStatus(

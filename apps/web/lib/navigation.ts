@@ -19,7 +19,7 @@ import {
  * "coming soon" entries; NEXT_PUBLIC_NAV_PREVIEW=true (development only) reveals everything
  * with a placeholder page so the shell can be reviewed.
  */
-export const SHIPPED_PHASE = 7
+export const SHIPPED_PHASE = 8
 
 /** `permission`: hidden unless the member's role grants it (the API enforces it regardless). */
 export type NavLeaf = {
@@ -97,8 +97,20 @@ export const NAVIGATION: NavItem[] = [
     phase: 8,
     icon: FileText,
     children: [
-      { id: 'templates-all', label: 'Templates', href: '/templates', phase: 8 },
-      { id: 'templates-new', label: 'Create Template', href: '/templates/new', phase: 8 },
+      {
+        id: 'templates-all',
+        label: 'Templates',
+        href: '/templates',
+        phase: 8,
+        permission: 'templates.read',
+      },
+      {
+        id: 'templates-new',
+        label: 'Create Template',
+        href: '/templates/new',
+        phase: 8,
+        permission: 'templates.write',
+      },
     ],
   },
   {

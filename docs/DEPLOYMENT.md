@@ -115,7 +115,7 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 | `COOKIE_SECURE` | `false` locally (**must be true in production**) | api | 3 |
 | `COOKIE_DOMAIN` | unset (localhost); e.g. `.fenwira.com` for sibling subdomains | api | 3 |
 | `TRUST_PROXY` | `0` (socket IP) | api: reverse-proxy hops trusted for `X-Forwarded-For`. Set to the real hop count behind a proxy; never >0 when the API is exposed directly. | 3 |
-| `META_APP_ID`, `META_APP_SECRET` | empty (Embedded Signup off) | api, worker | 4 |
+| `META_APP_ID`, `META_APP_SECRET` | empty (Embedded Signup off) | api, worker | 4 (Phase 8: `META_APP_ID` also addresses the resumable upload of template header samples) |
 | `META_ES_CONFIG_ID`, `META_WEBHOOK_VERIFY_TOKEN` | empty | api | 4 |
 | `META_GRAPH_API_VERSION`, `META_GRAPH_BASE_URL` | `v23.0`, `https://graph.facebook.com` (`.env.example`: the local mock) | api, worker | 4 |
 | `WHATSAPP_DEV_CONNECT` | `false` (refused in production) | api | 4 |

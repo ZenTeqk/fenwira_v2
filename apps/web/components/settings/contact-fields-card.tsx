@@ -166,7 +166,7 @@ export function ContactFieldsCard({ canManage }: { canManage: boolean }) {
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <CardTitle>Contact fields</CardTitle>
+          <CardTitle as="h2">Contact fields</CardTitle>
           <CardDescription>
             Extra details you keep for each contact, such as city or plan.
           </CardDescription>

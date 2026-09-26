@@ -45,6 +45,21 @@ export class GraphHttp {
     return body as T
   }
 
+  /**
+   * Raw-bytes POST (the resumable upload's data step), which authenticates with
+   * `Authorization: OAuth <token>` and a `file_offset` header, per Meta's Resumable Upload API.
+   */
+  async upload<T>(path: string, token: string, bytes: Buffer, offset = 0): Promise<T> {
+    const res = await this.fetchRaw(graphUrl(this.options, path), {
+      method: 'POST',
+      headers: { Authorization: `OAuth ${token}`, file_offset: String(offset) },
+      body: new Uint8Array(bytes),
+    })
+    const body = (await res.json().catch(() => null)) as unknown
+    if (!res.ok) throw errorFrom(res.status, body)
+    return body as T
+  }
+
   /** Authenticated GET of an absolute URL (media downloads). Returns the bytes. */
   async download(url: string, token: string): Promise<{ bytes: Buffer; mimeType?: string }> {
     const res = await this.fetchRaw(url, { headers: { Authorization: `Bearer ${token}` } })
@@ -73,7 +88,13 @@ export class GraphHttp {
 function errorFrom(status: number, body: unknown): GraphError {
   const e = (
     body as {
-      error?: { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string }
+      error?: {
+        message?: string
+        code?: number
+        error_subcode?: number
+        fbtrace_id?: string
+        error_user_msg?: string
+      }
     } | null
   )?.error
   return new GraphError(
@@ -82,5 +103,6 @@ function errorFrom(status: number, body: unknown): GraphError {
     e?.code,
     e?.error_subcode,
     e?.fbtrace_id,
+    e?.error_user_msg,
   )
 }

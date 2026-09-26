@@ -144,7 +144,8 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `whatsapp.outbound` | outbox relay | Send one message to Meta | 20, plus a per-number limiter |
 | `whatsapp.outbound.dlq` | outbound processor (exhausted) | Parked for inspection and replay | 0 (manual) |
 | `whatsapp.media` | inbound processor | Download inbound media → MinIO | 5 |
-| `whatsapp.sync` | repeatable scheduler | Phone quality/tier/status, template reconciliation, credential expiry | 2 |
+| `whatsapp.sync` | repeatable scheduler | Phone quality/tier/status, credential expiry | 2 |
+| `templates.sync` | repeatable scheduler + `whatsapp.connection.changed` | Template reconciliation with Meta every 6 h (X14), and a sync right after a number connects (Phase 8) | 2 |
 | `identity.events` | outbox relay | Verification and password-reset tokens plus emails (Phase 3) | 5 |
 | `tenancy.events` | outbox relay | Invitation tokens plus emails (Phase 3) | 5 |
 | `contacts.events` | outbox relay | Opt-in/out keyword and 131050 consent handling | 10 |

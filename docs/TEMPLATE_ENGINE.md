@@ -90,6 +90,16 @@ Campaigns resolve variables from mapping expressions (`CAMPAIGN_ENGINE.md`) befo
 
 Two panes: the editor (category, language, name, header, body with a "+ Variable" inserter, footer, buttons, samples) and a live WhatsApp-style preview (phone frame, bubble, buttons). Variables render as `primary-soft` chips with `primary` text in both the editor and the preview (the preview shows the sample value on hover). The Version history tab lists versions with status, submitted and decided times, and the rejection reason.
 
+### Implementation notes (Phase 8)
+
+- **Code map.** `packages/contracts/src/templates/components.ts`: the component model and `validateTemplate` (used by the builder and the API). `packages/whatsapp/src/template-payload.ts`: Fenwira ↔ Meta mapping (create/edit payload, sync parsing, send parameters). `apps/api/src/modules/templates`: `TemplatesService` (drafts, versions, submit, delete, sync, samples), `TemplateSyncService`, `templates.core.ts` (`resolveTemplateForSend`, `transitionVersion`, `applyTemplateEvent`) and `TemplatesSyncProcessor` (queue `templates.sync`).
+- **Status transitions** go through one function, which keeps the template's status equal to its current version's, advances `approved_version_id` only on approval (older approved versions become ARCHIVED), applies pause/disable/reinstate to the version Meta serves even while an edit is under review, emits `template.status.changed` and notifies the creator plus owners and admins.
+- **Submit robustness.** Meta calls run outside DB transactions. A submit whose response was lost is adopted on retry (Meta's "already exists" subcodes 2388023/2388024 → look the template up by name and language) instead of being duplicated or rejected.
+- **Sync** runs on connect (`whatsapp.connection.changed` → `templates.sync`), every 6 hours (X14 fan-out every 15 minutes), on `POST /templates/sync`, and after a send fails with a Meta template error. Content is compared without sample file ids; a template deleted in WhatsApp Manager becomes DISABLED with `last_error`.
+- **Authentication templates** support Meta's COPY_CODE OTP only; one-tap/zero-tap (Android app hashes) are not built.
+- **Archive** (Fenwira-only hiding) is not exposed in the UI; deletion is.
+- **Local development:** the meta-mock reviews templates (approve after 4 s in the container; `POST /__mock/template-review` changes the outcome), serves the resumable upload, and `POST /__mock/template-event` simulates pause, quality and category changes.
+
 ### Scope boundaries (decisions)
 
 - Each template and language is managed independently. There is no multi-language grouping in the initial v2 (TE1).

@@ -14,11 +14,10 @@ import {
   DropdownContent,
   DropdownItem,
   DropdownTrigger,
-  Input,
   toast,
 } from '@fenwira/ui'
 import { type InfiniteData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { MessageSquareText, Paperclip, Send } from 'lucide-react'
+import { FileText, MessageSquareText, Paperclip, Send } from 'lucide-react'
 import {
   type ChangeEvent,
   type KeyboardEvent,
@@ -35,6 +34,7 @@ import { matchCanned, useCannedReplies } from '@/lib/canned-replies'
 import { useNow } from '@/lib/inbox'
 import { useRealtimeEvent, useSocket } from '@/lib/realtime'
 import { Segmented } from './segmented'
+import { TemplatePicker, type TemplateSend } from './template-picker'
 import { notesKey, threadKey } from './thread'
 
 type Page = { data: Message[]; page: { nextCursor: string | null } }
@@ -61,7 +61,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const id = conversation.id
   const [mode, setMode] = useState<'reply' | 'note'>('reply')
   const [text, setText] = useState('')
-  const [template, setTemplate] = useState({ name: '', language: 'en' })
+  const [picking, setPicking] = useState(false)
   const [lock, setLock] = useState<ComposeLock | null>(null)
   const holding = lock?.holder?.id === me.user.id
   const lockedByOther = !!lock?.holder && !holding
@@ -171,10 +171,16 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     )
 
   const send = useMutation({
-    mutationFn: async (content: SendableContent) => {
+    mutationFn: async ({
+      content,
+      display,
+    }: {
+      content: SendableContent
+      display?: SendableContent
+    }) => {
       const idempotencyKey = crypto.randomUUID()
       const tempId = `tmp-${idempotencyKey}`
-      addOptimistic(content, tempId)
+      addOptimistic(display ?? content, tempId)
       try {
         const res = await post<{ data: Message }>(
           `/conversations/${id}/messages`,
@@ -190,7 +196,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     },
     onSuccess: () => {
       setText('')
-      setTemplate({ name: '', language: 'en' })
+      setPicking(false)
       void queryClient.invalidateQueries({
         queryKey: keys.tenant(tenantId, 'inbox', 'conversation', id),
       })
@@ -222,10 +228,12 @@ export function Composer({ conversation }: { conversation: Conversation }) {
       const done = await post<{ data: { status: string } }>(`/files/${up.data.fileId}/complete`)
       if (done.data.status !== 'READY') throw new Error("This file can't be sent on WhatsApp.")
       return send.mutateAsync({
-        type: mediaType(file.type),
-        fileId: up.data.fileId,
-        caption: text.trim() || undefined,
-        filename: file.name,
+        content: {
+          type: mediaType(file.type),
+          fileId: up.data.fileId,
+          caption: text.trim() || undefined,
+          filename: file.name,
+        },
       })
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : 'The upload failed.'),
@@ -233,16 +241,8 @@ export function Composer({ conversation }: { conversation: Conversation }) {
 
   const submit = () => {
     if (mode === 'note') return text.trim() && note.mutate()
-    if (!windowOpen)
-      return (
-        template.name &&
-        send.mutate({
-          type: 'TEMPLATE',
-          name: template.name.trim(),
-          language: template.language.trim(),
-        })
-      )
-    if (text.trim()) send.mutate({ type: 'TEXT', text: text.trim() })
+    if (!windowOpen) return setPicking(true)
+    if (text.trim()) send.mutate({ content: { type: 'TEXT', text: text.trim() } })
   }
   /** Inserts a canned reply for editing; it never sends by itself. */
   const insert = (body: string) => {
@@ -306,29 +306,9 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           <Alert tone="warning">
             The 24-hour window has closed. Send an approved template to restart the conversation.
           </Alert>
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col gap-1 text-sm text-slate">
-              Template name
-              <Input
-                value={template.name}
-                onChange={(e) => setTemplate((t) => ({ ...t, name: e.target.value }))}
-                placeholder="hello_world"
-                disabled={disabled}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-slate">
-              Language
-              <Input
-                className="w-24"
-                value={template.language}
-                onChange={(e) => setTemplate((t) => ({ ...t, language: e.target.value }))}
-                disabled={disabled}
-              />
-            </label>
-            <Button loading={send.isPending} disabled={disabled || !template.name} onClick={submit}>
-              Send template
-            </Button>
-          </div>
+          <Button className="self-start" disabled={disabled} onClick={() => setPicking(true)}>
+            Choose a template
+          </Button>
         </div>
       ) : (
         <div className="relative flex items-end gap-2">
@@ -387,6 +367,17 @@ export function Composer({ conversation }: { conversation: Conversation }) {
             onKeyDown={onKeyDown}
             onBlur={() => !text.trim() && release()}
           />
+          {mode === 'reply' && can('templates.read') ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Send a template"
+              disabled={disabled}
+              onClick={() => setPicking(true)}
+            >
+              <FileText aria-hidden="true" />
+            </Button>
+          ) : null}
           {mode === 'reply' && canned.length ? (
             <Dropdown>
               <DropdownTrigger asChild>
@@ -434,6 +425,13 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           </Button>
         </div>
       )}
+      <TemplatePicker
+        phoneNumberId={conversation.phoneNumber.id}
+        open={picking}
+        onOpenChange={setPicking}
+        sending={send.isPending}
+        onSend={(t: TemplateSend) => send.mutate(t)}
+      />
     </div>
   )
 }
