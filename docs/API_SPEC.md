@@ -135,7 +135,8 @@ Every route needs `X-Tenant-Id` plus an ACTIVE membership. A missing, malformed,
 | Method | Path | P | Notes |
 | --- | --- | --- | --- |
 | GET / PATCH | `/workspace` | `workspace.read` / `workspace.manage` | PATCH `{name?, country?, timezone?, require2fa?}`, audited as a diff |
-| DELETE | `/workspace` | OWNER | Soft delete, 204. Recoverable for 30 days, then purged or anonymized (T2, `MULTI_TENANCY.md` → Tenant deletion). |
+| DELETE | `/workspace` | OWNER | Soft delete, 204. Recoverable for 30 days, then purged or anonymized (T2/T3, `MULTI_TENANCY.md` → Tenant deletion). |
+| POST | `/workspaces/:id/restore` | OWNER of that workspace (no tenant header) | Restores a workspace pending deletion (T3). 404 after the grace period. |
 | POST | `/workspace/transfer-ownership` | OWNER | `{membershipId}` → 204. The old owner becomes ADMIN, atomically. |
 | GET | `/team/members` | `team.read` | `[{membershipId, userId, name, email, role, status, twoFactorEnabled, joinedAt}]` |
 | PATCH | `/team/members/:id` | `team.manage` | `{role}` (never OWNER). 403 above the caller's own rank; 409 for self or for the owner. |
@@ -199,6 +200,9 @@ Implementation notes (Phase 4):
 | POST | `/files/upload-url` | Authenticated. `{purpose, mimeType, sizeBytes}` → `{fileId, url, headers}` |
 | POST | `/files/:id/complete` | Verifies the object and sniffs its type → READY or REJECTED |
 | GET | `/files/:id/download-url` | Scoped by file purpose permission |
+| GET | `/canned-replies` | `inbox.reply`. `?q=` filters by shortcut or title. |
+| POST | `/canned-replies` | `inbox.canned_replies.manage`. `{shortcut, title, body}`; the shortcut is unique per workspace → 409 `CONFLICT` |
+| PATCH / DELETE | `/canned-replies/:id` | `inbox.canned_replies.manage` |
 | POST | `/messages/:id/retry` | `inbox.reply`. Only for FAILED messages with a retryable error. (Deferred; not built in Phase 7) |
 | GET | `/conversations/:id/compose-lock` | `inbox.read`. `{conversationId, holder: {id, name} \| null, expiresAt}` |
 | GET | `/inbox/presence` | `inbox.read`. Members with `inbox.reply` and their `ONLINE\|AWAY\|OFFLINE` status |

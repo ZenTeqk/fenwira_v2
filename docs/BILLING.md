@@ -54,8 +54,8 @@ Prices live in `plans.price_minor`. **All prices, entitlement values and price-b
 ```sql
 BEGIN;  -- inside withTenant
 SELECT balance_minor FROM wallets WHERE id = $w FOR UPDATE;          -- serialize per wallet
--- DEBIT: the balance may not go below -credit_limit_minor (0 by default) → INSUFFICIENT_BALANCE,
---        except as the in-flight accounting rule allows (open question B4)
+-- DEBIT: settles a reservation (B4), so the balance stays within the credit limit;
+--        a reconciliation difference is recorded as-is
 INSERT INTO wallet_transactions (..., amount_minor, balance_after_minor, idempotency_key) VALUES (...)
   ON CONFLICT (tenant_id, idempotency_key) DO NOTHING;               -- replay-safe
 COMMIT;
@@ -69,10 +69,37 @@ COMMIT;
 | `REFUND` | + | Reversal of a DEBIT (for example a message later marked non-billable) |
 
 - **Balance enforcement (decision B3).** Unlimited negative balances are not allowed.
-  - **Usable balance** = `balance_minor + credit_limit_minor`. The credit limit is 0 by default, and per-tenant limits are configuration later.
-  - Every **new billable outbound message**, from any source (an inbox template, a campaign, an automation or the API), is checked before it is accepted. If the usable balance can't cover its estimated cost (price book by category and recipient country), it is refused with `INSUFFICIENT_BALANCE`.
+  - **Available funds** = `balance_minor + credit_limit_minor − reserved_minor`. The credit limit is 0 by default, and per-tenant limits are configuration later.
+  - Every **new billable outbound message**, from any source (an inbox template, a campaign, an automation or the API), must **reserve** its estimated cost before it is accepted (below). If the available funds can't cover it, it is refused with `INSUFFICIENT_BALANCE`.
   - **Never blocked by balance:** inbound messages, status webhooks, non-billable sends (for example freeform replies inside the service window), and essential processing such as consent keywords, sync and maintenance.
-  - The final DEBIT still posts from Meta's pricing in the status webhook, because the message was sent and its cost must be recorded. How in-flight sends are accounted, so concurrent sends can't push the balance past the credit limit, is open question B4.
+  - The final DEBIT posts from Meta's pricing in the status webhook, and it settles the message's reservation.
+
+### Reservations (decision B4)
+
+A simple balance check just before sending is **not** enough, because concurrent workers would spend the same funds. Billable messages use an atomic reservation:
+
+```sql
+BEGIN;  -- inside withTenant, in the same transaction that accepts the message
+SELECT balance_minor, credit_limit_minor, reserved_minor FROM wallets WHERE id = $w FOR UPDATE;
+-- available = balance + credit_limit - reserved; if available < estimate → INSUFFICIENT_BALANCE
+INSERT INTO wallet_reservations (message_id, amount_minor, status) VALUES ($m, $estimate, 'ACTIVE')
+  ON CONFLICT (message_id) DO NOTHING;                                -- idempotent per message
+UPDATE wallets SET reserved_minor = reserved_minor + $estimate WHERE id = $w;   -- only if inserted
+COMMIT;
+```
+
+The wallet row lock serializes reservations, so two workers can never reserve the same funds.
+
+| Lifecycle event | Effect |
+| --- | --- |
+| Accepted billable message | Reserve the estimate (price book by category and recipient country) |
+| Meta reports it billable (pricing in the status webhook) | **Settle**: post the DEBIT with the actual price, mark the reservation SETTLED, and subtract it from `reserved_minor` |
+| Actual price differs from the estimate | **Reconcile**: the DEBIT uses the actual price, and the reservation is closed at its estimate, so the difference is recorded, never lost |
+| Final non-billable outcome (permanent failure, or Meta reports it non-billable) | **Release**: mark it RELEASED with a reason, and subtract it from `reserved_minor` |
+| Retryable failure | **Keep** the reservation through the retry lifecycle. It is released only when the message reaches a final state. |
+
+- Reservations are keyed by message ID. Replays and retries never double-reserve, double-settle or double-release.
+- The maintenance job releases reservations whose message is terminal but unsettled after a grace period, and alerts on any it finds (operator email, O1).
 - `wallet.low_balance` is emitted when the balance crosses below `low_balance_threshold_minor` (on the crossing only, not on every debit).
 
 ### Usage pricing
@@ -89,7 +116,7 @@ COMMIT;
 
 | Condition | Blocks | Doesn't block |
 | --- | --- | --- |
-| Usable balance below a message's estimated cost | That billable outbound message, from any source (`INSUFFICIENT_BALANCE`). What a running campaign does next is part of B4. | Inbound messages, status updates, non-billable sends, essential processing |
+| Available funds below a message's estimated cost | That billable outbound message, from any source (`INSUFFICIENT_BALANCE`). A running campaign moves to `PAUSED_INSUFFICIENT_FUNDS` (`CAMPAIGN_ENGINE.md`). | Inbound messages, delivery/read status updates, non-billable sends, essential processing |
 | Balance < campaign estimate | Warning in the Review step only | |
 | Subscription inactive (trial expired or CANCELLED) | All outbound sends (`SUBSCRIPTION_INACTIVE`) | Reading, exporting |
 
@@ -105,8 +132,4 @@ Always format from minor units with `Intl.NumberFormat(locale, {style:'currency'
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| B4 | How in-flight billable sends count against the usable balance, so concurrent sends can't exceed the credit limit (a hold at accept time, or a check against an estimate), and what a running campaign does when a send is refused (pause, or fail the remaining recipients). | Eng/Business |
-
-B1, B2 and B3: Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

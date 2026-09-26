@@ -20,7 +20,7 @@
 - The balance is derived from the ledger, never set directly. UPDATE and DELETE are revoked on the transactions table.
 - Debits happen when Meta confirms a billable message (from the status/pricing webhook), with idempotency on the message ID.
 - A low-balance threshold sends a notification.
-- No unlimited negative balance (decision B3): every new billable outbound message, from any source, is refused with `INSUFFICIENT_BALANCE` when the usable balance (balance plus a credit limit, 0 by default) can't cover its estimated cost. Inbound messages, status updates and non-billable processing always continue. The in-flight accounting mechanism depends on open question B4 (`BILLING.md`).
+- No unlimited negative balance (decision B3): every new billable outbound message, from any source, is refused with `INSUFFICIENT_BALANCE` when the usable balance (balance plus a credit limit, 0 by default) can't cover its estimated cost. Inbound messages, status updates and non-billable processing always continue. Billable messages atomically reserve their estimated cost (`wallet_reservations`, decision B4); reservations settle into the ledger, release on a final non-billable outcome, reconcile price differences and survive retries. A campaign that runs out of funds moves to `PAUSED_INSUFFICIENT_FUNDS` and can resume (`CAMPAIGN_ENGINE.md`).
 - UI: available credits, this month's spend, Add Credits (admin/manual for now), and transaction history with filters and export.
 
 ### Analytics
@@ -38,6 +38,8 @@
 ## Acceptance criteria
 
 - [ ] The wallet balance equals the sum of ledger entries in every test, and a concurrent debit test shows no double spend.
+- [ ] Concurrent billable sends never reserve more than the available funds; settle, release, reconcile and retry each leave `reserved_minor` equal to the sum of ACTIVE reservations.
+- [ ] A campaign that runs out of funds moves to PAUSED_INSUFFICIENT_FUNDS with sent recipients unchanged and the rest still QUEUED, and resumes after a top-up.
 - [ ] Duplicate pricing webhooks debit once.
 - [ ] Changing a plan's entitlements changes behavior with no code change (test flips `automation_enabled`).
 - [ ] Dashboard numbers reconcile with raw message and campaign tables for a seeded dataset.

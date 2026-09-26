@@ -107,7 +107,10 @@ tenants                                         root (custom RLS: tenant_self + 
   id, name, slug citext unique (slugified name + random suffix)
   default_country char(2) default 'IN', timezone default 'Asia/Kolkata', currency char(3) default 'INR'
   require_2fa boolean default false, owner_user_id → users
-  created_at, updated_at, deleted_at (soft delete → TENANT_NOT_FOUND everywhere)
+  created_at, updated_at, deleted_at (soft delete → TENANT_NOT_FOUND everywhere), purge_after null (T3)
+
+tenant_purges                                   (platform, no RLS; read by platform admins only)
+  tenant_id pk, started_at, completed_at null, steps jsonb   -- {step: completedAt}; resumes at the first incomplete step (T3)
 
 roles                                           G  read-only (seeded from @fenwira/contracts rbac.ts)
   key role_key pk (OWNER|ADMIN|MANAGER|AGENT|VIEWER), name, rank int (50…10)
@@ -344,7 +347,13 @@ conversation_tags                               T
   tenant_id, conversation_id, tag_id → tags, created_at, created_by; pk (conversation_id, tag_id)
 ```
 
-Compose locks and presence live in Redis only (`INBOX.md`). The canned replies table (decision I2) is designed once open question I3 settles whether replies are personal, shared, or both.
+```text
+canned_replies                                  T   P7 (decisions I2, I3)
+  id, tenant_id, shortcut text (e.g. /hello), title text, body text, created_by → users, created_at, updated_at
+  unique (tenant_id, lower(shortcut))
+```
+
+Compose locks and presence live in Redis only (`INBOX.md`).
 
 Implemented in Phase 7 (migration `20260928000000_inbox`), with these differences from the draft:
 
@@ -383,7 +392,7 @@ campaigns                                       T SD
   template_version_id → template_versions, variable_mapping jsonb
   audience jsonb (contracts: CampaignAudience), audience_snapshot_at null
   schedule_at null, timezone text, send_window jsonb null
-  status campaign_status (DRAFT|SCHEDULED|RUNNING|PAUSED|STOPPED|COMPLETED|FAILED)
+  status campaign_status (DRAFT|SCHEDULED|RUNNING|PAUSED|PAUSED_INSUFFICIENT_FUNDS|STOPPED|COMPLETED|FAILED)
   rate_limit_per_minute int null, estimated_cost_minor bigint null, currency char(3)
   total_recipients int default 0, created_by, launched_by null
   launched_at, paused_at, stopped_at, completed_at (null)
@@ -426,7 +435,13 @@ automation_executions                           T
   current_node_id text null, wait_until null, context jsonb (variables), step_count int
   error_code null, error_detail null, started_at, finished_at null, updated_at
   unique (flow_id, conversation_id) WHERE status IN ('RUNNING','WAITING')   -- one active per flow+conversation
+  trigger_run_id uuid null → automation_trigger_runs
   idx (tenant_id, flow_id, started_at desc)
+
+automation_trigger_runs                         T   (AE3: one row per triggering event)
+  id, tenant_id, event_id uuid unique, trigger_type, contact_id, conversation_id null
+  plan jsonb      -- ordered [{flowId, flowVersionId, priority, status: PENDING|STARTED|COMPLETED|FAILED|SKIPPED|STOPPED, reason null, executionId null}]
+  status (RUNNING|COMPLETED|STOPPED), stop_reason text null, created_at, finished_at null
 
 automation_execution_steps                      T AO
   id, tenant_id, execution_id, seq int, node_id text, node_type text
@@ -458,8 +473,15 @@ wallets                                         T
   id, tenant_id unique, currency char(3)
   balance_minor bigint default 0                 -- cache, maintained ONLY by ledger insert trigger; CHECK consistency job
   low_balance_threshold_minor bigint
-  credit_limit_minor bigint not null default 0  -- B3: usable = balance + credit limit; configurable per tenant later
+  credit_limit_minor bigint not null default 0  -- B3: permitted credit limit; configurable per tenant later
+  reserved_minor bigint not null default 0      -- B4: sum of ACTIVE reservations
   created_at, updated_at
+
+wallet_reservations                             T   (B4)
+  id, tenant_id, wallet_id, message_id uuid unique, amount_minor bigint (estimate)
+  status (ACTIVE|SETTLED|RELEASED), settled_transaction_id null → wallet_transactions
+  reason text null, created_at, updated_at
+  -- wallets.reserved_minor = SUM(amount_minor) of ACTIVE rows, maintained in the same transaction
 
 wallet_transactions                             T AO
   id, tenant_id, wallet_id, type (CREDIT|DEBIT|ADJUSTMENT|REFUND)
@@ -505,6 +527,8 @@ webhook_deliveries                              T   (retention 30d)
 
 ## Retention
 
+The retention categories, and what happens to each at tenant deletion, are in `DATA_RETENTION.md`. The table below summarizes the periods.
+
 | Data | Retention | Mechanism |
 | --- | --- | --- |
 | `webhook_events` | 30 days | `system.purge_expired` |
@@ -514,7 +538,7 @@ webhook_deliveries                              T   (retention 30d)
 | `analytics_events` | Per `analytics_retention` entitlement | Maintenance job |
 | `audit_logs` | ≥ 1 year | Never auto-purged in v2 |
 | Messages, contacts | Until the contact is deleted, or the tenant is purged | Contact soft delete; tenant purge (below) |
-| A deleted tenant's data | 30 days recoverable, then purged or anonymized (decision T2) | Tenant purge job, one tenant at a time. What is anonymized and kept versus deleted is open question T3. There is no database-wide hard delete. |
+| A deleted tenant's data | 30 days recoverable, then purged or anonymized (decision T2) | Tenant purge job, one tenant at a time. Per-category handling is in `DATA_RETENTION.md` (decision T3). There is no database-wide hard delete. |
 | Import/export files | 7 days | MinIO lifecycle + `files` cleanup |
 
 ## Open questions

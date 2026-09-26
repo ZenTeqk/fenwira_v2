@@ -6,7 +6,7 @@
 
 ## Build
 
-1. **Entities:** `Campaign` (name, template version, variable mapping, audience definition, schedule + timezone, status ∈ DRAFT/SCHEDULED/RUNNING/PAUSED/STOPPED/COMPLETED/FAILED, created_by, launched_by) and `CampaignRecipient` (contact, resolved variables, status ∈ QUEUED/SENT/DELIVERED/READ/FAILED/SKIPPED, skip_reason, message_id, idempotency key `campaign:{id}:contact:{id}`).
+1. **Entities:** `Campaign` (name, template version, variable mapping, audience definition, schedule + timezone, status ∈ DRAFT/SCHEDULED/RUNNING/PAUSED/PAUSED_INSUFFICIENT_FUNDS/STOPPED/COMPLETED/FAILED (the funds pause is entered from Phase 11, decision B4), created_by, launched_by) and `CampaignRecipient` (contact, resolved variables, status ∈ QUEUED/SENT/DELIVERED/READ/FAILED/SKIPPED, skip_reason, message_id, idempotency key `campaign:{id}:contact:{id}`).
 2. **Wizard (6 steps):**
    1. Audience: contact list, saved segment, CSV (imported via the Phase 6 pipeline), tags, or filters, with a live count.
    2. Template: approved only.

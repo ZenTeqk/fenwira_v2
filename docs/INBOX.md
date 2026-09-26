@@ -84,11 +84,15 @@ Built-in views: **Mine**, **Unassigned**, **All**, **Takeover** and **Resolved**
 - Postgres full-text search over `messages.text_search` (config `simple`, so it works across languages without stemming), plus a trigram match on contact name and a prefix match on phone.
 - The endpoint is `GET /conversations?q=…`, which returns conversations with the matching message snippet. It is tenant-scoped via RLS.
 
-### Canned replies (decision I2, Phase 7)
+### Canned replies (decisions I2 and I3, Phase 7)
 
-- Lightweight saved replies: each one is a short title and a plain-text body. The composer offers them in a picker, and choosing one **inserts** the text into the reply box to edit. It never sends by itself, so the normal reply path (compose lock, service window, `MessagingService`) applies unchanged.
-- Out of scope: variables, media, templates, folders and analytics. Advanced shared reply libraries may come later.
-- Whether replies are personal, workspace-shared or both, and who manages shared ones, is open question I3. The data model, endpoints and permission are designed once it is answered.
+- **Workspace-shared** saved replies. Personal/private replies are out of the initial v2 scope.
+- Fields: `shortcut` (for example `/hello`, `/price`, `/address`, `/thanks`), `title` and a plain-text `body`. The shortcut starts with `/`, then 1–32 lowercase letters, digits, `-` or `_`, and is unique within the workspace (case-insensitive).
+- **Permissions:** OWNER, ADMIN and MANAGER create, edit, delete and use them (`inbox.canned_replies.manage` plus `inbox.reply`). AGENT uses them (`inbox.reply`). VIEWER can neither send nor modify.
+- **Using one:** typing `/` at the start of the reply box, or opening the canned-replies button, shows matching replies. Choosing one **inserts** its body into the reply box for editing. It never sends by itself, so the normal reply path (compose lock, service window, `MessagingService`) applies unchanged.
+- **Managing them:** Settings → Workspace → Canned replies.
+- Tenant-isolated under RLS, and covered by the tenant and security matrices.
+- Out of scope: variables, media, templates, folders, personal replies and analytics.
 
 ### Attachments
 
@@ -121,12 +125,8 @@ Upload through `POST /files/upload-url` (purpose `MESSAGE_MEDIA`) → PUT to Min
 - **Maintenance.** A 60 s repeatable job calls `system.inbox_maintenance_due` (X13) and, per tenant, reopens expired snoozes (`status_changed` with `reason: snooze_ended`) and releases idle takeovers (`automation_resumed` with `reason: auto_release`).
 - **Notifications.** An in-app `notifications` table (assignment, a mention in a note) with a bell in the top bar. The payload goes to `user:{id}` as `notification.created`.
 - **Presence.** `AWAY` is accepted from the client heartbeat; the browser idle timer that sets it is not built yet. A socket disconnect marks the user OFFLINE once they have no other open sockets.
-- **Not built yet:** canned replies (added to Phase 7 by decision I2, waiting on I3) and the `POST /messages/:id/retry` endpoint. Meta typing indicators are optional (M1) and are not built.
+- **Not built yet:** the `POST /messages/:id/retry` endpoint. Meta typing indicators are optional (M1) and are not built.
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| I3 | Canned replies: personal, workspace-shared, or both, and which permission manages the shared ones? | Product |
-
-I1 and I2: Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

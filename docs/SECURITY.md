@@ -37,7 +37,7 @@ For cookie-authenticated **mutating** requests: double-submit. The `X-CSRF-Token
 
 ### RBAC
 
-Roles are fixed and seeded: `OWNER`, `ADMIN`, `MANAGER`, `AGENT`, `VIEWER`. Guards check **permission keys**, never role names. The only exceptions are OWNER-only actions (ownership transfer, workspace deletion), which are checked with `@RequireRole('OWNER')`.
+Roles are fixed and seeded: `OWNER`, `ADMIN`, `MANAGER`, `AGENT`, `VIEWER`. Guards check **permission keys**, never role names. The only exceptions are OWNER-only actions (ownership transfer, workspace deletion and restore), which are checked with `@RequireRole('OWNER')` (restore checks the caller's OWNER membership of the deleted workspace).
 
 Permission catalog and matrix (● = granted):
 
@@ -62,6 +62,7 @@ Permission catalog and matrix (● = granted):
 | `inbox.assign_self` | ● | ● | ● | ● | |
 | `inbox.reassign` | ● | ● | ● | | |
 | `inbox.read_all` (see conversations assigned to others) | ● | ● | ● | ● | ● |
+| `inbox.canned_replies.manage` (create/edit/delete workspace canned replies; using them needs `inbox.reply`) | ● | ● | ● | | |
 | `templates.read` | ● | ● | ● | ● | ● |
 | `templates.write` | ● | ● | ● | | |
 | `templates.submit` | ● | ● | ● | | |

@@ -26,7 +26,7 @@ send(input: {
 1. **Idempotency.** An existing message with `(tenant_id, idempotency_key)` is returned as-is.
 2. **Phone number.** Resolve the conversation's number, or the tenant default. It must be `CONNECTED` → `NO_CONNECTED_NUMBER`.
 3. **Contact.** Must be `ACTIVE` and not deleted → `CONTACT_BLOCKED`.
-4. **Eligibility** (Phase 6, decision C1). The centralized consent and policy service evaluates the purpose and template category. MARKETING needs recorded GRANTED consent; the other purposes follow `CONTACTS_AND_CONSENT.md` → Eligibility → `CONSENT_REQUIRED`.
+4. **Eligibility** (decisions C1 and C3). `MessageEligibilityService` evaluates category, purpose, consent, suppression/block state, the service window and tenant policy (`CONTACTS_AND_CONSENT.md` → Eligibility) → `CONTACT_BLOCKED`, `CONSENT_REQUIRED` or `CONVERSATION_WINDOW_CLOSED`. Steps 3 and 5 are part of this evaluation.
 5. **Service window.** Any non-template content requires `now < conversation.service_window_expires_at` → `CONVERSATION_WINDOW_CLOSED`.
 6. **Template** (Phase 8). The version must be APPROVED, and the variables must match → `TEMPLATE_NOT_APPROVED`, `TEMPLATE_VARIABLES_INVALID`.
 7. **Takeover** (Phase 7). If `source = AUTOMATION` and the conversation's `automation_state ≠ AUTOMATION_ACTIVE` → `AUTOMATION_BLOCKED_BY_TAKEOVER`.
@@ -165,7 +165,7 @@ After commit: emit WS `message.created` and `conversation.updated`.
 - **Mark as read** is a `mark-read` job on `whatsapp.outbound`, so it stays inside the one module allowed to call Meta.
 - **Realtime.** `RealtimeEmitter` (core) publishes through the Socket.IO Redis adapter from api and worker: `message.created`, `message.status` and `message.updated` go to `tenant:{id}` and `conversation:{id}`, and `conversation.updated` to both. Sockets join `conversation:{id}` with `conversation.join`, which checks the conversation belongs to the socket's tenant.
 - **Metrics** (`prom-client`; OpenTelemetry comes in Phase 12): `webhook_received_total{kind,result}`, `webhook_ingest_duration_ms`, `meta_api_requests_total{endpoint,result,error_code}`, `meta_api_duration_ms`, `messages_status_total{direction,status}`, `queue_depth{queue,state}`, `dlq_size{queue}`. Served on the worker's internal health port (`/metrics`) and the api's internal `METRICS_PORT`.
-- **Consent** (Phase 6): `purpose` is stored on the message and checked at accept and send time: MARKETING needs GRANTED, and UTILITY is blocked by an explicit REVOKED as an interim check pending C3. Both checks move into the centralized policy service (C1). The error is 422 `CONSENT_REQUIRED` (at send time, the message fails with that code).
+- **Eligibility** (C1/C3): `purpose` is stored on the message, and `MessageEligibilityService` is evaluated at accept time and again at send time. The UTILITY and AUTHENTICATION rules are marked temporary (`CONTACTS_AND_CONSENT.md` → Eligibility). The error is 422 `CONSENT_REQUIRED` (at send time, the message fails with that code).
 - **Takeover** (Phase 7): step 7 is enforced at accept time (422 `AUTOMATION_BLOCKED_BY_TAKEOVER`) and again by the outbound worker at send time (the message fails with that code). The compose lock is an inbox rule, checked by `InboxService` before it calls `MessagingService` (`INBOX.md`).
 - **Not yet built:** template validation (Phase 8), balance check (Phase 11) and `POST /messages/:id/retry` (deferred from Phase 7).
 

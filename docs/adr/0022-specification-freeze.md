@@ -1,6 +1,6 @@
 # ADR-0022: Specification freeze decisions with architectural impact
 
-**Status:** Accepted (2026-09-26)
+**Status:** Accepted (2026-09-26). Its open details (T3, C3, I3, AE3, B4) are decided in ADR-0023.
 
 ## Context
 
