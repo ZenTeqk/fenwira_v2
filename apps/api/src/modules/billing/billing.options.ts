@@ -1,6 +1,5 @@
-/** Billing switches (docs/BILLING.md → Balance enforcement). */
-export type BillingOptions = {
-  /** When true, billable sends reserve funds (B3/B4). Off until billing launches (see ROADMAP). */
-  enforced: boolean
-}
+import { type BillingPlatform } from './wallet.core'
+
+/** Billing platform configuration (docs/BILLING.md → Billing modes, P9-D1). */
+export type BillingOptions = BillingPlatform
 export const BILLING_OPTIONS = Symbol('BILLING_OPTIONS')

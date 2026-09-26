@@ -75,6 +75,13 @@ Deferred by the product owner; not scheduled in a phase.
 | --- | --- | --- |
 | One-tap / zero-tap authentication templates | Phase 8 | Copy-code OTP is built; one-tap needs the Android app signature. |
 | Hide (archive) a template without deleting it at Meta | Phase 8 | The ARCHIVED status exists; no UI or endpoint. |
+| Campaign send windows | Phase 9 | Pause dispatch outside set hours in the campaign timezone. |
+| Retry failed recipients | Phase 9 | Re-send recipients FAILED with a retryable error (new idempotency suffix). |
+| Individual-contact selection in the campaign wizard | Phase 9 | The API already accepts a CONTACTS audience source. |
+| Inbox-message priority over campaign traffic | Phase 9 | Priority lanes in the outbound queue. |
+| Low-balance notifications | Phase 9 | `wallet.low_balance` on crossing the threshold. |
+| Campaign throughput optimization toward provider limits | Phase 9 | About 17/s measured locally vs Meta's 80 msg/s per number. |
+| Advanced campaign template replacement/migration | Phase 9 (P9-D3) | v2 requires a new campaign instead. |
 
 ## Success metrics (Fenwira Core, Phases 0–7)
 
@@ -126,6 +133,9 @@ The product owner resolved every question from the original register. These deci
 | I3 | INBOX | Canned replies are workspace-shared (no personal replies in v2). OWNER, ADMIN and MANAGER create, edit, delete and use them; AGENT uses them; VIEWER can do neither. Fields: id, tenant_id, shortcut (for example `/hello`, unique per workspace), title, body, created_by, created_at, updated_at. They are tenant-isolated under RLS and security tests. |
 | AE3 | AUTOMATION | All matching active automations may execute, one after another, in deterministic order (priority ascending, then created_at, then id), never concurrently for the same triggering event. Processing stops when an explicit condition requires it (for example human takeover). Execution history records the matched flows, their order, skipped and stopped flows, and the stop reason. |
 | B4 | BILLING | Billable outbound messages use atomic reservations: available funds = wallet balance + permitted credit limit − active reservations. A reservation is taken atomically before a billable message is accepted, is idempotent per message, and is settled, released, reconciled or kept per the send lifecycle. A campaign that runs out of funds moves to `PAUSED_INSUFFICIENT_FUNDS`, keeps every recipient's state, shows the problem in the UI, and can resume once funds are available. |
+| P9-D1 | BILLING | Tenant-level billing modes FREE, TRIAL and PREPAID (POSTPAID later, not v2). Production PREPAID tenants are enforced. New tenants can receive configurable trial/promotional credits. `BILLING_ENFORCED=false` stays the default for development and tests; the environment switch is not the tenant billing model. The billing UI stays in Phase 11. |
+| P9-D2 | BILLING | Pricing stays configuration-driven and distinguishes provider (Meta) cost, the Fenwira customer charge, and adjustment/tax metadata. The current ₹0.88 / ₹0.13 values are labelled development placeholders; commercial pricing, markup, plans and GST/invoicing are set in Phase 11. |
+| P9-D3 | CAMPAIGNS | A template that becomes unavailable mid-campaign pauses it as PAUSED_TEMPLATE_UNAVAILABLE, never FAILED. Processed recipients keep their states; the rest are preserved and not sent. The same campaign can't switch templates; a new campaign is created instead. Which template version produced each message stays auditable. |
 
 ## Open questions register
 

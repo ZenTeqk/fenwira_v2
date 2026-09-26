@@ -34,6 +34,8 @@ const redisUrl = z.string().refine((v) => /^rediss?:\/\//.test(v), 'must be a re
 export const baseEnvSchema = z.object({
   /** B3/B4: billable sends reserve wallet funds. Off until billing launches (docs/BILLING.md). */
   BILLING_ENFORCED: booleanString.default(false),
+  /** P9-D1: credit (minor units) granted once to a new TRIAL tenant's wallet. 0 = none. */
+  TRIAL_CREDIT_MINOR: z.coerce.number().int().min(0).default(0),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_VERSION: z.string().min(1).default('dev'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),

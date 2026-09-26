@@ -120,13 +120,27 @@ The wallet row lock serializes reservations, so two workers can never reserve th
 | Balance < campaign estimate | Warning in the Review step only | |
 | Subscription inactive (trial expired or CANCELLED) | All outbound sends (`SUBSCRIPTION_INACTIVE`) | Reading, exporting |
 
+### Billing modes (decision P9-D1)
+
+| Mode | Enforced (platform switch on) | Wallet |
+| --- | --- | --- |
+| FREE | Never | Untouched |
+| TRIAL (default) | Yes | `TRIAL_CREDIT_MINOR` granted once when the wallet is created |
+| PREPAID | Yes | Manual top-ups (B2) |
+
+`BILLING_ENFORCED` is the platform switch: false in development and tests, true in production. POSTPAID is not part of v2. Operators change modes with `pnpm --filter @fenwira/worker billing:mode -- --tenant <id> --mode PREPAID` until the Phase 11 admin UI.
+
+### Price book structure (decision P9-D2)
+
+`customer_price_minor` is what the tenant is charged. `provider_cost_minor` is Meta's cost (reporting and margin), `markup_bps` and `tax_code`/`tax_bps` are metadata for Phase 11 invoicing, and `is_placeholder` plus `note` flag values that aren't commercial pricing. Usage events store the charge and the provider cost. Commercial pricing, markup, plans and GST are Phase 11.
+
 ### Implemented in Phase 9 (the wallet core B3/B4 needs)
 
 - `wallets`, the append-only `wallet_transactions` (the trigger maintains `balance_minor`), `wallet_reservations`, `usage_events` and `price_book_entries`. The price book is seeded with **placeholder** INR prices (MARKETING 88, UTILITY 13, AUTHENTICATION 13, SERVICE 0 paise), which are configuration, not code (B1).
 - `apps/api/src/modules/billing/wallet.core.ts`: reserve (in MessagingService's accept transaction, under the wallet row lock), settle (a DEBIT at the price for Meta's pricing category and the recipient's country, closing the reservation at its estimate), release (a final failure or non-billable) and credits. All are idempotent. `billing.usage` settles from `message.status.changed`, and every failure path of the outbound worker emits that event.
-- **`BILLING_ENFORCED`** (env, default `false`) turns reservations on. While it is off, sends don't touch the wallet. When it becomes the default is an open product question (ROADMAP).
+- **`BILLING_ENFORCED`** (env, default `false`) is the platform switch; each tenant's billing mode then decides (above).
 - Manual top-ups (B2): `pnpm --filter @fenwira/worker wallet:credit -- --tenant <id> --amount 500`. `GET /billing/wallet` shows the balance, credit limit, held and available funds.
-- **Not yet built (Phase 11):** plans, subscriptions and entitlements, the billing UI, the low-balance notification, the daily ledger check, and the sweep of reservations whose message is terminal but unsettled.
+- **Not yet built (Phase 11):** plans, subscriptions and entitlements, the billing UI, the low-balance notification and the daily ledger check. **Stale-reservation recovery** is a high-priority production-readiness item (ROADMAP).
 
 ### Billing UI
 

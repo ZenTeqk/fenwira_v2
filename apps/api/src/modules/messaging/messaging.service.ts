@@ -13,7 +13,7 @@ import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { normalizePhone } from '../../core/phone'
 import { uuidv7 } from '@fenwira/config'
 import { countryOf } from '../../core/phone'
-import { reserveForMessage } from '../billing'
+import { billingEnforcedFor, NO_BILLING, reserveForMessage } from '../billing'
 import { resolveTemplateForSend, type ResolvedTemplate } from '../templates'
 import { MessageEligibilityService } from './eligibility'
 import { MESSAGING_OPTIONS, type MessagingOptions } from './messaging.options'
@@ -150,12 +150,18 @@ export class MessagingService {
 
     // 9. Balance (B3/B4): a billable message reserves its estimated cost in this transaction.
     const messageId = uuidv7()
-    if (template && this.options.billingEnforced)
-      await reserveForMessage(tx, tenantId, {
-        messageId,
-        category: template.category,
-        country: conversation.contact.country ?? countryOf(conversation.contact.phoneE164),
-      })
+    const billing = this.options.billing ?? NO_BILLING
+    if (template && (await billingEnforcedFor(tx, tenantId, billing)))
+      await reserveForMessage(
+        tx,
+        tenantId,
+        {
+          messageId,
+          category: template.category,
+          country: conversation.contact.country ?? countryOf(conversation.contact.phoneE164),
+        },
+        billing,
+      )
 
     const stored =
       template && content.type === 'TEMPLATE'

@@ -1,4 +1,5 @@
 import { type KeyRing } from '@fenwira/config'
+import { type BillingPlatform } from '../billing'
 
 export type MessagingOptions = {
   keyRing: KeyRing
@@ -12,8 +13,8 @@ export type MessagingOptions = {
   outboundBackoffBaseMs?: number
   /** Worker only: wait for a status webhook before resending an interrupted send. Default 60 s. */
   crashGraceMs?: number
-  /** B3/B4: billable (template) sends reserve their estimated cost. */
-  billingEnforced?: boolean
+  /** B3/B4 + P9-D1: platform billing switch and trial credit; tenants' billing modes decide. */
+  billing?: BillingPlatform
 }
 
 export const MESSAGING_OPTIONS = Symbol('MESSAGING_OPTIONS')

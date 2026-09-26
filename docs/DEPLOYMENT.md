@@ -120,7 +120,8 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 | `META_GRAPH_API_VERSION`, `META_GRAPH_BASE_URL` | `v23.0`, `https://graph.facebook.com` (`.env.example`: the local mock) | api, worker | 4 |
 | `WHATSAPP_DEV_CONNECT` | `false` (refused in production) | api | 4 |
 | `WHATSAPP_SYNC_INTERVAL_HOURS` | `6` | worker | 4 |
-| `BILLING_ENFORCED` | `false` | api, worker | 9 (billable sends reserve wallet funds; top up with `pnpm --filter @fenwira/worker wallet:credit -- --tenant <id> --amount <₹>`) |
+| `BILLING_ENFORCED` | `false` | api, worker | 9 (platform switch; tenants' billing modes decide, P9-D1. Top up: `pnpm --filter @fenwira/worker wallet:credit -- --tenant <id> --amount <₹>`; mode: `billing:mode -- --tenant <id> --mode PREPAID`) |
+| `TRIAL_CREDIT_MINOR` | `0` | api, worker | 9 (credit granted once to a new TRIAL tenant's wallet) |
 | `CAMPAIGN_BATCH_SIZE` | `50` | worker | 9 |
 | `PUBLIC_API_URL` | `http://localhost:4000` | api | 4 |
 | `COMPOSE_PROFILES`, `META_MOCK_PORT` | `meta-mock`, `4200` (local development only) | compose | 4 |

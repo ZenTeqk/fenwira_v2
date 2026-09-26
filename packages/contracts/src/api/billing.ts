@@ -9,5 +9,7 @@ export const walletSchema = z.object({
   availableMinor: z.number().int(),
   /** Whether billable sends reserve funds yet (BILLING_ENFORCED). */
   enforced: z.boolean(),
+  /** P9-D1: FREE (never enforced), TRIAL (trial credits), PREPAID. */
+  billingMode: z.enum(['FREE', 'TRIAL', 'PREPAID']),
 })
 export type Wallet = z.infer<typeof walletSchema>

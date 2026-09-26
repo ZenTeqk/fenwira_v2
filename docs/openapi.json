@@ -1110,6 +1110,7 @@
                 "RUNNING",
                 "PAUSED",
                 "PAUSED_INSUFFICIENT_FUNDS",
+                "PAUSED_TEMPLATE_UNAVAILABLE",
                 "COMPLETED",
                 "CANCELLED",
                 "FAILED"

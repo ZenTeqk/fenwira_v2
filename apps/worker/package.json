@@ -12,7 +12,8 @@
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "dlq": "node dist/cli/replay-dlq.js",
-    "wallet:credit": "node dist/cli/wallet-credit.js"
+    "wallet:credit": "node dist/cli/wallet-credit.js",
+    "billing:mode": "node dist/cli/billing-mode.js"
   },
   "dependencies": {
     "@fenwira/api": "workspace:*",

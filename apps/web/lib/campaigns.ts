@@ -34,7 +34,6 @@ export const skipLabel = (reason: string) => SKIP_REASON_LABEL[reason as SkipRea
 
 export const PAUSE_LABEL: Record<string, string> = {
   MANUAL: 'Paused by your team.',
-  TEMPLATE_PAUSED: 'Meta paused the template. Resume once Meta approves it again.',
   NUMBER_UNAVAILABLE: 'The WhatsApp number is disconnected. Reconnect it, then resume.',
 }
 

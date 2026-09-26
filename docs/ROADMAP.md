@@ -21,8 +21,8 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 6 | Contacts + consent + CRM foundation | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
 | 7 | Multi-agent shared inbox | ✅ all acceptance criteria pass locally, including canned replies (decisions I2 and I3; see below). CI hasn't run on GitHub yet (no remote). | [PHASE_07](prompts/PHASE_07_INBOX.md) |
 | 8 | Template management / builder | 🔵 every criterion passes against the simulated Graph API (see below). The real-WABA round trip needs Meta production onboarding (MI1). | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
-| 9 | Campaign / broadcast engine | ✅ all 15 acceptance criteria pass locally against the simulated Graph API (see below). Real sends need MI1. | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
-| 10 | Automation / visual flow builder | ⬜ | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
+| 9 | Campaign / broadcast engine | ✅ complete (closed 2026-09-26 with decisions P9-D1–D3; see below). Real sends need MI1. | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
+| 10 | Automation / visual flow builder | 🟡 implementation plan for review: [plans/PHASE_10_PLAN.md](plans/PHASE_10_PLAN.md) | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
 | 11 | Billing + analytics + administration | ⬜ | [PHASE_11](prompts/PHASE_11_BILLING_ANALYTICS.md) |
 | 12 | Hardening + testing + production readiness | ⬜ | [PHASE_12](prompts/PHASE_12_HARDENING.md) |
 
@@ -252,7 +252,7 @@ Bugs found and fixed during the phase:
 | 7 | MessagingService only | ✅ | Messages have `source CAMPAIGN` and `campaign_id`; the dispatcher imports no Meta client (dependency rules pass). |
 | 8 | No duplicate sends | ✅ | Concurrent dispatch of the same campaign, the recovery pass and a worker crash → exactly 12 sends for 12 recipients; Meta 5xx retries → 1 send each; 2,000 recipients → 2,000 unique sends. |
 | 9 | Webhook status in campaign results | ✅ | SENT → DELIVERED → READ per recipient; delivered webhook ×3 plus a late `sent` → counted once, never regressing (test). |
-| 10 | Pause and resume safely | ✅ | Nothing new dispatched while paused; resume completes with 15/15 sends; cancel skips the rest (CANCELLED); template paused by Meta → PAUSED (TEMPLATE_PAUSED), resumable; disabled → FAILED with the remainder SKIPPED (TEMPLATE_UNAVAILABLE). |
+| 10 | Pause and resume safely | ✅ | Nothing new dispatched while paused; resume completes with 15/15 sends; cancel skips the rest (CANCELLED); template paused or disabled by Meta → PAUSED_TEMPLATE_UNAVAILABLE with the remainder preserved and unsent (P9-D3, Phase 9 closure). |
 | 11 | Insufficient funds pause, not corrupt | ✅ | `campaigns-billing.int.test.ts` (enforced): 50 paise → 3 sent, PAUSED_INSUFFICIENT_FUNDS, 5 PENDING kept; resume refused (422) until topped up, then 8/8. 30 concurrent sends against funds for 10 → exactly 10. Failed send → reservation released; duplicate pricing → one debit; balance = Σ ledger and reserved = Σ active holds in every test. Inbound and free-form replies keep working at zero balance. |
 | 12 | Tenant isolation | ✅ | B gets 404 on A's get, launch, pause, resume, cancel, estimate, stats, recipients and export; A's tag matches nothing for B; tenant matrix fixtures for all 6 new tenant tables; the security matrix covers the 14 new routes. |
 | 13 | Phase 0–8 regression | ✅ | 311 integration (185 database, 10 API, 116 system), 41 e2e, 170 unit; lint, typecheck, format, design tokens, dependency rules and the OpenAPI check (151 operations) all pass. |
@@ -266,8 +266,22 @@ Also found and fixed:
 - The campaign page stopped refreshing at COMPLETED while read receipts were still arriving; it now refreshes for an hour after completion.
 - Two long-lived-test-database fragilities (fan-outs capped at 500 per run) in the X14 and whatsapp.sync tests.
 
-Known limitations (Phase 9):
+Known limitations moved to the product backlog (`PRODUCT.md`) at closure: send windows, retrying failed recipients, individual-contact selection, inbox priority, low-balance notifications, throughput optimization (about 17 recipients/s locally) and template replacement.
 
-- Throughput is about 17 recipients/s in the local test setup (batch size 10); per-batch overhead dominates, not Meta's 80 msg/s per-number limit. Tuning (larger batches, several chains per campaign, priority lanes) is future work.
-- Not built: `send_window`, "Retry failed", the selected-contacts audience in the UI (the API supports it), inbox-over-campaign priority in the outbound queue, the stale-reservation sweep, and low-balance notifications.
-- Billing enforcement is off by default (`BILLING_ENFORCED=false`) until billing launches; prices are placeholders (B1).
+### Phase 9 closure (2026-09-26)
+
+| Decision | Change | Evidence |
+| --- | --- | --- |
+| P9-D1 | Tenant billing modes FREE, TRIAL (default) and PREPAID; enforcement = platform switch AND not FREE; TRIAL credit granted once (`TRIAL_CREDIT_MINOR`); `billing:mode` CLI; `GET /billing/wallet` reports mode and enforcement | `campaigns-billing.int.test.ts`: FREE sends with an empty wallet and the platform switch on; PREPAID with an empty wallet is refused; TRIAL gets exactly one 500-paise credit across three wallet opens, then sends; ledger invariants hold |
+| P9-D2 | Price book: `customer_price_minor` (renamed, values kept), `provider_cost_minor`, `markup_bps`, `tax_code`/`tax_bps`, `is_placeholder` + `note`; usage events record provider cost | The seeded rows are flagged as development placeholders (test) |
+| P9-D3 | `PAUSED_TEMPLATE_UNAVAILABLE` replaces FAILED and TEMPLATE_PAUSED; remaining recipients preserved and unsent; resume only with the same version; no template switching; audit via `template_snapshot` and `messages.template_version_id` | `campaigns.int.test.ts`: paused and disabled templates both pause the campaign, pending counts don't move, nothing is skipped, resume is refused while unavailable, cancel works, and every message used the frozen version |
+
+Regression at closure: 313 integration (185 database, 10 API, 118 system), 41 e2e, 170 unit; lint, typecheck, format, design tokens, dependency rules and the OpenAPI check pass. ADR-0024 records the decisions.
+
+## Production-readiness backlog
+
+| Priority | Item | Why |
+| --- | --- | --- |
+| **High** | Stale wallet-reservation recovery | Reservations whose message crashed or was abandoned must be found and safely released or settled from the message's final state, without double charging (keyed by message id, the same idempotent settle/release paths). |
+| High | Real Meta round trips (MI1) | Business milestone; doesn't block development. |
+| — | CI on a GitHub remote | No remote yet. |

@@ -16,11 +16,67 @@ type WalletRow = {
   reserved_minor: bigint
 }
 
-/** The wallet, created on first use, locked for the rest of the transaction. */
-export async function lockWallet(tx: TenantTx, tenantId: string): Promise<WalletRow> {
-  await tx.$executeRaw`
+/**
+ * Platform billing configuration (P9-D1). `enforced` is the platform switch (BILLING_ENFORCED:
+ * off in development and tests, on in production); each tenant's billing mode then decides.
+ */
+export type BillingPlatform = {
+  enforced: boolean
+  /** Trial/promotional credit granted once when a TRIAL tenant's wallet is created. */
+  trialCreditMinor: number
+}
+export const NO_BILLING: BillingPlatform = { enforced: false, trialCreditMinor: 0 }
+
+/** Whether this tenant's billable sends reserve funds: platform switch on and not FREE. */
+export async function billingEnforcedFor(
+  tx: TenantTx,
+  tenantId: string,
+  platform: BillingPlatform,
+): Promise<boolean> {
+  if (!platform.enforced) return false
+  const t = await tx.tenant.findUniqueOrThrow({
+    where: { id: tenantId },
+    select: { billingMode: true },
+  })
+  return t.billingMode !== 'FREE'
+}
+
+/**
+ * The wallet, created on first use (a TRIAL tenant gets its trial credit then, once), locked for
+ * the rest of the transaction.
+ */
+export async function lockWallet(
+  tx: TenantTx,
+  tenantId: string,
+  platform: BillingPlatform = NO_BILLING,
+): Promise<WalletRow> {
+  const created = await tx.$queryRaw<Array<{ id: string }>>`
     INSERT INTO wallets (id, tenant_id, updated_at) VALUES (gen_random_uuid(), ${tenantId}::uuid, now())
-    ON CONFLICT (tenant_id) DO NOTHING`
+    ON CONFLICT (tenant_id) DO NOTHING RETURNING id`
+  if (created[0] && platform.trialCreditMinor > 0) {
+    const t = await tx.tenant.findUniqueOrThrow({
+      where: { id: tenantId },
+      select: { billingMode: true },
+    })
+    if (t.billingMode === 'TRIAL') {
+      const amount = BigInt(platform.trialCreditMinor)
+      await tx.walletTransaction.createMany({
+        data: [
+          {
+            tenantId,
+            walletId: created[0].id,
+            type: 'CREDIT',
+            amountMinor: amount,
+            balanceAfterMinor: amount,
+            reason: 'Trial credits',
+            referenceType: 'promotion',
+            idempotencyKey: `trial:${tenantId}`,
+          },
+        ],
+        skipDuplicates: true,
+      })
+    }
+  }
   const [row] = await tx.$queryRaw<WalletRow[]>`
     SELECT id, currency, balance_minor, credit_limit_minor, reserved_minor
     FROM wallets WHERE tenant_id = ${tenantId}::uuid FOR UPDATE`
@@ -30,7 +86,11 @@ export async function lockWallet(tx: TenantTx, tenantId: string): Promise<Wallet
 export const availableOf = (w: WalletRow) =>
   w.balance_minor + w.credit_limit_minor - w.reserved_minor
 
-export function toWallet(w: WalletRow, enforced: boolean): Wallet {
+export function toWallet(
+  w: WalletRow,
+  enforced: boolean,
+  billingMode: Wallet['billingMode'],
+): Wallet {
   return {
     currency: w.currency,
     balanceMinor: Number(w.balance_minor),
@@ -38,16 +98,29 @@ export function toWallet(w: WalletRow, enforced: boolean): Wallet {
     reservedMinor: Number(w.reserved_minor),
     availableMinor: Number(availableOf(w)),
     enforced,
+    billingMode,
   }
 }
 
-/** Price book lookup (decision B1: configuration): (category, country), else (category, default). */
+export type Price = {
+  /** What the tenant is charged (the ledger debit). */
+  customerPriceMinor: bigint
+  /** What Meta charges Fenwira, when known (reporting). */
+  providerCostMinor: bigint | null
+  currency: string
+  placeholder: boolean
+}
+
+/**
+ * Price book lookup (decisions B1, P9-D2: configuration, never code): (category, country), else
+ * (category, default). Services use the result; they never embed prices.
+ */
 export async function unitPrice(
   tx: TenantTx,
   category: string,
   country: string | null,
   at = new Date(),
-): Promise<{ unitPriceMinor: bigint; currency: string } | null> {
+): Promise<Price | null> {
   const rows = await tx.priceBookEntry.findMany({
     where: {
       category: category.toUpperCase(),
@@ -58,7 +131,14 @@ export async function unitPrice(
     orderBy: { effectiveFrom: 'desc' },
   })
   const hit = rows.find((r) => r.country === country) ?? rows.find((r) => r.country === null)
-  return hit ? { unitPriceMinor: hit.unitPriceMinor, currency: hit.currency } : null
+  return hit
+    ? {
+        customerPriceMinor: hit.customerPriceMinor,
+        providerCostMinor: hit.providerCostMinor,
+        currency: hit.currency,
+        placeholder: hit.isPlaceholder,
+      }
+    : null
 }
 
 /** Appends a ledger row; replay-safe on `idempotencyKey`. Returns the row id. */
@@ -107,10 +187,11 @@ export async function reserveForMessage(
   tx: TenantTx,
   tenantId: string,
   input: { messageId: string; category: string; country: string | null },
+  platform: BillingPlatform = NO_BILLING,
 ): Promise<bigint> {
   const price = await unitPrice(tx, input.category, input.country)
-  const amount = price?.unitPriceMinor ?? 0n
-  const w = await lockWallet(tx, tenantId)
+  const amount = price?.customerPriceMinor ?? 0n
+  const w = await lockWallet(tx, tenantId, platform)
   const existing = await tx.walletReservation.findFirst({ where: { messageId: input.messageId } })
   if (existing) return existing.amountMinor
   if (amount > 0n && availableOf(w) < amount)
@@ -163,7 +244,7 @@ export async function settleReservation(
   })
   if (!r) return 'none'
   const price = await unitPrice(tx, input.category, input.country)
-  const actual = price?.unitPriceMinor ?? r.amountMinor
+  const actual = price?.customerPriceMinor ?? r.amountMinor
   const txId = await postTransaction(tx, tenantId, {
     type: 'DEBIT',
     amountMinor: -actual,
@@ -193,6 +274,7 @@ export async function settleReservation(
         country: input.country,
         unitPriceMinor: actual,
         amountMinor: actual,
+        providerCostMinor: price?.providerCostMinor ?? null,
         currency: price?.currency ?? w.currency,
         ...(input.pricing ? { pricingRef: input.pricing as object } : {}),
       },

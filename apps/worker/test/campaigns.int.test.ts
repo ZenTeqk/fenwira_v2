@@ -434,7 +434,7 @@ describe('Phase 9: campaign lifecycle', { timeout: 120_000 }, () => {
     statuses(['sent', 'delivered', 'read'])
   })
 
-  it('template paused during a campaign pauses it; disabled fails it and skips the rest', async () => {
+  it('an unavailable template pauses the campaign (P9-D3): nothing more is sent, nothing is skipped', async () => {
     const w = await world('cmp-template')
     const { tagId } = await seedContacts(
       db,
@@ -452,10 +452,12 @@ describe('Phase 9: campaign lifecycle', { timeout: 120_000 }, () => {
     await control('template-event', { id: t.currentVersion.metaTemplateId, event: 'PAUSED' })
     const paused = await waitFor(
       () => campaignOf(w, c.id),
-      (x) => x.status === 'PAUSED',
+      (x) => x.status === 'PAUSED_TEMPLATE_UNAVAILABLE',
       40_000,
     )
-    expect(paused.pauseReason).toBe('TEMPLATE_PAUSED')
+    expect(paused.failureReason).toBeNull()
+    const atPause = await statsOf(w, c.id)
+    expect(atPause.pending).toBeGreaterThan(0) // remaining recipients preserved, unsent
     // Resume is refused while the template is paused.
     expect((await w.owner.client.post(`/campaigns/${c.id}/resume`)).body.error.code).toBe(
       'CAMPAIGN_NOT_READY',
@@ -470,7 +472,7 @@ describe('Phase 9: campaign lifecycle', { timeout: 120_000 }, () => {
     )
     await finished(w, c.id)
 
-    // Disabled mid-campaign: FAILED, remaining recipients SKIPPED (TEMPLATE_UNAVAILABLE).
+    // Disabled mid-campaign: paused too (never FAILED); remaining recipients stay PENDING, unsent.
     const { tagId: t2 } = await seedContacts(
       db,
       w.owner.tenantId,
@@ -484,15 +486,31 @@ describe('Phase 9: campaign lifecycle', { timeout: 120_000 }, () => {
       (x) => x.status === 'RUNNING',
     )
     await control('template-event', { id: t.currentVersion.metaTemplateId, event: 'DISABLED' })
-    const failed = await waitFor(
+    await waitFor(
       () => campaignOf(w, c2.id),
-      (x) => x.status === 'FAILED',
+      (x) => x.status === 'PAUSED_TEMPLATE_UNAVAILABLE',
       40_000,
     )
-    expect(failed.failureReason).toMatch(/no longer available/)
+    const s1 = await statsOf(w, c2.id)
+    await new Promise((r) => setTimeout(r, 3000))
     const s = await statsOf(w, c2.id)
-    expect(s.pending).toBe(0)
-    expect(s.skipReasons.TEMPLATE_UNAVAILABLE).toBeGreaterThan(0)
+    expect(s.pending).toBe(s1.pending) // nothing more sent while unavailable
+    expect(s.pending).toBeGreaterThan(0)
+    expect(s.skipReasons.TEMPLATE_UNAVAILABLE ?? 0).toBe(0) // preserved, not skipped
+    // Resume refused while the template is disabled; cancel is the way out (then a new campaign).
+    expect((await w.owner.client.post(`/campaigns/${c2.id}/resume`)).body.error.code).toBe(
+      'CAMPAIGN_NOT_READY',
+    )
+    expect((await w.owner.client.post(`/campaigns/${c2.id}/cancel`)).body.data.status).toBe(
+      'CANCELLED',
+    )
+    // Audit: every message of the campaign used the frozen template version.
+    const versions = await db.withTenant(w.owner.tenantId, (tx) =>
+      tx.message.findMany({ where: { campaignId: c2.id }, select: { templateVersionId: true } }),
+    )
+    expect(new Set(versions.map((v) => v.templateVersionId))).toEqual(
+      new Set([w.utility.versionId]),
+    )
     // A campaign can't be launched with an unavailable template.
     const c3 = await draftCampaign(w, t2)
     const refused = await launch(w, c3.id)

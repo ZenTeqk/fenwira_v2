@@ -1,4 +1,4 @@
-import { postTransaction } from '@fenwira/api/modules/billing'
+import { lockWallet, postTransaction } from '@fenwira/api/modules/billing'
 import { CampaignDispatchProcessor } from '@fenwira/api/modules/campaigns'
 import { MessagingService } from '@fenwira/api/modules/messaging'
 import { Database } from '@fenwira/database'
@@ -41,6 +41,8 @@ let webhookUrl: string
 const ENV = { BILLING_ENFORCED: 'true' }
 
 const world = (label: string) => campaignWorld(api, mock.url, label)
+/** Any tenant context works for the global price book (no RLS). */
+const metaIdTenant = () => '00000000-0000-7000-8000-000000000000'
 const credit = (tenantId: string, paise: number) =>
   db.withTenant(tenantId, (tx) =>
     postTransaction(tx, tenantId, {
@@ -300,6 +302,69 @@ describe('Phase 9: wallet reservations (B4) in campaigns', () => {
       { 'Idempotency-Key': `x-${metaId()}` },
     )
     expect(text.status, text.text).toBe(201)
+  })
+
+  it('billing modes (P9-D1): FREE is never enforced; TRIAL gets its trial credit once; PREPAID starts empty', async () => {
+    const messaging = worker.get(MessagingService)
+    const send = (w: CampaignWorld) =>
+      messaging.send({
+        tenantId: w.owner.tenantId,
+        target: { phoneE164: phoneNo(), phoneNumberId: w.phoneId },
+        content: {
+          type: 'TEMPLATE',
+          templateVersionId: w.utility.versionId,
+          variables: { body: ['A', '#1'] },
+        },
+        source: 'API',
+        idempotencyKey: `mode-${metaId()}`,
+      })
+    const setMode = (w: CampaignWorld, mode: 'FREE' | 'TRIAL' | 'PREPAID') =>
+      db.withTenant(w.owner.tenantId, (tx) =>
+        tx.tenant.update({ where: { id: w.owner.tenantId }, data: { billingMode: mode } }),
+      )
+
+    // FREE: enforcement off for this tenant even with the platform switch on; wallet untouched.
+    const free = await world('bill-free')
+    await setMode(free, 'FREE')
+    await expect(send(free)).resolves.toMatchObject({ status: 'CREATED' })
+    expect(await wallet(free)).toMatchObject({
+      enforced: false,
+      billingMode: 'FREE',
+      reservedMinor: 0,
+    })
+
+    // PREPAID with an empty wallet: refused.
+    const prepaid = await world('bill-prepaid')
+    await setMode(prepaid, 'PREPAID')
+    await expect(send(prepaid)).rejects.toMatchObject({ code: 'INSUFFICIENT_BALANCE' })
+
+    // TRIAL: the configured trial credit is granted once, when the wallet is first created.
+    const trial = await world('bill-trial')
+    const platform = { enforced: true, trialCreditMinor: 500 }
+    for (let i = 0; i < 3; i++)
+      await db.withTenant(trial.owner.tenantId, (tx) =>
+        lockWallet(tx, trial.owner.tenantId, platform),
+      )
+    const credits = await db.withTenant(trial.owner.tenantId, (tx) =>
+      tx.walletTransaction.findMany({ where: { type: 'CREDIT' } }),
+    )
+    expect(credits).toHaveLength(1)
+    expect(credits[0]).toMatchObject({
+      amountMinor: 500n,
+      reason: 'Trial credits',
+      referenceType: 'promotion',
+    })
+    await expect(send(trial)).resolves.toMatchObject({ status: 'CREATED' })
+    expect(await wallet(trial)).toMatchObject({ billingMode: 'TRIAL', enforced: true })
+    await assertLedger(trial.owner.tenantId)
+  })
+
+  it('price book entries are labelled development placeholders (P9-D2)', async () => {
+    const rows = await db.withTenant(metaIdTenant(), (tx) =>
+      tx.priceBookEntry.findMany({ where: { country: null } }),
+    )
+    expect(rows.length).toBeGreaterThanOrEqual(4)
+    expect(rows.every((r) => r.isPlaceholder && /placeholder/i.test(r.note ?? ''))).toBe(true)
   })
 
   it('recovery after a worker crash while funds are short keeps state consistent', async () => {

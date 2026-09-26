@@ -27,3 +27,4 @@ Format: Context → Decision → Consequences → Alternatives rejected. Status 
 | [0021](0021-ui-package-as-source.md) | @fenwira/ui is consumed as TypeScript source |
 | [0022](0022-specification-freeze.md) | Specification freeze decisions with architectural impact |
 | [0023](0023-open-question-resolutions.md) | Tenant purge, message eligibility, sequential automation runs and wallet reservations |
+| [0024](0024-billing-modes-pricing-template-pause.md) | Tenant billing modes, price book structure, and template-unavailable pause |

@@ -67,7 +67,7 @@ export class WorkerModule {
         graphBaseUrl: env.META_GRAPH_BASE_URL,
         graphVersion: env.META_GRAPH_API_VERSION,
         outboundBackoffBaseMs: env.WHATSAPP_OUTBOUND_BACKOFF_MS,
-        billingEnforced: env.BILLING_ENFORCED,
+        billing: { enforced: env.BILLING_ENFORCED, trialCreditMinor: env.TRIAL_CREDIT_MINOR },
       },
       [platform],
     )
@@ -87,10 +87,14 @@ export class WorkerModule {
       graphVersion: env.META_GRAPH_API_VERSION,
       graphBaseUrl: env.META_GRAPH_BASE_URL,
     })
-    const billing = BillingModule.forWorker({ enforced: env.BILLING_ENFORCED })
+    const billingPlatform = {
+      enforced: env.BILLING_ENFORCED,
+      trialCreditMinor: env.TRIAL_CREDIT_MINOR,
+    }
+    const billing = BillingModule.forWorker(billingPlatform)
     const campaigns = CampaignsModule.forWorker(
       {
-        billingEnforced: env.BILLING_ENFORCED,
+        billing: billingPlatform,
         batchSize: env.CAMPAIGN_BATCH_SIZE,
       },
       [messaging],

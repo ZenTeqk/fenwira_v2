@@ -62,6 +62,11 @@ export const STATUS_PRESETS = {
   SCHEDULED: { tone: 'info', label: 'Scheduled', icon: Clock },
   PREPARING: { tone: 'info', label: 'Preparing', icon: Loader2 },
   PAUSED_INSUFFICIENT_FUNDS: { tone: 'danger', label: 'Paused: no credits', icon: Pause },
+  PAUSED_TEMPLATE_UNAVAILABLE: {
+    tone: 'warning',
+    label: 'Paused: template unavailable',
+    icon: Pause,
+  },
   CANCELLED: { tone: 'neutral', label: 'Cancelled', icon: Ban },
   RUNNING: { tone: 'primary', label: 'Running', icon: Zap },
   ACTIVE: { tone: 'success', label: 'Active', icon: Zap },

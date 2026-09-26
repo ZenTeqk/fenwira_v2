@@ -203,7 +203,10 @@ export default function CampaignPage() {
                 Pause
               </Button>
             ) : null}
-            {control && (c.status === 'PAUSED' || c.status === 'PAUSED_INSUFFICIENT_FUNDS') ? (
+            {control &&
+            ['PAUSED', 'PAUSED_INSUFFICIENT_FUNDS', 'PAUSED_TEMPLATE_UNAVAILABLE'].includes(
+              c.status,
+            ) ? (
               <Button loading={action.isPending} onClick={() => action.mutate('resume')}>
                 Resume
               </Button>
@@ -214,9 +217,14 @@ export default function CampaignPage() {
               </Button>
             ) : null}
             {control &&
-            ['SCHEDULED', 'PREPARING', 'RUNNING', 'PAUSED', 'PAUSED_INSUFFICIENT_FUNDS'].includes(
-              c.status,
-            ) ? (
+            [
+              'SCHEDULED',
+              'PREPARING',
+              'RUNNING',
+              'PAUSED',
+              'PAUSED_INSUFFICIENT_FUNDS',
+              'PAUSED_TEMPLATE_UNAVAILABLE',
+            ].includes(c.status) ? (
               <Button
                 variant="ghost"
                 onClick={async () => {
@@ -243,6 +251,14 @@ export default function CampaignPage() {
         <Alert tone="danger" title="Paused: not enough credits">
           Add credits, then resume. Recipients already sent keep their results; the rest are
           waiting.
+        </Alert>
+      ) : null}
+      {c.status === 'PAUSED_TEMPLATE_UNAVAILABLE' ? (
+        <Alert tone="warning" title="Paused: the template is unavailable">
+          Meta paused or disabled {c.template?.name ?? 'the template'} (or it was changed or
+          deleted). Recipients already sent keep their results; the rest are waiting and won’t be
+          sent. Resume once Meta approves this same template again, or cancel and create a new
+          campaign with another template for the remaining audience.
         </Alert>
       ) : null}
       {c.status === 'PAUSED' && c.pauseReason ? (

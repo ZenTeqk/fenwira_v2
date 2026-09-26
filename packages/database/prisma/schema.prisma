@@ -200,6 +200,8 @@ model Tenant {
   inboxVisibility          InboxVisibility @default(ALL) @map("inbox_visibility")
   /// Return AGENT_TAKEOVER to automation after N idle hours on a resolved conversation (null = never).
   takeoverAutoReleaseHours Int?            @map("takeover_auto_release_hours")
+  /// P9-D1: FREE (never enforced), TRIAL (trial credits, enforced), PREPAID (enforced). Set by operators.
+  billingMode              BillingMode     @default(TRIAL) @map("billing_mode")
   ownerUserId              String          @map("owner_user_id") @db.Uuid
   createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1404,6 +1406,7 @@ enum CampaignStatus {
   RUNNING
   PAUSED
   PAUSED_INSUFFICIENT_FUNDS
+  PAUSED_TEMPLATE_UNAVAILABLE
   COMPLETED
   CANCELLED
   FAILED
@@ -1580,18 +1583,20 @@ model WalletReservation {
 
 /// Append-only record of each billable message Meta priced.
 model UsageEvent {
-  id             String   @id @default(uuid(7)) @db.Uuid
-  tenantId       String   @map("tenant_id") @db.Uuid
-  type           String
-  messageId      String?  @map("message_id") @db.Uuid
-  category       String
-  country        String?  @db.Char(2)
-  quantity       Int      @default(1)
-  unitPriceMinor BigInt   @map("unit_price_minor")
-  amountMinor    BigInt   @map("amount_minor")
-  currency       String   @db.Char(3)
-  pricingRef     Json?    @map("pricing_ref")
-  occurredAt     DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  id                String   @id @default(uuid(7)) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  type              String
+  messageId         String?  @map("message_id") @db.Uuid
+  category          String
+  country           String?  @db.Char(2)
+  quantity          Int      @default(1)
+  unitPriceMinor    BigInt   @map("unit_price_minor")
+  amountMinor       BigInt   @map("amount_minor")
+  /// Meta's cost for this message when the price book knows it (margin reporting).
+  providerCostMinor BigInt?  @map("provider_cost_minor")
+  currency          String   @db.Char(3)
+  pricingRef        Json?    @map("pricing_ref")
+  occurredAt        DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -1601,16 +1606,33 @@ model UsageEvent {
 
 /// Platform configuration (decision B1): per-message prices by category and country.
 model PriceBookEntry {
-  id             String    @id @default(uuid(7)) @db.Uuid
-  category       String
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  category           String
   /// null = default for every country without its own row.
-  country        String?   @db.Char(2)
-  currency       String    @db.Char(3)
-  unitPriceMinor BigInt    @map("unit_price_minor")
-  markupBps      Int       @default(0) @map("markup_bps")
-  effectiveFrom  DateTime  @default(now()) @map("effective_from") @db.Timestamptz(3)
-  effectiveTo    DateTime? @map("effective_to") @db.Timestamptz(3)
+  country            String?   @db.Char(2)
+  currency           String    @db.Char(3)
+  /// What Fenwira charges the tenant per message (the ledger debit). Commercial: Phase 11.
+  customerPriceMinor BigInt    @map("customer_price_minor")
+  /// What Meta charges Fenwira (reporting and margin); null when unknown.
+  providerCostMinor  BigInt?   @map("provider_cost_minor")
+  markupBps          Int       @default(0) @map("markup_bps")
+  /// Tax/adjustment metadata (e.g. GST treatment); interpreted by Phase 11 invoicing.
+  taxCode            String?   @map("tax_code")
+  taxBps             Int?      @map("tax_bps")
+  /// P9-D2: development placeholder values, not commercial pricing.
+  isPlaceholder      Boolean   @default(false) @map("is_placeholder")
+  note               String?
+  effectiveFrom      DateTime  @default(now()) @map("effective_from") @db.Timestamptz(3)
+  effectiveTo        DateTime? @map("effective_to") @db.Timestamptz(3)
 
   @@index([category, country, effectiveFrom])
   @@map("price_book_entries")
+}
+
+enum BillingMode {
+  FREE
+  TRIAL
+  PREPAID
+
+  @@map("billing_mode")
 }

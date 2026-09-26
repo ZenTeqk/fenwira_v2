@@ -12,15 +12,17 @@ Broadcast campaigns: audience definition and snapshot, variable mapping, schedul
 DRAFT ──launch(now)──► PREPARING ──snapshot done──► RUNNING ──nothing pending or awaiting Meta──► COMPLETED
   │                        │                         │  ▲
   │                        │                         │  └──resume──┐
-  │                        │                         ├──pause──► PAUSED (reason MANUAL | TEMPLATE_PAUSED | NUMBER_UNAVAILABLE)
-  │                        │                         └──a recipient can't be funded──► PAUSED_INSUFFICIENT_FUNDS
+  │                        │                         ├──pause──► PAUSED (reason MANUAL | NUMBER_UNAVAILABLE)
+  │                        │                         ├──a recipient can't be funded──► PAUSED_INSUFFICIENT_FUNDS
+  │                        │                         └──template paused/disabled/deleted/changed──► PAUSED_TEMPLATE_UNAVAILABLE
   ├──launch(schedule)──► SCHEDULED ──schedule_at reached──► PREPARING
   │                          └──unschedule──► DRAFT
-  ├── SCHEDULED / PREPARING / RUNNING / PAUSED / PAUSED_INSUFFICIENT_FUNDS ──cancel──► CANCELLED (terminal)
-  └── RUNNING ──template disabled, deleted or no longer approved──► FAILED (terminal; remaining recipients SKIPPED)
+  └── SCHEDULED / PREPARING / RUNNING / any PAUSED_* ──cancel──► CANCELLED (terminal)
 ```
 
-Only DRAFT campaigns can be edited or deleted. FAILED is only for campaign-level problems; recipient-level failures never fail the campaign.
+Only DRAFT campaigns can be edited or deleted. FAILED is only for campaign-level faults unrelated to Meta's template state; recipient-level failures never fail the campaign.
+
+**Template unavailable (decision P9-D3).** When the template is paused, disabled, deleted or superseded during a run, the campaign moves to `PAUSED_TEMPLATE_UNAVAILABLE`. Processed recipients keep their states; the rest stay PENDING and are not sent. Resume works only when the same frozen template version is sendable again. A campaign never switches templates: for another template or version, cancel it and create a new campaign for the remaining audience. `template_snapshot` and `messages.template_version_id` record what was sent.
 
 ### Recipient states
 
@@ -143,12 +145,12 @@ type VariableSource =
 - **Every send goes through `MessagingService`** with `source CAMPAIGN`, `campaignId`, the approved template version, the recipient's stored variables, and the idempotency key `campaign:{campaignId}:{recipientId}`. Retries, duplicate jobs and a worker crash can therefore never send twice.
 - **Snapshot.** Launch freezes the template (`template_snapshot`) and the audience cut-off (`audience_snapshot_at`). `prepare` pages contacts by id (1,000 per transaction) that were created up to the cut-off, resolves variables, and classifies each contact with the same `evaluateEligibility` rules the send uses. The consent/opt-out distinction comes from MessageEligibilityService's `optedOut`, and phone validity and missing values are checked too. Recipients are inserted with `ON CONFLICT DO NOTHING`, so a crashed snapshot resumes after the last contact id.
 - **Dispatch.** Jobs take `CAMPAIGN_BATCH_SIZE` (default 50) PENDING recipients by id. They send in parallel chunks of 10, re-checking the campaign status before each chunk; a pause stops at most one chunk of in-flight sends. The next batch is delayed to respect `rate_limit_per_minute`, and the outbound worker's per-number token bucket still applies. A resume increments `dispatch_generation`, which starts a fresh job chain. Stale chains exit.
-- **Refusals.** At send time, `INSUFFICIENT_BALANCE` → PAUSED_INSUFFICIENT_FUNDS, `NO_CONNECTED_NUMBER` → PAUSED (NUMBER_UNAVAILABLE), and `TEMPLATE_NOT_APPROVED` → PAUSED (TEMPLATE_PAUSED, if Meta paused it) or FAILED. Any other refusal (for example consent revoked after the snapshot) skips just that recipient, with its reason.
+- **Refusals.** At send time, `INSUFFICIENT_BALANCE` → PAUSED_INSUFFICIENT_FUNDS, `NO_CONNECTED_NUMBER` → PAUSED (NUMBER_UNAVAILABLE), and `TEMPLATE_NOT_APPROVED` → PAUSED_TEMPLATE_UNAVAILABLE (P9-D3). Any other refusal (for example consent revoked after the snapshot) skips just that recipient, with its reason.
 - **Scheduling and recovery.** Every 30 s, X4 lists due campaigns, and a conditional `SCHEDULED → PREPARING` update plus the outbox event (one transaction) make exactly one scheduler win. Every 60 s, X15 lists PREPARING/RUNNING campaigns: recovery re-drives them, reconciles QUEUED recipients from their messages (a missed webhook), and completes finished campaigns. A debounced check also runs after each recipient update.
 - **Stats.** Grouped counts per status, skip reason and error code. Delivery rate = delivered or read ÷ (sent + failed); read rate = read ÷ delivered or read; failure rate = failed ÷ (sent + failed). The detail page keeps refreshing for an hour after completion, because receipts keep arriving.
 - **Metrics** (no tenant labels): `campaign_recipients_total{outcome}`, `campaign_dispatch_batches_total{result}`, `campaign_job_retries_total`, `campaign_duration_seconds`, plus `queue_depth{queue="campaign.dispatch"|"campaign.events"}`.
 - **Measured:** a 2,000-recipient campaign completes in about 115 s against the local mock (batch size 10 in the test, Docker on a laptop), which is roughly 17 recipients per second. Per-batch overhead dominates; see ROADMAP known limitations.
-- **Not built:** `send_window`, "Retry failed", the CONTACTS (selected contacts) source in the UI (the API supports it), and campaign vs inbox priority lanes in the outbound queue.
+- **Backlog** (`PRODUCT.md`): send windows, retrying failed recipients, individual-contact selection in the UI, inbox priority over campaigns, throughput optimization, template replacement/migration.
 
 ### Scope boundaries (decisions)
 

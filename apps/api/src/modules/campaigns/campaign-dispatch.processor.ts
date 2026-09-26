@@ -319,27 +319,11 @@ export class CampaignDispatchProcessor implements QueueProcessor<Data>, OnApplic
       case 'NO_CONNECTED_NUMBER':
         await this.pause(tenantId, campaignId, 'PAUSED', 'NUMBER_UNAVAILABLE')
         return 'number-unavailable'
-      case 'TEMPLATE_NOT_APPROVED': {
-        const paused = await this.db.withTenant(tenantId, async (tx) => {
-          const c = await tx.campaign.findFirstOrThrow({ where: { id: campaignId } })
-          const t = await tx.template.findFirst({
-            where: { id: (c.templateSnapshot as Snapshot).templateId },
-            select: { status: true, deletedAt: true },
-          })
-          return t && !t.deletedAt && t.status === 'PAUSED'
-        })
-        if (paused) {
-          await this.pause(tenantId, campaignId, 'PAUSED', 'TEMPLATE_PAUSED')
-          return 'template-paused'
-        }
-        await this.fail(
-          tenantId,
-          campaignId,
-          'The template is no longer available (disabled, deleted or not approved).',
-          true,
-        )
+      case 'TEMPLATE_NOT_APPROVED':
+        // P9-D3: never FAILED because Meta paused/disabled the template. Remaining recipients stay
+        // PENDING and are not sent; the campaign can resume only with the same template version.
+        await this.pause(tenantId, campaignId, 'PAUSED_TEMPLATE_UNAVAILABLE', null)
         return 'template-unavailable'
-      }
       default: {
         // Recipient-level: the send was refused for this contact (e.g. consent changed since the
         // snapshot). Skipped with the machine-readable reason; the campaign continues.
@@ -498,7 +482,7 @@ export class CampaignDispatchProcessor implements QueueProcessor<Data>, OnApplic
   private async pause(
     tenantId: string,
     campaignId: string,
-    status: 'PAUSED' | 'PAUSED_INSUFFICIENT_FUNDS',
+    status: 'PAUSED' | 'PAUSED_INSUFFICIENT_FUNDS' | 'PAUSED_TEMPLATE_UNAVAILABLE',
     reason: string | null,
   ) {
     const moved = await this.db.withTenant(tenantId, (tx) =>
@@ -513,23 +497,14 @@ export class CampaignDispatchProcessor implements QueueProcessor<Data>, OnApplic
     }
   }
 
-  private async fail(
-    tenantId: string,
-    campaignId: string,
-    reason: string,
-    skipRest = false,
-  ): Promise<string> {
-    await this.db.withTenant(tenantId, async (tx) => {
-      const res = await tx.campaign.updateMany({
+  /** Campaign-level failure (e.g. no template snapshot). Recipients are left as they are. */
+  private async fail(tenantId: string, campaignId: string, reason: string): Promise<string> {
+    await this.db.withTenant(tenantId, (tx) =>
+      tx.campaign.updateMany({
         where: { id: campaignId, status: { in: ['PREPARING', 'RUNNING'] } },
         data: { status: 'FAILED', failureReason: reason, failedAt: new Date() },
-      })
-      if (res.count && skipRest)
-        await tx.campaignRecipient.updateMany({
-          where: { campaignId, status: 'PENDING' },
-          data: { status: 'SKIPPED', skipReason: 'TEMPLATE_UNAVAILABLE' },
-        })
-    })
+      }),
+    )
     this.progress(tenantId, campaignId)
     return 'failed'
   }

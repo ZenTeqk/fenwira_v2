@@ -14,6 +14,7 @@ export const CAMPAIGN_STATUSES = [
   'RUNNING',
   'PAUSED',
   'PAUSED_INSUFFICIENT_FUNDS',
+  'PAUSED_TEMPLATE_UNAVAILABLE',
   'COMPLETED',
   'CANCELLED',
   'FAILED',
@@ -47,7 +48,7 @@ export const SKIP_REASONS = [
 export type SkipReason = (typeof SKIP_REASONS)[number]
 
 /** Why a campaign is paused (PAUSED); PAUSED_INSUFFICIENT_FUNDS is its own status. */
-export const PAUSE_REASONS = ['MANUAL', 'TEMPLATE_PAUSED', 'NUMBER_UNAVAILABLE'] as const
+export const PAUSE_REASONS = ['MANUAL', 'NUMBER_UNAVAILABLE'] as const
 export type PauseReason = (typeof PAUSE_REASONS)[number]
 
 const audienceSource = z.discriminatedUnion('kind', [

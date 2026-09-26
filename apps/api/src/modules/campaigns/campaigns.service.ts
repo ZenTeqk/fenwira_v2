@@ -20,7 +20,7 @@ import { AppError } from '../../core/http/app-error'
 import { countryOf } from '../../core/phone'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { AuditService } from '../audit'
-import { availableOf, lockWallet, unitPrice } from '../billing'
+import { availableOf, billingEnforcedFor, lockWallet, unitPrice } from '../billing'
 import { currentAuth } from '../identity'
 import { currentTenant } from '../tenancy'
 import {
@@ -299,9 +299,10 @@ export class CampaignsService {
           break
         }
         currency = price.currency
-        if (cost !== null) cost += price.unitPriceMinor * BigInt(n)
+        if (cost !== null) cost += price.customerPriceMinor * BigInt(n)
       }
-      const wallet = this.options.billingEnforced ? await lockWallet(tx, tenantId) : null
+      const enforced = await billingEnforcedFor(tx, tenantId, this.options.billing)
+      const wallet = enforced ? await lockWallet(tx, tenantId, this.options.billing) : null
       const available = wallet ? availableOf(wallet) : null
       const warnings = [...ready.problems]
       const phone = c.phoneNumberId
@@ -331,7 +332,7 @@ export class CampaignsService {
         estimatedCostMinor: cost === null ? null : Number(cost),
         currency: wallet?.currency ?? currency,
         availableFundsMinor: available === null ? null : Number(available),
-        billingEnforced: this.options.billingEnforced,
+        billingEnforced: enforced,
         samples,
         warnings,
       }
@@ -415,12 +416,24 @@ export class CampaignsService {
   resume(id: string): Promise<Campaign> {
     const { tenantId } = currentTenant()
     return this.transition(id, async (tx, c) => {
-      if (c.status !== 'PAUSED' && c.status !== 'PAUSED_INSUFFICIENT_FUNDS')
-        throw invalidState(c.status, 'resumed')
+      const resumable: CampaignStatus[] = [
+        'PAUSED',
+        'PAUSED_INSUFFICIENT_FUNDS',
+        'PAUSED_TEMPLATE_UNAVAILABLE',
+      ]
+      if (!resumable.includes(c.status)) throw invalidState(c.status, 'resumed')
+      // P9-D3: the campaign resumes only with the exact template version it started with.
+      if (
+        c.templateSnapshot &&
+        c.templateVersionId !== (c.templateSnapshot as TemplateSnapshot).versionId
+      )
+        throw notReady([
+          { code: 'TEMPLATE', message: 'This campaign’s template changed. Create a new campaign.' },
+        ])
       const ready = await this.readiness(tx, c)
       const blocking = ready.problems.filter((p) => ['TEMPLATE', 'PHONE'].includes(p.code))
       if (blocking.length) throw notReady(blocking)
-      if (this.options.billingEnforced) {
+      if (await billingEnforcedFor(tx, tenantId, this.options.billing)) {
         const next = await tx.campaignRecipient.findFirst({
           where: { campaignId: id, status: 'PENDING' },
           orderBy: { id: 'asc' },
@@ -428,15 +441,15 @@ export class CampaignsService {
         const snapshot = c.templateSnapshot as TemplateSnapshot | null
         if (next && snapshot) {
           const price = await unitPrice(tx, snapshot.category, countryOf(next.phoneE164))
-          const w = await lockWallet(tx, tenantId)
-          if (price && availableOf(w) < price.unitPriceMinor)
+          const w = await lockWallet(tx, tenantId, this.options.billing)
+          if (price && availableOf(w) < price.customerPriceMinor)
             throw new AppError(
               'INSUFFICIENT_BALANCE',
               422,
               'Add credits before resuming this campaign.',
               {
                 availableMinor: Number(availableOf(w)),
-                requiredMinor: Number(price.unitPriceMinor),
+                requiredMinor: Number(price.customerPriceMinor),
                 currency: w.currency,
               },
             )
@@ -477,6 +490,7 @@ export class CampaignsService {
         'RUNNING',
         'PAUSED',
         'PAUSED_INSUFFICIENT_FUNDS',
+        'PAUSED_TEMPLATE_UNAVAILABLE',
       ]
       if (!cancellable.includes(c.status)) throw invalidState(c.status, 'cancelled')
       const now = new Date()

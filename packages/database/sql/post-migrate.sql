@@ -156,10 +156,12 @@ END $$;
 -- at runtime (docs/MULTI_TENANCY.md → Table classes).
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.roles, public.permissions, public.role_permissions FROM fenwira_app;
 
--- Price book (decision B1: configuration, never code). Placeholder INR values until billing
--- launch; operators change rows, not code. Read-only for the app.
-INSERT INTO public.price_book_entries (id, category, country, currency, unit_price_minor, markup_bps)
-SELECT gen_random_uuid(), v.category, NULL, 'INR', v.price, 0
+-- Price book (decisions B1, P9-D2: configuration, never code). DEVELOPMENT PLACEHOLDERS, flagged
+-- as such: final commercial pricing, markup and tax are set in Phase 11 by changing rows.
+INSERT INTO public.price_book_entries
+  (id, category, country, currency, customer_price_minor, provider_cost_minor, markup_bps, is_placeholder, note)
+SELECT gen_random_uuid(), v.category, NULL, 'INR', v.price, NULL, 0, true,
+       'Development placeholder, not commercial pricing (P9-D2).'
 FROM (VALUES ('MARKETING', 88), ('UTILITY', 13), ('AUTHENTICATION', 13), ('SERVICE', 0)) AS v(category, price)
 WHERE NOT EXISTS (
   SELECT 1 FROM public.price_book_entries p WHERE p.category = v.category AND p.country IS NULL

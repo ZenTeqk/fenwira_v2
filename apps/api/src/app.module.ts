@@ -61,7 +61,7 @@ export class ApiModule {
       graphVersion: env.META_GRAPH_API_VERSION,
       appSecret: env.META_APP_SECRET,
       verifyToken: env.META_WEBHOOK_VERIFY_TOKEN,
-      billingEnforced: env.BILLING_ENFORCED,
+      billing: { enforced: env.BILLING_ENFORCED, trialCreditMinor: env.TRIAL_CREDIT_MINOR },
     })
     return {
       module: ApiModule,
@@ -74,8 +74,13 @@ export class ApiModule {
         ContactsModule.forApi(),
         messaging,
         InboxModule.forApi([messaging]),
-        BillingModule.forApi({ enforced: env.BILLING_ENFORCED }),
-        CampaignsModule.forApi({ billingEnforced: env.BILLING_ENFORCED }),
+        BillingModule.forApi({
+          enforced: env.BILLING_ENFORCED,
+          trialCreditMinor: env.TRIAL_CREDIT_MINOR,
+        }),
+        CampaignsModule.forApi({
+          billing: { enforced: env.BILLING_ENFORCED, trialCreditMinor: env.TRIAL_CREDIT_MINOR },
+        }),
         TemplatesModule.forApi({
           keyRing,
           appId: env.META_APP_ID,
