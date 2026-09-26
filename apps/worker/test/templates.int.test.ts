@@ -772,6 +772,28 @@ describe('Phase 8: templates', () => {
     )
   })
 
+  it('overlapping syncs of one WABA are serialized (no duplicate import, no error)', async () => {
+    const s = await setup('tpl-sync-race')
+    await control('templates', {
+      wabaId: s.ids.wabaId,
+      add: [
+        {
+          name: 'race_one',
+          language: 'en',
+          category: 'UTILITY',
+          status: 'APPROVED',
+          components: [{ type: 'BODY', text: 'A race test message body.' }],
+        },
+      ],
+    })
+    const results = await Promise.all(
+      Array.from({ length: 4 }, () => s.owner.client.post('/templates/sync', {})),
+    )
+    expect(results.map((r) => r.status)).toEqual([200, 200, 200, 200])
+    const found = (await s.owner.client.get('/templates?q=race_one')).body.data
+    expect(found).toHaveLength(1)
+  })
+
   it('the 6-hourly sync fans out to due WABAs only (X14)', async () => {
     const s = await setup('tpl-fanout')
     const db = worker.get(Database)

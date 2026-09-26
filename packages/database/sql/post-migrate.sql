@@ -156,6 +156,28 @@ END $$;
 -- at runtime (docs/MULTI_TENANCY.md → Table classes).
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.roles, public.permissions, public.role_permissions FROM fenwira_app;
 
+-- Price book (decision B1: configuration, never code). Placeholder INR values until billing
+-- launch; operators change rows, not code. Read-only for the app.
+INSERT INTO public.price_book_entries (id, category, country, currency, unit_price_minor, markup_bps)
+SELECT gen_random_uuid(), v.category, NULL, 'INR', v.price, 0
+FROM (VALUES ('MARKETING', 88), ('UTILITY', 13), ('AUTHENTICATION', 13), ('SERVICE', 0)) AS v(category, price)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.price_book_entries p WHERE p.category = v.category AND p.country IS NULL
+);
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.price_book_entries FROM fenwira_app;
+
+-- Wallet ledger → balance cache (docs/BILLING.md → Wallet): the only writer of balance_minor.
+CREATE OR REPLACE FUNCTION public.fenwira_wallet_apply() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE public.wallets SET balance_minor = NEW.balance_after_minor, updated_at = now()
+  WHERE id = NEW.wallet_id;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS wallet_transactions_apply ON public.wallet_transactions;
+CREATE TRIGGER wallet_transactions_apply AFTER INSERT ON public.wallet_transactions
+  FOR EACH ROW EXECUTE FUNCTION public.fenwira_wallet_apply();
+
 -- ---------------------------------------------------------------------------------------------
 -- Outbox (ADR-0013)
 -- ---------------------------------------------------------------------------------------------
@@ -305,6 +327,28 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT p_limit;
 $$;
 
+-- X4: due scheduled campaigns (docs/CAMPAIGN_ENGINE.md → Scheduling). IDs only; the transition
+-- SCHEDULED → PREPARING is a conditional update inside withTenant, so two schedulers can't both win.
+GRANT SELECT (id, tenant_id, status, schedule_at, deleted_at) ON public.campaigns TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.due_scheduled_campaigns(p_now timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid, campaign_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT c.tenant_id, c.id FROM public.campaigns c
+  WHERE c.status = 'SCHEDULED' AND c.schedule_at <= p_now AND c.deleted_at IS NULL
+  ORDER BY c.schedule_at
+  LIMIT p_limit;
+$$;
+
+-- X15: campaigns with work in flight (crash recovery, completion). IDs and status only.
+CREATE OR REPLACE FUNCTION system.active_campaigns(p_limit integer)
+RETURNS TABLE (tenant_id uuid, campaign_id uuid, status text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT c.tenant_id, c.id, c.status::text FROM public.campaigns c
+  WHERE c.status IN ('PREPARING', 'RUNNING') AND c.deleted_at IS NULL
+  ORDER BY c.id
+  LIMIT p_limit;
+$$;
+
 -- X2: webhook tenant resolution. Called only after the platform HMAC is verified; returns IDs of
 -- the live number (or, for WABA-level events, of the WABA's tenant) and nothing else.
 GRANT SELECT (id, tenant_id, phone_number_id, status) ON public.whatsapp_phone_numbers TO fenwira_system;
@@ -363,7 +407,9 @@ BEGIN
     'system.resolve_tenant_by_phone_number_id(text)',
     'system.resolve_tenant_by_waba_id(text)',
     'system.inbox_maintenance_due(timestamptz, integer)',
-    'system.wabas_due_for_template_sync(timestamptz, integer)'
+    'system.wabas_due_for_template_sync(timestamptz, integer)',
+    'system.due_scheduled_campaigns(timestamptz, integer)',
+    'system.active_campaigns(integer)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

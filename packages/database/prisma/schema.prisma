@@ -75,6 +75,7 @@ model User {
   notifications           Notification[]           @relation("NotificationRecipient")
   cannedReplies           CannedReply[]            @relation("CannedReplyAuthor")
   templateVersions        TemplateVersion[]        @relation("TemplateVersionAuthor")
+  campaignsCreated        Campaign[]               @relation("CampaignCreator")
 
   @@map("users")
 }
@@ -237,6 +238,12 @@ model Tenant {
   notifications            Notification[]
   cannedReplies            CannedReply[]
   templates                Template[]
+  campaigns                Campaign[]
+  campaignRecipients       CampaignRecipient[]
+  wallet                   Wallet?
+  walletTransactions       WalletTransaction[]
+  walletReservations       WalletReservation[]
+  usageEvents              UsageEvent[]
   templateVersions         TemplateVersion[]
 
   @@map("tenants")
@@ -1378,13 +1385,232 @@ model TemplateVersion {
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  template   Template  @relation("TemplateVersions", fields: [templateId], references: [id], onDelete: Cascade)
-  sampleFile File?     @relation("TemplateSampleFile", fields: [sampleFileId], references: [id], onDelete: SetNull)
-  author     User?     @relation("TemplateVersionAuthor", fields: [createdBy], references: [id], onDelete: SetNull)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template   Template   @relation("TemplateVersions", fields: [templateId], references: [id], onDelete: Cascade)
+  sampleFile File?      @relation("TemplateSampleFile", fields: [sampleFileId], references: [id], onDelete: SetNull)
+  author     User?      @relation("TemplateVersionAuthor", fields: [createdBy], references: [id], onDelete: SetNull)
   messages   Message[]
+  campaigns  Campaign[]
 
   @@unique([templateId, version])
   @@index([tenantId, metaTemplateId])
   @@map("template_versions")
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  PREPARING
+  RUNNING
+  PAUSED
+  PAUSED_INSUFFICIENT_FUNDS
+  COMPLETED
+  CANCELLED
+  FAILED
+
+  @@map("campaign_status")
+}
+
+enum RecipientStatus {
+  PENDING
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SKIPPED
+
+  @@map("recipient_status")
+}
+
+/// A broadcast of one approved template to an audience (docs/CAMPAIGN_ENGINE.md).
+model Campaign {
+  id                 String         @id @default(uuid(7)) @db.Uuid
+  tenantId           String         @map("tenant_id") @db.Uuid
+  name               String
+  status             CampaignStatus @default(DRAFT)
+  pauseReason        String?        @map("pause_reason")
+  failureReason      String?        @map("failure_reason")
+  phoneNumberId      String?        @map("phone_number_id") @db.Uuid
+  templateVersionId  String?        @map("template_version_id") @db.Uuid
+  /// Frozen at launch: name, language, category and components actually sent.
+  templateSnapshot   Json?          @map("template_snapshot")
+  audience           Json
+  variableMapping    Json           @map("variable_mapping")
+  scheduleAt         DateTime?      @map("schedule_at") @db.Timestamptz(3)
+  timezone           String         @default("Asia/Kolkata")
+  rateLimitPerMinute Int?           @map("rate_limit_per_minute")
+  totalRecipients    Int            @default(0) @map("total_recipients")
+  audienceSnapshotAt DateTime?      @map("audience_snapshot_at") @db.Timestamptz(3)
+  /// Resume counter: dispatch job ids include it, so a resume starts a fresh chain.
+  dispatchGeneration Int            @default(0) @map("dispatch_generation")
+  createdBy          String?        @map("created_by") @db.Uuid
+  launchedBy         String?        @map("launched_by") @db.Uuid
+  launchedAt         DateTime?      @map("launched_at") @db.Timestamptz(3)
+  startedAt          DateTime?      @map("started_at") @db.Timestamptz(3)
+  pausedAt           DateTime?      @map("paused_at") @db.Timestamptz(3)
+  completedAt        DateTime?      @map("completed_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  failedAt           DateTime?      @map("failed_at") @db.Timestamptz(3)
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?      @map("deleted_at") @db.Timestamptz(3)
+
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateVersion TemplateVersion?    @relation(fields: [templateVersionId], references: [id], onDelete: SetNull)
+  creator         User?               @relation("CampaignCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  recipients      CampaignRecipient[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("campaigns")
+}
+
+/// One intended recipient with its own auditable lifecycle; variables are resolved at snapshot.
+model CampaignRecipient {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  tenantId    String          @map("tenant_id") @db.Uuid
+  campaignId  String          @map("campaign_id") @db.Uuid
+  contactId   String          @map("contact_id") @db.Uuid
+  phoneE164   String          @map("phone_e164")
+  contactName String?         @map("contact_name")
+  variables   Json
+  status      RecipientStatus @default(PENDING)
+  skipReason  String?         @map("skip_reason")
+  errorCode   String?         @map("error_code")
+  messageId   String?         @unique @map("message_id") @db.Uuid
+  attempts    Int             @default(0)
+  queuedAt    DateTime?       @map("queued_at") @db.Timestamptz(3)
+  sentAt      DateTime?       @map("sent_at") @db.Timestamptz(3)
+  deliveredAt DateTime?       @map("delivered_at") @db.Timestamptz(3)
+  readAt      DateTime?       @map("read_at") @db.Timestamptz(3)
+  failedAt    DateTime?       @map("failed_at") @db.Timestamptz(3)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, contactId])
+  @@index([campaignId, status, id])
+  @@map("campaign_recipients")
+}
+
+enum WalletTransactionType {
+  CREDIT
+  DEBIT
+  ADJUSTMENT
+  REFUND
+
+  @@map("wallet_transaction_type")
+}
+
+enum ReservationStatus {
+  ACTIVE
+  SETTLED
+  RELEASED
+
+  @@map("reservation_status")
+}
+
+/// Prepaid credits (docs/BILLING.md → Wallet). balance_minor is maintained by the ledger trigger.
+model Wallet {
+  id                       String   @id @default(uuid(7)) @db.Uuid
+  tenantId                 String   @unique @map("tenant_id") @db.Uuid
+  currency                 String   @default("INR") @db.Char(3)
+  balanceMinor             BigInt   @default(0) @map("balance_minor")
+  creditLimitMinor         BigInt   @default(0) @map("credit_limit_minor")
+  reservedMinor            BigInt   @default(0) @map("reserved_minor")
+  lowBalanceThresholdMinor BigInt?  @map("low_balance_threshold_minor")
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+  reservations WalletReservation[]
+
+  @@map("wallets")
+}
+
+/// Append-only ledger: UPDATE and DELETE are revoked from fenwira_app.
+model WalletTransaction {
+  id                String                @id @default(uuid(7)) @db.Uuid
+  tenantId          String                @map("tenant_id") @db.Uuid
+  walletId          String                @map("wallet_id") @db.Uuid
+  type              WalletTransactionType
+  amountMinor       BigInt                @map("amount_minor")
+  balanceAfterMinor BigInt                @map("balance_after_minor")
+  reason            String
+  referenceType     String?               @map("reference_type")
+  referenceId       String?               @map("reference_id")
+  idempotencyKey    String                @map("idempotency_key")
+  createdBy         String?               @map("created_by") @db.Uuid
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  wallet       Wallet              @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  reservations WalletReservation[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([walletId, createdAt(sort: Desc)])
+  @@map("wallet_transactions")
+}
+
+/// B4: funds held for an accepted billable message until Meta prices it.
+model WalletReservation {
+  id                   String            @id @default(uuid(7)) @db.Uuid
+  tenantId             String            @map("tenant_id") @db.Uuid
+  walletId             String            @map("wallet_id") @db.Uuid
+  messageId            String            @unique @map("message_id") @db.Uuid
+  amountMinor          BigInt            @map("amount_minor")
+  status               ReservationStatus @default(ACTIVE)
+  settledTransactionId String?           @map("settled_transaction_id") @db.Uuid
+  reason               String?
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  wallet             Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  settledTransaction WalletTransaction? @relation(fields: [settledTransactionId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, status])
+  @@map("wallet_reservations")
+}
+
+/// Append-only record of each billable message Meta priced.
+model UsageEvent {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  type           String
+  messageId      String?  @map("message_id") @db.Uuid
+  category       String
+  country        String?  @db.Char(2)
+  quantity       Int      @default(1)
+  unitPriceMinor BigInt   @map("unit_price_minor")
+  amountMinor    BigInt   @map("amount_minor")
+  currency       String   @db.Char(3)
+  pricingRef     Json?    @map("pricing_ref")
+  occurredAt     DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type, messageId])
+  @@map("usage_events")
+}
+
+/// Platform configuration (decision B1): per-message prices by category and country.
+model PriceBookEntry {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  category       String
+  /// null = default for every country without its own row.
+  country        String?   @db.Char(2)
+  currency       String    @db.Char(3)
+  unitPriceMinor BigInt    @map("unit_price_minor")
+  markupBps      Int       @default(0) @map("markup_bps")
+  effectiveFrom  DateTime  @default(now()) @map("effective_from") @db.Timestamptz(3)
+  effectiveTo    DateTime? @map("effective_to") @db.Timestamptz(3)
+
+  @@index([category, country, effectiveFrom])
+  @@map("price_book_entries")
 }

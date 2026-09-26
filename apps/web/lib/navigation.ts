@@ -19,7 +19,7 @@ import {
  * "coming soon" entries; NEXT_PUBLIC_NAV_PREVIEW=true (development only) reveals everything
  * with a placeholder page so the shell can be reviewed.
  */
-export const SHIPPED_PHASE = 8
+export const SHIPPED_PHASE = 9
 
 /** `permission`: hidden unless the member's role grants it (the API enforces it regardless). */
 export type NavLeaf = {
@@ -85,9 +85,27 @@ export const NAVIGATION: NavItem[] = [
     phase: 9,
     icon: Megaphone,
     children: [
-      { id: 'campaigns-all', label: 'Campaigns', href: '/campaigns', phase: 9 },
-      { id: 'campaigns-new', label: 'Create Campaign', href: '/campaigns/new', phase: 9 },
-      { id: 'campaigns-analytics', label: 'Analytics', href: '/campaigns/analytics', phase: 9 },
+      {
+        id: 'campaigns-all',
+        label: 'Campaigns',
+        href: '/campaigns',
+        phase: 9,
+        permission: 'campaigns.read',
+      },
+      {
+        id: 'campaigns-new',
+        label: 'Create Campaign',
+        href: '/campaigns/new',
+        phase: 9,
+        permission: 'campaigns.write',
+      },
+      {
+        id: 'campaigns-analytics',
+        label: 'Analytics',
+        href: '/campaigns/analytics',
+        phase: 9,
+        permission: 'campaigns.read',
+      },
     ],
   },
   {

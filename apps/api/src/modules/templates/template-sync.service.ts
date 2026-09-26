@@ -79,6 +79,9 @@ export class TemplateSyncService {
     wabaRowId: string,
     remote: MetaTemplate[],
   ) {
+    // One sync per WABA at a time (connect-triggered and manual syncs can overlap): the second
+    // waits here, then sees what the first imported.
+    await tx.$queryRaw`SELECT id FROM whatsapp_business_accounts WHERE id = ${wabaRowId}::uuid FOR UPDATE`
     const result: SyncResult = { wabaId: wabaRowId, imported: 0, updated: 0, missing: 0 }
     const pushes: Push[] = []
     const now = new Date()

@@ -120,6 +120,14 @@ The wallet row lock serializes reservations, so two workers can never reserve th
 | Balance < campaign estimate | Warning in the Review step only | |
 | Subscription inactive (trial expired or CANCELLED) | All outbound sends (`SUBSCRIPTION_INACTIVE`) | Reading, exporting |
 
+### Implemented in Phase 9 (the wallet core B3/B4 needs)
+
+- `wallets`, the append-only `wallet_transactions` (the trigger maintains `balance_minor`), `wallet_reservations`, `usage_events` and `price_book_entries`. The price book is seeded with **placeholder** INR prices (MARKETING 88, UTILITY 13, AUTHENTICATION 13, SERVICE 0 paise), which are configuration, not code (B1).
+- `apps/api/src/modules/billing/wallet.core.ts`: reserve (in MessagingService's accept transaction, under the wallet row lock), settle (a DEBIT at the price for Meta's pricing category and the recipient's country, closing the reservation at its estimate), release (a final failure or non-billable) and credits. All are idempotent. `billing.usage` settles from `message.status.changed`, and every failure path of the outbound worker emits that event.
+- **`BILLING_ENFORCED`** (env, default `false`) turns reservations on. While it is off, sends don't touch the wallet. When it becomes the default is an open product question (ROADMAP).
+- Manual top-ups (B2): `pnpm --filter @fenwira/worker wallet:credit -- --tenant <id> --amount 500`. `GET /billing/wallet` shows the balance, credit limit, held and available funds.
+- **Not yet built (Phase 11):** plans, subscriptions and entitlements, the billing UI, the low-balance notification, the daily ledger check, and the sweep of reservations whose message is terminal but unsettled.
+
 ### Billing UI
 
 - **Subscription:** current plan, status, renewal or trial end, an entitlement usage table (for example "Users 4 / 5"), and a plan comparison with "Contact us to upgrade" (manual in v2).

@@ -278,6 +278,15 @@ Implemented in Phase 8. `GET /templates/approved?phoneNumberId=` lists the APPRO
 | GET | `/campaigns/:id/recipients` | read. Filters: status, skipReason. |
 | POST | `/campaigns/:id/recipients/export` | `contacts.export` |
 
+Implemented in Phase 9:
+
+- `POST /campaigns` creates a DRAFT (`name`, `phoneNumberId`, `templateVersionId`, `audience`, `variableMapping`, `scheduleAt` in UTC, `rateLimitPerMinute`). `PATCH`/`DELETE` apply only to DRAFT (409 `CAMPAIGN_INVALID_STATE`).
+- `POST /:id/estimate` returns total, sendable, skipped counts per reason, estimated cost, available funds (when enforced), rendered samples and warnings.
+- `POST /:id/launch` **IK** → SCHEDULED or PREPARING; 422 `CAMPAIGN_NOT_READY` with `details.problems` (number, template, mapping, audience).
+- `POST /:id/unschedule`, `/pause`, `/resume` (422 `INSUFFICIENT_BALANCE` or `CAMPAIGN_NOT_READY` when what paused it still holds) and `/cancel`.
+- `GET /:id/stats` and `GET /:id/recipients?status=&skipReason=&cursor=`. `POST /:id/recipients/export` streams CSV (`contacts.export`). "Stop" is "cancel"; "retry-failed" is not built.
+- `GET /billing/wallet` (`billing.read`) returns `{currency, balanceMinor, creditLimitMinor, reservedMinor, availableMinor, enforced}`.
+
 ### Automation (P10)
 
 | Method | Path | P |

@@ -497,6 +497,1778 @@
         "security": []
       }
     },
+    "/api/v1/billing/wallet": {
+      "get": {
+        "operationId": "Billing_wallet",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "billing.read"
+      }
+    },
+    "/api/v1/campaigns": {
+      "post": {
+        "operationId": "Campaigns_create",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "phoneNumberId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "templateVersionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "audience": {
+                    "type": "object",
+                    "properties": {
+                      "include": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "SEGMENT"
+                                },
+                                "segmentId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "segmentId"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "FILTER"
+                                },
+                                "filter": {
+                                  "$ref": "#/components/schemas/ContactFilter"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "filter"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "TAGS"
+                                },
+                                "tagIds": {
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
+                                },
+                                "match": {
+                                  "default": "ANY",
+                                  "type": "string",
+                                  "enum": [
+                                    "ANY",
+                                    "ALL"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "tagIds"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "CONTACTS"
+                                },
+                                "contactIds": {
+                                  "minItems": 1,
+                                  "maxItems": 10000,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "contactIds"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "IMPORT"
+                                },
+                                "importJobId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "importJobId"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "exclude": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "SEGMENT"
+                                },
+                                "segmentId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "segmentId"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "FILTER"
+                                },
+                                "filter": {
+                                  "$ref": "#/components/schemas/ContactFilter"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "filter"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "TAGS"
+                                },
+                                "tagIds": {
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
+                                },
+                                "match": {
+                                  "default": "ANY",
+                                  "type": "string",
+                                  "enum": [
+                                    "ANY",
+                                    "ALL"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "tagIds"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "CONTACTS"
+                                },
+                                "contactIds": {
+                                  "minItems": 1,
+                                  "maxItems": 10000,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "contactIds"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "IMPORT"
+                                },
+                                "importJobId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "importJobId"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "variableMapping": {
+                    "type": "object",
+                    "properties": {
+                      "header": {
+                        "maxItems": 1,
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "FIELD"
+                                },
+                                "field": {
+                                  "type": "string",
+                                  "enum": [
+                                    "name",
+                                    "firstName",
+                                    "phone",
+                                    "email",
+                                    "country"
+                                  ]
+                                },
+                                "fallback": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "field"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "PROPERTY"
+                                },
+                                "key": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 63
+                                },
+                                "fallback": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "key"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "STATIC"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 1000
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "body": {
+                        "default": [],
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "FIELD"
+                                },
+                                "field": {
+                                  "type": "string",
+                                  "enum": [
+                                    "name",
+                                    "firstName",
+                                    "phone",
+                                    "email",
+                                    "country"
+                                  ]
+                                },
+                                "fallback": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "field"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "PROPERTY"
+                                },
+                                "key": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 63
+                                },
+                                "fallback": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "key"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "STATIC"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 1000
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "buttons": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "maxItems": 1,
+                          "type": "array",
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "FIELD"
+                                  },
+                                  "field": {
+                                    "type": "string",
+                                    "enum": [
+                                      "name",
+                                      "firstName",
+                                      "phone",
+                                      "email",
+                                      "country"
+                                    ]
+                                  },
+                                  "fallback": {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "field"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "PROPERTY"
+                                  },
+                                  "key": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 63
+                                  },
+                                  "fallback": {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "key"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "STATIC"
+                                  },
+                                  "value": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "value"
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "scheduleAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rateLimitPerMinute": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.write"
+      },
+      "get": {
+        "operationId": "Campaigns_list",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "SCHEDULED",
+                "PREPARING",
+                "RUNNING",
+                "PAUSED",
+                "PAUSED_INSUFFICIENT_FUNDS",
+                "COMPLETED",
+                "CANCELLED",
+                "FAILED"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.read"
+      }
+    },
+    "/api/v1/campaigns/{id}": {
+      "get": {
+        "operationId": "Campaigns_get",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.read"
+      },
+      "delete": {
+        "operationId": "Campaigns_remove",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.write"
+      },
+      "patch": {
+        "operationId": "Campaigns_update",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "phoneNumberId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "templateVersionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "audience": {
+                    "type": "object",
+                    "properties": {
+                      "include": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "SEGMENT"
+                                },
+                                "segmentId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "segmentId"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "FILTER"
+                                },
+                                "filter": {
+                                  "$ref": "#/components/schemas/ContactFilter"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "filter"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "TAGS"
+                                },
+                                "tagIds": {
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
+                                },
+                                "match": {
+                                  "default": "ANY",
+                                  "type": "string",
+                                  "enum": [
+                                    "ANY",
+                                    "ALL"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "tagIds"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "CONTACTS"
+                                },
+                                "contactIds": {
+                                  "minItems": 1,
+                                  "maxItems": 10000,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "contactIds"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "IMPORT"
+                                },
+                                "importJobId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "importJobId"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "exclude": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "SEGMENT"
+                                },
+                                "segmentId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "segmentId"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "FILTER"
+                                },
+                                "filter": {
+                                  "$ref": "#/components/schemas/ContactFilter"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "filter"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "TAGS"
+                                },
+                                "tagIds": {
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
+                                },
+                                "match": {
+                                  "default": "ANY",
+                                  "type": "string",
+                                  "enum": [
+                                    "ANY",
+                                    "ALL"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "tagIds"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "CONTACTS"
+                                },
+                                "contactIds": {
+                                  "minItems": 1,
+                                  "maxItems": 10000,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "contactIds"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "IMPORT"
+                                },
+                                "importJobId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "importJobId"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "variableMapping": {
+                    "type": "object",
+                    "properties": {
+                      "header": {
+                        "maxItems": 1,
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "FIELD"
+                                },
+                                "field": {
+                                  "type": "string",
+                                  "enum": [
+                                    "name",
+                                    "firstName",
+                                    "phone",
+                                    "email",
+                                    "country"
+                                  ]
+                                },
+                                "fallback": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "field"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "PROPERTY"
+                                },
+                                "key": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 63
+                                },
+                                "fallback": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "key"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "STATIC"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 1000
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "body": {
+                        "default": [],
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "FIELD"
+                                },
+                                "field": {
+                                  "type": "string",
+                                  "enum": [
+                                    "name",
+                                    "firstName",
+                                    "phone",
+                                    "email",
+                                    "country"
+                                  ]
+                                },
+                                "fallback": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "field"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "PROPERTY"
+                                },
+                                "key": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 63
+                                },
+                                "fallback": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "key"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "STATIC"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 1000
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "buttons": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "maxItems": 1,
+                          "type": "array",
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "FIELD"
+                                  },
+                                  "field": {
+                                    "type": "string",
+                                    "enum": [
+                                      "name",
+                                      "firstName",
+                                      "phone",
+                                      "email",
+                                      "country"
+                                    ]
+                                  },
+                                  "fallback": {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "field"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "PROPERTY"
+                                  },
+                                  "key": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 63
+                                  },
+                                  "fallback": {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "key"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "STATIC"
+                                  },
+                                  "value": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "value"
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "scheduleAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rateLimitPerMinute": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.write"
+      }
+    },
+    "/api/v1/campaigns/{id}/cancel": {
+      "post": {
+        "operationId": "Campaigns_cancel",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.launch"
+      }
+    },
+    "/api/v1/campaigns/{id}/estimate": {
+      "post": {
+        "operationId": "Campaigns_estimate",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.read"
+      }
+    },
+    "/api/v1/campaigns/{id}/launch": {
+      "post": {
+        "operationId": "Campaigns_launch",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.launch",
+        "x-idempotent": true
+      }
+    },
+    "/api/v1/campaigns/{id}/pause": {
+      "post": {
+        "operationId": "Campaigns_pause",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.launch"
+      }
+    },
+    "/api/v1/campaigns/{id}/recipients": {
+      "get": {
+        "operationId": "Campaigns_recipients",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "QUEUED",
+                "SENDING",
+                "SENT",
+                "DELIVERED",
+                "READ",
+                "FAILED",
+                "SKIPPED"
+              ]
+            }
+          },
+          {
+            "name": "skipReason",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NO_MARKETING_CONSENT",
+                "OPTED_OUT",
+                "INVALID_PHONE",
+                "BLOCKED",
+                "TEMPLATE_UNAVAILABLE",
+                "TEMPLATE_NOT_APPROVED",
+                "MISSING_VARIABLE",
+                "OTHER_POLICY_RESTRICTION",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.read"
+      }
+    },
+    "/api/v1/campaigns/{id}/recipients/export": {
+      "post": {
+        "operationId": "Campaigns_export",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "contacts.export"
+      }
+    },
+    "/api/v1/campaigns/{id}/resume": {
+      "post": {
+        "operationId": "Campaigns_resume",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.launch"
+      }
+    },
+    "/api/v1/campaigns/{id}/stats": {
+      "get": {
+        "operationId": "Campaigns_stats",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.read"
+      }
+    },
+    "/api/v1/campaigns/{id}/unschedule": {
+      "post": {
+        "operationId": "Campaigns_unschedule",
+        "tags": [
+          "Campaigns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "campaigns.launch"
+      }
+    },
     "/api/v1/canned-replies": {
       "post": {
         "operationId": "CannedReplies_create",
@@ -8225,6 +9997,9 @@
                   "TEMPLATE_INVALID",
                   "TEMPLATE_NOT_APPROVED",
                   "TEMPLATE_VARIABLES_INVALID",
+                  "INSUFFICIENT_BALANCE",
+                  "CAMPAIGN_NOT_READY",
+                  "CAMPAIGN_INVALID_STATE",
                   "RATE_LIMITED",
                   "INTERNAL",
                   "UPSTREAM_UNAVAILABLE"

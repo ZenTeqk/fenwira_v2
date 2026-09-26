@@ -123,7 +123,8 @@ Everything that must run before a tenant is known, or across tenants, goes throu
 | X1 | Login / `auth/me` tenant list | *(policy `membership_self_read` + `tenant_root`, via `withUser`)* | The user's own memberships and tenants | Scoped to `app.current_user_id` |
 | X2 | Webhook tenant resolution | `system.resolve_tenant_by_phone_number_id(text)` → `(tenant_id, phone_id)`; `system.resolve_tenant_by_waba_id(text)` → `tenant_id` for WABA-level fields (templates, account updates) | IDs or no row | Called only **after** the platform HMAC is verified. Only live (non-DISCONNECTED) numbers and accounts resolve. |
 | X3 | Outbox relay | `system.claim_outbox_events(batch int)` | Claimed rows (id, tenant_id, type, payload) | Only the relay calls it. Each handler then re-enters `withTenant`. |
-| X4 | Scheduled campaign activation | `system.due_scheduled_campaigns(now timestamptz)` | `(tenant_id, campaign_id)[]` | IDs only. Processing is per tenant. |
+| X4 | Scheduled campaign activation | `system.due_scheduled_campaigns(now timestamptz, limit int)` | `(tenant_id, campaign_id)[]` | IDs only. Processing is per tenant; a conditional update makes one scheduler win. |
+| X15 | Campaign recovery and completion | `system.active_campaigns(limit int)` | `(tenant_id, campaign_id, status)[]` for PREPARING/RUNNING | IDs and status only. Each re-drive re-enters `withTenant`. |
 | X5 | Phone number sync fan-out | `system.phone_numbers_due_for_sync(older_than timestamptz, limit int)` | `(tenant_id, phone_id)[]` (row IDs) | IDs only. Each sync job re-enters `withTenant`. |
 | X6 | Invitation acceptance | `system.resolve_invitation(token_hash bytea)` | `(tenant_id, invitation_id)` | Hash of a 256-bit token |
 | X7 | API key authentication | `system.resolve_api_key(prefix text)` | `(tenant_id, api_key_id, key_hash, scopes, revoked_at)` | The hash is verified in app code with a constant-time compare |
@@ -135,7 +136,7 @@ Everything that must run before a tenant is known, or across tenants, goes throu
 | X14 | Template sync fan-out | `system.wabas_due_for_template_sync(older_than timestamptz, limit int)` | `(tenant_id, waba_id)[]` (row IDs) for ACTIVE/RESTRICTED WABAs not synced since `older_than` | IDs only. Each sync re-enters `withTenant`. |
 | X13 | Inbox maintenance (snooze expiry, idle takeover release) | `system.inbox_maintenance_due(now timestamptz, limit int)` | `(tenant_id, conversation_id, kind)[]`, kind `UNSNOOZE` or `RELEASE_TAKEOVER` | IDs only. Each change re-enters `withTenant` and re-checks the condition. |
 
-Implemented so far: X1 (policies plus `withUser`), X2 (Phase 5), X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID), X5 and X11 (Phase 4), X6 (`resolve_invitation`), X12, X13 (Phase 7) and X14 (Phase 8). The rest arrive with their phases.
+Implemented so far: X1 (policies plus `withUser`), X2 (Phase 5), X3 (`claim_outbox_events`, plus `mark_outbox_dispatched` and `mark_outbox_retry`, which only touch rows by ID), X5 and X11 (Phase 4), X6 (`resolve_invitation`), X12, X13 (Phase 7), X14 (Phase 8), and X4 and X15 (Phase 9). The rest arrive with their phases.
 
 Adding a row to this table requires an ADR amendment and a security review.
 

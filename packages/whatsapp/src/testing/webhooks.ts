@@ -65,6 +65,8 @@ export function statusWebhook(
     timestamp?: number
     errorCode?: number
     callbackData?: string
+    /** Meta's pricing object; default: billable utility. */
+    pricing?: { billable: boolean; category: string }
   },
 ) {
   return messagesEnvelope(ids, {
@@ -77,7 +79,11 @@ export function statusWebhook(
         ...(s.callbackData ? { biz_opaque_callback_data: s.callbackData } : {}),
         ...(s.status !== 'failed'
           ? {
-              pricing: { billable: true, pricing_model: 'PMP', category: 'utility' },
+              pricing: {
+                billable: s.pricing?.billable ?? true,
+                pricing_model: 'PMP',
+                category: s.pricing?.category ?? 'utility',
+              },
             }
           : {
               errors: [

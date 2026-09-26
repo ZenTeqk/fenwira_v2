@@ -12,6 +12,8 @@ export type MessagingOptions = {
   outboundBackoffBaseMs?: number
   /** Worker only: wait for a status webhook before resending an interrupted send. Default 60 s. */
   crashGraceMs?: number
+  /** B3/B4: billable (template) sends reserve their estimated cost. */
+  billingEnforced?: boolean
 }
 
 export const MESSAGING_OPTIONS = Symbol('MESSAGING_OPTIONS')

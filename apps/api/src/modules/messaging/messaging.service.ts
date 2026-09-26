@@ -11,8 +11,12 @@ import { requestContext } from '../../core/context/request-context'
 import { AppError } from '../../core/http/app-error'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { normalizePhone } from '../../core/phone'
+import { uuidv7 } from '@fenwira/config'
+import { countryOf } from '../../core/phone'
+import { reserveForMessage } from '../billing'
 import { resolveTemplateForSend, type ResolvedTemplate } from '../templates'
 import { MessageEligibilityService } from './eligibility'
+import { MESSAGING_OPTIONS, type MessagingOptions } from './messaging.options'
 import { previewOf, toMessage } from './messaging.mapper'
 import { writeSystemEvent } from './system-events'
 
@@ -28,6 +32,8 @@ export type SendInput = {
   actorUserId?: string
   /** Consent purpose. Default: MARKETING for marketing templates, UTILITY for other templates, SERVICE otherwise. */
   purpose?: 'MARKETING' | 'UTILITY' | 'SERVICE'
+  /** Links the message to its campaign (reporting, recipient status). */
+  campaignId?: string
 }
 
 const SENDABLE_PHONE_STATUSES = ['CONNECTED', 'FLAGGED'] as const
@@ -52,6 +58,7 @@ export class MessagingService {
     @Inject(Database) private readonly db: Database,
     private readonly realtime: RealtimeEmitter,
     private readonly eligibility: MessageEligibilityService,
+    @Inject(MESSAGING_OPTIONS) private readonly options: MessagingOptions,
   ) {}
 
   async send(input: SendInput): Promise<Message> {
@@ -141,13 +148,24 @@ export class MessagingService {
       )
     // 8. Compose lock: enforced by the inbox before it calls send (docs/INBOX.md).
 
+    // 9. Balance (B3/B4): a billable message reserves its estimated cost in this transaction.
+    const messageId = uuidv7()
+    if (template && this.options.billingEnforced)
+      await reserveForMessage(tx, tenantId, {
+        messageId,
+        category: template.category,
+        country: conversation.contact.country ?? countryOf(conversation.contact.phoneE164),
+      })
+
     const stored =
       template && content.type === 'TEMPLATE'
         ? await this.templateContent(tx, template, content)
         : await this.storedContent(tx, content)
     const message = await tx.message.create({
       data: {
+        id: messageId,
         tenantId,
+        campaignId: input.campaignId ?? null,
         conversationId: conversation.id,
         contactId: conversation.contactId,
         direction: 'OUTBOUND',

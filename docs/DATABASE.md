@@ -417,6 +417,12 @@ campaign_recipients                             T
   idx (campaign_id, status)
 ```
 
+Implemented in Phase 9 (migration `20261001000000_campaigns_wallet`), with these differences from the draft:
+
+- `campaign_status` is `DRAFT|SCHEDULED|PREPARING|RUNNING|PAUSED|PAUSED_INSUFFICIENT_FUNDS|COMPLETED|CANCELLED|FAILED` (CANCELLED replaces STOPPED). `campaigns` also has `pause_reason`, `failure_reason`, `template_snapshot` (what is sent), `dispatch_generation` (resume counter), `started_at`, `cancelled_at` and `failed_at`. There is no `send_window` or cost column yet.
+- `recipient_status` is `PENDING|QUEUED|SENDING|SENT|DELIVERED|READ|FAILED|SKIPPED` (default PENDING). `campaign_recipients` has `contact_name`, `message_id` (unique) and timestamps per state, and an index `(campaign_id, status, id)`. The per-recipient idempotency key is derived (`campaign:{campaignId}:{recipientId}`), not stored.
+- The Phase 11 wallet core arrived early (B4): `wallets` (with `reserved_minor`), `wallet_transactions` (append-only, with a balance trigger), `wallet_reservations`, `usage_events` (append-only) and `price_book_entries` (global, seeded placeholders, read-only for the app).
+
 ## Automation (P10)
 
 ```text

@@ -14,6 +14,9 @@ const metaId = () => String(Math.floor(Math.random() * 1e15)).padStart(15, '1')
 const waba = (tx: TenantTx, tenantId: string) =>
   tx.whatsAppBusinessAccount.create({ data: { tenantId, wabaId: metaId(), name: 'Matrix WABA' } })
 
+const wallet = (tx: TenantTx, tenantId: string) =>
+  tx.wallet.upsert({ where: { tenantId }, create: { tenantId }, update: {} })
+
 const contact = (tx: TenantTx, tenantId: string) =>
   tx.contact.create({
     data: { tenantId, phoneE164: `+91${metaId().slice(0, 10)}`, source: 'INBOUND' },
@@ -255,6 +258,57 @@ const FIXTURES: Record<string, Fixture> = {
       data: { tenantId, templateId: t.id, version: 1, components: {}, variableSamples: {} },
     })
   },
+  campaigns: (tx, { tenantId }) =>
+    tx.campaign.create({ data: { tenantId, name: 'Matrix', audience: {}, variableMapping: {} } }),
+  campaign_recipients: async (tx, { tenantId }) => {
+    const campaign = await tx.campaign.create({
+      data: { tenantId, name: 'Matrix R', audience: {}, variableMapping: {} },
+    })
+    const c = await contact(tx, tenantId)
+    return tx.campaignRecipient.create({
+      data: {
+        tenantId,
+        campaignId: campaign.id,
+        contactId: c.id,
+        phoneE164: c.phoneE164,
+        variables: {},
+      },
+    })
+  },
+  wallets: (tx, { tenantId }) => wallet(tx, tenantId),
+  wallet_transactions: async (tx, { tenantId }) =>
+    tx.walletTransaction.create({
+      data: {
+        tenantId,
+        walletId: (await wallet(tx, tenantId)).id,
+        type: 'CREDIT',
+        amountMinor: 100n,
+        balanceAfterMinor: 100n,
+        reason: 'matrix',
+        idempotencyKey: `m-${Date.now()}-${Math.random()}`,
+      },
+    }),
+  wallet_reservations: async (tx, { tenantId }) =>
+    tx.walletReservation.create({
+      data: {
+        tenantId,
+        walletId: (await wallet(tx, tenantId)).id,
+        messageId: crypto.randomUUID(),
+        amountMinor: 10n,
+      },
+    }),
+  usage_events: (tx, { tenantId }) =>
+    tx.usageEvent.create({
+      data: {
+        tenantId,
+        type: 'WA_MESSAGE_BILLABLE',
+        messageId: crypto.randomUUID(),
+        category: 'UTILITY',
+        unitPriceMinor: 13n,
+        amountMinor: 13n,
+        currency: 'INR',
+      },
+    }),
   canned_replies: (tx, { tenantId, userId }) =>
     tx.cannedReply.create({
       data: { tenantId, shortcut: `/t${Date.now()}`, title: 't', body: 'b', createdBy: userId },
@@ -265,7 +319,12 @@ const FIXTURES: Record<string, Fixture> = {
     }),
 }
 
-const APPEND_ONLY = new Set(['audit_logs', 'contact_activities'])
+const APPEND_ONLY = new Set([
+  'audit_logs',
+  'contact_activities',
+  'wallet_transactions',
+  'usage_events',
+])
 
 const appUrl = process.env.DATABASE_URL!
 const ownerUrl = process.env.MIGRATION_DATABASE_URL!

@@ -109,6 +109,26 @@ export class SystemGateway {
     return rows.map((r) => ({ tenantId: r.tenant_id, wabaId: r.waba_id }))
   }
 
+  /** X4 — SCHEDULED campaigns whose time has come (IDs only). */
+  async dueScheduledCampaigns(
+    now: Date,
+    limit: number,
+  ): Promise<Array<{ tenantId: string; campaignId: string }>> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; campaign_id: string }>>`
+      SELECT * FROM system.due_scheduled_campaigns(${now}, ${limit}::int)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, campaignId: r.campaign_id }))
+  }
+
+  /** X15 — PREPARING/RUNNING campaigns (crash recovery and completion checks). */
+  async activeCampaigns(
+    limit: number,
+  ): Promise<Array<{ tenantId: string; campaignId: string; status: string }>> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ tenant_id: string; campaign_id: string; status: string }>
+    >`SELECT * FROM system.active_campaigns(${limit}::int)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, campaignId: r.campaign_id, status: r.status }))
+  }
+
   /** X2 — tenant (and number row) of a live phone_number_id, for webhook routing. */
   async resolveTenantByPhoneNumberId(
     phoneNumberId: string,

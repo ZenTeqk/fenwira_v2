@@ -20,6 +20,8 @@ import { ContactsModule } from './modules/contacts'
 import { InboxModule } from './modules/inbox'
 import { MessagingModule } from './modules/messaging'
 import { TemplatesModule } from './modules/templates'
+import { BillingModule } from './modules/billing'
+import { CampaignsModule } from './modules/campaigns'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
 
 export function coreConfigFromApiEnv(
@@ -59,6 +61,7 @@ export class ApiModule {
       graphVersion: env.META_GRAPH_API_VERSION,
       appSecret: env.META_APP_SECRET,
       verifyToken: env.META_WEBHOOK_VERIFY_TOKEN,
+      billingEnforced: env.BILLING_ENFORCED,
     })
     return {
       module: ApiModule,
@@ -71,6 +74,8 @@ export class ApiModule {
         ContactsModule.forApi(),
         messaging,
         InboxModule.forApi([messaging]),
+        BillingModule.forApi({ enforced: env.BILLING_ENFORCED }),
+        CampaignsModule.forApi({ billingEnforced: env.BILLING_ENFORCED }),
         TemplatesModule.forApi({
           keyRing,
           appId: env.META_APP_ID,

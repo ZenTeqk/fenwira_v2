@@ -372,12 +372,20 @@ describe('background sync (whatsapp.sync)', () => {
     await control('quality', { phoneId: ids.phoneNumberId, quality: 'RED', tier: 'TIER_10K' })
 
     {
-      // Pretend 7 hours have passed so this number is due.
-      const queued = await worker.get(WhatsAppSyncProcessor).fanOut(Date.now() + 7 * 3600 * 1000)
-      expect(queued).toBeGreaterThan(0)
-      const deadline = Date.now() + 15_000
+      // Pretend 7 hours have passed so this number is due. Each run takes up to 500 due numbers,
+      // oldest first; the long-lived test database holds many, so keep running it as the
+      // scheduler would until this one is reached.
+      const deadline = Date.now() + 90_000
       let conn: { qualityRating: string; messagingLimitTier: string } | undefined
+      let lastFanOut = 0
       while (Date.now() < deadline) {
+        if (Date.now() - lastFanOut > 3000) {
+          const queued = await worker
+            .get(WhatsAppSyncProcessor)
+            .fanOut(Date.now() + 7 * 3600 * 1000)
+          expect(queued).toBeGreaterThan(0)
+          lastFanOut = Date.now()
+        }
         conn = (await owner.client.get('/whatsapp/connections')).body.data[0]
         if (conn?.qualityRating === 'RED') break
         await new Promise((r) => setTimeout(r, 200))
@@ -390,7 +398,7 @@ describe('background sync (whatsapp.sync)', () => {
       changes: { qualityRating: ['GREEN', 'RED'] },
     })
     expect((await owner.client.post(`/whatsapp/connections/${id}/sync`)).status).toBe(200)
-  })
+  }, 120_000)
 })
 
 describe('token hygiene', () => {

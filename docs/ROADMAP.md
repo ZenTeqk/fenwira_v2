@@ -21,7 +21,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 6 | Contacts + consent + CRM foundation | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_06](prompts/PHASE_06_CONTACTS_CONSENT.md) |
 | 7 | Multi-agent shared inbox | ✅ all acceptance criteria pass locally, including canned replies (decisions I2 and I3; see below). CI hasn't run on GitHub yet (no remote). | [PHASE_07](prompts/PHASE_07_INBOX.md) |
 | 8 | Template management / builder | 🔵 every criterion passes against the simulated Graph API (see below). The real-WABA round trip needs Meta production onboarding (MI1). | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
-| 9 | Campaign / broadcast engine | ⬜ | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
+| 9 | Campaign / broadcast engine | ✅ all 15 acceptance criteria pass locally against the simulated Graph API (see below). Real sends need MI1. | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
 | 10 | Automation / visual flow builder | ⬜ | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
 | 11 | Billing + analytics + administration | ⬜ | [PHASE_11](prompts/PHASE_11_BILLING_ANALYTICS.md) |
 | 12 | Hardening + testing + production readiness | ⬜ | [PHASE_12](prompts/PHASE_12_HARDENING.md) |
@@ -238,3 +238,36 @@ Bugs found and fixed during the phase:
 - The X14 test compared totals capped at 500 in a long-lived test database; it now checks the workspace's own WABA.
 - A test for WhatsApp Manager edits changed a copy of the mock data, so it passed without testing anything; it now edits the mock and asserts the archive and idempotent re-sync.
 - Card titles are now `h2` on template and workspace settings pages (Lighthouse heading order).
+
+## Phase 9 verification (2026-09-26)
+
+| # | Acceptance criterion | Result | Evidence |
+| --- | --- | --- | --- |
+| 1 | Create a campaign with an approved Phase 8 template | ✅ | `campaigns.int.test.ts` (templates imported through sync); e2e wizard. Launch is refused (422 `CAMPAIGN_NOT_READY`) for paused, disabled or unknown templates. |
+| 2 | Audience snapshotted deterministically | ✅ | Cut-off plus keyset pages by contact id; a contact tagged after launch is not added (test). |
+| 3 | Every recipient passes MessageEligibilityService | ✅ | Snapshot classification uses `evaluateEligibility`, and every send goes through MessagingService, which asserts it again. Reasons: MISSING_VARIABLE, OPTED_OUT, BLOCKED and NO_MARKETING_CONSENT (tests); consent revoked after the snapshot → SKIPPED OPTED_OUT at send time. The C1 source scan still passes (no consent logic in campaigns). |
+| 4 | Variables validated and rendered | ✅ | Mapping gaps block launch; missing values skip the recipient; the Meta payload carries `Asha`/`#A1` (test); samples render in Review (e2e). |
+| 5 | Immediate campaigns | ✅ | Estimate → launch → COMPLETED with stats and rates (test and e2e). |
+| 6 | Scheduled campaigns survive restarts | ✅ | SCHEDULED survives a worker restart; two concurrent schedulers → one `campaign.launched` event and 2 sends (test). Stored in UTC, shown in the workspace timezone. |
+| 7 | MessagingService only | ✅ | Messages have `source CAMPAIGN` and `campaign_id`; the dispatcher imports no Meta client (dependency rules pass). |
+| 8 | No duplicate sends | ✅ | Concurrent dispatch of the same campaign, the recovery pass and a worker crash → exactly 12 sends for 12 recipients; Meta 5xx retries → 1 send each; 2,000 recipients → 2,000 unique sends. |
+| 9 | Webhook status in campaign results | ✅ | SENT → DELIVERED → READ per recipient; delivered webhook ×3 plus a late `sent` → counted once, never regressing (test). |
+| 10 | Pause and resume safely | ✅ | Nothing new dispatched while paused; resume completes with 15/15 sends; cancel skips the rest (CANCELLED); template paused by Meta → PAUSED (TEMPLATE_PAUSED), resumable; disabled → FAILED with the remainder SKIPPED (TEMPLATE_UNAVAILABLE). |
+| 11 | Insufficient funds pause, not corrupt | ✅ | `campaigns-billing.int.test.ts` (enforced): 50 paise → 3 sent, PAUSED_INSUFFICIENT_FUNDS, 5 PENDING kept; resume refused (422) until topped up, then 8/8. 30 concurrent sends against funds for 10 → exactly 10. Failed send → reservation released; duplicate pricing → one debit; balance = Σ ledger and reserved = Σ active holds in every test. Inbound and free-form replies keep working at zero balance. |
+| 12 | Tenant isolation | ✅ | B gets 404 on A's get, launch, pause, resume, cancel, estimate, stats, recipients and export; A's tag matches nothing for B; tenant matrix fixtures for all 6 new tenant tables; the security matrix covers the 14 new routes. |
+| 13 | Phase 0–8 regression | ✅ | 311 integration (185 database, 10 API, 116 system), 41 e2e, 170 unit; lint, typecheck, format, design tokens, dependency rules and the OpenAPI check (151 operations) all pass. |
+| 14 | Browser e2e create → review → launch → reporting | ✅ | `e2e/campaigns.spec.ts`, through Completed and Read = 2 in the results. |
+| 15 | Accessibility | ✅ | axe on `/campaigns`, `/campaigns/new`, `/campaigns/analytics`, each wizard step, the review and the detail page; Lighthouse 100 on the list, new and analytics pages. |
+
+Also found and fixed:
+
+- A Phase 8 race: a connect-triggered template sync and a manual "Sync from Meta" could import the same template twice (500 error). Syncs of one WABA are now serialized by a row lock (test with 4 overlapping syncs).
+- Outbound send-time guard failures and exhausted retries didn't emit `message.status.changed`, so reservations and campaign recipients wouldn't have learned of the failure. Every failure path now emits it (once).
+- The campaign page stopped refreshing at COMPLETED while read receipts were still arriving; it now refreshes for an hour after completion.
+- Two long-lived-test-database fragilities (fan-outs capped at 500 per run) in the X14 and whatsapp.sync tests.
+
+Known limitations (Phase 9):
+
+- Throughput is about 17 recipients/s in the local test setup (batch size 10); per-batch overhead dominates, not Meta's 80 msg/s per-number limit. Tuning (larger batches, several chains per campaign, priority lanes) is future work.
+- Not built: `send_window`, "Retry failed", the selected-contacts audience in the UI (the API supports it), inbox-over-campaign priority in the outbound queue, the stale-reservation sweep, and low-balance notifications.
+- Billing enforcement is off by default (`BILLING_ENFORCED=false`) until billing launches; prices are placeholders (B1).

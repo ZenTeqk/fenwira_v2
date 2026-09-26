@@ -204,6 +204,14 @@ function scheduleStatuses(state: MetaMockState, waba: Waba, sent: SentMessage): 
   if (!target) return
   const statuses = target.statuses ?? ['sent', 'delivered', 'read']
   const ids = { wabaId: waba.id, phoneNumberId: sent.phoneNumberId }
+  // Meta prices template messages by the template's category; other messages are service.
+  const t = sent.payload.template as { name?: string; language?: { code?: string } } | undefined
+  const template = t
+    ? [...waba.templates.values()].find((x) => x.name === t.name && x.language === t.language?.code)
+    : undefined
+  const pricing = t
+    ? { billable: true, category: (template?.category ?? 'UTILITY').toLowerCase() }
+    : { billable: false, category: 'service' }
   statuses.forEach((status, i) => {
     setTimeout(
       () =>
@@ -215,6 +223,7 @@ function scheduleStatuses(state: MetaMockState, waba: Waba, sent: SentMessage): 
             status,
             recipientId: String(sent.payload.to),
             callbackData: sent.payload.biz_opaque_callback_data as string | undefined,
+            pricing,
           }),
         ).catch(() => undefined),
       (target.delayMs ?? 300) * (i + 1),

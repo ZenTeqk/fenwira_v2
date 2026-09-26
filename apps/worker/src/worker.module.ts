@@ -20,6 +20,12 @@ import { CONTACTS_PROCESSORS, ContactsModule } from '@fenwira/api/modules/contac
 import { InboxEventsProcessor, InboxModule } from '@fenwira/api/modules/inbox'
 import { MESSAGING_PROCESSORS, MessagingModule } from '@fenwira/api/modules/messaging'
 import { TemplatesModule, TemplatesSyncProcessor } from '@fenwira/api/modules/templates'
+import { BillingModule, BillingUsageProcessor } from '@fenwira/api/modules/billing'
+import {
+  CampaignDispatchProcessor,
+  CampaignEventsProcessor,
+  CampaignsModule,
+} from '@fenwira/api/modules/campaigns'
 import {
   WhatsAppAccountsModule,
   WhatsAppSyncProcessor,
@@ -61,6 +67,7 @@ export class WorkerModule {
         graphBaseUrl: env.META_GRAPH_BASE_URL,
         graphVersion: env.META_GRAPH_API_VERSION,
         outboundBackoffBaseMs: env.WHATSAPP_OUTBOUND_BACKOFF_MS,
+        billingEnforced: env.BILLING_ENFORCED,
       },
       [platform],
     )
@@ -80,8 +87,27 @@ export class WorkerModule {
       graphVersion: env.META_GRAPH_API_VERSION,
       graphBaseUrl: env.META_GRAPH_BASE_URL,
     })
+    const billing = BillingModule.forWorker({ enforced: env.BILLING_ENFORCED })
+    const campaigns = CampaignsModule.forWorker(
+      {
+        billingEnforced: env.BILLING_ENFORCED,
+        batchSize: env.CAMPAIGN_BATCH_SIZE,
+      },
+      [messaging],
+    )
     const runtime = WorkerRuntimeModule.forRoot({
-      imports: [platform, identity, tenancy, whatsapp, messaging, contacts, inbox, templates],
+      imports: [
+        platform,
+        identity,
+        tenancy,
+        whatsapp,
+        messaging,
+        contacts,
+        inbox,
+        templates,
+        billing,
+        campaigns,
+      ],
       processors: [
         ...PLATFORM_PROCESSORS,
         IdentityProcessor,
@@ -91,6 +117,9 @@ export class WorkerModule {
         ...CONTACTS_PROCESSORS,
         InboxEventsProcessor,
         TemplatesSyncProcessor,
+        BillingUsageProcessor,
+        CampaignDispatchProcessor,
+        CampaignEventsProcessor,
       ],
     })
 

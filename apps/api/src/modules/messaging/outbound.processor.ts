@@ -257,23 +257,9 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
         throw err.classification === 'RETRYABLE_RATE' ? new MetaRateLimited(err.fenwiraCode) : err
       }
       await this.db.withTenant(tenantId, async (tx) => {
+        // fail() emits message.status.changed: consumers react (131050 revokes consent, billing
+        // releases the reservation, the campaign recipient fails).
         await this.fail(tx, message.id, err.fenwiraCode, err.message.slice(0, 500))
-        // Consumers react to permanent failures (e.g. 131050 revokes marketing consent).
-        await tx.outboxEvent.create({
-          data: {
-            tenantId,
-            eventType: 'message.status.changed',
-            aggregateType: 'message',
-            aggregateId: message.id,
-            payload: {
-              messageId: message.id,
-              from: 'SENDING',
-              to: 'FAILED',
-              errorCode: err.fenwiraCode,
-            },
-            correlationId: job.data.correlationId ?? null,
-          },
-        })
         if (err.classification === 'CREDENTIAL')
           await markCredentialInvalid(tx, tenantId, credential.credentialId, phone.id)
       })
@@ -310,15 +296,12 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
 
   private async exhausted(job: Job<SendJob>, tenantId: string, messageId: string, err: unknown) {
     await this.db.withTenant(tenantId, (tx) =>
-      tx.message.updateMany({
-        where: { id: messageId, status: { in: [...SENDABLE] } },
-        data: {
-          status: 'FAILED',
-          failedAt: new Date(),
-          errorCode: 'RETRIES_EXHAUSTED',
-          errorDetail: err instanceof Error ? err.message.slice(0, 500) : String(err),
-        },
-      }),
+      this.fail(
+        tx,
+        messageId,
+        'RETRIES_EXHAUSTED',
+        err instanceof Error ? err.message.slice(0, 500) : String(err),
+      ),
     )
     await this.queues.get(QUEUES.whatsappOutboundDlq).add('dead', job.data, {
       jobId: jobId('dlq', messageId, Date.now()),
@@ -329,11 +312,25 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
     await this.emitStatus(tenantId, messageId)
   }
 
-  private fail(tx: TenantTx, id: string, code: string, detail: string) {
-    return tx.message.updateMany({
+  /** FAILED plus `message.status.changed`, so billing releases and campaigns update. */
+  private async fail(tx: TenantTx, id: string, code: string, detail: string) {
+    const res = await tx.message.updateMany({
       where: { id, status: { in: [...SENDABLE] } },
       data: { status: 'FAILED', failedAt: new Date(), errorCode: code, errorDetail: detail },
     })
+    if (res.count) {
+      const m = await tx.message.findFirstOrThrow({ where: { id }, select: { tenantId: true } })
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: m.tenantId,
+          eventType: 'message.status.changed',
+          aggregateType: 'message',
+          aggregateId: id,
+          payload: { messageId: id, from: 'SENDING', to: 'FAILED', errorCode: code },
+        },
+      })
+    }
+    return res
   }
 
   private async markRead({ tenantId, messageId }: MarkReadJob) {

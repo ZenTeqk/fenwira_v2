@@ -35,6 +35,7 @@ describe('navigation', () => {
       'dashboard',
       'inbox',
       'contacts',
+      'campaigns',
       'templates',
       'integrations',
       'settings',

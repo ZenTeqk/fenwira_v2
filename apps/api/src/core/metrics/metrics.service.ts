@@ -45,6 +45,31 @@ export class MetricsService implements OnApplicationBootstrap, OnApplicationShut
     buckets: [50, 100, 250, 500, 1000, 2500, 5000, 15000],
     registers: [this.registry],
   })
+  // Campaigns (Phase 9): throughput, outcomes, retries and duration. No tenant or campaign labels.
+  readonly campaignRecipients = new Counter({
+    name: 'campaign_recipients_total',
+    help: 'Campaign recipients processed by the dispatcher, by outcome',
+    labelNames: ['outcome'] as const,
+    registers: [this.registry],
+  })
+  readonly campaignBatches = new Counter({
+    name: 'campaign_dispatch_batches_total',
+    help: 'Campaign dispatch batches run, by result',
+    labelNames: ['result'] as const,
+    registers: [this.registry],
+  })
+  readonly campaignRetries = new Counter({
+    name: 'campaign_job_retries_total',
+    help: 'Campaign jobs run again after a failure',
+    registers: [this.registry],
+  })
+  readonly campaignDuration = new Histogram({
+    name: 'campaign_duration_seconds',
+    help: 'From the first send to completion',
+    buckets: [10, 60, 300, 900, 3600, 4 * 3600, 24 * 3600],
+    registers: [this.registry],
+  })
+
   readonly messageStatus = new Counter({
     name: 'messages_status_total',
     help: 'Message status transitions',

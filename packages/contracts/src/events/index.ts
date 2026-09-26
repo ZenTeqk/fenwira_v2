@@ -62,6 +62,10 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     status: z.string(),
     source: z.string(),
   }),
+  // Campaigns (Phase 9): dispatch work is started by these, in the same transaction as the state.
+  'campaign.launched': z.object({ campaignId: z.uuid() }),
+  'campaign.resumed': z.object({ campaignId: z.uuid() }),
+  'campaign.completed': z.object({ campaignId: z.uuid() }),
   // Templates (Phase 8): a version's status changed (Meta review, pause, disable, sync).
   'template.status.changed': z.object({
     templateId: z.uuid(),

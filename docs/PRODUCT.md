@@ -67,6 +67,15 @@ It is built for the Indian SMB and mid-market first (INR wallet, Asia/Kolkata de
 
 Deals and pipelines, AI assistants or AI replies, other channels (SMS, email, Instagram), white-label branding, SSO/SAML, payment-provider checkout, a mobile app, and multi-language template groups. Any of these needs a spec change first.
 
+## Product backlog
+
+Deferred by the product owner; not scheduled in a phase.
+
+| Item | From | Note |
+| --- | --- | --- |
+| One-tap / zero-tap authentication templates | Phase 8 | Copy-code OTP is built; one-tap needs the Android app signature. |
+| Hide (archive) a template without deleting it at Meta | Phase 8 | The ARCHIVED status exists; no UI or endpoint. |
+
 ## Success metrics (Fenwira Core, Phases 0–7)
 
 - A new tenant goes from registration to the first sent WhatsApp message in under 15 minutes, with no developer help.

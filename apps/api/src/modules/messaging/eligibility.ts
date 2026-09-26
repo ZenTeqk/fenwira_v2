@@ -61,6 +61,8 @@ export type EligibilityDecision =
         'CONTACT_BLOCKED' | 'CONSENT_REQUIRED' | 'CONVERSATION_WINDOW_CLOSED'
       >
       reason: string
+      /** True when the contact explicitly opted out (vs. never consented). */
+      optedOut: boolean
       rules: RuleId[]
     }
 
@@ -71,7 +73,11 @@ type Rule = {
   deny: (i: EligibilityInput) => Denial | null
 }
 
-const consentDenied = (reason: string): Denial => ({ code: 'CONSENT_REQUIRED', reason })
+const consentDenied = (reason: string, optedOut: boolean): Denial => ({
+  code: 'CONSENT_REQUIRED',
+  reason,
+  optedOut,
+})
 
 const ORDER: Rule[] = [
   {
@@ -79,7 +85,7 @@ const ORDER: Rule[] = [
     applies: () => true,
     deny: (i) =>
       i.contact.status === 'BLOCKED' || i.contact.deletedAt
-        ? { code: 'CONTACT_BLOCKED', reason: 'This contact is blocked.' }
+        ? { code: 'CONTACT_BLOCKED', reason: 'This contact is blocked.', optedOut: false }
         : null,
   },
   {
@@ -88,14 +94,17 @@ const ORDER: Rule[] = [
     deny: (i) =>
       i.contact.marketingConsent === 'GRANTED'
         ? null
-        : consentDenied('This contact has not opted in to marketing messages.'),
+        : consentDenied(
+            'This contact has not opted in to marketing messages.',
+            i.contact.marketingConsent === 'REVOKED',
+          ),
   },
   {
     id: RULES.TEMP_UTILITY_BLOCK_ON_REVOKED,
     applies: (_, cls) => cls === 'UTILITY',
     deny: (i) =>
       i.contact.utilityConsent === 'REVOKED'
-        ? consentDenied('This contact opted out of these messages.')
+        ? consentDenied('This contact opted out of these messages.', true)
         : null,
   },
   {
@@ -103,7 +112,7 @@ const ORDER: Rule[] = [
     applies: (_, cls) => cls === 'AUTHENTICATION',
     deny: (i) =>
       i.contact.utilityConsent === 'REVOKED'
-        ? consentDenied('This contact opted out of these messages.')
+        ? consentDenied('This contact opted out of these messages.', true)
         : null,
   },
   { id: RULES.SERVICE_NO_CONSENT_CHECK, applies: (_, cls) => cls === 'SERVICE', deny: () => null },
@@ -115,6 +124,7 @@ const ORDER: Rule[] = [
         ? null
         : {
             code: 'CONVERSATION_WINDOW_CLOSED',
+            optedOut: false,
             reason:
               'The 24-hour window is closed. Send an approved template to restart the conversation.',
           },
@@ -144,6 +154,10 @@ export class MessageEligibilityService {
   assert(input: EligibilityInput): void {
     const d = this.evaluate(input)
     if (!d.allowed)
-      throw new AppError(d.code, 422, d.reason, { purpose: input.purpose, rule: d.rule })
+      throw new AppError(d.code, 422, d.reason, {
+        purpose: input.purpose,
+        rule: d.rule,
+        optedOut: d.optedOut,
+      })
   }
 }

@@ -32,6 +32,8 @@ const postgresUrl = z
 const redisUrl = z.string().refine((v) => /^rediss?:\/\//.test(v), 'must be a redis:// URL')
 
 export const baseEnvSchema = z.object({
+  /** B3/B4: billable sends reserve wallet funds. Off until billing launches (docs/BILLING.md). */
+  BILLING_ENFORCED: booleanString.default(false),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_VERSION: z.string().min(1).default('dev'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -134,6 +136,8 @@ export const workerEnvSchema = baseEnvSchema.extend({
   ...metaEnv,
   /** How often each connected number is refreshed from Meta (quality, tier, token expiry). */
   WHATSAPP_SYNC_INTERVAL_HOURS: z.coerce.number().min(0.01).max(168).default(6),
+  /** Campaign recipients handed to MessagingService per dispatch job (docs/CAMPAIGN_ENGINE.md). */
+  CAMPAIGN_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(50),
   /** Outbound retry base delay; attempts wait 2^n × base with jitter. Tests shorten it. */
   WHATSAPP_OUTBOUND_BACKOFF_MS: z.coerce.number().int().min(10).max(60_000).default(1000),
   ...storageEnv,

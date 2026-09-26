@@ -24,3 +24,8 @@ export function normalizePhone(input: string, defaultCountry: string): Normalize
     }
   return { ok: true, e164: parsed.number, country: parsed.country ?? null }
 }
+
+/** ISO country of an E.164 number (for per-country pricing), or null. */
+export function countryOf(e164: string): string | null {
+  return parsePhoneNumberFromString(e164)?.country ?? null
+}
