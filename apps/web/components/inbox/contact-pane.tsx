@@ -1,14 +1,15 @@
 'use client'
 
 import { type Contact, type ContactNote } from '@fenwira/contracts'
-import { Badge, Skeleton } from '@fenwira/ui'
+import { ConsentBadge } from '@/components/contacts/consent-badge'
+import { EligibilitySummary } from '@/components/contacts/eligibility-summary'
+import { Skeleton } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { TagBadges } from '@/components/contacts/tag-badges'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
-import { CONSENT_LABEL, CONSENT_TONE } from '@/lib/contacts'
 import { relativeTime } from '@/lib/relative-time'
 
 type PastConversation = {
@@ -67,14 +68,26 @@ export function ContactPane({
           Open contact
         </Link>
       </div>
-      <section className="flex flex-col gap-2" aria-label="Consent">
-        <h3 className="text-sm font-semibold text-slate">Consent</h3>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-          Marketing{' '}
-          <Badge tone={CONSENT_TONE[c.marketingConsent]}>{CONSENT_LABEL[c.marketingConsent]}</Badge>
-          Utility{' '}
-          <Badge tone={CONSENT_TONE[c.utilityConsent]}>{CONSENT_LABEL[c.utilityConsent]}</Badge>
-        </div>
+      <section className="flex flex-col gap-2" aria-labelledby="pane-messaging">
+        <h3 id="pane-messaging" className="text-sm font-semibold text-slate">
+          What you can send
+        </h3>
+        <EligibilitySummary contactId={c.id} conversationId={conversationId} />
+      </section>
+      <section className="flex flex-col gap-2" aria-labelledby="pane-consent">
+        <h3 id="pane-consent" className="text-sm font-semibold text-slate">
+          Consent
+        </h3>
+        <dl className="grid grid-cols-2 items-center gap-2 text-sm">
+          <dt className="text-secondary">Marketing</dt>
+          <dd>
+            <ConsentBadge state={c.marketingConsent} />
+          </dd>
+          <dt className="text-secondary">Utility</dt>
+          <dd>
+            <ConsentBadge state={c.utilityConsent} />
+          </dd>
+        </dl>
       </section>
       <section className="flex flex-col gap-2" aria-label="Tags">
         <h3 className="text-sm font-semibold text-slate">Tags</h3>
@@ -94,7 +107,7 @@ export function ContactPane({
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted">No notes.</p>
+          <p className="text-sm text-secondary">No notes yet. Notes on the contact show here.</p>
         )}
       </section>
       <section className="flex flex-col gap-2" aria-label="Other conversations">
@@ -117,7 +130,7 @@ export function ContactPane({
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted">None.</p>
+          <p className="text-sm text-secondary">No other conversations.</p>
         )}
       </section>
     </div>

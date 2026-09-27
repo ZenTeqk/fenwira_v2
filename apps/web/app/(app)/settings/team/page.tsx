@@ -20,10 +20,11 @@ import {
   Field,
   Input,
   Label,
+  ListPage,
   Modal,
   ModalClose,
   ModalContent,
-  PageHeader,
+  PermissionState,
   Select,
   SelectContent,
   SelectItem,
@@ -38,7 +39,6 @@ import { MoreHorizontal, ShieldCheck, UserPlus } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { fieldError, FormError } from '@/components/auth/form-error'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { ApiError, get, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 
@@ -167,7 +167,7 @@ export default function TeamSettingsPage() {
     onError,
   })
 
-  if (!can('team.read')) return <NoAccess what="the team" />
+  if (!can('team.read')) return <PermissionState what="the team" />
 
   const memberColumns: ColumnDef<Member, unknown>[] = [
     {
@@ -315,19 +315,18 @@ export default function TeamSettingsPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Team"
-        description="People with access to this workspace and what they can do."
-        actions={
-          canManage ? (
-            <Button onClick={() => setInviteOpen(true)}>
-              <UserPlus aria-hidden="true" />
-              Invite teammate
-            </Button>
-          ) : null
-        }
-      />
+    <ListPage
+      header={{
+        title: 'Team',
+        description: 'People with access to this workspace and what they can do.',
+        actions: canManage ? (
+          <Button onClick={() => setInviteOpen(true)}>
+            <UserPlus aria-hidden="true" />
+            Invite teammate
+          </Button>
+        ) : null,
+      }}
+    >
       <DataTable
         label="Team members"
         columns={memberColumns}
@@ -339,7 +338,7 @@ export default function TeamSettingsPage() {
       />
       {canManage ? (
         <section aria-labelledby="pending-invitations" className="flex flex-col gap-3">
-          <h2 id="pending-invitations" className="text-md font-semibold text-slate">
+          <h2 id="pending-invitations" className="text-lg font-semibold text-slate">
             Pending invitations
           </h2>
           <DataTable
@@ -356,6 +355,6 @@ export default function TeamSettingsPage() {
         </section>
       ) : null}
       <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} />
-    </div>
+    </ListPage>
   )
 }

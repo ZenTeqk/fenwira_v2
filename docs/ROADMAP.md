@@ -309,6 +309,21 @@ Also found and fixed:
 
 Performance (local Docker, one worker, meta-mock): 200 keyword events × 3 flows = 600 executions and 1,800 steps in 25.1 s (≈ 24 executions/s, 72 steps/s; 8 events/s because each event's flows run one after another by design). Probe: `PERF=1 … test/automation-perf.int.test.ts`.
 
+## Design System v1 (2026-09-28)
+
+UI/UX normalization before Phase 11, on branch `ui-design-system-v1`. Docs: [design/FENWIRA_DESIGN_SYSTEM.md](design/FENWIRA_DESIGN_SYSTEM.md), [design/UX_PATTERNS.md](design/UX_PATTERNS.md), [design/UI_AUDIT.md](design/UI_AUDIT.md). No backend domain behavior changed; one read-only endpoint was added (`GET /contacts/:id/eligibility`, delegating to MessageEligibilityService).
+
+| Check | Result |
+| --- | --- |
+| Tokens and contrast | v1 palette (danger `#DC2626`, info `#2563EB`, secondary, strong border, WhatsApp token, `-strong` text shades); every text pairing ≥ 4.5:1, pinned by `tokens.test.ts` |
+| Shell | Modules-only sidebar with workspace status (WhatsApp, wallet), top bar (workspace, breadcrumb on section pages, search, help, notifications, account), module tabs |
+| Shared components and patterns | SearchInput, FilterBar, MetricCard, PermissionState, ConnectionState, SectionHeader, Timeline, ModuleTabs, DetailDrawer, RowActions, DataTable toolbar/bulk/columns, ConfirmDialog impact; ListPage, DetailPage, BuilderPage, SettingsPage, DashboardLayout |
+| Responsive | No horizontal page scroll at 1440 / 1024 / 768 / 375 (asserted by `e2e/visual.spec.ts`); phones open the flow builder in the Outline |
+| Accessibility | axe WCAG 2.2 A/AA on every major page, drawer, palette and dialogs: 0 violations; Lighthouse accessibility 100 on dashboard, contacts, campaigns, templates, automations (list, new, builder), workspace settings and inbox |
+| Regression | 353 integration (205 database, 10 API, 138 worker; perf probe skipped), 48 e2e (visual capture skipped), 258 unit; lint, typecheck, format, design tokens, dependency rules and the OpenAPI check pass |
+
+Also found and fixed: `@socket.io/redis-emitter` left publish promises unhandled, so a publish timing out under load became an unhandled rejection (seen once in the full suite); the emitter now drops failed publishes (unit test reproduces it). The browser CORS rule for `If-Match` (Phase 10) is covered by e2e.
+
 ## Production-readiness backlog
 
 | Priority | Item | Why |

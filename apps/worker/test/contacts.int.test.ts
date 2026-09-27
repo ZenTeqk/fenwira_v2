@@ -322,6 +322,50 @@ describe('consent', () => {
     ])
   })
 
+  it('eligibility summary mirrors MessageEligibilityService (read-only, C1)', async () => {
+    const { owner, ids } = await connected('ct-elig')
+    const created = await owner.client.post('/contacts', { phone: `+${customer()}`, name: 'Elig' })
+    expect(created.status, created.text).toBe(201)
+    const id = created.body.data.id
+    const read = async () => (await owner.client.get(`/contacts/${id}/eligibility`)).body.data
+    // No conversation yet: no window, no marketing consent; utility allowed (C3 interim rule).
+    expect(await read()).toMatchObject({
+      serviceWindowExpiresAt: null,
+      freeform: { allowed: false, code: 'CONVERSATION_WINDOW_CLOSED' },
+      marketingTemplate: { allowed: false, code: 'CONSENT_REQUIRED', optedOut: false },
+      utilityTemplate: { allowed: true, code: null },
+    })
+    // The customer writes: free-form opens. Marketing granted: marketing opens.
+    await deliverWebhook(
+      webhookUrl,
+      SECRET,
+      inboundMessageWebhook(ids, {
+        from: created.body.data.phoneE164.slice(1),
+        wamid: `wamid.${metaId()}`,
+        text: 'Hello',
+      }),
+    )
+    await waitFor(read, (e) => e.freeform.allowed === true)
+    const granted = await owner.client.post(`/contacts/${id}/consents`, {
+      purpose: 'MARKETING',
+      status: 'GRANTED',
+      note: 'Asked at the counter',
+    })
+    expect(granted.status, granted.text).toBe(200)
+    expect((await read()).marketingTemplate).toMatchObject({ allowed: true })
+    // Opting out of utility blocks utility templates, flagged as an opt-out.
+    const revoked = await owner.client.post(`/contacts/${id}/consents`, {
+      purpose: 'UTILITY',
+      status: 'REVOKED',
+      note: 'Asked us to stop order updates',
+    })
+    expect(revoked.status, revoked.text).toBe(200)
+    expect((await read()).utilityTemplate).toMatchObject({ allowed: false, optedOut: true })
+    // Another workspace can't read it.
+    const other = await createOwner(api, 'ct-elig-other')
+    expect((await other.client.get(`/contacts/${id}/eligibility`)).status).toBe(404)
+  })
+
   it('MessagingService rejects a marketing send without consent; Meta 131050 revokes it', async () => {
     const { owner, ids } = await connected('ct-mkt')
     const messaging = api.get(MessagingService)

@@ -35,7 +35,7 @@ test('create a contact, record consent with a note, and add a note', async ({ pa
   await page.getByLabel('Add a note').fill('Prefers evening calls')
   await page.getByRole('button', { name: 'Save note' }).click()
   await expect(page.getByText('Prefers evening calls')).toBeVisible()
-  await page.getByRole('tab', { name: 'Activities' }).click()
+  await page.getByRole('tab', { name: 'Activity' }).click()
   await expect(page.getByText('Opted in to marketing (Changed manually)')).toBeVisible()
 })
 
@@ -48,7 +48,7 @@ test('filter the contact list and save the filter as a segment', async ({ page }
   ])
     expect((await api(page, owner, '/contacts', { phone, name })).status()).toBe(201)
   await page.goto('/contacts')
-  await expect(page.getByText('3 contacts match')).toBeVisible()
+  await expect(page.getByText('3 contacts', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Filter', exact: true }).click()
   await page.getByRole('button', { name: 'Add condition' }).click()
   await page.getByLabel('Value for Name').fill('ravi')

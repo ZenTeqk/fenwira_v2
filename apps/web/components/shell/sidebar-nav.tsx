@@ -1,10 +1,8 @@
 'use client'
 
 import { cn, focusRing, Tooltip } from '@fenwira/ui'
-import { ChevronDown } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
-import { findActiveLeaf, type NavItem } from '@/lib/navigation'
+import { activeModule, moduleHref, type NavItem, SECONDARY_MODULES } from '@/lib/navigation'
 
 type SidebarNavProps = {
   items: NavItem[]
@@ -21,10 +19,14 @@ const itemBase = cn(
   'focus-visible:outline-offset-0',
 )
 const inactive = 'text-slate-400 hover:bg-slate-800 hover:text-surface'
-// Active: slate-800 fill, white text, #00A884 indicator bar (non-text, docs/DESIGN_SYSTEM.md).
+// Active: slate-800 fill, white text, #00A884 indicator bar (non-text, FENWIRA_DESIGN_SYSTEM → Module color usage).
 const active =
   'bg-slate-800 text-surface before:absolute before:inset-y-2 before:left-0 before:w-0.75 before:rounded-full before:bg-primary'
 
+/**
+ * Modules only (UX_PATTERNS → Application shell). A module's sub-pages are the ModuleTabs under
+ * the top bar, not sidebar children. Operational modules first, then workspace administration.
+ */
 export function SidebarNav({
   items,
   pathname,
@@ -32,122 +34,61 @@ export function SidebarNav({
   onNavigate,
   badges = {},
 }: SidebarNavProps) {
-  const activeLeaf = findActiveLeaf(pathname, items)
-  const activeGroup = items.find((item) =>
-    item.children?.some((child) => child.id === activeLeaf?.id),
-  )?.id
-  const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    activeGroup ? { [activeGroup]: true } : {},
-  )
+  const current = activeModule(pathname, items)?.id
+  const primary = items.filter((i) => !SECONDARY_MODULES.includes(i.id))
+  const secondary = items.filter((i) => SECONDARY_MODULES.includes(i.id))
+
+  const render = (item: NavItem) => {
+    const Icon = item.icon
+    const isActive = current === item.id
+    const count = badges[item.id]
+    const link = (
+      <Link
+        href={moduleHref(item)}
+        onClick={onNavigate}
+        aria-current={isActive ? 'page' : undefined}
+        className={cn(itemBase, isActive ? active : inactive, collapsed && 'justify-center px-0')}
+      >
+        <Icon aria-hidden="true" />
+        {collapsed ? (
+          <span className="sr-only">{item.label}</span>
+        ) : (
+          <span className="truncate">{item.label}</span>
+        )}
+        {count ? (
+          <span
+            className={cn(
+              'rounded-full bg-primary-strong px-1.5 text-xs font-semibold text-surface',
+              collapsed ? 'absolute top-0.5 right-1' : 'ml-auto',
+            )}
+          >
+            {count > 99 ? '99+' : count}
+            <span className="sr-only"> unread</span>
+          </span>
+        ) : null}
+      </Link>
+    )
+    return (
+      <li key={item.id}>
+        {collapsed ? (
+          <Tooltip content={item.label} side="right">
+            {link}
+          </Tooltip>
+        ) : (
+          link
+        )}
+      </li>
+    )
+  }
 
   return (
-    <nav aria-label="Main" className="flex flex-col gap-0.5">
-      {items.map((item) => {
-        const Icon = item.icon
-        if (!item.children) {
-          const isActive = activeLeaf?.id === item.id
-          const link = (
-            <Link
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={isActive ? 'page' : undefined}
-              className={cn(
-                itemBase,
-                isActive ? active : inactive,
-                collapsed && 'justify-center px-0',
-              )}
-            >
-              <Icon aria-hidden="true" />
-              {collapsed ? (
-                <span className="sr-only">{item.label}</span>
-              ) : (
-                <span className="truncate">{item.label}</span>
-              )}
-              {badges[item.id] ? (
-                <span
-                  className={cn(
-                    'rounded-full bg-primary-strong px-1.5 text-xs font-semibold text-surface',
-                    collapsed ? 'absolute top-0.5 right-1' : 'ml-auto',
-                  )}
-                >
-                  {badges[item.id]! > 99 ? '99+' : badges[item.id]}
-                  <span className="sr-only"> unread</span>
-                </span>
-              ) : null}
-            </Link>
-          )
-          return (
-            <div key={item.id}>
-              {collapsed ? (
-                <Tooltip content={item.label} side="right">
-                  {link}
-                </Tooltip>
-              ) : (
-                link
-              )}
-            </div>
-          )
-        }
-
-        const groupActive = item.id === activeGroup
-        if (collapsed) {
-          // Collapsed rail: the group icon links to its first page; the tooltip names it.
-          const first = item.children[0]!
-          return (
-            <div key={item.id}>
-              <Tooltip content={item.label} side="right">
-                <Link
-                  href={first.href}
-                  onClick={onNavigate}
-                  aria-current={groupActive ? 'page' : undefined}
-                  className={cn(itemBase, groupActive ? active : inactive, 'justify-center px-0')}
-                >
-                  <Icon aria-hidden="true" />
-                  <span className="sr-only">{item.label}</span>
-                </Link>
-              </Tooltip>
-            </div>
-          )
-        }
-
-        const expanded = open[item.id] ?? false
-        const panelId = `nav-group-${item.id}`
-        return (
-          <div key={item.id}>
-            <button
-              type="button"
-              aria-expanded={expanded}
-              aria-controls={panelId}
-              onClick={() => setOpen((s) => ({ ...s, [item.id]: !expanded }))}
-              className={cn(itemBase, groupActive ? 'text-surface' : inactive)}
-            >
-              <Icon aria-hidden="true" />
-              <span className="flex-1 truncate text-left">{item.label}</span>
-              <ChevronDown
-                className={cn('size-4 transition-transform', expanded && 'rotate-180')}
-                aria-hidden="true"
-              />
-            </button>
-            <ul id={panelId} hidden={!expanded} className="mt-0.5 flex flex-col gap-0.5 pl-7">
-              {item.children.map((child) => {
-                const isActive = activeLeaf?.id === child.id
-                return (
-                  <li key={child.id}>
-                    <Link
-                      href={child.href}
-                      onClick={onNavigate}
-                      aria-current={isActive ? 'page' : undefined}
-                      className={cn(itemBase, 'h-8 text-sm', isActive ? active : inactive)}
-                    >
-                      <span className="truncate">{child.label}</span>
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        )
-      })}
+    <nav aria-label="Main" className="flex flex-col gap-4">
+      <ul className="flex flex-col gap-0.5">{primary.map(render)}</ul>
+      {secondary.length ? (
+        <ul className="flex flex-col gap-0.5 border-t border-slate-800 pt-4">
+          {secondary.map(render)}
+        </ul>
+      ) : null}
     </nav>
   )
 }

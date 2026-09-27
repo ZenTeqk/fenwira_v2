@@ -14,7 +14,12 @@ export function Label({ className, ...props }: ComponentProps<typeof LabelPrimit
   )
 }
 
-type ControlProps = { id?: string; 'aria-describedby'?: string; 'aria-invalid'?: boolean }
+type ControlProps = {
+  id?: string
+  'aria-describedby'?: string
+  'aria-invalid'?: boolean
+  'aria-required'?: boolean
+}
 
 export type FieldProps = {
   label: string
@@ -48,6 +53,7 @@ export function Field({ label, hint, error, required, className, children }: Fie
         id,
         'aria-describedby': describedBy,
         'aria-invalid': error ? true : undefined,
+        'aria-required': required ? true : undefined,
       })}
       {hint ? (
         <p id={hintId} className="text-sm text-muted">

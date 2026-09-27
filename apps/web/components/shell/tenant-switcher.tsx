@@ -17,7 +17,14 @@ import { useRouter } from 'next/navigation'
 import { useSession } from '../session/session-provider'
 
 /** Switching tenant clears every cached query and remounts the page (docs/MULTI_TENANCY.md). */
-export function TenantSwitcher({ collapsed = false }: { collapsed?: boolean }) {
+export function TenantSwitcher({
+  collapsed = false,
+  variant = 'sidebar',
+}: {
+  collapsed?: boolean
+  /** `topbar`: light, compact workspace context in the top bar (UX_PATTERNS → Application shell). */
+  variant?: 'sidebar' | 'topbar'
+}) {
   const { me, membership, switchTenant } = useSession()
   const router = useRouter()
   return (
@@ -25,7 +32,10 @@ export function TenantSwitcher({ collapsed = false }: { collapsed?: boolean }) {
       <DropdownTrigger
         aria-label={`Current workspace: ${membership.tenantName}. Switch workspace`}
         className={cn(
-          'flex h-11 w-full items-center gap-2 rounded-md px-2 text-left text-surface hover:bg-slate-800',
+          'flex items-center gap-2 rounded-md text-left',
+          variant === 'topbar'
+            ? 'h-9 max-w-56 px-2 text-slate hover:bg-neutral-soft'
+            : 'h-11 w-full px-2 text-surface hover:bg-slate-800',
           collapsed && 'justify-center px-0',
           focusRing,
         )}
@@ -37,11 +47,16 @@ export function TenantSwitcher({ collapsed = false }: { collapsed?: boolean }) {
               <span className="block truncate text-base font-semibold">
                 {membership.tenantName}
               </span>
-              <span className="block truncate text-xs text-slate-400">
-                {ROLE_LABELS[membership.role]}
-              </span>
+              {variant === 'sidebar' ? (
+                <span className="block truncate text-xs text-slate-400">
+                  {ROLE_LABELS[membership.role]}
+                </span>
+              ) : null}
             </span>
-            <ChevronsUpDown className="size-4 text-slate-400" aria-hidden="true" />
+            <ChevronsUpDown
+              className={cn('size-4', variant === 'topbar' ? 'text-muted' : 'text-slate-400')}
+              aria-hidden="true"
+            />
           </>
         )}
       </DropdownTrigger>

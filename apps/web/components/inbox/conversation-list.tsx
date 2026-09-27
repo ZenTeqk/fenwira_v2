@@ -1,9 +1,20 @@
 'use client'
 
 import { type Conversation, type InboxView } from '@fenwira/contracts'
-import { Avatar, Badge, cn, EmptyState, ErrorState, Input, Skeleton } from '@fenwira/ui'
+import {
+  Avatar,
+  Badge,
+  Checkbox,
+  cn,
+  EmptyState,
+  ErrorState,
+  Label,
+  SearchInput,
+  Skeleton,
+  StatusBadge,
+} from '@fenwira/ui'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, Clock, Inbox } from 'lucide-react'
+import { Bot, Inbox } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
@@ -69,12 +80,12 @@ export function ConversationList({
       className="flex h-full min-h-0 flex-col border-r border-border bg-surface"
     >
       <div className="flex flex-col gap-2 border-b border-border p-3">
-        <Input
-          type="search"
+        <SearchInput
+          label="Search conversations"
           placeholder="Search messages, names, numbers"
-          aria-label="Search conversations"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onValueChange={setSearch}
+          className="sm:w-full"
         />
         <Segmented
           label="Views"
@@ -82,14 +93,16 @@ export function ConversationList({
           options={VIEWS.map((v) => ({ value: v.id, label: v.label }))}
           onChange={setView}
         />
-        <label className="flex items-center gap-2 text-sm text-slate">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="inbox-unread-only"
             checked={unreadOnly}
-            onChange={(e) => setUnreadOnly(e.target.checked)}
+            onCheckedChange={(v) => setUnreadOnly(v === true)}
           />
-          Unread only
-        </label>
+          <Label htmlFor="inbox-unread-only" className="text-sm font-normal">
+            Unread only
+          </Label>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {list.isPending ? (
@@ -152,15 +165,13 @@ export function ConversationList({
                         {c.snippet ?? c.lastMessagePreview ?? 'No messages yet'}
                       </span>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <Badge tone={open ? 'success' : 'neutral'} icon={<Clock />}>
-                          {open ? 'Window open' : 'Window closed'}
-                        </Badge>
+                        <StatusBadge status={open ? 'WINDOW_OPEN' : 'WINDOW_CLOSED'} />
                         {c.automationState === 'AGENT_TAKEOVER' ? (
                           <Badge tone="info" icon={<Bot />}>
                             Takeover
                           </Badge>
                         ) : null}
-                        {c.status === 'PENDING' ? <Badge tone="warning">Pending</Badge> : null}
+                        {c.status === 'PENDING' ? <StatusBadge status="PENDING" /> : null}
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1.5">

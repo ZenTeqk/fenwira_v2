@@ -27,7 +27,7 @@ import {
   ErrorState,
   Field,
   Input,
-  KpiCard,
+  MetricCard,
   Modal,
   ModalContent,
   ModalTrigger,
@@ -195,7 +195,7 @@ describe('status and identity', () => {
 })
 
 describe('layout and feedback', () => {
-  it('Card, KpiCard, PageHeader, Breadcrumb render their content', () => {
+  it('Card, MetricCard, PageHeader, Breadcrumb render their content', () => {
     render(
       <>
         <Card>
@@ -204,7 +204,7 @@ describe('layout and feedback', () => {
           </CardHeader>
           <CardContent>Body</CardContent>
         </Card>
-        <KpiCard
+        <MetricCard
           label="Delivered"
           value="9,712"
           delta={{ value: '+4.2%', direction: 'up', sentiment: 'positive', label: 'vs last week' }}

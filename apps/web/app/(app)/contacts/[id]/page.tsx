@@ -6,14 +6,18 @@ import {
   type ContactActivity,
   type ContactNote,
 } from '@fenwira/contracts'
+import { ConsentBadge } from '@/components/contacts/consent-badge'
+import { EligibilitySummary } from '@/components/contacts/eligibility-summary'
 import {
   Alert,
-  Badge,
   Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  type ColumnDef,
+  DataTable,
+  DetailPage,
   Dropdown,
   DropdownContent,
   DropdownItem,
@@ -26,7 +30,7 @@ import {
   Modal,
   ModalClose,
   ModalContent,
-  PageHeader,
+  PermissionState,
   Select,
   SelectContent,
   SelectItem,
@@ -34,10 +38,13 @@ import {
   SelectValue,
   Skeleton,
   StatusBadge,
+  SummaryItem,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
+  Textarea,
+  Timeline,
   toast,
   useConfirm,
 } from '@fenwira/ui'
@@ -50,18 +57,10 @@ import { FormError } from '@/components/auth/form-error'
 import { ContactFormModal } from '@/components/contacts/contact-form-modal'
 import { TagBadges } from '@/components/contacts/tag-badges'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { ApiError, get, patch, post } from '@/lib/api/client'
 import { del } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
-import {
-  CONSENT_LABEL,
-  CONSENT_TONE,
-  formatDateTime,
-  SOURCE_LABEL,
-  useProperties,
-  useTags,
-} from '@/lib/contacts'
+import { CONSENT_LABEL, formatDateTime, SOURCE_LABEL, useProperties, useTags } from '@/lib/contacts'
 import { relativeTime } from '@/lib/relative-time'
 
 const SOURCE_TEXT: Record<string, string> = {
@@ -87,6 +86,41 @@ const ACTIVITY_TEXT: Record<string, (d: Record<string, unknown>) => string> = {
   'tag.removed': (d) => `Removed tag "${d.tag}"`,
   'note.added': () => 'Note added',
 }
+
+const evidenceText = (r: ConsentRecord) =>
+  [
+    r.evidence.note ? `“${String(r.evidence.note)}”` : null,
+    r.evidence.keyword ? `Replied "${String(r.evidence.keyword)}"` : null,
+    r.evidence.messageId ? `Message ${String(r.evidence.messageId).slice(0, 8)}…` : null,
+    r.evidence.importJobId ? `Import row ${String(r.evidence.row)}` : null,
+    r.evidence.errorCode ? String(r.evidence.errorCode) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ') || '—'
+
+const consentColumns: Array<ColumnDef<ConsentRecord>> = [
+  { id: 'when', header: 'When', cell: ({ row }) => formatDateTime(row.original.capturedAt) },
+  {
+    id: 'type',
+    header: 'Type',
+    cell: ({ row }) => (row.original.purpose === 'MARKETING' ? 'Marketing' : 'Utility'),
+  },
+  {
+    id: 'change',
+    header: 'Change',
+    cell: ({ row }) => <ConsentBadge state={row.original.status} />,
+  },
+  {
+    id: 'how',
+    header: 'How',
+    cell: ({ row }) => SOURCE_TEXT[row.original.source] ?? row.original.source,
+  },
+  {
+    id: 'evidence',
+    header: 'Evidence',
+    cell: ({ row }) => <span className="text-sm text-secondary">{evidenceText(row.original)}</span>,
+  },
+]
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -261,7 +295,7 @@ export default function ContactPage() {
     onError,
   })
 
-  if (!can('contacts.read')) return <NoAccess what="contacts" />
+  if (!can('contacts.read')) return <PermissionState what="contacts" />
   if (contact.isPending) return <Skeleton className="h-64 w-full" />
   if (contact.isError)
     return contact.error instanceof ApiError && contact.error.status === 404 ? (
@@ -274,83 +308,104 @@ export default function ContactPage() {
   const canWrite = can('contacts.write')
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={title}
-        breadcrumbs={[{ label: 'Contacts', href: '/contacts' }, { label: title }]}
-        linkAs={Link}
-        description={
+    <DetailPage
+      banner={
+        c.status === 'BLOCKED' ? (
+          <Alert tone="danger" title="This contact is blocked">
+            Nothing can be sent to them, and their messages don’t reopen conversations. Unblock them
+            from More actions.
+          </Alert>
+        ) : undefined
+      }
+      summary={
+        <>
+          <SummaryItem label="Marketing consent">
+            <ConsentBadge state={c.marketingConsent} />
+          </SummaryItem>
+          <SummaryItem label="Utility consent">
+            <ConsentBadge state={c.utilityConsent} />
+          </SummaryItem>
+          <SummaryItem label="Last message from contact">
+            {c.lastInboundAt ? relativeTime(c.lastInboundAt) : 'Never'}
+          </SummaryItem>
+          <SummaryItem label="Source">{SOURCE_LABEL[c.source] ?? c.source}</SummaryItem>
+        </>
+      }
+      header={{
+        title,
+        breadcrumbs: [{ label: 'Contacts', href: '/contacts' }, { label: title }],
+        linkAs: Link,
+        description: (
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-mono">{c.phoneE164}</span>
-            {c.status === 'BLOCKED' ? <Badge tone="danger">Blocked</Badge> : null}
-            <TagBadges tags={c.tags} max={8} />
+            {c.status === 'BLOCKED' ? <StatusBadge status="RESTRICTED" label="Blocked" /> : null}
+            {c.tags.length ? <TagBadges tags={c.tags} max={8} /> : null}
           </span>
-        }
-        actions={
-          canWrite ? (
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setEditing(true)}>
-                <Pencil aria-hidden="true" />
-                Edit
-              </Button>
-              <Dropdown>
-                <DropdownTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="More actions">
-                    <MoreHorizontal aria-hidden="true" />
-                  </Button>
-                </DropdownTrigger>
-                <DropdownContent>
-                  <DropdownLabel>Tags</DropdownLabel>
-                  {tags.map((t) => {
-                    const has = c.tags.some((x) => x.id === t.id)
-                    return (
-                      <DropdownItem
-                        key={t.id}
-                        onSelect={() =>
-                          tagAction.mutate({ action: has ? 'UNTAG' : 'TAG', tagId: t.id })
-                        }
-                      >
-                        {has ? `Remove "${t.name}"` : `Add "${t.name}"`}
-                      </DropdownItem>
-                    )
-                  })}
-                  <DropdownSeparator />
-                  <DropdownItem
-                    onSelect={() => setStatus.mutate(c.status === 'BLOCKED' ? 'ACTIVE' : 'BLOCKED')}
-                  >
-                    {c.status === 'BLOCKED' ? 'Unblock' : 'Block'}
-                  </DropdownItem>
-                  {can('contacts.delete') ? (
+        ),
+        actions: canWrite ? (
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              <Pencil aria-hidden="true" />
+              Edit
+            </Button>
+            <Dropdown>
+              <DropdownTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="More actions">
+                  <MoreHorizontal aria-hidden="true" />
+                </Button>
+              </DropdownTrigger>
+              <DropdownContent>
+                <DropdownLabel>Tags</DropdownLabel>
+                {tags.map((t) => {
+                  const has = c.tags.some((x) => x.id === t.id)
+                  return (
                     <DropdownItem
-                      destructive
-                      onSelect={async () => {
-                        if (
-                          await confirm({
-                            title: `Delete ${title}?`,
-                            description:
-                              'The contact disappears from lists and segments. Messages are kept.',
-                            confirmLabel: 'Delete',
-                            destructive: true,
-                          })
-                        )
-                          remove.mutate()
-                      }}
+                      key={t.id}
+                      onSelect={() =>
+                        tagAction.mutate({ action: has ? 'UNTAG' : 'TAG', tagId: t.id })
+                      }
                     >
-                      Delete
+                      {has ? `Remove "${t.name}"` : `Add "${t.name}"`}
                     </DropdownItem>
-                  ) : null}
-                </DropdownContent>
-              </Dropdown>
-            </div>
-          ) : null
-        }
-      />
+                  )
+                })}
+                <DropdownSeparator />
+                <DropdownItem
+                  onSelect={() => setStatus.mutate(c.status === 'BLOCKED' ? 'ACTIVE' : 'BLOCKED')}
+                >
+                  {c.status === 'BLOCKED' ? 'Unblock' : 'Block'}
+                </DropdownItem>
+                {can('contacts.delete') ? (
+                  <DropdownItem
+                    destructive
+                    onSelect={async () => {
+                      if (
+                        await confirm({
+                          title: `Delete ${title}?`,
+                          description:
+                            'The contact disappears from lists and segments. Messages are kept.',
+                          confirmLabel: 'Delete',
+                          destructive: true,
+                        })
+                      )
+                        remove.mutate()
+                    }}
+                  >
+                    Delete
+                  </DropdownItem>
+                ) : null}
+              </DropdownContent>
+            </Dropdown>
+          </div>
+        ) : null,
+      }}
+    >
       <Tabs defaultValue="overview">
-        <TabsList>
+        <TabsList aria-label="Contact sections">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="activities">Activity</TabsTrigger>
           <TabsTrigger value="conversations">Conversations</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
-          <TabsTrigger value="activities">Activities</TabsTrigger>
           <TabsTrigger value="consent">Consent</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
         </TabsList>
@@ -358,7 +413,15 @@ export default function ContactPage() {
         <TabsContent value="overview" className="flex flex-col gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>Details</CardTitle>
+              <CardTitle as="h2">What you can send</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EligibilitySummary contactId={c.id} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Details</CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -382,19 +445,6 @@ export default function ContactPage() {
                     </Detail>
                   ))}
               </dl>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Consent</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-wrap items-center gap-3">
-              <span className="text-sm text-muted">Marketing</span>
-              <Badge tone={CONSENT_TONE[c.marketingConsent]}>
-                {CONSENT_LABEL[c.marketingConsent]}
-              </Badge>
-              <span className="text-sm text-muted">Utility</span>
-              <Badge tone={CONSENT_TONE[c.utilityConsent]}>{CONSENT_LABEL[c.utilityConsent]}</Badge>
             </CardContent>
           </Card>
         </TabsContent>
@@ -433,24 +483,20 @@ export default function ContactPage() {
         </TabsContent>
 
         <TabsContent value="activities">
-          {activities.data?.length ? (
-            <ol className="flex flex-col gap-3" aria-label="Activity timeline">
-              {activities.data.map((a) => (
-                <li
-                  key={a.id}
-                  className="flex flex-col rounded-md border border-border bg-surface p-3"
-                >
-                  <span className="text-slate">{ACTIVITY_TEXT[a.type]?.(a.data) ?? a.type}</span>
-                  <span className="text-sm text-muted">
-                    {a.actorName ?? (a.actorType === 'SYSTEM' ? 'Fenwira' : 'Someone')} ·{' '}
-                    <time dateTime={a.occurredAt}>{formatDateTime(a.occurredAt)}</time>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <EmptyState title="No activity yet" />
-          )}
+          <Card>
+            <CardContent className="pt-5">
+              <Timeline
+                label="Activity timeline"
+                empty="No activity yet. Messages, tag and consent changes show up here."
+                items={(activities.data ?? []).map((a) => ({
+                  id: a.id,
+                  title: ACTIVITY_TEXT[a.type]?.(a.data) ?? a.type,
+                  time: <time dateTime={a.occurredAt}>{formatDateTime(a.occurredAt)}</time>,
+                  description: a.actorName ?? (a.actorType === 'SYSTEM' ? 'Fenwira' : 'Someone'),
+                }))}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="consent" className="flex flex-col gap-4">
@@ -459,51 +505,19 @@ export default function ContactPage() {
               Change consent
             </Button>
           ) : null}
-          {consents.data?.length ? (
-            <table className="w-full text-left text-base" aria-label="Consent history">
-              <thead className="text-sm text-muted">
-                <tr>
-                  <th className="py-2 font-medium">When</th>
-                  <th className="py-2 font-medium">Type</th>
-                  <th className="py-2 font-medium">Change</th>
-                  <th className="py-2 font-medium">How</th>
-                  <th className="py-2 font-medium">Evidence</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {consents.data.map((r) => (
-                  <tr key={r.id}>
-                    <td className="py-2 pr-4 text-slate">{formatDateTime(r.capturedAt)}</td>
-                    <td className="py-2 pr-4 text-slate">
-                      {r.purpose === 'MARKETING' ? 'Marketing' : 'Utility'}
-                    </td>
-                    <td className="py-2 pr-4">
-                      <Badge tone={CONSENT_TONE[r.status]}>{CONSENT_LABEL[r.status]}</Badge>
-                    </td>
-                    <td className="py-2 pr-4 text-slate">{SOURCE_TEXT[r.source] ?? r.source}</td>
-                    <td className="py-2 text-sm text-muted">
-                      {[
-                        r.evidence.note ? `“${String(r.evidence.note)}”` : null,
-                        r.evidence.keyword ? `Replied "${String(r.evidence.keyword)}"` : null,
-                        r.evidence.messageId
-                          ? `Message ${String(r.evidence.messageId).slice(0, 8)}…`
-                          : null,
-                        r.evidence.importJobId ? `Import row ${String(r.evidence.row)}` : null,
-                        r.evidence.errorCode ? String(r.evidence.errorCode) : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ') || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <EmptyState
-              title="No consent recorded"
-              description="This contact hasn't opted in or out yet."
-            />
-          )}
+          <DataTable
+            label="Consent history"
+            columns={consentColumns}
+            data={consents.data ?? []}
+            getRowId={(r) => r.id}
+            loading={consents.isPending}
+            error={consents.isError ? { onRetry: () => void consents.refetch() } : undefined}
+            empty={{
+              title: 'No consent recorded',
+              description:
+                'Marketing templates need this contact’s opt-in. Record it when they agree, or it’s captured when they reply with an opt-in keyword.',
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="notes" className="flex flex-col gap-4">
@@ -515,17 +529,14 @@ export default function ContactPage() {
                 addNote.mutate()
               }}
             >
-              <label htmlFor="new-note" className="text-sm font-medium text-slate">
-                Add a note
-              </label>
-              <textarea
-                id="new-note"
-                className="min-h-20 rounded-md border border-border bg-surface px-3 py-2 text-base text-slate"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                required
-                maxLength={5000}
-              />
+              <Field label="Add a note" hint="Visible to your team only.">
+                <Textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  required
+                  maxLength={5000}
+                />
+              </Field>
               <Button type="submit" className="self-start" loading={addNote.isPending}>
                 Save note
               </Button>
@@ -543,7 +554,10 @@ export default function ContactPage() {
               ))}
             </ul>
           ) : (
-            <Alert tone="info">No notes yet.</Alert>
+            <EmptyState
+              title="No notes yet"
+              description="Notes keep context for your team, such as preferences or past issues."
+            />
           )}
         </TabsContent>
       </Tabs>
@@ -563,6 +577,6 @@ export default function ContactPage() {
         onOpenChange={setConsentOpen}
         onSaved={refresh}
       />
-    </div>
+    </DetailPage>
   )
 }

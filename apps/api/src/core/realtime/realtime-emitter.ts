@@ -19,7 +19,15 @@ export class RealtimeEmitter implements OnApplicationShutdown {
 
   constructor(@Inject(CORE_CONFIG) config: CoreConfig) {
     this.redis = createRedisConnection(config.redisUrl, 'command')
-    this.emitter = new Emitter(this.redis)
+    // The emitter calls publish() without handling its promise; under load a publish can hit the
+    // 2 s command timeout and reject with no listener (an unhandled rejection). Realtime is
+    // advisory, so a failed publish is dropped here instead.
+    const redis = this.redis
+    const publisher = {
+      publish: (channel: string, message: string | Buffer) =>
+        redis.publish(channel, message).catch(() => 0),
+    }
+    this.emitter = new Emitter(publisher)
   }
 
   toTenant(tenantId: string, event: string, payload: unknown): void {

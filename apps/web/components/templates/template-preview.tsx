@@ -32,7 +32,7 @@ export function TemplatePreview({
         className,
       )}
     >
-      <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-2 text-base text-slate shadow-sm">
+      <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-2 text-base text-slate shadow-raised">
         {header?.format === 'TEXT' && header.text ? (
           <p className="font-semibold">
             <VariableText text={header.text} values={samples.header} />

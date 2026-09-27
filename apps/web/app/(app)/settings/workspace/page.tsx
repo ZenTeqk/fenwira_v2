@@ -17,12 +17,13 @@ import {
   Field,
   Input,
   Label,
-  PageHeader,
+  PermissionState,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SettingsPage,
   Skeleton,
   Switch,
   toast,
@@ -33,7 +34,6 @@ import { useRouter } from 'next/navigation'
 import { type FormEvent, useEffect, useState } from 'react'
 import { fieldError, FormError } from '@/components/auth/form-error'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { del, get, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { COUNTRIES, timezones } from '@/lib/locale'
@@ -94,17 +94,18 @@ export default function WorkspaceSettingsPage() {
     },
   })
 
-  if (!can('workspace.read')) return <NoAccess what="workspace settings" />
+  if (!can('workspace.read')) return <PermissionState what="workspace settings" />
   if (workspace.isError) return <ErrorState onRetry={() => void workspace.refetch()} />
 
   const candidates = (members.data ?? []).filter((m) => m.status === 'ACTIVE' && m.role !== 'OWNER')
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Workspace"
-        description="Name, region and security settings for this workspace."
-      />
+    <SettingsPage
+      header={{
+        title: 'Workspace',
+        description: 'Name, region and security settings for this workspace.',
+      }}
+    >
       <Card>
         <form
           onSubmit={(e: FormEvent) => {
@@ -283,6 +284,6 @@ export default function WorkspaceSettingsPage() {
           </CardContent>
         </Card>
       ) : null}
-    </div>
+    </SettingsPage>
   )
 }

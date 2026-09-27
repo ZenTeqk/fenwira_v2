@@ -30,6 +30,7 @@ import { ImportsService } from './imports/imports.service'
 const uuidParam = new ZodValidationPipe(z.uuid())
 const pipe = <T extends z.ZodType>(schema: T) => new ZodValidationPipe(schema)
 type In<T extends z.ZodType> = z.infer<T>
+const eligibilityQuerySchema = z.object({ conversationId: z.uuid().optional() })
 
 @Controller('contacts')
 export class ContactsController {
@@ -117,6 +118,16 @@ export class ContactsController {
   @RequirePermission('contacts.read')
   async conversations(@Param('id', uuidParam) id: string) {
     return { data: await this.contacts.conversations(id) }
+  }
+
+  /** Read-only: what MessageEligibilityService would allow now (C1 stays the only decider). */
+  @Get(':id/eligibility')
+  @RequirePermission('contacts.read')
+  async eligibility(
+    @Param('id', uuidParam) id: string,
+    @Query(pipe(eligibilityQuerySchema)) q: In<typeof eligibilityQuerySchema>,
+  ) {
+    return { data: await this.contacts.eligibility(id, q.conversationId) }
   }
 
   @Get(':id/notes')

@@ -68,6 +68,11 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const windowOpen =
     !!conversation.serviceWindow.expiresAt &&
     new Date(conversation.serviceWindow.expiresAt).getTime() > now
+  const minutesLeft = conversation.serviceWindow.expiresAt
+    ? Math.floor((new Date(conversation.serviceWindow.expiresAt).getTime() - now) / 60_000)
+    : 0
+  // Warn before free-form replies stop being possible (UX_PATTERNS → Inbox).
+  const closingSoon = windowOpen && minutesLeft < 60
   const canForce = conversation.assignee?.id === me.user.id || can('inbox.reassign')
   // Canned replies: "/" at the start of the reply box opens a picker (docs/INBOX.md).
   const canned = useCannedReplies().data ?? []
@@ -301,6 +306,14 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           You can reply when they finish.
         </Alert>
       ) : null}
+      {mode === 'reply' && closingSoon ? (
+        <Alert
+          tone="warning"
+          title={`The 24-hour window closes in ${Math.max(minutesLeft, 1)} min`}
+        >
+          After that, only an approved template can reach this customer.
+        </Alert>
+      ) : null}
       {mode === 'reply' && !windowOpen ? (
         <div className="flex flex-col gap-2">
           <Alert tone="warning">
@@ -317,7 +330,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
               id={listId}
               role="listbox"
               aria-label="Canned replies"
-              className="absolute bottom-full left-0 z-10 mb-2 flex max-h-64 w-full max-w-md flex-col overflow-y-auto rounded-md border border-border bg-surface py-1 shadow-md"
+              className="absolute bottom-full left-0 z-10 mb-2 flex max-h-64 w-full max-w-md flex-col overflow-y-auto rounded-md border border-border bg-surface py-1 shadow-overlay"
             >
               {matches.map((r, i) => (
                 <li

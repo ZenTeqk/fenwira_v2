@@ -26,11 +26,6 @@ export const CONSENT_LABEL: Record<ConsentState, string> = {
   REVOKED: 'Opted out',
   NONE: 'No consent',
 }
-export const CONSENT_TONE: Record<ConsentState, BadgeTone> = {
-  GRANTED: 'success',
-  REVOKED: 'danger',
-  NONE: 'neutral',
-}
 
 export const SOURCE_LABEL: Record<string, string> = {
   INBOUND: 'WhatsApp',

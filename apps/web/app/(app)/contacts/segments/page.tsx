@@ -7,10 +7,11 @@ import {
   DataTable,
   Field,
   Input,
+  ListPage,
   Modal,
   ModalClose,
   ModalContent,
-  PageHeader,
+  PermissionState,
   toast,
   useConfirm,
 } from '@fenwira/ui'
@@ -20,7 +21,6 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { FormError } from '@/components/auth/form-error'
 import { completeFilter, FilterBuilder } from '@/components/contacts/filter-builder'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { ApiError, del, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { useSegments } from '@/lib/contacts'
@@ -138,7 +138,7 @@ export default function SegmentsPage() {
     },
   })
 
-  if (!can('contacts.read')) return <NoAccess what="segments" />
+  if (!can('contacts.read')) return <PermissionState what="segments" />
   const canWrite = can('contacts.write')
   const columns: ColumnDef<Segment, unknown>[] = [
     { accessorKey: 'name', header: 'Segment' },
@@ -204,24 +204,23 @@ export default function SegmentsPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Segments"
-        description="Saved groups of contacts, used for campaigns and exports."
-        actions={
-          canWrite ? (
-            <Button
-              onClick={() => {
-                setEditing(null)
-                setOpen(true)
-              }}
-            >
-              <Plus aria-hidden="true" />
-              New segment
-            </Button>
-          ) : null
-        }
-      />
+    <ListPage
+      header={{
+        title: 'Segments',
+        description: 'Saved groups of contacts, used for campaigns and exports.',
+        actions: canWrite ? (
+          <Button
+            onClick={() => {
+              setEditing(null)
+              setOpen(true)
+            }}
+          >
+            <Plus aria-hidden="true" />
+            New segment
+          </Button>
+        ) : null,
+      }}
+    >
       <DataTable
         label="Segments"
         columns={columns}
@@ -234,6 +233,6 @@ export default function SegmentsPage() {
         }}
       />
       <SegmentEditor segment={editing} open={open} onOpenChange={setOpen} />
-    </div>
+    </ListPage>
   )
 }

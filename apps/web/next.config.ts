@@ -9,6 +9,10 @@ const config: NextConfig = {
   // @fenwira/ui ships TypeScript source (ADR-0021); Next compiles it with the app.
   transpilePackages: ['@fenwira/ui'],
   reactStrictMode: true,
+  // Don't write AGENTS.md / CLAUDE.md into the app during `next dev` (repo rules live in the root AGENTS.md).
+  agentRules: false,
+  // The dev-mode badge overlaps the sidebar's bottom controls.
+  devIndicators: false,
 }
 
 export default config

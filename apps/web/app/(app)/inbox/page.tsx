@@ -1,7 +1,15 @@
 'use client'
 
 import { type Conversation, type Message } from '@fenwira/contracts'
-import { cn, Drawer, DrawerContent, EmptyState, ErrorState, Skeleton } from '@fenwira/ui'
+import {
+  cn,
+  Drawer,
+  DrawerContent,
+  EmptyState,
+  ErrorState,
+  PermissionState,
+  Skeleton,
+} from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessagesSquare } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -12,7 +20,6 @@ import { ConversationHeader } from '@/components/inbox/conversation-header'
 import { ConversationList } from '@/components/inbox/conversation-list'
 import { Thread } from '@/components/inbox/thread'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { useConversationRoom, useRealtimeEvent } from '@/lib/realtime'
@@ -85,7 +92,7 @@ function Inbox() {
   const params = useSearchParams()
   const selected = params.get('c')
   const select = (id: string | null) => router.replace(id ? `${pathname}?c=${id}` : pathname)
-  if (!can('inbox.read')) return <NoAccess what="the inbox" />
+  if (!can('inbox.read')) return <PermissionState what="the inbox" />
   return (
     <div className="flex h-full min-h-0">
       <h1 className="sr-only">Inbox</h1>

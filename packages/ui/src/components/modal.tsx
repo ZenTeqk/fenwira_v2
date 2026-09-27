@@ -37,7 +37,7 @@ export function ModalContent({
         data-slot="modal"
         className={cn(
           'fixed top-1/2 left-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col',
-          'rounded-lg border border-border bg-surface shadow-overlay',
+          'rounded-xl border border-border bg-surface shadow-overlay',
           className,
         )}
         {...(description ? {} : { 'aria-describedby': undefined })}

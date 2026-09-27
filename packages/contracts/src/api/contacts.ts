@@ -321,3 +321,24 @@ export const consentSettingsSchema = z.object({
   optOutReply: z.string().trim().max(1000).nullable(),
 })
 export type ConsentSettings = z.infer<typeof consentSettingsSchema>
+
+/**
+ * What MessageEligibilityService would allow for this contact right now (read-only; the service
+ * stays the only decider, decision C1). Shown in the inbox and on the contact profile.
+ */
+export const eligibilityVerdictSchema = z.object({
+  allowed: z.boolean(),
+  /** Error code the send would get (CONSENT_REQUIRED, CONVERSATION_WINDOW_CLOSED, …). */
+  code: z.string().nullable(),
+  reason: z.string().nullable(),
+  optedOut: z.boolean(),
+})
+export type EligibilityVerdict = z.infer<typeof eligibilityVerdictSchema>
+export const contactEligibilitySchema = z.object({
+  marketingTemplate: eligibilityVerdictSchema,
+  utilityTemplate: eligibilityVerdictSchema,
+  /** Free-form (non-template) messages in the conversation's 24-hour window. */
+  freeform: eligibilityVerdictSchema,
+  serviceWindowExpiresAt: z.string().nullable(),
+})
+export type ContactEligibility = z.infer<typeof contactEligibilitySchema>

@@ -8,10 +8,11 @@ import {
   DataTable,
   Field,
   Input,
+  ListPage,
   Modal,
   ModalClose,
   ModalContent,
-  PageHeader,
+  PermissionState,
   Select,
   SelectContent,
   SelectItem,
@@ -25,7 +26,6 @@ import { Plus } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 import { FormError } from '@/components/auth/form-error'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { del, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { TAG_TONE, useTags } from '@/lib/contacts'
@@ -139,7 +139,7 @@ export default function TagsPage() {
       void queryClient.invalidateQueries({ queryKey: keys.tenant(tenantId, 'tags') })
     },
   })
-  if (!can('contacts.read')) return <NoAccess what="tags" />
+  if (!can('contacts.read')) return <PermissionState what="tags" />
   const canWrite = can('contacts.write')
   const columns: ColumnDef<TagRow, unknown>[] = [
     {
@@ -190,24 +190,23 @@ export default function TagsPage() {
     },
   ]
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Tags"
-        description="Labels for grouping contacts."
-        actions={
-          canWrite ? (
-            <Button
-              onClick={() => {
-                setEditing(null)
-                setOpen(true)
-              }}
-            >
-              <Plus aria-hidden="true" />
-              New tag
-            </Button>
-          ) : null
-        }
-      />
+    <ListPage
+      header={{
+        title: 'Tags',
+        description: 'Labels for grouping contacts.',
+        actions: canWrite ? (
+          <Button
+            onClick={() => {
+              setEditing(null)
+              setOpen(true)
+            }}
+          >
+            <Plus aria-hidden="true" />
+            New tag
+          </Button>
+        ) : null,
+      }}
+    >
       <DataTable
         label="Tags"
         columns={columns}
@@ -217,6 +216,6 @@ export default function TagsPage() {
         empty={{ title: 'No tags yet', description: 'Tags created by imports appear here too.' }}
       />
       <TagModal tag={editing} open={open} onOpenChange={setOpen} />
-    </div>
+    </ListPage>
   )
 }

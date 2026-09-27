@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  activeModule,
+  moduleHref,
+  moduleTabs,
   NAVIGATION,
   SHIPPED_PHASE,
   breadcrumbsFor,
@@ -47,7 +50,7 @@ describe('navigation', () => {
     ])
     expect(visible.find((i) => i.id === 'templates')!.children!.map((c) => c.label)).toEqual([
       'Templates',
-      'Create Template',
+      'New template',
     ])
     expect(visible.find((i) => i.id === 'integrations')!.children!.map((c) => c.label)).toEqual([
       'WhatsApp',
@@ -58,7 +61,7 @@ describe('navigation', () => {
       'Roles',
       'WhatsApp',
       'Security',
-      'Audit Logs',
+      'Audit logs',
     ])
   })
 
@@ -84,7 +87,7 @@ describe('navigation', () => {
     expect(findActiveLeaf('/contacts/segments/123', nav)?.id).toBe('contacts-segments')
     expect(findActiveLeaf('/contacts', nav)?.id).toBe('contacts-all')
     expect(breadcrumbsFor('/settings/team', nav)).toEqual([
-      { label: 'Settings' },
+      { label: 'Settings', href: '/settings/workspace' },
       { label: 'Team' },
     ])
     expect(breadcrumbsFor('/dashboard', nav)).toEqual([{ label: 'Dashboard' }])
@@ -96,6 +99,26 @@ describe('navigation', () => {
       'Workspace',
       'Team',
       'Security',
+    ])
+  })
+
+  it('opens modules on their first page and derives module tabs without create actions', () => {
+    const visible = visibleNavigation(false)
+    const campaigns = visible.find((i) => i.id === 'campaigns')!
+    expect(moduleHref(campaigns)).toBe('/campaigns')
+    expect(
+      moduleTabs('/campaigns/analytics', visible).tabs.map((t) => [t.label, t.active]),
+    ).toEqual([
+      ['Campaigns', false],
+      ['Analytics', true],
+    ])
+    // A single-page module (Templates, Automations) has no tabs; create pages aren't tabs.
+    expect(moduleTabs('/templates/new', visible).tabs).toEqual([])
+    expect(activeModule('/contacts/0192/anything', visible)?.id).toBe('contacts')
+    expect(activeModule('/automations/abc/history', visible)?.id).toBe('automations')
+    expect(breadcrumbsFor('/contacts/segments', visible)).toEqual([
+      { label: 'Contacts', href: '/contacts' },
+      { label: 'Segments' },
     ])
   })
 })

@@ -2,11 +2,14 @@
 
 import { TEMPLATE_CATEGORIES, TEMPLATE_STATUSES, type Template } from '@fenwira/contracts'
 import {
+  Alert,
   Button,
   type ColumnDef,
   DataTable,
-  Input,
-  PageHeader,
+  FilterBar,
+  ListPage,
+  PermissionState,
+  SearchInput,
   Select,
   SelectContent,
   SelectItem,
@@ -18,10 +21,9 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import { useDebounced } from '@/components/inbox/conversation-list'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { ApiError, post } from '@/lib/api/client'
 import { relativeTime } from '@/lib/relative-time'
 import { CATEGORY_LABEL, languageLabel, templatesKey, useTemplates } from '@/lib/templates'
@@ -39,26 +41,20 @@ function Filter({
   onChange: (v: string) => void
   options: Array<{ value: string; label: string }>
 }) {
-  const id = useId()
   return (
-    <div className="flex flex-col gap-1.5">
-      <span id={id} className="text-sm font-medium text-slate">
-        {label}
-      </span>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger aria-labelledby={id} className="w-44">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>All</SelectItem>
-          {options.map((o) => (
-            <SelectItem key={o.value} value={o.value}>
-              {o.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger aria-label={label} className="h-9 w-44">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL}>{`Any ${label.toLowerCase()}`}</SelectItem>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -87,7 +83,7 @@ export default function TemplatesPage() {
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : 'The sync failed.'),
   })
-  if (!can('templates.read')) return <NoAccess what="templates" />
+  if (!can('templates.read')) return <PermissionState what="templates" />
 
   const columns: Array<ColumnDef<Template>> = [
     {
@@ -111,14 +107,23 @@ export default function TemplatesPage() {
     {
       id: 'status',
       header: 'Status',
-      cell: ({ row }) => (
-        <span className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge status={row.original.status} />
-          {row.original.qualityScore && row.original.qualityScore !== 'UNKNOWN' ? (
-            <StatusBadge status={row.original.qualityScore as 'GREEN' | 'YELLOW' | 'RED'} />
-          ) : null}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const t = row.original
+        const reason = t.currentVersion.rejectionReason ?? t.currentVersion.lastError
+        return (
+          <div className="flex flex-col gap-1">
+            <span className="flex flex-wrap items-center gap-1.5">
+              <StatusBadge status={t.status} />
+              {t.qualityScore && t.qualityScore !== 'UNKNOWN' ? (
+                <StatusBadge status={t.qualityScore as 'GREEN' | 'YELLOW' | 'RED'} />
+              ) : null}
+            </span>
+            {t.status === 'REJECTED' && reason ? (
+              <span className="max-w-xs text-sm text-secondary">Meta: {reason}</span>
+            ) : null}
+          </div>
+        )
+      },
     },
     { id: 'account', header: 'Account', cell: ({ row }) => row.original.wabaName },
     {
@@ -128,71 +133,110 @@ export default function TemplatesPage() {
     },
   ]
 
+  const filtered = !!(search || status !== ALL || category !== ALL)
+  const rejected = (templates.data ?? []).filter((t) => t.status === 'REJECTED').length
+
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Templates"
-        description="Messages Meta approves in advance, so you can start conversations and send updates."
-        actions={
-          can('templates.write') ? (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" loading={sync.isPending} onClick={() => sync.mutate()}>
-                <RefreshCw aria-hidden="true" />
-                Sync from Meta
+    <ListPage
+      header={{
+        title: 'Templates',
+        description:
+          'Messages Meta approves in advance, so you can start conversations and send updates.',
+        actions: can('templates.write') ? (
+          <>
+            <Button variant="secondary" loading={sync.isPending} onClick={() => sync.mutate()}>
+              <RefreshCw aria-hidden="true" />
+              Sync from Meta
+            </Button>
+            <Button asChild>
+              <Link href="/templates/new">
+                <Plus aria-hidden="true" />
+                New template
+              </Link>
+            </Button>
+          </>
+        ) : null,
+      }}
+      banner={
+        rejected && status !== 'REJECTED' ? (
+          <Alert
+            tone="danger"
+            title={`${rejected} template${rejected > 1 ? 's were' : ' was'} rejected by Meta`}
+            action={
+              <Button variant="secondary" size="sm" onClick={() => setStatus('REJECTED')}>
+                Show rejected
               </Button>
-              <Button asChild>
-                <Link href="/templates/new">
-                  <Plus aria-hidden="true" />
-                  New template
-                </Link>
-              </Button>
-            </div>
-          ) : null
-        }
-      />
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="template-search" className="text-sm font-medium text-slate">
-            Search
-          </label>
-          <Input
-            id="template-search"
-            type="search"
-            placeholder="Template name"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="w-60"
-          />
-        </div>
-        <Filter
-          label="Status"
-          value={status}
-          onChange={setStatus}
-          options={TEMPLATE_STATUSES.filter((s) => s !== 'ARCHIVED').map((s) => ({
-            value: s,
-            label: s.charAt(0) + s.slice(1).toLowerCase(),
-          }))}
-        />
-        <Filter
-          label="Category"
-          value={category}
-          onChange={setCategory}
-          options={TEMPLATE_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
-        />
-      </div>
+            }
+          >
+            Open a template to see Meta’s reason, edit it and submit it again.
+          </Alert>
+        ) : undefined
+      }
+    >
       <DataTable
         label="Templates"
         columns={columns}
         data={templates.data ?? []}
         getRowId={(t) => t.id}
         loading={templates.isPending}
-        empty={{
-          title: search || status !== ALL || category !== ALL ? 'No matches' : 'No templates yet',
-          description: can('templates.write')
-            ? 'Create one, or sync the templates you already have in WhatsApp Manager.'
-            : 'Templates your team creates appear here.',
-        }}
+        error={
+          templates.isError
+            ? {
+                message: templates.error instanceof ApiError ? templates.error.message : undefined,
+                onRetry: () => void templates.refetch(),
+              }
+            : undefined
+        }
+        toolbar={
+          <FilterBar
+            activeCount={(search ? 1 : 0) + (status !== ALL ? 1 : 0) + (category !== ALL ? 1 : 0)}
+            onClear={() => {
+              setQ('')
+              setStatus(ALL)
+              setCategory(ALL)
+            }}
+          >
+            <SearchInput
+              label="Search templates"
+              placeholder="Template name"
+              value={q}
+              onValueChange={setQ}
+            />
+            <Filter
+              label="Status"
+              value={status}
+              onChange={setStatus}
+              options={TEMPLATE_STATUSES.filter((s) => s !== 'ARCHIVED').map((s) => ({
+                value: s,
+                label: s.charAt(0) + s.slice(1).toLowerCase(),
+              }))}
+            />
+            <Filter
+              label="Category"
+              value={category}
+              onChange={setCategory}
+              options={TEMPLATE_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
+            />
+          </FilterBar>
+        }
+        empty={
+          filtered
+            ? { title: 'No matches', description: 'Try another name, status or category.' }
+            : {
+                title: 'No templates yet',
+                description:
+                  'Templates are the only way to start a conversation or message someone after 24 hours. Create one for Meta to review, or sync the ones you already have in WhatsApp Manager.',
+                action: can('templates.write') ? (
+                  <Button asChild>
+                    <Link href="/templates/new">
+                      <Plus aria-hidden="true" />
+                      Create your first template
+                    </Link>
+                  </Button>
+                ) : undefined,
+              }
+        }
       />
-    </div>
+    </ListPage>
   )
 }

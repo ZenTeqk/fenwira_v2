@@ -8,6 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  EmptyState,
   Field,
   Input,
   Modal,
@@ -182,9 +183,15 @@ export function CannedRepliesCard({ canManage }: { canManage: boolean }) {
             ))}
           </ul>
         ) : (
-          <p className="text-base text-muted">
-            No canned replies yet.{canManage ? ' Add one for answers you send often.' : ''}
-          </p>
+          <EmptyState
+            className="py-6"
+            title="No canned replies yet"
+            description={
+              canManage
+                ? 'Save answers you send often, then type / in the reply box to insert them.'
+                : 'Your team’s saved answers appear here.'
+            }
+          />
         )}
       </CardContent>
       <ReplyModal editing={editing} open={open} onOpenChange={setOpen} />

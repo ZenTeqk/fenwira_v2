@@ -1,11 +1,10 @@
 'use client'
 
 import { type AuditLog, type Page } from '@fenwira/contracts'
-import { type ColumnDef, DataTable, Input, Label, PageHeader } from '@fenwira/ui'
+import { type ColumnDef, DataTable, Input, Label, ListPage, PermissionState } from '@fenwira/ui'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 
@@ -78,14 +77,15 @@ export default function AuditLogsPage() {
     placeholderData: keepPreviousData,
   })
 
-  if (!can('audit.view')) return <NoAccess what="the audit log" />
+  if (!can('audit.view')) return <PermissionState what="the audit log" />
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Audit logs"
-        description="A permanent record of sensitive changes in this workspace."
-      />
+    <ListPage
+      header={{
+        title: 'Audit logs',
+        description: 'A permanent record of sensitive changes in this workspace.',
+      }}
+    >
       <div className="flex max-w-sm flex-col gap-1.5">
         <Label htmlFor="audit-filter">Filter by action</Label>
         <Input
@@ -117,6 +117,6 @@ export default function AuditLogsPage() {
           summary: `Page ${cursors.length + 1}`,
         }}
       />
-    </div>
+    </ListPage>
   )
 }

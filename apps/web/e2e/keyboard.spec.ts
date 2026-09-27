@@ -66,7 +66,9 @@ test('CommandPalette: Control+K opens, type to filter, Enter runs', async ({ pag
   await page.goto('/dashboard')
   await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible()
   await page.keyboard.press('Control+k')
-  const input = page.getByPlaceholder('Search or jump to…')
+  const input = page.getByPlaceholder(
+    'Search contacts, conversations, campaigns… or jump to a page',
+  )
   await expect(input).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(input).toBeHidden()
@@ -85,17 +87,20 @@ test('CommandPalette navigates to every visible nav item', async ({ page }) => {
     )
   expect(hrefs.length).toBeGreaterThan(0)
 
-  // Collapsed groups hide children from the DOM tree's visible links; read them from the palette instead.
+  // The sidebar lists modules; every page (sub-pages included) is in the palette's Go to group.
   await page.keyboard.press('Control+k')
-  const options = page.getByRole('option')
-  const labels = await options.allTextContents()
+  const navLabels = await page
+    .getByRole('group', { name: 'Go to' })
+    .getByRole('option')
+    .allTextContents()
   await page.keyboard.press('Escape')
-  const navLabels = labels.filter((l) => l !== 'Component gallery')
   expect(navLabels.length).toBeGreaterThanOrEqual(hrefs.length)
 
   for (const label of navLabels) {
     await page.keyboard.press('Control+k')
-    await page.getByPlaceholder('Search or jump to…').fill(label.replace(' › ', ' '))
+    await page
+      .getByPlaceholder('Search contacts, conversations, campaigns… or jump to a page')
+      .fill(label.replace(' › ', ' '))
     await page.getByRole('option', { name: label, exact: true }).click()
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     const leaf = label.split(' › ').pop()!

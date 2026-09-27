@@ -9,6 +9,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  EmptyState,
   Field,
   Input,
   Modal,
@@ -197,7 +198,11 @@ export function ContactFieldsCard({ canManage }: { canManage: boolean }) {
             ))}
           </ul>
         ) : (
-          <p className="text-base text-muted">No custom fields yet.</p>
+          <EmptyState
+            className="py-6"
+            title="No custom fields yet"
+            description="Add fields such as plan or city to filter contacts and personalize messages."
+          />
         )}
       </CardContent>
       <NewFieldModal open={open} onOpenChange={setOpen} />

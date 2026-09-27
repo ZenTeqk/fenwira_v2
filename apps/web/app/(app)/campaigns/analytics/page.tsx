@@ -1,11 +1,10 @@
 'use client'
 
 import { type Campaign, type CampaignStats } from '@fenwira/contracts'
-import { type ColumnDef, DataTable, PageHeader, StatusBadge } from '@fenwira/ui'
+import { type ColumnDef, DataTable, ListPage, PermissionState, StatusBadge } from '@fenwira/ui'
 import { useQueries } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { get } from '@/lib/api/client'
 import { campaignsKey, percent, useCampaigns } from '@/lib/campaigns'
 
@@ -27,7 +26,7 @@ export default function CampaignAnalyticsPage() {
       queryFn: () => get<{ data: CampaignStats }>(`/campaigns/${c.id}/stats`).then((r) => r.data),
     })),
   })
-  if (!can('campaigns.read')) return <NoAccess what="campaigns" />
+  if (!can('campaigns.read')) return <PermissionState what="campaigns" />
   const rows: Row[] = launched.map((c, i) => ({ ...c, stats: stats[i]?.data }))
   const n = (v: number | undefined) => (v === undefined ? '—' : v.toLocaleString('en-IN'))
   const columns: Array<ColumnDef<Row>> = [
@@ -67,22 +66,24 @@ export default function CampaignAnalyticsPage() {
     { id: 'skipped', header: 'Skipped', cell: ({ row }) => n(row.original.stats?.skipped) },
   ]
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Campaign analytics"
-        description="Delivery and engagement for your recent campaigns."
-      />
+    <ListPage
+      header={{
+        title: 'Campaign analytics',
+        description: 'Delivery and engagement for your recent campaigns.',
+      }}
+    >
       <DataTable
         label="Campaign results"
         columns={columns}
         data={rows}
         getRowId={(r) => r.id}
         loading={campaigns.isPending}
+        error={campaigns.isError ? { onRetry: () => void campaigns.refetch() } : undefined}
         empty={{
           title: 'No launched campaigns yet',
           description: 'Results appear here once a campaign starts.',
         }}
       />
-    </div>
+    </ListPage>
   )
 }

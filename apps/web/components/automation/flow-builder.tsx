@@ -66,6 +66,11 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
   const etag = useRef<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const pending = useRef<DraftGraph | null>(null)
+  // The canvas needs room; phones start in the keyboard-friendly Outline (UX_PATTERNS → Responsive).
+  const [view, setView] = useState('canvas')
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 767px)').matches) setView('outline')
+  }, [])
 
   useEffect(() => {
     if (draft.data && graph === null) {
@@ -250,7 +255,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
           Your latest change wasn’t saved. Reload to see the current version.
         </Alert>
       ) : null}
-      <Tabs defaultValue="canvas">
+      <Tabs value={view} onValueChange={setView}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <TabsList aria-label="Builder view">
             <TabsTrigger value="canvas">Canvas</TabsTrigger>
@@ -265,7 +270,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
         </div>
         <div className="mt-3 flex flex-col gap-4 lg:flex-row">
           {editable ? (
-            <nav aria-label="Add a step" className="flex shrink-0 flex-col gap-3 lg:w-52">
+            <nav aria-label="Add a step" className="hidden shrink-0 flex-col gap-3 md:flex lg:w-52">
               {PALETTE.filter((g) => g.category !== 'trigger' || !hasTrigger).map((g) => (
                 <div key={g.title} className="flex flex-col gap-1">
                   <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
@@ -289,14 +294,22 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
           ) : null}
           <div className="min-w-0 flex-1">
             <TabsContent value="canvas" className="h-160">
-              <FlowCanvas
-                graph={graph}
-                issues={issues}
-                selectedId={selected}
-                onSelect={setSelected}
-                onChange={editable ? change : undefined}
-                readOnly={!editable}
-              />
+              <div className="flex h-full flex-col items-center justify-center gap-3 rounded-md border border-border bg-surface p-6 text-center md:hidden">
+                <p className="text-base text-slate">The canvas needs a larger screen.</p>
+                <Button variant="secondary" onClick={() => setView('outline')}>
+                  Use the outline
+                </Button>
+              </div>
+              <div className="hidden h-full md:block">
+                <FlowCanvas
+                  graph={graph}
+                  issues={issues}
+                  selectedId={selected}
+                  onSelect={setSelected}
+                  onChange={editable ? change : undefined}
+                  readOnly={!editable}
+                />
+              </div>
             </TabsContent>
             <TabsContent value="outline">
               <FlowOutline

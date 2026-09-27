@@ -29,7 +29,7 @@ type StatusPreset = { tone: BadgeTone; label: string; icon: LucideIcon }
 export const STATUS_PRESETS = {
   // Connections
   CONNECTED: { tone: 'success', label: 'Connected', icon: CheckCircle2 },
-  DISCONNECTED: { tone: 'neutral', label: 'Disconnected', icon: PlugZap },
+  DISCONNECTED: { tone: 'danger', label: 'Disconnected', icon: PlugZap },
   ERROR: { tone: 'danger', label: 'Error', icon: XCircle },
   FLAGGED: { tone: 'warning', label: 'Flagged', icon: AlertTriangle },
   RESTRICTED: { tone: 'danger', label: 'Restricted', icon: Ban },
@@ -47,14 +47,14 @@ export const STATUS_PRESETS = {
   CREATED: { tone: 'neutral', label: 'Created', icon: CircleDashed },
   QUEUED: { tone: 'neutral', label: 'Queued', icon: Clock },
   SENDING: { tone: 'info', label: 'Sending', icon: Loader2 },
-  SENT: { tone: 'primary', label: 'Sent', icon: Send },
+  SENT: { tone: 'info', label: 'Sent', icon: Send },
   DELIVERED: { tone: 'success', label: 'Delivered', icon: CheckCheck },
   READ: { tone: 'success', label: 'Read', icon: CheckCheck },
   FAILED: { tone: 'danger', label: 'Failed', icon: XCircle },
   SKIPPED: { tone: 'neutral', label: 'Skipped', icon: SkipForward },
   // Lifecycle (templates, campaigns, flows)
   DRAFT: { tone: 'neutral', label: 'Draft', icon: FileEdit },
-  PENDING: { tone: 'warning', label: 'Pending', icon: Clock },
+  PENDING: { tone: 'info', label: 'Pending', icon: Clock },
   APPROVED: { tone: 'success', label: 'Approved', icon: CheckCircle2 },
   REJECTED: { tone: 'danger', label: 'Rejected', icon: Ban },
   DISABLED: { tone: 'danger', label: 'Disabled', icon: XCircle },
@@ -68,23 +68,42 @@ export const STATUS_PRESETS = {
     icon: Pause,
   },
   CANCELLED: { tone: 'neutral', label: 'Cancelled', icon: Ban },
-  RUNNING: { tone: 'primary', label: 'Running', icon: Zap },
+  RUNNING: { tone: 'info', label: 'Running', icon: Zap },
   ACTIVE: { tone: 'success', label: 'Active', icon: Zap },
   PAUSED: { tone: 'warning', label: 'Paused', icon: Pause },
   STOPPED: { tone: 'neutral', label: 'Stopped', icon: Square },
   COMPLETED: { tone: 'success', label: 'Completed', icon: CheckCircle2 },
   // Automation executions and trigger runs (docs/AUTOMATION_ENGINE.md, P10-D2/D3)
   WAITING: { tone: 'info', label: 'Waiting', icon: Clock },
-  STARTED: { tone: 'primary', label: 'Started', icon: Zap },
+  STARTED: { tone: 'info', label: 'Started', icon: Zap },
   STOPPED_TAKEOVER: { tone: 'info', label: 'Stopped: takeover', icon: Hand },
   SKIPPED_TAKEOVER: { tone: 'neutral', label: 'Skipped: takeover', icon: Hand },
   SKIPPED_ENTITLEMENT: { tone: 'warning', label: 'Skipped: plan limit', icon: Ban },
   SUCCEEDED: { tone: 'success', label: 'Succeeded', icon: CheckCircle2 },
   // Conversations
-  OPEN: { tone: 'primary', label: 'Open', icon: Circle },
+  OPEN: { tone: 'info', label: 'Open', icon: Circle },
   RESOLVED: { tone: 'neutral', label: 'Resolved', icon: CheckCircle2 },
   SNOOZED: { tone: 'neutral', label: 'Snoozed', icon: Clock },
   AGENT_TAKEOVER: { tone: 'info', label: 'Agent takeover', icon: Hand },
+  // Templates (Meta): paused by quality
+  PAUSED_BY_META: { tone: 'warning', label: 'Paused by Meta', icon: Pause },
+  // Consent (docs/CONTACTS_AND_CONSENT.md)
+  GRANTED: { tone: 'success', label: 'Granted', icon: CheckCircle2 },
+  NONE: { tone: 'neutral', label: 'Not recorded', icon: CircleDashed },
+  OPTED_OUT: { tone: 'warning', label: 'Opted out', icon: Ban },
+  // WhatsApp 24-hour service window
+  WINDOW_OPEN: { tone: 'success', label: 'Window open', icon: Clock },
+  WINDOW_CLOSED: { tone: 'warning', label: 'Window closed', icon: Clock },
+  // Messaging eligibility (from MessageEligibilityService, read-only)
+  CAN_SEND: { tone: 'success', label: 'Can send', icon: CheckCircle2 },
+  CANNOT_SEND: { tone: 'warning', label: "Can't send", icon: Ban },
+  // Health / attention
+  HEALTHY: { tone: 'success', label: 'Healthy', icon: CheckCircle2 },
+  ATTENTION: { tone: 'warning', label: 'Needs attention', icon: AlertTriangle },
+  LOW_BALANCE: { tone: 'warning', label: 'Low balance', icon: AlertTriangle },
+  INACTIVE: { tone: 'neutral', label: 'Inactive', icon: Square },
+  SYNCING: { tone: 'info', label: 'Syncing', icon: Loader2 },
+  PROCESSING: { tone: 'info', label: 'Processing', icon: Loader2 },
   // Team
   DEACTIVATED: { tone: 'neutral', label: 'Deactivated', icon: Ban },
   EXPIRED: { tone: 'warning', label: 'Expired', icon: Clock },

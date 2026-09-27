@@ -1,15 +1,15 @@
 'use client'
 
 import { type ExecutionStep, type NodeType } from '@fenwira/contracts'
-import { cn, StatusBadge } from '@fenwira/ui'
+import { Timeline } from '@fenwira/ui'
 import { CheckCircle2, CornerDownRight, PauseCircle, XCircle } from 'lucide-react'
 import { NODE_LABEL } from '@/lib/automation'
 
 const ICON = {
-  SUCCEEDED: { Icon: CheckCircle2, className: 'text-primary-strong', label: 'Succeeded' },
-  FAILED: { Icon: XCircle, className: 'text-danger-strong', label: 'Failed' },
-  WAITING: { Icon: PauseCircle, className: 'text-info-strong', label: 'Waiting' },
-  SKIPPED: { Icon: CornerDownRight, className: 'text-muted', label: 'Skipped' },
+  SUCCEEDED: CheckCircle2,
+  FAILED: XCircle,
+  WAITING: PauseCircle,
+  SKIPPED: CornerDownRight,
 } as const
 
 const ERROR_TEXT: Record<string, string> = {
@@ -27,54 +27,43 @@ const pretty = (v: unknown) => {
   return JSON.stringify(v, null, 2)
 }
 
-/** Step-by-step history: ✓ succeeded, ✗ failed, ⏸ waiting, ⤼ skipped (docs/AUTOMATION_ENGINE.md). */
+/** Step-by-step history on the shared Timeline (docs/AUTOMATION_ENGINE.md → Execution history). */
 export function ExecutionTimeline({ steps }: { steps: ExecutionStep[] }) {
-  if (!steps.length) return <p className="text-sm text-muted">No steps yet.</p>
   return (
-    <ol aria-label="Steps" className="flex flex-col gap-3">
-      {steps.map((s) => {
-        const meta = ICON[s.status]
+    <Timeline
+      label="Steps"
+      empty="No steps yet."
+      items={steps.map((s) => {
+        const Icon = ICON[s.status]
         const input = pretty(s.input)
         const output = pretty(s.output)
-        return (
-          <li key={s.seq} className="flex gap-3 rounded-md border border-border bg-surface p-3">
-            <meta.Icon
-              className={cn('mt-0.5 size-5 shrink-0', meta.className)}
-              aria-hidden="true"
-            />
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium text-slate">
-                  {s.seq}. {NODE_LABEL[s.nodeType as NodeType] ?? 'Stopped by takeover'}
-                </p>
-                <StatusBadge status={s.status} />
-                <span className="text-xs text-muted">{new Date(s.startedAt).toLocaleString()}</span>
+        return {
+          id: String(s.seq),
+          title: `${s.seq}. ${NODE_LABEL[s.nodeType as NodeType] ?? 'Stopped by takeover'}`,
+          status: s.status,
+          icon: <Icon aria-hidden="true" />,
+          time: new Date(s.startedAt).toLocaleString(),
+          description: s.errorCode ? (
+            <span className="text-danger-strong">
+              {ERROR_TEXT[s.errorCode] ?? s.errorDetail ?? s.errorCode}{' '}
+              <span className="font-mono text-xs">({s.errorCode})</span>
+            </span>
+          ) : undefined,
+          details:
+            input || output ? (
+              <div className="flex flex-col gap-2">
+                {[input, output].filter(Boolean).map((text, i) => (
+                  <pre
+                    key={i}
+                    className="overflow-x-auto rounded-sm bg-neutral-soft p-2 text-xs text-slate"
+                  >
+                    {text}
+                  </pre>
+                ))}
               </div>
-              {s.errorCode ? (
-                <p className="text-sm text-danger-strong">
-                  {ERROR_TEXT[s.errorCode] ?? s.errorDetail ?? s.errorCode}{' '}
-                  <span className="font-mono text-xs">({s.errorCode})</span>
-                </p>
-              ) : null}
-              {input || output ? (
-                <details className="text-sm">
-                  <summary className="cursor-pointer text-muted">Details</summary>
-                  {input ? (
-                    <pre className="mt-2 overflow-x-auto rounded-sm bg-neutral-soft p-2 text-xs text-slate">
-                      {input}
-                    </pre>
-                  ) : null}
-                  {output ? (
-                    <pre className="mt-2 overflow-x-auto rounded-sm bg-neutral-soft p-2 text-xs text-slate">
-                      {output}
-                    </pre>
-                  ) : null}
-                </details>
-              ) : null}
-            </div>
-          </li>
-        )
+            ) : undefined,
+        }
       })}
-    </ol>
+    />
   )
 }

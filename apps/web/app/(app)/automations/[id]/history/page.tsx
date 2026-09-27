@@ -6,6 +6,7 @@ import {
   type ColumnDef,
   DataTable,
   PageHeader,
+  PermissionState,
   Skeleton,
   StatusBadge,
   toast,
@@ -18,7 +19,6 @@ import { Suspense, useMemo, useState } from 'react'
 import { ExecutionTimeline } from '@/components/automation/execution-timeline'
 import { FlowCanvas } from '@/components/automation/flow-canvas'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { ApiError, post } from '@/lib/api/client'
 import {
   automationKey,
@@ -155,7 +155,7 @@ function History() {
   const { can } = useSession()
   const flow = useFlow(id)
   const executions = useExecutions(id)
-  if (!can('automations.read')) return <NoAccess what="automations" />
+  if (!can('automations.read')) return <PermissionState what="automations" />
   const columns: Array<ColumnDef<Execution>> = [
     {
       id: 'contact',
@@ -213,6 +213,7 @@ function History() {
           data={executions.data ?? []}
           getRowId={(e) => e.id}
           loading={executions.isPending}
+          error={executions.isError ? { onRetry: () => void executions.refetch() } : undefined}
           empty={{
             title: 'No runs yet',
             description: 'Runs appear here once the automation is triggered.',

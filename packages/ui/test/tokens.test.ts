@@ -11,9 +11,15 @@ describe('color tokens', () => {
       background: '#F8FAFC',
       surface: '#FFFFFF',
       border: '#E2E8F0',
-      info: '#6366F1',
+      'border-strong': '#CBD5E1',
+      secondary: '#475569',
+      muted: '#64748B',
+      whatsapp: '#25D366',
+      warning: '#F59E0B',
+      danger: '#DC2626',
+      info: '#2563EB',
     })
-    expect(Object.keys(colorTokens)).toHaveLength(22)
+    expect(Object.keys(colorTokens)).toHaveLength(29)
   })
 
   it('uses uppercase 6-digit hex only', () => {
@@ -50,10 +56,30 @@ describe('color tokens', () => {
       [t.muted, t.background],
       [t['slate-400'], t.slate],
       [t['slate-800'], t['neutral-soft']],
+      // Design System v1 additions
+      [t.surface, t['danger-strong-hover']],
+      [t.surface, t.danger],
+      [t.surface, t.info],
+      [t['info-strong'], t['info-soft']],
+      [t['success-strong'], t.surface],
+      [t['success-strong'], t['success-soft']],
+      [t['warning-strong'], t.surface],
+      [t['warning-strong'], t['warning-soft']],
+      [t.secondary, t.surface],
+      [t.secondary, t.background],
+      [t.secondary, t['neutral-soft']],
+      [t.slate, t['warning-soft']],
+      [t.slate, t['info-soft']],
+      [t.slate, t['danger-soft']],
     ]
     for (const [fg, bg] of pairs)
       expect(ratio(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5)
     // Documented exclusion: muted on neutral-soft is below AA and must not be used.
     expect(ratio(t.muted, t['neutral-soft'])).toBeLessThan(4.5)
+    // Non-text UI (focus ring, strong borders on inputs) needs 3:1 against the surface (1.4.11).
+    expect(ratio(t.primary, t.surface)).toBeGreaterThanOrEqual(3)
+    // Status colors are never text: success/warning fills fail AA as text by design.
+    expect(ratio(t.success, t.surface)).toBeLessThan(4.5)
+    expect(ratio(t.warning, t.surface)).toBeLessThan(4.5)
   })
 })

@@ -10,7 +10,8 @@ import {
   Button,
   EmptyState,
   ErrorState,
-  PageHeader,
+  PermissionState,
+  SettingsPage,
   Skeleton,
   toast,
   useConfirm,
@@ -19,7 +20,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageCircle, Plus, Wrench } from 'lucide-react'
 import { useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { ApiError, del, get, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { launchEmbeddedSignup } from '@/lib/facebook-sdk'
@@ -123,9 +123,13 @@ export function WhatsAppConnections() {
       action === 'disconnect' &&
       !(await confirm({
         title: `Disconnect ${c.displayPhoneNumber}?`,
-        description:
-          'Fenwira stops receiving and sending messages on this number, and its access token is deleted. You can connect it again later.',
-        confirmLabel: 'Disconnect',
+        description: 'You can connect it again later.',
+        impact: [
+          'Fenwira stops sending and receiving messages on this number.',
+          'Running campaigns that use it pause; automations can’t reply from it.',
+          'Its access token is deleted from Fenwira.',
+        ],
+        confirmLabel: 'Disconnect number',
         destructive: true,
       }))
     )
@@ -133,7 +137,7 @@ export function WhatsAppConnections() {
     act.mutate({ c, action })
   }
 
-  if (!can('whatsapp.read')) return <NoAccess what="WhatsApp connections" />
+  if (!can('whatsapp.read')) return <PermissionState what="WhatsApp connections" />
 
   const embedded = config.data?.embeddedSignup ?? false
   const actions = canManage ? (
@@ -154,12 +158,14 @@ export function WhatsAppConnections() {
   ) : null
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="WhatsApp"
-        description="Connect your WhatsApp Business numbers. Each number belongs to one workspace."
-        actions={actions}
-      />
+    <SettingsPage
+      header={{
+        title: 'WhatsApp',
+        description:
+          'Connect your WhatsApp Business numbers. Each number belongs to one workspace.',
+        actions: actions,
+      }}
+    >
       {canManage && config.data && !embedded ? (
         <Alert tone="info" title="Embedded Signup isn't set up on this server">
           An administrator needs to add the Meta app ID, app secret and Embedded Signup
@@ -231,6 +237,6 @@ export function WhatsAppConnections() {
           refresh()
         }}
       />
-    </div>
+    </SettingsPage>
   )
 }

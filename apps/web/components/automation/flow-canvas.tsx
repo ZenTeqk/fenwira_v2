@@ -54,7 +54,7 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
     <div
       data-testid={`flow-node-${node.id}`}
       className={cn(
-        'w-60 rounded-md border-2 px-3 py-2 shadow-sm',
+        'w-60 rounded-md border-2 px-3 py-2 shadow-raised',
         CATEGORY_STYLE[category],
         selected && 'ring-2 ring-primary ring-offset-2',
         traversed && 'ring-2 ring-primary',

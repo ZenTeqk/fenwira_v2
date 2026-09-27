@@ -1,6 +1,7 @@
 'use client'
 
 import { DropdownMenu as MenuPrimitive } from 'radix-ui'
+import { Check } from 'lucide-react'
 import { type ComponentProps } from 'react'
 import { cn } from '../lib/cn'
 
@@ -64,5 +65,30 @@ export function DropdownSeparator({
 }: ComponentProps<typeof MenuPrimitive.Separator>) {
   return (
     <MenuPrimitive.Separator className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />
+  )
+}
+
+export function DropdownCheckboxItem({
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof MenuPrimitive.CheckboxItem>) {
+  return (
+    <MenuPrimitive.CheckboxItem
+      data-slot="dropdown-checkbox-item"
+      className={cn(
+        'relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-base text-slate outline-none select-none',
+        'data-[highlighted]:bg-neutral-soft data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        className,
+      )}
+      {...props}
+    >
+      <span className="absolute left-2 flex size-4 items-center justify-center">
+        <MenuPrimitive.ItemIndicator>
+          <Check className="size-4 text-primary-strong" aria-hidden="true" />
+        </MenuPrimitive.ItemIndicator>
+      </span>
+      {children}
+    </MenuPrimitive.CheckboxItem>
   )
 }

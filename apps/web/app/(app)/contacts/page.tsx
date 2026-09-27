@@ -1,8 +1,8 @@
 'use client'
 
 import { type Contact, type ContactFilter, EMPTY_FILTER, type ExportJob } from '@fenwira/contracts'
+import { ConsentBadge } from '@/components/contacts/consent-badge'
 import {
-  Badge,
   Button,
   type ColumnDef,
   DataTable,
@@ -13,27 +13,31 @@ import {
   DropdownSeparator,
   DropdownTrigger,
   Field,
+  FilterBar,
   Input,
+  ListPage,
   Modal,
   ModalClose,
   ModalContent,
-  PageHeader,
+  PermissionState,
+  RowActions,
+  SearchInput,
   toast,
   useConfirm,
 } from '@fenwira/ui'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, Filter, Plus, Tags } from 'lucide-react'
+import { Download, ExternalLink, Eye, Filter, Plus, Tags } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { type FormEvent, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { type FormEvent, Suspense, useEffect, useMemo, useState } from 'react'
 import { ContactFormModal } from '@/components/contacts/contact-form-modal'
+import { ContactPreview } from '@/components/contacts/contact-preview'
 import { completeFilter, countRules, FilterBuilder } from '@/components/contacts/filter-builder'
 import { TagBadges } from '@/components/contacts/tag-badges'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { ApiError, get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
-import { CONSENT_LABEL, CONSENT_TONE, SOURCE_LABEL, useTags } from '@/lib/contacts'
+import { SOURCE_LABEL, useTags } from '@/lib/contacts'
 import { relativeTime } from '@/lib/relative-time'
 
 const PAGE = 50
@@ -101,7 +105,7 @@ function SaveSegmentModal({
   )
 }
 
-export default function ContactsPage() {
+function Contacts() {
   const { tenantId, can } = useSession()
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -114,6 +118,15 @@ export default function ContactsPage() {
   const [selected, setSelected] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [preview, setPreview] = useState<string | null>(null)
+  const params = useSearchParams()
+  // The command palette's "New contact" opens the form here (/contacts?new=1).
+  useEffect(() => {
+    if (params.get('new') === '1' && can('contacts.write')) {
+      setCreating(true)
+      router.replace('/contacts')
+    }
+  }, [params, can, router])
   const filter = useMemo(() => completeFilter(draft), [draft])
   const cursor = cursors[cursors.length - 1]
   const body = { filter, q: q.trim() || undefined }
@@ -172,7 +185,7 @@ export default function ContactsPage() {
     onError: (err) => toast.error(err instanceof Error ? err.message : 'The export failed.'),
   })
 
-  if (!can('contacts.read')) return <NoAccess what="contacts" />
+  if (!can('contacts.read')) return <PermissionState what="contacts" />
 
   const columns: ColumnDef<Contact, unknown>[] = [
     {
@@ -190,15 +203,16 @@ export default function ContactsPage() {
         </div>
       ),
     },
-    { id: 'tags', header: 'Tags', cell: ({ row }) => <TagBadges tags={row.original.tags} /> },
+    {
+      id: 'tags',
+      header: 'Tags',
+      meta: { label: 'Tags' },
+      cell: ({ row }) => <TagBadges tags={row.original.tags} />,
+    },
     {
       id: 'consent',
       header: 'Marketing',
-      cell: ({ row }) => (
-        <Badge tone={CONSENT_TONE[row.original.marketingConsent]}>
-          {CONSENT_LABEL[row.original.marketingConsent]}
-        </Badge>
-      ),
+      cell: ({ row }) => <ConsentBadge state={row.original.marketingConsent} />,
     },
     { id: 'source', header: 'Source', cell: ({ row }) => SOURCE_LABEL[row.original.source] },
     {
@@ -207,20 +221,43 @@ export default function ContactsPage() {
       cell: ({ row }) =>
         row.original.lastInboundAt ? relativeTime(row.original.lastInboundAt) : '—',
     },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      enableHiding: false,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <RowActions
+          label={`Actions for ${row.original.name ?? row.original.phoneE164}`}
+          actions={[
+            {
+              label: 'Quick view',
+              icon: <Eye aria-hidden="true" />,
+              onSelect: () => setPreview(row.original.id),
+            },
+            {
+              label: 'Open contact',
+              icon: <ExternalLink aria-hidden="true" />,
+              onSelect: () => router.push(`/contacts/${row.original.id}`),
+            },
+          ]}
+        />
+      ),
+    },
   ]
   const rules = countRules(filter)
+  const filtered = !!(rules || q.trim())
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Contacts"
-        description={
+    <ListPage
+      header={{
+        title: 'Contacts',
+        description:
           count.data !== undefined
-            ? `${count.data.toLocaleString()} contacts match`
-            : 'Everyone you message on WhatsApp.'
-        }
-        actions={
-          <div className="flex flex-wrap gap-2">
+            ? `${count.data.toLocaleString('en-IN')} contacts${filtered ? ' match' : ''}`
+            : 'Everyone you message on WhatsApp.',
+        actions: (
+          <>
             {can('contacts.export') ? (
               <Button
                 variant="secondary"
@@ -237,101 +274,10 @@ export default function ContactsPage() {
                 New contact
               </Button>
             ) : null}
-          </div>
-        }
-      />
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            type="search"
-            className="max-w-sm"
-            placeholder="Search name, phone or email"
-            aria-label="Search contacts"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value)
-              setCursors([])
-            }}
-          />
-          <Button
-            variant="secondary"
-            aria-expanded={showFilter}
-            onClick={() => setShowFilter((s) => !s)}
-          >
-            <Filter aria-hidden="true" />
-            {rules ? `Filters (${rules})` : 'Filter'}
-          </Button>
-          {rules && can('contacts.write') ? (
-            <Button variant="ghost" onClick={() => setSaving(true)}>
-              Save as segment
-            </Button>
-          ) : null}
-          {selected.length && can('contacts.write') ? (
-            <Dropdown>
-              <DropdownTrigger asChild>
-                <Button variant="secondary" className="ml-auto">
-                  <Tags aria-hidden="true" />
-                  {selected.length} selected
-                </Button>
-              </DropdownTrigger>
-              <DropdownContent>
-                <DropdownLabel>Add tag</DropdownLabel>
-                {tags.map((t) => (
-                  <DropdownItem
-                    key={`add-${t.id}`}
-                    onSelect={() => bulk.mutate({ action: 'TAG', tagId: t.id })}
-                  >
-                    {t.name}
-                  </DropdownItem>
-                ))}
-                <DropdownSeparator />
-                <DropdownLabel>Remove tag</DropdownLabel>
-                {tags.map((t) => (
-                  <DropdownItem
-                    key={`rm-${t.id}`}
-                    onSelect={() => bulk.mutate({ action: 'UNTAG', tagId: t.id })}
-                  >
-                    {t.name}
-                  </DropdownItem>
-                ))}
-                {can('contacts.delete') ? (
-                  <>
-                    <DropdownSeparator />
-                    <DropdownItem
-                      destructive
-                      onSelect={async () => {
-                        if (
-                          await confirm({
-                            title: `Delete ${selected.length} contacts?`,
-                            description:
-                              'They disappear from lists and segments. Their message history is kept.',
-                            confirmLabel: 'Delete',
-                            destructive: true,
-                          })
-                        )
-                          bulk.mutate({ action: 'DELETE' })
-                      }}
-                    >
-                      Delete
-                    </DropdownItem>
-                  </>
-                ) : null}
-              </DropdownContent>
-            </Dropdown>
-          ) : null}
-        </div>
-        {showFilter ? (
-          <div className="rounded-lg border border-border bg-surface p-3">
-            <FilterBuilder
-              value={draft}
-              onChange={(f) => {
-                setDraft(f)
-                setCursors([])
-              }}
-            />
-          </div>
-        ) : null}
-      </div>
+          </>
+        ),
+      }}
+    >
       <DataTable
         label="Contacts"
         columns={columns}
@@ -339,19 +285,146 @@ export default function ContactsPage() {
         getRowId={(c) => c.id}
         selectable={can('contacts.write')}
         onSelectionChange={setSelected}
+        columnVisibility
+        toolbar={
+          <FilterBar
+            activeCount={rules + (q.trim() ? 1 : 0)}
+            onClear={() => {
+              setQ('')
+              setDraft(EMPTY_FILTER)
+              setCursors([])
+            }}
+          >
+            <SearchInput
+              label="Search contacts"
+              placeholder="Search name, phone or email"
+              value={q}
+              onValueChange={(v) => {
+                setQ(v)
+                setCursors([])
+              }}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-expanded={showFilter}
+              onClick={() => setShowFilter((s) => !s)}
+            >
+              <Filter aria-hidden="true" />
+              {rules ? `Filters (${rules})` : 'Filter'}
+            </Button>
+            {rules && can('contacts.write') ? (
+              <Button variant="ghost" size="sm" onClick={() => setSaving(true)}>
+                Save as segment
+              </Button>
+            ) : null}
+            {showFilter ? (
+              <div className="w-full rounded-lg border border-border bg-surface p-3">
+                <FilterBuilder
+                  value={draft}
+                  onChange={(f) => {
+                    setDraft(f)
+                    setCursors([])
+                  }}
+                />
+              </div>
+            ) : null}
+          </FilterBar>
+        }
+        bulkActions={
+          can('contacts.write')
+            ? () => (
+                <Dropdown>
+                  <DropdownTrigger asChild>
+                    <Button variant="secondary" size="sm">
+                      <Tags aria-hidden="true" />
+                      Tags
+                    </Button>
+                  </DropdownTrigger>
+                  <DropdownContent align="start">
+                    {tags.length ? null : (
+                      <DropdownLabel>Create tags in Contacts → Tags first</DropdownLabel>
+                    )}
+                    {tags.length ? <DropdownLabel>Add tag</DropdownLabel> : null}
+                    {tags.map((t) => (
+                      <DropdownItem
+                        key={`add-${t.id}`}
+                        onSelect={() => bulk.mutate({ action: 'TAG', tagId: t.id })}
+                      >
+                        {t.name}
+                      </DropdownItem>
+                    ))}
+                    {tags.length ? <DropdownSeparator /> : null}
+                    {tags.length ? <DropdownLabel>Remove tag</DropdownLabel> : null}
+                    {tags.map((t) => (
+                      <DropdownItem
+                        key={`rm-${t.id}`}
+                        onSelect={() => bulk.mutate({ action: 'UNTAG', tagId: t.id })}
+                      >
+                        {t.name}
+                      </DropdownItem>
+                    ))}
+                    {can('contacts.delete') ? (
+                      <>
+                        <DropdownSeparator />
+                        <DropdownItem
+                          destructive
+                          onSelect={async () => {
+                            if (
+                              await confirm({
+                                title: `Delete ${selected.length} contacts?`,
+                                description: 'This can’t be undone from the app.',
+                                impact: [
+                                  'They disappear from lists, segments and future campaigns.',
+                                  'Their message history is kept for your records.',
+                                ],
+                                confirmLabel: 'Delete contacts',
+                                destructive: true,
+                              })
+                            )
+                              bulk.mutate({ action: 'DELETE' })
+                          }}
+                        >
+                          Delete
+                        </DropdownItem>
+                      </>
+                    ) : null}
+                  </DropdownContent>
+                </Dropdown>
+              )
+            : undefined
+        }
         loading={list.isPending}
         error={
           list.isError
             ? { message: message(list.error), onRetry: () => void list.refetch() }
             : undefined
         }
-        empty={{
-          title: rules || q ? 'No contacts match' : 'No contacts yet',
-          description:
-            rules || q
-              ? 'Try a different search or filter.'
-              : 'Contacts appear when customers message you, or add and import them.',
-        }}
+        empty={
+          filtered
+            ? {
+                title: 'No contacts match',
+                description: 'Try a different search, or clear the filters.',
+              }
+            : {
+                title: 'No contacts yet',
+                description:
+                  'Contacts are the people you message on WhatsApp. They appear when customers write to you; you can also add them or import a CSV, with their consent.',
+                action: can('contacts.write') ? (
+                  <div className="flex gap-2">
+                    <Button onClick={() => setCreating(true)}>
+                      <Plus aria-hidden="true" />
+                      Add your first contact
+                    </Button>
+                    {can('contacts.import') ? (
+                      <Button variant="secondary" asChild>
+                        <Link href="/contacts/imports">Import CSV</Link>
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : undefined,
+              }
+        }
         pagination={{
           hasPrevious: cursors.length > 0,
           hasNext: !!list.data?.page.nextCursor,
@@ -371,6 +444,15 @@ export default function ContactsPage() {
         }}
       />
       <SaveSegmentModal filter={filter} open={saving} onOpenChange={setSaving} />
-    </div>
+      <ContactPreview id={preview} onClose={() => setPreview(null)} />
+    </ListPage>
+  )
+}
+
+export default function ContactsPage() {
+  return (
+    <Suspense>
+      <Contacts />
+    </Suspense>
   )
 }

@@ -4,7 +4,7 @@ import { cn } from '../lib/cn'
 
 /**
  * Soft tint background + slate text (AA on every tint) + tone-colored icon/dot.
- * Tone color never carries the meaning alone: the label always does (DESIGN_SYSTEM rule 8).
+ * Tone color never carries the meaning alone: the label always does (FENWIRA_DESIGN_SYSTEM → Status).
  */
 export const badgeVariants = cva(
   'inline-flex w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium text-slate [&_svg]:size-3.5',
@@ -13,8 +13,8 @@ export const badgeVariants = cva(
       tone: {
         neutral: 'bg-neutral-soft [&_[data-tone-icon]]:text-muted',
         primary: 'bg-primary-soft [&_[data-tone-icon]]:text-primary-strong',
-        success: 'bg-success-soft [&_[data-tone-icon]]:text-primary-strong',
-        warning: 'bg-warning-soft [&_[data-tone-icon]]:text-warning',
+        success: 'bg-success-soft [&_[data-tone-icon]]:text-success-strong',
+        warning: 'bg-warning-soft [&_[data-tone-icon]]:text-warning-strong',
         danger: 'bg-danger-soft [&_[data-tone-icon]]:text-danger-strong',
         info: 'bg-info-soft [&_[data-tone-icon]]:text-info-strong',
       },

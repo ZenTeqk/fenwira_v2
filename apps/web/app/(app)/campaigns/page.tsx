@@ -1,18 +1,25 @@
 'use client'
 
 import { type Campaign } from '@fenwira/contracts'
-import { Button, type ColumnDef, DataTable, PageHeader, StatusBadge } from '@fenwira/ui'
+import {
+  Alert,
+  Button,
+  type ColumnDef,
+  DataTable,
+  ListPage,
+  PermissionState,
+  StatusBadge,
+} from '@fenwira/ui'
 import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { formatInZone, useCampaigns } from '@/lib/campaigns'
 
 /** Campaign list (docs/CAMPAIGN_ENGINE.md). */
 export default function CampaignsPage() {
   const { can } = useSession()
   const campaigns = useCampaigns()
-  if (!can('campaigns.read')) return <NoAccess what="campaigns" />
+  if (!can('campaigns.read')) return <PermissionState what="campaigns" />
   const columns: Array<ColumnDef<Campaign>> = [
     {
       accessorKey: 'name',
@@ -48,33 +55,53 @@ export default function CampaignsPage() {
       },
     },
   ]
+  const paused = (campaigns.data ?? []).filter((c) => c.status.startsWith('PAUSED'))
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Campaigns"
-        description="Send an approved template to many contacts at once, now or at a set time."
-        actions={
-          can('campaigns.write') ? (
-            <Button asChild>
-              <Link href="/campaigns/new">
-                <Plus aria-hidden="true" />
-                New campaign
-              </Link>
-            </Button>
-          ) : null
-        }
-      />
+    <ListPage
+      header={{
+        title: 'Campaigns',
+        description: 'Send an approved template to many contacts at once, now or at a set time.',
+        actions: can('campaigns.write') ? (
+          <Button asChild>
+            <Link href="/campaigns/new">
+              <Plus aria-hidden="true" />
+              New campaign
+            </Link>
+          </Button>
+        ) : null,
+      }}
+      banner={
+        paused.length ? (
+          <Alert
+            tone="warning"
+            title={`${paused.length} campaign${paused.length > 1 ? 's are' : ' is'} paused`}
+          >
+            {paused.map((c) => c.name).join(', ')}. Open a campaign to see why and resume it.
+          </Alert>
+        ) : undefined
+      }
+    >
       <DataTable
         label="Campaigns"
         columns={columns}
         data={campaigns.data ?? []}
         getRowId={(c) => c.id}
         loading={campaigns.isPending}
+        error={campaigns.isError ? { onRetry: () => void campaigns.refetch() } : undefined}
         empty={{
           title: 'No campaigns yet',
-          description: 'Create one to reach a segment, a tag or an import.',
+          description:
+            'A campaign sends one approved template to a group of contacts: a tag, a segment or an import. Only contacts who can receive it are included, and you review everything before it goes.',
+          action: can('campaigns.write') ? (
+            <Button asChild>
+              <Link href="/campaigns/new">
+                <Plus aria-hidden="true" />
+                Create your first campaign
+              </Link>
+            </Button>
+          ) : undefined,
         }}
       />
-    </div>
+    </ListPage>
   )
 }

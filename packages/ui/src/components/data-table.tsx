@@ -8,9 +8,19 @@ import {
   type RowSelectionState,
   type SortingState,
   useReactTable,
+  type VisibilityState,
 } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronsUpDown, Columns3, MoreHorizontal } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
+import { Button } from './button'
+import {
+  Dropdown,
+  DropdownCheckboxItem,
+  DropdownContent,
+  DropdownItem,
+  DropdownLabel,
+  DropdownTrigger,
+} from './dropdown'
 import { cn } from '../lib/cn'
 import { focusRing } from '../lib/focus'
 import { Checkbox } from './choice'
@@ -37,7 +47,16 @@ export type DataTableProps<Row> = {
   /** Cursor pagination controls under the table. */
   pagination?: PaginationProps
   skeletonRows?: number
+  /** Search and filters above the table (SearchInput, FilterBar children). */
+  toolbar?: ReactNode
+  /** Actions for the selected rows; the bar replaces nothing and appears only with a selection. */
+  bulkActions?: (selectedIds: string[], clear: () => void) => ReactNode
+  /** Adds a "Columns" menu. Columns opt out with `enableHiding: false`; menu names come from `meta.label`. */
+  columnVisibility?: boolean
 }
+
+/** Column options read by DataTable (`meta` on a ColumnDef). */
+export type DataTableColumnMeta = { label?: string; align?: 'left' | 'right' }
 
 /**
  * Dense list view: client-side sorting on the loaded page, row selection, cursor pagination,
@@ -55,9 +74,13 @@ export function DataTable<Row>({
   empty,
   pagination,
   skeletonRows = 5,
+  toolbar,
+  bulkActions,
+  columnVisibility,
 }: DataTableProps<Row>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [visibility, setVisibility] = useState<VisibilityState>({})
 
   const selectColumn: ColumnDef<Row, unknown> = {
     id: '__select',
@@ -88,7 +111,8 @@ export function DataTable<Row>({
     data,
     columns: selectable ? [selectColumn, ...columns] : columns,
     getRowId,
-    state: { sorting, rowSelection },
+    state: { sorting, rowSelection, columnVisibility: visibility },
+    onColumnVisibilityChange: setVisibility,
     enableRowSelection: selectable,
     onSortingChange: setSorting,
     onRowSelectionChange: (updater) => {
@@ -101,9 +125,65 @@ export function DataTable<Row>({
   })
 
   const columnCount = table.getVisibleLeafColumns().length
+  const selectedIds = Object.keys(rowSelection).filter((id) => rowSelection[id])
+  const clearSelection = () => {
+    setRowSelection({})
+    onSelectionChange?.([])
+  }
+  const hideable = columnVisibility
+    ? table.getAllLeafColumns().filter((c) => c.getCanHide() && c.id !== '__select')
+    : []
+  const metaOf = (c: { columnDef: { meta?: unknown } }) =>
+    (c.columnDef.meta ?? {}) as DataTableColumnMeta
 
   return (
     <div data-slot="data-table" className="flex flex-col gap-3">
+      {toolbar || hideable.length ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">{toolbar}</div>
+          {hideable.length ? (
+            <Dropdown>
+              <DropdownTrigger asChild>
+                <Button variant="secondary" size="sm">
+                  <Columns3 aria-hidden="true" />
+                  Columns
+                </Button>
+              </DropdownTrigger>
+              <DropdownContent>
+                <DropdownLabel>Show columns</DropdownLabel>
+                {hideable.map((c) => (
+                  <DropdownCheckboxItem
+                    key={c.id}
+                    checked={c.getIsVisible()}
+                    onCheckedChange={(v) => c.toggleVisibility(v === true)}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    {metaOf(c).label ??
+                      (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id)}
+                  </DropdownCheckboxItem>
+                ))}
+              </DropdownContent>
+            </Dropdown>
+          ) : null}
+        </div>
+      ) : null}
+      {bulkActions && selectedIds.length ? (
+        <div
+          role="region"
+          aria-label="Bulk actions"
+          className="flex flex-wrap items-center gap-2 rounded-md border border-primary bg-primary-soft px-3 py-2"
+        >
+          <span className="text-base font-medium text-slate" aria-live="polite">
+            {selectedIds.length} selected
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {bulkActions(selectedIds, clearSelection)}
+          </div>
+          <Button variant="ghost" size="sm" className="ml-auto" onClick={clearSelection}>
+            Clear selection
+          </Button>
+        </div>
+      ) : null}
       <Table aria-label={label} aria-busy={loading || undefined}>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
@@ -117,7 +197,10 @@ export function DataTable<Row>({
                 return (
                   <TableHead
                     key={header.id}
-                    className={header.column.id === '__select' ? 'w-10' : undefined}
+                    className={cn(
+                      header.column.id === '__select' && 'w-10',
+                      metaOf(header.column).align === 'right' && 'text-right',
+                    )}
                     aria-sort={
                       sorted === 'asc'
                         ? 'ascending'
@@ -190,7 +273,12 @@ export function DataTable<Row>({
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} data-state={row.getIsSelected() ? 'selected' : undefined}>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell
+                    key={cell.id}
+                    className={
+                      metaOf(cell.column).align === 'right' ? 'text-right tabular-nums' : undefined
+                    }
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
@@ -201,5 +289,40 @@ export function DataTable<Row>({
       </Table>
       {pagination && !error ? <Pagination {...pagination} /> : null}
     </div>
+  )
+}
+
+export type RowAction = {
+  label: string
+  onSelect: () => void
+  icon?: ReactNode
+  destructive?: boolean
+  disabled?: boolean
+}
+
+/** Trailing "⋯" menu for a row (UX_PATTERNS → Tables). */
+export function RowActions({ label, actions }: { label: string; actions: RowAction[] }) {
+  if (!actions.length) return null
+  return (
+    <Dropdown>
+      <DropdownTrigger asChild>
+        <Button variant="ghost" size="icon" className="size-8" aria-label={label}>
+          <MoreHorizontal aria-hidden="true" />
+        </Button>
+      </DropdownTrigger>
+      <DropdownContent>
+        {actions.map((a) => (
+          <DropdownItem
+            key={a.label}
+            destructive={a.destructive}
+            disabled={a.disabled}
+            onSelect={a.onSelect}
+          >
+            {a.icon}
+            {a.label}
+          </DropdownItem>
+        ))}
+      </DropdownContent>
+    </Dropdown>
   )
 }

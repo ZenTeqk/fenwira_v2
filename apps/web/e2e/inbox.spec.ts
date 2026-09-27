@@ -58,7 +58,7 @@ test('two agents: typing locks the reply box for the other, and replies arrive l
 
   // The open conversation (all three panes) has no WCAG 2.1 AA violations.
   const axe = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze()
   expect(axe.violations.map((v) => ({ id: v.id, targets: v.nodes.map((n) => n.target) }))).toEqual(
     [],

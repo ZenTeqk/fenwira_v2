@@ -1,5 +1,5 @@
 /*
- * Fenwira design tokens as a Tailwind v4 theme (contract: docs/DESIGN_SYSTEM.md).
+ * Fenwira design tokens as a Tailwind v4 theme (contract: docs/design/FENWIRA_DESIGN_SYSTEM.md).
  * Together with ../tokens.ts this is the ONLY place raw color values may appear.
  * Tailwind's default palette, type scale and radii are reset, so feature code can only
  * use semantic utilities: bg-primary-strong, text-muted, border-border, rounded-md, …
@@ -13,38 +13,44 @@
   --color-primary-soft: #e7fce8;
   --color-primary-strong: #007f64;
   --color-primary-strong-hover: #006b54;
+  --color-whatsapp: #25d366;
   --color-success: #25d366;
   --color-success-soft: #d1fae5;
+  --color-success-strong: #166534;
   --color-warning: #f59e0b;
-  --color-warning-soft: color-mix(in srgb, #f59e0b 14%, #ffffff);
-  --color-danger: #ef4444;
+  --color-warning-soft: #fef3c7;
+  --color-warning-strong: #b45309;
+  --color-danger: #dc2626;
   --color-danger-soft: #fee2e2;
-  --color-danger-strong: #c81e1e;
-  --color-danger-strong-hover: #a51919;
-  --color-info: #6366f1;
-  --color-info-soft: color-mix(in srgb, #6366f1 10%, #ffffff);
-  --color-info-strong: #4f46e5;
+  --color-danger-strong: #b91c1c;
+  --color-danger-strong-hover: #991b1b;
+  --color-info: #2563eb;
+  --color-info-soft: #eff6ff;
+  --color-info-strong: #1d4ed8;
   --color-slate: #0f172a;
   --color-slate-800: #1e293b;
   --color-slate-400: #94a3b8;
+  --color-secondary: #475569;
   --color-muted: #64748b;
   --color-background: #f8fafc;
   --color-surface: #ffffff;
   --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
   --color-neutral-soft: #f1f5f9;
 
   --font-*: initial;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Type scale (px): 12 / 13 / 14 (body) / 16 / 18 / 20 / 24 / 30 */
+  /* Type scale (size/line px): caption 12/16 · small 13/18 · body 14/20 · card title 16/24 ·
+     section 18/28 · 20/28 · page title 24/32 · 30/36 (auth/marketing only). */
   --text-*: initial;
   --text-xs: 0.75rem;
   --text-xs--line-height: 1rem;
   --text-sm: 0.8125rem;
-  --text-sm--line-height: 1.25rem;
+  --text-sm--line-height: 1.125rem;
   --text-base: 0.875rem;
-  --text-base--line-height: 1.375rem;
+  --text-base--line-height: 1.25rem;
   --text-md: 1rem;
   --text-md--line-height: 1.5rem;
   --text-lg: 1.125rem;
@@ -56,15 +62,18 @@
   --text-3xl: 1.875rem;
   --text-3xl--line-height: 2.25rem;
 
-  /* Radius: 6 controls, 8 inputs/badges, 12 cards/modals */
+  /* Radius: 6 buttons/controls · 8 inputs/badges/panels · 12 cards · 16 dialogs */
   --radius-*: initial;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
-  /* Elevation: cards use a border only; overlays get the single shadow token. */
+  /* Elevation: surfaces use borders. `raised` is for small floating affordances (canvas nodes,
+     segmented thumbs); `overlay` for menus, dialogs, drawers and toasts. */
   --shadow-*: initial;
+  --shadow-raised: 0 1px 2px 0 rgb(15 23 42 / 0.06);
   --shadow-overlay: 0 12px 32px -8px rgb(15 23 42 / 0.18), 0 2px 6px -2px rgb(15 23 42 / 0.08);
 }
 
@@ -76,6 +85,8 @@
   }
   html {
     color-scheme: light;
+    /* The sticky 56px top bar must never hide the focused element (WCAG 2.2, 2.4.11). */
+    scroll-padding-top: 4.5rem;
   }
   body {
     background-color: var(--color-background);

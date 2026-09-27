@@ -23,6 +23,11 @@ export type CommandPaletteProps = {
   onOpenChange: (open: boolean) => void
   groups: CommandGroup[]
   placeholder?: string
+  /** Controlled query, for groups loaded from the server as the user types. */
+  search?: string
+  onSearchChange?: (search: string) => void
+  /** Shown under the input while server results load. */
+  loading?: boolean
 }
 
 /** Opens on ⌘K / Ctrl+K anywhere on the page. */
@@ -44,6 +49,9 @@ export function CommandPalette({
   onOpenChange,
   groups,
   placeholder = 'Search or jump to…',
+  search,
+  onSearchChange,
+  loading,
 }: CommandPaletteProps) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -52,7 +60,7 @@ export function CommandPalette({
         <DialogPrimitive.Content
           data-slot="command-palette"
           aria-describedby={undefined}
-          className="fixed top-[15vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-lg border border-border bg-surface shadow-overlay"
+          className="fixed top-[15vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-surface shadow-overlay"
         >
           <VisuallyHidden.Root>
             <DialogPrimitive.Title>Command palette</DialogPrimitive.Title>
@@ -62,10 +70,19 @@ export function CommandPalette({
               <Search className="size-4 text-muted" aria-hidden="true" />
               <Command.Input
                 placeholder={placeholder}
+                value={search}
+                onValueChange={onSearchChange}
                 className="h-11 w-full bg-transparent text-base text-slate outline-none placeholder:text-slate-400"
               />
             </div>
-            <Command.List className="max-h-80 overflow-y-auto p-1">
+            <Command.List className="max-h-96 overflow-y-auto p-1">
+              {loading ? (
+                <Command.Loading>
+                  <p role="status" className="px-3 py-2 text-sm text-muted">
+                    Searching…
+                  </p>
+                </Command.Loading>
+              ) : null}
               <Command.Empty className="px-3 py-6 text-center text-base text-muted">
                 No results.
               </Command.Empty>

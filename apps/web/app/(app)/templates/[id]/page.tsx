@@ -8,6 +8,7 @@ import {
   DataTable,
   ErrorState,
   PageHeader,
+  PermissionState,
   Skeleton,
   StatusBadge,
   Tabs,
@@ -21,7 +22,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { TemplateBuilder } from '@/components/templates/template-builder'
 import { TemplatePreview } from '@/components/templates/template-preview'
 import { ApiError, del, post } from '@/lib/api/client'
@@ -66,6 +66,7 @@ function Versions({ id }: { id: string }) {
       data={versions.data ?? []}
       getRowId={(v) => v.id}
       loading={versions.isPending}
+      error={versions.isError ? { onRetry: () => void versions.refetch() } : undefined}
       empty={{ title: 'No versions', description: '' }}
     />
   )
@@ -111,7 +112,7 @@ export default function TemplatePage() {
     onError,
   })
 
-  if (!can('templates.read')) return <NoAccess what="templates" />
+  if (!can('templates.read')) return <PermissionState what="templates" />
   if (template.isPending) return <Skeleton className="h-96" />
   if (template.isError || !template.data)
     return <ErrorState onRetry={() => void template.refetch()} />
@@ -153,9 +154,15 @@ export default function TemplatePage() {
                     await confirm({
                       title: `Delete ${t.name}?`,
                       description: v.metaTemplateId
-                        ? 'It is also deleted at Meta, in every language, and can no longer be sent.'
+                        ? 'This can’t be undone.'
                         : 'This draft is removed.',
-                      confirmLabel: 'Delete',
+                      impact: v.metaTemplateId
+                        ? [
+                            'It is deleted at Meta too, in every language.',
+                            'Campaigns and automations that use it can no longer send it.',
+                          ]
+                        : undefined,
+                      confirmLabel: 'Delete template',
                       destructive: true,
                     })
                   )
@@ -177,8 +184,24 @@ export default function TemplatePage() {
         </Alert>
       ) : null}
       {v.status === 'REJECTED' ? (
-        <Alert tone="danger" title="Meta rejected this version">
-          Reason: {v.rejectionReason ?? 'not given'}. Edit it as a new version and submit again.
+        <Alert
+          tone="danger"
+          title="Meta rejected this version"
+          action={
+            canNewVersion ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={newVersion.isPending}
+                onClick={() => newVersion.mutate()}
+              >
+                Edit and resubmit
+              </Button>
+            ) : undefined
+          }
+        >
+          <span className="font-medium">Meta’s reason:</span> {v.rejectionReason ?? 'not given'}.
+          Fix the content in a new version and submit it again.
         </Alert>
       ) : null}
       {v.status === 'DRAFT' && v.lastError ? (

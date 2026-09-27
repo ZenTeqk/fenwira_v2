@@ -15,22 +15,17 @@ import {
   DropdownSeparator,
   DropdownTrigger,
   focusRing,
+  ModuleTabs,
   useCommandPaletteShortcut,
 } from '@fenwira/ui'
-import {
-  LayoutGrid,
-  LogOut,
-  Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Search,
-  Shield,
-} from 'lucide-react'
+import Link from 'next/link'
+import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Shield } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   breadcrumbsFor,
   flattenLeaves,
+  moduleTabs,
   NAVIGATION,
   type NavItem,
   visibleNavigation,
@@ -40,8 +35,12 @@ import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { usePresenceHeartbeat, useRealtimeEvent } from '@/lib/realtime'
 import { useSession } from '../session/session-provider'
+import { useCommandGroups } from '@/lib/command-search'
+import { BrandMark } from './brand-mark'
+import { HelpMenu } from './help-menu'
 import { NotificationsBell } from './notifications-bell'
 import { SidebarNav } from './sidebar-nav'
+import { SidebarStatus } from './sidebar-status'
 import { TenantSwitcher } from './tenant-switcher'
 
 const COLLAPSE_KEY = 'fenwira.sidebar.collapsed'
@@ -64,7 +63,11 @@ function writeCollapsed(value: boolean): void {
 
 type AppShellProps = { children: ReactNode; navPreview: boolean; galleryEnabled: boolean }
 
-/** Sidebar (slate, 248px / 64px collapsed; drawer below 1024px) + header + page (docs/prompts/PHASE_02). */
+/**
+ * Application shell (docs/design/UX_PATTERNS.md → Application shell): slate sidebar of modules
+ * (248px, 64px collapsed, a drawer below 1024px) with workspace status at its foot; a top bar with
+ * workspace, breadcrumb, search, help, notifications and account; module tabs; the page.
+ */
 export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps) {
   const pathname = usePathname()
   // The inbox fills the viewport under the header with its own panes (docs/INBOX.md → Layout).
@@ -102,37 +105,14 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
     })
   }, [])
 
-  const paletteGroups = useMemo(() => {
-    const leaves = flattenLeaves(nav)
-    const groups = [
-      {
-        heading: 'Navigation',
-        items: leaves.map((leaf) => ({
-          id: leaf.id,
-          label:
-            leaf.group && leaf.group !== leaf.label ? `${leaf.group} › ${leaf.label}` : leaf.label,
-          keywords: leaf.group ? [leaf.group] : undefined,
-          onSelect: () => router.push(leaf.href),
-        })),
-      },
-    ]
-    if (galleryEnabled) {
-      groups.push({
-        heading: 'Developer',
-        items: [
-          {
-            id: 'dev-ui',
-            label: 'Component gallery',
-            keywords: ['design', 'ui'],
-            onSelect: () => router.push('/dev/ui'),
-          },
-        ],
-      })
-    }
-    return groups
-  }, [nav, galleryEnabled, router])
+  const [search, setSearch] = useState('')
+  const palette = useCommandGroups({ nav, search, open: paletteOpen, galleryEnabled })
 
-  const crumbs = breadcrumbsFor(pathname, nav)
+  // Section pages get the breadcrumb here; record pages (/contacts/:id …) render a more specific
+  // one in their own header, so the top bar leaves it out to avoid two trails.
+  const onSectionPage = flattenLeaves(nav).some((l) => l.href === pathname)
+  const crumbs = onSectionPage ? breadcrumbsFor(pathname, nav) : []
+  const { module: currentModule, tabs } = moduleTabs(pathname, nav)
 
   return (
     <div className="flex min-h-dvh bg-background">
@@ -150,10 +130,21 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           collapsed ? 'w-16' : 'w-62',
         )}
       >
-        <TenantSwitcher collapsed={collapsed} />
+        <Link
+          href="/dashboard"
+          className={cn(
+            'flex h-10 items-center rounded-sm px-3',
+            collapsed && 'justify-center px-0',
+            focusRing,
+          )}
+        >
+          <BrandMark tone="dark" compact={collapsed} />
+          <span className="sr-only">Fenwira home</span>
+        </Link>
         <div className="flex-1 overflow-y-auto">
           <SidebarNav items={nav} pathname={pathname} collapsed={collapsed} badges={badges} />
         </div>
+        <SidebarStatus collapsed={collapsed} />
         <button
           type="button"
           onClick={toggleCollapsed}
@@ -179,6 +170,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
         <DrawerContent title="Navigation" side="left" width="sm" tone="dark">
           <div className="flex flex-col gap-4">
             <TenantSwitcher />
+            <SidebarStatus />
             <SidebarNav
               items={nav}
               pathname={pathname}
@@ -200,8 +192,12 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           >
             <Menu aria-hidden="true" />
           </Button>
+          <div className="hidden lg:block">
+            <TenantSwitcher variant="topbar" />
+          </div>
+          <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
           <div className="min-w-0 flex-1">
-            {crumbs.length > 0 ? <Breadcrumb items={crumbs} /> : null}
+            {crumbs.length > 0 ? <Breadcrumb items={crumbs} linkAs={Link} /> : null}
           </div>
           <Button
             variant="secondary"
@@ -216,6 +212,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
               ⌘K
             </kbd>
           </Button>
+          <HelpMenu galleryEnabled={galleryEnabled} />
           <NotificationsBell />
           <Dropdown>
             <DropdownTrigger className={cn('rounded-full', focusRing)}>
@@ -235,12 +232,6 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
                 <Shield aria-hidden="true" />
                 Security
               </DropdownItem>
-              {galleryEnabled ? (
-                <DropdownItem onSelect={() => router.push('/dev/ui')}>
-                  <LayoutGrid aria-hidden="true" />
-                  Component gallery
-                </DropdownItem>
-              ) : null}
               <DropdownSeparator />
               <DropdownItem onSelect={() => void signOut()}>
                 <LogOut aria-hidden="true" />
@@ -250,6 +241,13 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           </Dropdown>
         </header>
 
+        {tabs.length && !fullBleed ? (
+          <ModuleTabs
+            items={tabs}
+            label={`${currentModule?.label ?? 'Module'} pages`}
+            linkAs={Link}
+          />
+        ) : null}
         <main id="main" tabIndex={-1} className="min-h-0 flex-1 outline-none">
           {fullBleed ? (
             children
@@ -259,7 +257,18 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
         </main>
       </div>
 
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} groups={paletteGroups} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={(o) => {
+          setPaletteOpen(o)
+          if (!o) setSearch('')
+        }}
+        groups={palette.groups}
+        search={search}
+        onSearchChange={setSearch}
+        loading={palette.loading}
+        placeholder="Search contacts, conversations, campaigns… or jump to a page"
+      />
     </div>
   )
 }

@@ -100,12 +100,18 @@ test('create a campaign, review it, launch it and watch the results', async ({ p
   )
   await axe(page)
   await page.getByRole('button', { name: 'Launch campaign' }).click()
+  // High-impact action: the confirmation states who receives it and the estimated cost.
+  const launchDialog = page.getByRole('alertdialog', { name: 'Launch this campaign now?' })
+  await expect(launchDialog.getByRole('list', { name: 'What will happen' })).toContainText(
+    'contacts receive',
+  )
+  await launchDialog.getByRole('button', { name: 'Launch campaign' }).click()
 
   // Detail: live status and results from the delivery webhooks.
   await expect(page).toHaveURL(/\/campaigns\/[0-9a-f-]{36}$/)
   await expect(page.locator('[data-status="COMPLETED"]').first()).toBeVisible({ timeout: 60_000 })
   const results = page.getByRole('region', { name: 'Campaign results' })
-  const readCard = results.locator('[data-slot="kpi-card"]').filter({ hasText: /^Read/ })
+  const readCard = results.locator('[data-slot="metric-card"]').filter({ hasText: /^Read/ })
   await expect(readCard).toContainText('2', { timeout: 30_000 })
   await expect(page.getByRole('table', { name: 'Recipients' })).toContainText('Asha Rao')
   await expect(page.getByText('Delivery rate')).toBeVisible()

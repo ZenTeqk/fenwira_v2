@@ -7,8 +7,9 @@ import {
   type ColumnDef,
   DataTable,
   ErrorState,
-  KpiCard,
+  MetricCard,
   PageHeader,
+  PermissionState,
   Select,
   SelectContent,
   SelectItem,
@@ -25,7 +26,6 @@ import { useParams } from 'next/navigation'
 import { useId, useState } from 'react'
 import { CampaignWizard } from '@/components/campaigns/campaign-wizard'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { ApiError, post } from '@/lib/api/client'
 import {
   ACTIVE_STATUSES,
@@ -107,6 +107,7 @@ function Recipients({ id, live, timezone }: { id: string; live: boolean; timezon
         data={rows}
         getRowId={(r) => r.id}
         loading={recipients.isPending}
+        error={recipients.isError ? { onRetry: () => void recipients.refetch() } : undefined}
         empty={{
           title: 'No recipients here',
           description: 'Recipients appear once the audience is prepared.',
@@ -168,7 +169,7 @@ export default function CampaignPage() {
     onError: (err) => toast.error(err instanceof Error ? err.message : 'The export failed.'),
   })
 
-  if (!can('campaigns.read')) return <NoAccess what="campaigns" />
+  if (!can('campaigns.read')) return <PermissionState what="campaigns" />
   if (campaign.isPending) return <Skeleton className="h-96" />
   if (campaign.isError || !c) return <ErrorState onRetry={() => void campaign.refetch()} />
   if (c.status === 'DRAFT' && can('campaigns.write'))
@@ -231,8 +232,12 @@ export default function CampaignPage() {
                   if (
                     await confirm({
                       title: `Cancel ${c.name}?`,
-                      description:
-                        'Recipients not sent yet won’t receive it. Messages already sent aren’t recalled.',
+                      description: 'Cancelling can’t be undone.',
+                      impact: [
+                        'Recipients not sent yet won’t receive it.',
+                        'Messages already sent stay sent; WhatsApp can’t recall them.',
+                        'Results so far stay in the report.',
+                      ],
                       confirmLabel: 'Cancel campaign',
                       cancelLabel: 'Keep it',
                       destructive: true,
@@ -280,14 +285,14 @@ export default function CampaignPage() {
       {s ? (
         <>
           <section aria-label="Campaign results" className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <KpiCard label="Total recipients" value={s.total.toLocaleString('en-IN')} />
-            <KpiCard label="Eligible" value={s.eligible.toLocaleString('en-IN')} />
-            <KpiCard label="Skipped" value={s.skipped.toLocaleString('en-IN')} />
-            <KpiCard label="Queued" value={(s.pending + s.queued).toLocaleString('en-IN')} />
-            <KpiCard label="Sent" value={s.sent.toLocaleString('en-IN')} />
-            <KpiCard label="Delivered" value={s.delivered.toLocaleString('en-IN')} />
-            <KpiCard label="Read" value={s.read.toLocaleString('en-IN')} />
-            <KpiCard label="Failed" value={s.failed.toLocaleString('en-IN')} />
+            <MetricCard label="Total recipients" value={s.total.toLocaleString('en-IN')} />
+            <MetricCard label="Eligible" value={s.eligible.toLocaleString('en-IN')} />
+            <MetricCard label="Skipped" value={s.skipped.toLocaleString('en-IN')} />
+            <MetricCard label="Queued" value={(s.pending + s.queued).toLocaleString('en-IN')} />
+            <MetricCard label="Sent" value={s.sent.toLocaleString('en-IN')} />
+            <MetricCard label="Delivered" value={s.delivered.toLocaleString('en-IN')} />
+            <MetricCard label="Read" value={s.read.toLocaleString('en-IN')} />
+            <MetricCard label="Failed" value={s.failed.toLocaleString('en-IN')} />
           </section>
           <dl className="flex flex-wrap gap-6 text-base text-slate">
             <div>

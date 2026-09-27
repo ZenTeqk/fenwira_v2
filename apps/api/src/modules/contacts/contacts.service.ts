@@ -8,6 +8,7 @@ import {
   type CreateContactRequest,
   type SearchContactsRequest,
   type UpdateContactRequest,
+  type ContactEligibility,
 } from '@fenwira/contracts'
 import { Prisma, type TenantTx } from '@fenwira/database'
 import { Injectable } from '@nestjs/common'
@@ -18,6 +19,7 @@ import { normalizePhone } from '../../core/phone'
 import { AuditService } from '../audit'
 import { currentAuth } from '../identity'
 import { currentTenant } from '../tenancy'
+import { evaluateEligibility, type EligibilityDecision } from '../messaging'
 import { addActivity, recordConsent } from './consent'
 import { CONTACT_INCLUDE, toContact } from './contacts.mapper'
 import { FilterCompiler } from './filter/compile'
@@ -417,6 +419,65 @@ export class ContactsService {
         lastMessagePreview: c.lastMessagePreview,
         serviceWindowExpiresAt: iso(c.serviceWindowExpiresAt),
       }))
+    })
+  }
+
+  /**
+   * Read-only eligibility summary from MessageEligibilityService's rules (C1): marketing and
+   * utility templates, and free-form messages in the given (or most recent) conversation.
+   */
+  async eligibility(id: string, conversationId?: string): Promise<ContactEligibility> {
+    return this.tenantDb.run(async (tx) => {
+      const c = await this.find(tx, id)
+      const conv = await tx.conversation.findFirst({
+        where: { contactId: id, ...(conversationId ? { id: conversationId } : {}) },
+        orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
+        select: { serviceWindowExpiresAt: true },
+      })
+      const now = new Date()
+      const contact = {
+        status: c.status,
+        deletedAt: c.deletedAt,
+        marketingConsent: c.marketingConsent,
+        utilityConsent: c.utilityConsent,
+      }
+      const window = conv?.serviceWindowExpiresAt ?? null
+      const verdict = (d: EligibilityDecision) =>
+        d.allowed
+          ? { allowed: true, code: null, reason: null, optedOut: false }
+          : { allowed: false, code: d.code, reason: d.reason, optedOut: d.optedOut }
+      return {
+        marketingTemplate: verdict(
+          evaluateEligibility({
+            purpose: 'MARKETING',
+            category: 'MARKETING',
+            contentType: 'TEMPLATE',
+            contact,
+            serviceWindowExpiresAt: window,
+            now,
+          }),
+        ),
+        utilityTemplate: verdict(
+          evaluateEligibility({
+            purpose: 'UTILITY',
+            category: 'UTILITY',
+            contentType: 'TEMPLATE',
+            contact,
+            serviceWindowExpiresAt: window,
+            now,
+          }),
+        ),
+        freeform: verdict(
+          evaluateEligibility({
+            purpose: 'SERVICE',
+            contentType: 'TEXT',
+            contact,
+            serviceWindowExpiresAt: window,
+            now,
+          }),
+        ),
+        serviceWindowExpiresAt: iso(window),
+      }
     })
   }
 

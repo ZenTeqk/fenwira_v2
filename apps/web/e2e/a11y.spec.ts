@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test'
 import { signInAsNewOwner } from './support'
 
 // WCAG 2.1 A + AA (docs/prompts/PHASE_02_DESIGN_SYSTEM.md acceptance: no AA violations).
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
+const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 
 async function expectNoViolations(page: Page, include?: string) {
   const builder = new AxeBuilder({ page }).withTags(TAGS)
@@ -84,6 +84,7 @@ test('open overlays have no AA violations', async ({ page }) => {
   await page.keyboard.press('Escape')
 
   await page.getByRole('button', { name: 'Open command palette' }).click()
+  // The gallery's own palette uses the component's default placeholder.
   await expect(page.getByPlaceholder('Search or jump to…')).toBeVisible()
   await expectNoViolations(page, '[data-slot="command-palette"]')
 })

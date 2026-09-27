@@ -11,10 +11,11 @@ import {
   DropdownLabel,
   DropdownSeparator,
   DropdownTrigger,
+  StatusBadge,
   toast,
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Clock, PanelRight, UserPlus } from 'lucide-react'
+import { ArrowLeft, PanelRight, UserPlus } from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, post, put } from '@/lib/api/client'
 import { del } from '@/lib/api/client'
@@ -95,9 +96,12 @@ export function ConversationHeader({
           <h2 className="truncate text-md font-semibold text-slate">{displayName(c)}</h2>
           <span className="font-mono text-sm text-muted">{c.contact.phoneE164}</span>
         </div>
-        <Badge tone={left ? 'success' : 'neutral'} icon={<Clock />} className="ml-1">
-          {left ?? 'Window closed'}
-        </Badge>
+        <span className="ml-1" title="WhatsApp 24-hour service window">
+          <StatusBadge
+            status={left ? 'WINDOW_OPEN' : 'WINDOW_CLOSED'}
+            label={left ? `Window open · ${left}` : 'Window closed'}
+          />
+        </span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {can('inbox.assign_self') ? (
             <Dropdown>

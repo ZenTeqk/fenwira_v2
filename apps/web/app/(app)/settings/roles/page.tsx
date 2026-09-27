@@ -3,7 +3,8 @@
 import { type RoleMatrix } from '@fenwira/contracts'
 import {
   ErrorState,
-  PageHeader,
+  PermissionState,
+  SettingsPage,
   Skeleton,
   Table,
   TableBody,
@@ -16,7 +17,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Check, Minus } from 'lucide-react'
 import { Fragment } from 'react'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 
@@ -46,7 +46,7 @@ export default function RolesPage() {
     staleTime: Infinity,
   })
 
-  if (!can('roles.read')) return <NoAccess what="roles" />
+  if (!can('roles.read')) return <PermissionState what="roles" />
   if (matrix.isError) return <ErrorState onRetry={() => void matrix.refetch()} />
 
   const areas = new Map<string, RoleMatrix['permissions']>()
@@ -56,11 +56,12 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Roles"
-        description="What each role can do. Roles are fixed; assign them on the Team page."
-      />
+    <SettingsPage
+      header={{
+        title: 'Roles',
+        description: 'What each role can do. Roles are fixed; assign them on the Team page.',
+      }}
+    >
       {matrix.isPending ? (
         <Skeleton className="h-96 w-full" />
       ) : (
@@ -114,6 +115,6 @@ export default function RolesPage() {
           </TableBody>
         </Table>
       )}
-    </div>
+    </SettingsPage>
   )
 }

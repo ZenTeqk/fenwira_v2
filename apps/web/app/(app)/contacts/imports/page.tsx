@@ -7,9 +7,10 @@ import {
   type ColumnDef,
   DataTable,
   Label,
+  ListPage,
   Modal,
   ModalContent,
-  PageHeader,
+  PermissionState,
   RadioGroup,
   RadioGroupItem,
   Select,
@@ -27,7 +28,6 @@ import { Upload } from 'lucide-react'
 import { type ChangeEvent, useEffect, useState } from 'react'
 import { FormError } from '@/components/auth/form-error'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { ApiError, get, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { formatDateTime, useProperties } from '@/lib/contacts'
@@ -397,7 +397,7 @@ export default function ImportsPage() {
     enabled: can('contacts.import'),
     refetchInterval: (q) => (q.state.data?.some((j) => BUSY.has(j.status)) ? 2000 : false),
   })
-  if (!can('contacts.import')) return <NoAccess what="imports" />
+  if (!can('contacts.import')) return <PermissionState what="imports" />
   const columns: ColumnDef<ImportJob, unknown>[] = [
     { id: 'file', header: 'File', cell: ({ row }) => row.original.filename ?? 'Untitled.csv' },
     {
@@ -440,17 +440,18 @@ export default function ImportsPage() {
     },
   ]
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Imports"
-        description="Bring contacts in from a CSV file."
-        actions={
+    <ListPage
+      header={{
+        title: 'Imports',
+        description: 'Bring contacts in from a CSV file.',
+        actions: (
           <Button onClick={() => setWizard({ id: null })}>
             <Upload aria-hidden="true" />
             Import contacts
           </Button>
-        }
-      />
+        ),
+      }}
+    >
       <DataTable
         label="Imports"
         columns={columns}
@@ -466,6 +467,6 @@ export default function ImportsPage() {
           onClose={() => setWizard(null)}
         />
       ) : null}
-    </div>
+    </ListPage>
   )
 }

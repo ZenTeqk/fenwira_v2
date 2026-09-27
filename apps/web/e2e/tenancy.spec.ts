@@ -31,9 +31,9 @@ test('invite a teammate from the Team page; they accept as a new account', async
   // Agents don't see admin-only settings.
   await guest.goto('/settings/team')
   await expect(guest.getByRole('button', { name: 'Invite teammate' })).toHaveCount(0)
-  await expect(
-    guest.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Audit Logs' }),
-  ).toHaveCount(0)
+  const settingsTabs = guest.getByRole('navigation', { name: 'Settings pages' })
+  await expect(settingsTabs.getByRole('link', { name: 'Team' })).toBeVisible()
+  await expect(settingsTabs.getByRole('link', { name: 'Audit logs' })).toHaveCount(0)
 
   await page.reload()
   await expect(page.getByRole('table', { name: 'Team members' }).getByText(invitee)).toBeVisible()

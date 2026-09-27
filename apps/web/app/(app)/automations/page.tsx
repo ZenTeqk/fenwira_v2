@@ -1,18 +1,24 @@
 'use client'
 
 import { type Flow } from '@fenwira/contracts'
-import { Button, type ColumnDef, DataTable, PageHeader, StatusBadge } from '@fenwira/ui'
+import {
+  Button,
+  type ColumnDef,
+  DataTable,
+  ListPage,
+  PermissionState,
+  StatusBadge,
+} from '@fenwira/ui'
 import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useSession } from '@/components/session/session-provider'
-import { NoAccess } from '@/components/settings/no-access'
 import { NODE_LABEL, useFlows } from '@/lib/automation'
 
 /** Automations list (docs/AUTOMATION_ENGINE.md). Ordered as they run: priority, then age. */
 export default function AutomationsPage() {
   const { can } = useSession()
   const flows = useFlows()
-  if (!can('automations.read')) return <NoAccess what="automations" />
+  if (!can('automations.read')) return <PermissionState what="automations" />
   const columns: Array<ColumnDef<Flow>> = [
     {
       accessorKey: 'name',
@@ -56,33 +62,44 @@ export default function AutomationsPage() {
       ),
     },
   ]
+  const newButton = can('automations.write') ? (
+    <Button asChild>
+      <Link href="/automations/new">
+        <Plus aria-hidden="true" />
+        New automation
+      </Link>
+    </Button>
+  ) : null
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Automations"
-        description="Flows that run on their own when a message, contact or webhook arrives. An agent replying stops them for that conversation."
-        actions={
-          can('automations.write') ? (
-            <Button asChild>
-              <Link href="/automations/new">
-                <Plus aria-hidden="true" />
-                New automation
-              </Link>
-            </Button>
-          ) : null
-        }
-      />
+    <ListPage
+      header={{
+        title: 'Automations',
+        description:
+          'Flows that run on their own when a message, contact or webhook arrives. An agent replying stops them for that conversation.',
+        actions: newButton,
+      }}
+    >
       <DataTable
         label="Automations"
         columns={columns}
         data={flows.data ?? []}
         getRowId={(f) => f.id}
         loading={flows.isPending}
+        error={flows.isError ? { onRetry: () => void flows.refetch() } : undefined}
         empty={{
           title: 'No automations yet',
-          description: 'Create one to answer keywords, welcome new contacts or call your systems.',
+          description:
+            'Automations answer keywords, welcome new customers, tag and assign conversations, or call your systems, even when nobody is online. Start from a ready-made recipe.',
+          action: can('automations.write') ? (
+            <Button asChild>
+              <Link href="/automations/new">
+                <Plus aria-hidden="true" />
+                Create your first automation
+              </Link>
+            </Button>
+          ) : undefined,
         }}
       />
-    </div>
+    </ListPage>
   )
 }

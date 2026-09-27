@@ -5,7 +5,7 @@ import { API, customerWritesIn, ownerHeaders, resetRateLimits, signInAsNewOwner 
 /** Phase 10 builder (docs/prompts/PHASE_10_AUTOMATION.md): canvas, outline, publish, history. */
 test.beforeEach(() => resetRateLimits())
 
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
+const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 async function expectNoViolations(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze()
   expect(

@@ -229,6 +229,7 @@ Implemented in Phase 5: `GET /conversations` (newest first, cursor; inbox filter
 | POST | `/contacts/bulk` | `{action: TAG\|UNTAG\|DELETE, contactIds \| filter, tagId?}` |
 | GET | `/contacts/:id/activities`, `/contacts/:id/consents`, `/contacts/:id/conversations` | `contacts.read` |
 | POST | `/contacts/:id/consents` | `contacts.write`. `{purpose, status, note}` |
+| GET | `/contacts/:id/eligibility?conversationId=` | `contacts.read`. Read-only summary from MessageEligibilityService (C1 stays the only decider): `{marketingTemplate, utilityTemplate, freeform}` each `{allowed, code, reason, optedOut}`, plus `serviceWindowExpiresAt` (the given or most recent conversation). Added with Design System v1 so the UI explains restrictions without re-implementing them. |
 | GET / POST | `/contacts/:id/notes` | read / write |
 | CRUD | `/contact-properties` | read / `contacts.properties.manage` |
 | CRUD | `/tags` | read / `contacts.write` |

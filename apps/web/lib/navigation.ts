@@ -28,6 +28,8 @@ export type NavLeaf = {
   href: string
   phase: number
   permission?: Permission
+  /** `action` leaves (create …) go to the command palette's Create group, not the module tabs. */
+  kind?: 'page' | 'action'
 }
 export type NavItem = NavLeaf & { icon: LucideIcon; children?: NavLeaf[] }
 
@@ -50,7 +52,7 @@ export const NAVIGATION: NavItem[] = [
     children: [
       {
         id: 'contacts-all',
-        label: 'All Contacts',
+        label: 'All contacts',
         href: '/contacts',
         phase: 6,
         permission: 'contacts.read',
@@ -94,10 +96,11 @@ export const NAVIGATION: NavItem[] = [
       },
       {
         id: 'campaigns-new',
-        label: 'Create Campaign',
+        label: 'New campaign',
         href: '/campaigns/new',
         phase: 9,
         permission: 'campaigns.write',
+        kind: 'action',
       },
       {
         id: 'campaigns-analytics',
@@ -124,10 +127,11 @@ export const NAVIGATION: NavItem[] = [
       },
       {
         id: 'templates-new',
-        label: 'Create Template',
+        label: 'New template',
         href: '/templates/new',
         phase: 8,
         permission: 'templates.write',
+        kind: 'action',
       },
     ],
   },
@@ -151,6 +155,7 @@ export const NAVIGATION: NavItem[] = [
         href: '/automations/new',
         phase: 10,
         permission: 'automations.write',
+        kind: 'action',
       },
     ],
   },
@@ -228,7 +233,7 @@ export const NAVIGATION: NavItem[] = [
       { id: 'settings-security', label: 'Security', href: '/settings/security', phase: 3 },
       {
         id: 'settings-audit',
-        label: 'Audit Logs',
+        label: 'Audit logs',
         href: '/settings/audit-logs',
         phase: 3,
         permission: 'audit.view',
@@ -292,7 +297,35 @@ export function breadcrumbsFor(
 ): Array<{ label: string; href?: string }> {
   const leaf = findActiveLeaf(pathname, nav)
   if (!leaf) return []
-  return leaf.group && leaf.group !== leaf.label
-    ? [{ label: leaf.group }, { label: leaf.label }]
+  const mod = activeModule(pathname, nav)
+  // The module links to its first page; the sub-page itself is shown by the module tabs.
+  return mod && mod.label !== leaf.label
+    ? [{ label: mod.label, href: moduleHref(mod) }, { label: leaf.label }]
     : [{ label: leaf.label }]
+}
+
+/** Workspace administration, listed under a divider in the sidebar. */
+export const SECONDARY_MODULES = ['integrations', 'billing', 'settings']
+
+/** Where a module's sidebar link goes: its first visible sub-page, or itself. */
+export const moduleHref = (item: NavItem): string =>
+  item.children?.find((c) => c.kind !== 'action')?.href ?? item.children?.[0]?.href ?? item.href
+
+/** The module that owns a pathname (its own href or any sub-page, longest match). */
+export function activeModule(pathname: string, nav: NavItem[]): NavItem | undefined {
+  const leaf = findActiveLeaf(pathname, nav)
+  if (leaf) return nav.find((i) => i.id === leaf.id || i.children?.some((c) => c.id === leaf.id))
+  return nav.find((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))
+}
+
+/** A module's sub-pages as tabs; empty when the module has a single page. */
+export function moduleTabs(pathname: string, nav: NavItem[]) {
+  const mod = activeModule(pathname, nav)
+  const pages = (mod?.children ?? []).filter((c) => c.kind !== 'action')
+  if (pages.length < 2) return { module: mod, tabs: [] }
+  const leaf = findActiveLeaf(pathname, nav)
+  return {
+    module: mod,
+    tabs: pages.map((c) => ({ id: c.id, label: c.label, href: c.href, active: c.id === leaf?.id })),
+  }
 }

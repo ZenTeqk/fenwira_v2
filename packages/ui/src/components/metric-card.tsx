@@ -4,7 +4,7 @@ import { cn } from '../lib/cn'
 import { Card } from './card'
 import { Skeleton } from './skeleton'
 
-export type KpiDelta = {
+export type MetricDelta = {
   /** Pre-formatted, e.g. "+4.2%" */
   value: string
   direction: 'up' | 'down' | 'flat'
@@ -14,10 +14,10 @@ export type KpiDelta = {
   label?: string
 }
 
-export type KpiCardProps = {
+export type MetricCardProps = {
   label: string
   value: ReactNode
-  delta?: KpiDelta
+  delta?: MetricDelta
   icon?: ReactNode
   hint?: ReactNode
   loading?: boolean
@@ -31,12 +31,21 @@ const sentimentTone = {
   neutral: 'text-muted',
 }
 
-export function KpiCard({ label, value, delta, icon, hint, loading, className }: KpiCardProps) {
+/** One key number with its label, optional trend and hint (UX_PATTERNS → Dashboard). */
+export function MetricCard({
+  label,
+  value,
+  delta,
+  icon,
+  hint,
+  loading,
+  className,
+}: MetricCardProps) {
   const DeltaIcon = delta ? deltaIcon[delta.direction] : null
   return (
-    <Card data-slot="kpi-card" className={cn('flex flex-col gap-3 p-5', className)}>
+    <Card data-slot="metric-card" className={cn('flex flex-col gap-3 p-5', className)}>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-muted">{label}</p>
+        <p className="text-sm font-medium text-secondary">{label}</p>
         {icon ? (
           <span className="text-muted [&_svg]:size-4" aria-hidden="true">
             {icon}
@@ -58,8 +67,13 @@ export function KpiCard({ label, value, delta, icon, hint, loading, className }:
           {delta.label ? <span>{delta.label}</span> : null}
         </p>
       ) : hint ? (
-        <p className="text-sm text-muted">{hint}</p>
+        <div className="text-sm text-secondary">{hint}</div>
       ) : null}
     </Card>
   )
 }
+
+/** @deprecated Use MetricCard (Design System v1 name). Kept for one release. */
+export const KpiCard = MetricCard
+export type KpiCardProps = MetricCardProps
+export type KpiDelta = MetricDelta

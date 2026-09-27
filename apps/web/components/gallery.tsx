@@ -15,6 +15,7 @@ import {
   Checkbox,
   type ColumnDef,
   CommandPalette,
+  ConnectionState,
   DataTable,
   Drawer,
   DrawerContent,
@@ -28,16 +29,20 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  FilterBar,
   Input,
-  KpiCard,
   Label,
+  MetricCard,
   Modal,
   ModalClose,
   ModalContent,
   ModalTrigger,
   PageHeader,
+  PermissionState,
   RadioGroup,
   RadioGroupItem,
+  SearchInput,
+  SectionHeader,
   Select,
   SelectContent,
   SelectItem,
@@ -59,6 +64,7 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
+  Timeline,
   toast,
   Tooltip,
   useConfirm,
@@ -382,10 +388,10 @@ export function Gallery() {
         </Tabs>
       </Section>
 
-      <Section id="cards" title="Card and KpiCard">
+      <Section id="cards" title="Card and MetricCard">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiCard label="Recipients" value="10,000" hint="Snapshot at launch" />
-          <KpiCard
+          <MetricCard label="Recipients" value="10,000" hint="Snapshot at launch" />
+          <MetricCard
             label="Delivered"
             value="9,712"
             delta={{
@@ -395,7 +401,7 @@ export function Gallery() {
               label: 'vs last campaign',
             }}
           />
-          <KpiCard
+          <MetricCard
             label="Failed"
             value="58"
             delta={{
@@ -405,7 +411,7 @@ export function Gallery() {
               label: 'vs last campaign',
             }}
           />
-          <KpiCard label="Read rate" value="85%" loading />
+          <MetricCard label="Read rate" value="85%" loading />
         </div>
         <Card>
           <CardHeader>
@@ -525,6 +531,68 @@ export function Gallery() {
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-4 w-1/2" />
           <Skeleton className="h-24 w-full" />
+        </div>
+      </Section>
+      <Section id="v1-composites" title="Design System v1 composites">
+        <div className="flex flex-col gap-4">
+          <FilterBar activeCount={1} onClear={() => setLastAction('Cleared filters')}>
+            <SearchInput label="Search gallery" value="asha" onValueChange={() => undefined} />
+            <Button variant="secondary" size="sm">
+              Filter
+            </Button>
+          </FilterBar>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="p-5">
+              <ConnectionState
+                status="CONNECTED"
+                name="+91 98123 45671"
+                detail="Quality: High"
+                action={
+                  <Button variant="secondary" size="sm">
+                    Manage
+                  </Button>
+                }
+              />
+            </Card>
+            <Card className="p-5">
+              <ConnectionState status="DISCONNECTED" name="+91 98123 45672" />
+            </Card>
+          </div>
+          <SectionHeader
+            title="Section title"
+            description="Section description in secondary text."
+          />
+          <Card className="p-5">
+            <Timeline
+              label="Example timeline"
+              items={[
+                { id: '1', title: 'Trigger matched', status: 'SUCCEEDED', time: '10:02' },
+                { id: '2', title: 'Wait 1 hour', status: 'WAITING', time: '10:02' },
+                {
+                  id: '3',
+                  title: 'Send template',
+                  status: 'FAILED',
+                  description: 'Not enough credits to send this template.',
+                },
+              ]}
+            />
+          </Card>
+          <Card>
+            <PermissionState what="billing" permission="billing.read" />
+          </Card>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MetricCard label="Open conversations" value="42" hint="Go to inbox" />
+            <MetricCard
+              label="Delivery health"
+              value="High"
+              delta={{
+                value: '+2%',
+                direction: 'up',
+                sentiment: 'positive',
+                label: 'vs last week',
+              }}
+            />
+          </div>
         </div>
       </Section>
     </main>

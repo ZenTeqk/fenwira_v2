@@ -66,46 +66,31 @@ docs/             Specs, ADRs, prompts
 
 ## Fenwira design system (mandatory)
 
-```text
-Primary                        #00A884   --color-primary
-Primary Hover                  #008F70   --color-primary-hover
-Success                        #25D366   --color-success
-Structural Dark                #0F172A   --color-slate
-Secondary Dark                 #1E293B   --color-slate-800
-Muted                          #64748B   --color-muted
-Slate 400 (idle edges, icons)  #94A3B8   --color-slate-400
-Background                     #F8FAFC   --color-background
-Surface                        #FFFFFF   --color-surface
-Border                         #E2E8F0   --color-border
-Soft Primary                   #E7FCE8   --color-primary-soft
-Neutral Soft                   #F1F5F9   --color-neutral-soft
-Success Soft                   #D1FAE5   --color-success-soft
-Danger Soft                    #FEE2E2   --color-danger-soft
-Warning                        #F59E0B   --color-warning
-Danger                         #EF4444   --color-danger
-Information / Human Takeover   #6366F1   --color-info
-Primary Strong (filled/text)   #007F64   --color-primary-strong        (+ hover #006B54)
-Danger Strong (filled/text)    #C81E1E   --color-danger-strong         (+ hover #A51919)
-Info Strong (text)             #4F46E5   --color-info-strong
-```
+The contract is **Design System v1**: [docs/design/FENWIRA_DESIGN_SYSTEM.md](docs/design/FENWIRA_DESIGN_SYSTEM.md) (tokens, contrast, type, spacing, shape), [docs/design/UX_PATTERNS.md](docs/design/UX_PATTERNS.md) (shell, page patterns, states, confirmation, module UX, quality gate) and [docs/design/UI_AUDIT.md](docs/design/UI_AUDIT.md).
 
-The `-strong` shades exist for WCAG AA contrast (white on `#00A884` is only 3.03:1). See docs/DESIGN_SYSTEM.md.
+```text
+Primary action (non-text)      #00A884   --color-primary          text/filled buttons: primary-strong #007F64
+WhatsApp channel identity      #25D366   --color-whatsapp         (as --color-success: healthy state)
+Sidebar / primary text         #0F172A   --color-slate
+Secondary text                 #475569   --color-secondary
+Muted text                     #64748B   --color-muted
+Canvas                         #F8FAFC   --color-background
+Surface                        #FFFFFF   --color-surface
+Border / strong border         #E2E8F0 / #CBD5E1   --color-border / --color-border-strong
+Warning                        #F59E0B   --color-warning          text: warning-strong #B45309
+Danger                         #DC2626   --color-danger           filled/text: danger-strong #B91C1C
+Info (scheduled, takeover)     #2563EB   --color-info             text: info-strong #1D4ED8
+```
 
 Rules:
 
-1. `#00A884` is reserved for primary actions, active navigation, focus states and selected states. Filled primary buttons and green text use `primary-strong`.
-2. `#25D366` represents operational success and live state.
-3. `#F59E0B` represents warnings and pending state.
-4. `#EF4444` represents errors, failures and destructive actions.
-5. `#6366F1` represents system, information and manual takeover states.
-6. The main application background is `#F8FAFC`.
-7. Primary cards and surfaces are `#FFFFFF`.
-8. Standard borders are `#E2E8F0`.
-9. Main navigation is `#0F172A`.
-10. Do not introduce colors without updating `docs/DESIGN_SYSTEM.md` and `packages/ui` tokens first.
-11. Components use semantic tokens (`bg-primary`, `text-muted`, …). No hex values in `apps/web`. CI greps for them.
-12. Do not use emerald as decoration.
-13. Status is never shown by color alone. Pair it with a label or icon.
+1. `#00A884` is reserved for actions, active navigation, focus and selection, never text. Filled primary buttons and green text use `primary-strong`.
+2. Fenwira primary and WhatsApp green are different tokens with different meanings.
+3. Statuses are rendered with `StatusBadge` only (five categories: success, warning, danger, info, neutral). Never by color alone.
+4. Do not introduce colors without updating `docs/design/FENWIRA_DESIGN_SYSTEM.md`, `packages/ui` tokens and the contrast test first.
+5. Components use semantic tokens (`bg-primary-strong`, `text-secondary`, …). No hex values or arbitrary values in `apps/web` (`pnpm lint:design`).
+6. Pages use the shared patterns (`ListPage`, `DetailPage`, `BuilderPage`, `SettingsPage`, `DashboardLayout`).
+7. A UI feature is done only when the **UI quality gate** in UX_PATTERNS.md §13 holds.
 
 Feature code imports UI primitives from `@fenwira/ui` only. Do not create one-off buttons, badges, inputs or spacing values in feature folders. If a primitive is missing, add it to `packages/ui` first.
 
@@ -137,3 +122,4 @@ Dependency versions are pinned exactly. Upgrading a major needs its own PR (ADR-
 - New tenant tables have RLS plus cross-tenant tests
 - New endpoints are in `docs/API_SPEC.md`, with Zod contracts and RBAC guards
 - No hex colors outside `packages/ui`, and no secrets or PII in logs
+- UI changes pass the UI quality gate (docs/design/UX_PATTERNS.md §13)
