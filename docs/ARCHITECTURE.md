@@ -65,7 +65,7 @@ Both api and worker use the same domain modules from `apps/api/src/modules/*`. T
 | `campaigns` | `campaigns`, `campaign_recipients` | 9 |
 | `automation` | `flows`, `flow_versions`, `automation_executions`, `automation_execution_steps` | 10 |
 | `billing` | `plans`, `plan_entitlements`, `subscriptions`, `tenant_entitlement_overrides`, `wallets`, `wallet_transactions`, `usage_events`, `price_book_entries` | 11 |
-| `analytics` | `analytics_events`, `analytics_daily_rollups` | 11 |
+| `analytics` | `analytics_events`, `analytics_daily_rollups`, `analytics_conversation_episodes`, `analytics_dirty`, `analytics_tenant_state` (`ANALYTICS.md`) | 11 |
 | `developer` | `api_keys`, `webhook_endpoints`, `webhook_deliveries` | 11 |
 
 ### Module rules
@@ -120,7 +120,7 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `message.outbound.requested` | messaging (`MessagingService.send`) | `messageId` | `whatsapp.outbound` |
 | `message.inbound.received` | messaging (inbound processor) | `messageId, conversationId, contactId, text?` | `contacts.events` (opt-in/out keywords), `automation.trigger`, `analytics.events` |
 | `message.status.changed` | messaging (status processor) | `messageId, from, to, errorCode?, pricing?` | `campaign.events`, `analytics.events`, `billing.usage`, `contacts.events` (on 131050) |
-| `conversation.opened` | messaging | `conversationId, contactId` | `analytics.events`, `inbox.events` (auto-assign) |
+| `conversation.opened` | messaging | `conversationId, contactId, messageId?` (the opening customer message, since Phase 11) | `analytics.events`, `inbox.events` (auto-assign) |
 | `conversation.assigned` | inbox | `conversationId, assigneeId, previousAssigneeId?` | `notifications.dispatch` |
 | `conversation.automation_state.changed` | inbox, messaging (an agent's first reply) | `conversationId, from, to, actorId?` | `automation.trigger` (stops the conversation's executions, P10-D2) |
 | `contact.created` | contacts, messaging (first message from a new number), automation webhook | `contactId, source` | `automation.trigger`, `analytics.events` |
@@ -129,7 +129,7 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `template.status.changed` | templates | `templateVersionId, from, to, reason?` | `notifications.dispatch` |
 | `campaign.launched` | campaigns | `campaignId` | `campaign.dispatch`, `analytics.events` |
 | `campaign.completed` | campaigns | `campaignId, counts` | `notifications.dispatch`, `analytics.events` |
-| `automation.execution.finished` | automation (not emitted yet; Phase 11 analytics) | `executionId, flowId, status` | `analytics.events` |
+| `automation.execution.finished` | automation (`finishExecution`, in the terminal-state transaction; Phase 11) | `executionId, flowId, status` | `analytics.events` |
 | `wallet.low_balance` | billing (on a crossing into LOW_BALANCE or INSUFFICIENT_FUNDS, P11-D12) | `walletId, from, to, availableMinor, currency` | `notifications.dispatch` |
 | `wallet.funded` | billing (an unfunded wallet's first available funds, P11-D21) | `walletId, to, availableMinor, currency` | `notifications.dispatch` |
 | `wallet.recovered` | billing (a funded wallet crossing back to NORMAL) | `walletId, from, availableMinor, currency` | `notifications.dispatch` |
@@ -157,7 +157,8 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `campaign.events` | outbox relay | Recipient status sync, completion detection | 10 |
 | `automation.trigger` | outbox relay | Match events to active flows, store the ordered plan (trigger run), start the first flow; stop executions on takeover | 5 |
 | `automation.execute` | automation (self), delayed jobs, 60 s recovery scheduler (X16) | Run execution steps: job id `exec__{executionId}__{stepCount}`, ≤ 25 steps per job | 10 |
-| `analytics.events` | outbox relay | Append analytics events | 10 |
+| `analytics.events` | outbox relay | Record each consumed event once and mark days/campaigns to recompute (`ANALYTICS.md`) | 5 |
+| `analytics.rollup` | repeatable scheduler | Recompute marked days and campaigns (every minute, X10), nightly heal (02:30 UTC) and retention (03:45 UTC) | 1 |
 | `billing.usage` | outbox relay | Price billable messages, debit the wallet | 5 |
 | `billing.maintenance` | repeatable scheduler | Stale-reservation recovery (every 5 min, X17), daily ledger check (02:15 UTC, X18) | 1 |
 | `notifications.dispatch` | outbox relay | In-app notification + email (wallet crossings since Phase 11) | 5 |

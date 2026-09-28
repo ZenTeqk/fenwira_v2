@@ -425,6 +425,8 @@ Implemented in Phase 9 (migration `20261001000000_campaigns_wallet`), with these
 
 Phase 11 Step 1 (migration `20261004000000_wallet_state`): `wallets.funds_state` (`wallet_funds_state` NORMAL|LOW_BALANCE|INSUFFICIENT_FUNDS, null until first recorded; detects low-balance crossings, P11-D12); `wallet_transactions.fund_type` (`fund_type` PAID|PROMOTIONAL, default PAID; existing trial credits classified PROMOTIONAL) and `expires_at` (metadata, P11-D7); `notifications.dedupe_key` with unique `(tenant_id, user_id, dedupe_key)` so event-driven notifications are created once. System functions X17 `stale_reservations` and X18 `wallet_ledger_drift` (`MULTI_TENANCY.md`).
 
+Phase 11 Step 2 (migration `20261006000000_analytics`): `analytics_events` (append-only; `source_event_id` unique per tenant, `subject_id`, `dims`), `analytics_daily_rollups` (pk `tenant_id, day, metric, dims_key`), `analytics_conversation_episodes`, `analytics_dirty` (durable recompute marks) and `analytics_tenant_state`, as defined in `ANALYTICS.md`. New source indexes for bounded per-day scans: `messages (tenant_id, created_at)`, `automation_executions (tenant_id, started_at)`, `automation_execution_steps (tenant_id, started_at)`, `usage_events (tenant_id, occurred_at)`, and `campaign_recipients (tenant_id, contact_id, created_at desc)` for Contact → Campaigns. System functions X10 `tenants_with_activity` and `purge_analytics_events` (X9 analytics part).
+
 P11-D21 (migration `20261005000000_wallet_funding`): `wallets.funded_at` (first time the wallet had available funds; backfilled from the first positive ledger row).
 
 Phase 9 closure (migration `20261002000000_billing_modes`): `tenants.billing_mode` (`billing_mode`: FREE, TRIAL or PREPAID; default TRIAL); `campaign_status` adds `PAUSED_TEMPLATE_UNAVAILABLE`; `price_book_entries.unit_price_minor` is renamed `customer_price_minor`, with new `provider_cost_minor`, `tax_code`, `tax_bps`, `is_placeholder` and `note`; `usage_events.provider_cost_minor`.
@@ -563,7 +565,7 @@ The retention categories, and what happens to each at tenant deletion, are in `D
 | `outbox_events` DISPATCHED | 7 days | `system.purge_expired` |
 | `idempotency_keys` | 24 hours | `system.purge_expired` |
 | `webhook_deliveries` | 30 days | `system.purge_expired` |
-| `analytics_events` | Per `analytics_retention` entitlement | Maintenance job |
+| `analytics_events` and the other analytics projections | Per `analytics_retention` entitlement | Nightly analytics retention (`ANALYTICS.md`) |
 | `audit_logs` | ≥ 1 year | Never auto-purged in v2 |
 | Messages, contacts | Until the contact is deleted, or the tenant is purged | Contact soft delete; tenant purge (below) |
 | A deleted tenant's data | 30 days recoverable, then purged or anonymized (decision T2) | Tenant purge job, one tenant at a time. Per-category handling is in `DATA_RETENTION.md` (decision T3). There is no database-wide hard delete. |

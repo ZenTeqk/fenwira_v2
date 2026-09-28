@@ -56,6 +56,7 @@ import { type FormEvent, type ReactNode, useState } from 'react'
 import { FormError } from '@/components/auth/form-error'
 import { ContactFormModal } from '@/components/contacts/contact-form-modal'
 import { TagBadges } from '@/components/contacts/tag-badges'
+import { ContactCampaigns } from '@/components/contacts/contact-campaigns'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, patch, post } from '@/lib/api/client'
 import { del } from '@/lib/api/client'
@@ -476,10 +477,7 @@ export default function ContactPage() {
         </TabsContent>
 
         <TabsContent value="campaigns">
-          <EmptyState
-            title="No campaign messages"
-            description="Campaign sends to this contact will be listed here."
-          />
+          <ContactCampaigns contactId={id} />
         </TabsContent>
 
         <TabsContent value="activities">

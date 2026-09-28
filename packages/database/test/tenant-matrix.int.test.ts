@@ -355,6 +355,37 @@ const FIXTURES: Record<string, Fixture> = {
     tx.cannedReply.create({
       data: { tenantId, shortcut: `/t${Date.now()}`, title: 't', body: 'b', createdBy: userId },
     }),
+  analytics_events: (tx, { tenantId }) =>
+    tx.analyticsEvent.create({
+      data: {
+        tenantId,
+        sourceEventId: crypto.randomUUID(),
+        eventType: 'message.inbound.received',
+        occurredAt: new Date(),
+      },
+    }),
+  analytics_daily_rollups: (tx, { tenantId }) =>
+    tx.analyticsDailyRollup.create({
+      data: { tenantId, day: new Date('2026-09-01'), metric: `m.${Date.now()}`, value: 1n },
+    }),
+  analytics_conversation_episodes: (tx, { tenantId }) =>
+    tx.analyticsConversationEpisode.create({
+      data: {
+        id: crypto.randomUUID(),
+        tenantId,
+        conversationId: crypto.randomUUID(),
+        openedAt: new Date(),
+        day: new Date('2026-09-01'),
+      },
+    }),
+  analytics_dirty: (tx, { tenantId }) =>
+    tx.analyticsDirty.create({ data: { tenantId, scope: 'day', key: `${Date.now()}` } }),
+  analytics_tenant_state: (tx, { tenantId }) =>
+    tx.analyticsTenantState.upsert({
+      where: { tenantId },
+      create: { tenantId },
+      update: {},
+    }),
   webhook_subscriptions: async (tx, { tenantId }) =>
     tx.webhookSubscription.create({
       data: { tenantId, wabaId: (await waba(tx, tenantId)).id, subscribedFields: ['messages'] },
@@ -367,6 +398,7 @@ const APPEND_ONLY = new Set([
   'wallet_transactions',
   'usage_events',
   'automation_execution_steps',
+  'analytics_events',
 ])
 
 const appUrl = process.env.DATABASE_URL!

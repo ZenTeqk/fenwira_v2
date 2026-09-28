@@ -10,6 +10,8 @@ export type EntitlementKey =
   | 'max_active_flows'
   /** Automation executions a tenant may start per calendar month (UTC). */
   | 'automation_execution_limit'
+  /** P11-D15: days of product-analytics history kept (plan data: 30 / 90 / 365). */
+  | 'analytics_retention'
 
 type FeatureKey = Extract<EntitlementKey, 'automation_enabled'>
 type LimitKey = Exclude<EntitlementKey, FeatureKey>
@@ -68,6 +70,14 @@ export class EntitlementsService {
           limit: max,
           message: `This workspace can have ${max} active automations. Pause one to publish another.`,
         }
+  }
+
+  /**
+   * Days of analytics history this workspace keeps (P11-D15); null = unlimited. Only analytics
+   * projections are affected: ledger, audit and operational records have their own retention.
+   */
+  analyticsRetentionDays(tx: TenantTx, tenantId: string): Promise<number | null> {
+    return this.source.limit(tx, tenantId, 'analytics_retention')
   }
 
   async canStartExecution(tx: TenantTx, tenantId: string, now: Date): Promise<EntitlementDecision> {

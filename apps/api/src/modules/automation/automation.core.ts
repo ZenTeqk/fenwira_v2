@@ -331,6 +331,17 @@ export async function finishExecution(
       errorDetail: error?.detail?.slice(0, 1000) ?? null,
     },
   })
+  // Analytics (Phase 11): the terminal state, in the same transaction. Analytics recomputes from
+  // the execution row, so a repeated event can never count twice.
+  await tx.outboxEvent.create({
+    data: {
+      tenantId: execution.tenantId,
+      eventType: 'automation.execution.finished',
+      aggregateType: 'automation_execution',
+      aggregateId: execution.id,
+      payload: { executionId: execution.id, flowId: execution.flowId, status },
+    },
+  })
   if (!execution.triggerRunId) return
   await lockRun(tx, execution.triggerRunId)
   const run = await tx.automationTriggerRun.findFirst({ where: { id: execution.triggerRunId } })

@@ -125,6 +125,7 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 | `BILLING_LOW_BALANCE_THRESHOLD_MINOR` | `10000` (₹100, P11-D12) | api, worker | 11 (`billing.low_balance_threshold`) |
 | `BILLING_SUPPORT_EMAIL`, `BILLING_SUPPORT_URL` | unset (fallback text) | api, worker | 11 (billing contact, P11-D20) |
 | `BILLING_RESERVATION_GRACE_MINUTES` | `360` | worker | 11 (stale-reservation recovery) |
+| `ANALYTICS_SETTLE_SECONDS` | `20` | worker | 11 (analytics recompute marks wait this long; tests use 0) |
 | `OPS_ALERT_EMAIL` | unset (alerts only logged) | worker | 11 (operational alerts, decision O1) |
 | `CAMPAIGN_BATCH_SIZE` | `50` | worker | 9 |
 | `PUBLIC_API_URL` | `http://localhost:4000` | api | 4 |

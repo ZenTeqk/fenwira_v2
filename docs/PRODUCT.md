@@ -88,7 +88,6 @@ Deferred by the product owner; not scheduled in a phase.
 | Audit logs: shared FilterBar | Design System v1 | Single action select today. |
 | Automation Send Message: media in the builder form | Phase 10 / DS v1 | API and runtime support `mediaFileId`; the form handles text only. |
 | Remove the `KpiCard` compatibility alias | Design System v1 | Use `MetricCard`. |
-| Contact → Campaigns tab | Design System v1 | Placeholder until Phase 11 analytics/query capability (PHASE_11_PLAN §4). |
 
 ## Success metrics (Fenwira Core, Phases 0–7)
 

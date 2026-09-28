@@ -40,7 +40,12 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     errorCode: z.string().optional(),
     pricing: z.unknown().optional(),
   }),
-  'conversation.opened': z.object({ conversationId: z.uuid(), contactId: z.uuid() }),
+  // `messageId`: the customer message that opened it (analytics episodes; added in Phase 11).
+  'conversation.opened': z.object({
+    conversationId: z.uuid(),
+    contactId: z.uuid(),
+    messageId: z.uuid().optional(),
+  }),
   // Inbox (Phase 7).
   'conversation.assigned': z.object({
     conversationId: z.uuid(),
@@ -94,6 +99,12 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     from: z.enum(['LOW_BALANCE', 'INSUFFICIENT_FUNDS']),
     availableMinor: z.number().int(),
     currency: z.string(),
+  }),
+  // Automation (Phase 11 analytics): an execution reached a terminal state (finishExecution).
+  'automation.execution.finished': z.object({
+    executionId: z.uuid(),
+    flowId: z.uuid(),
+    status: z.enum(['COMPLETED', 'FAILED', 'CANCELLED', 'STOPPED_TAKEOVER']),
   }),
   // WhatsApp accounts (Phase 4). Templates sync a newly connected WABA.
   'whatsapp.connection.changed': z.object({

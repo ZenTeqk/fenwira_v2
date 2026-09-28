@@ -207,7 +207,7 @@ model Tenant {
   updatedAt                DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt                DateTime?       @map("deleted_at") @db.Timestamptz(3)
 
-  owner                    User                        @relation("TenantOwner", fields: [ownerUserId], references: [id])
+  owner                    User                           @relation("TenantOwner", fields: [ownerUserId], references: [id])
   memberships              Membership[]
   invitations              Invitation[]
   auditLogs                AuditLog[]
@@ -252,6 +252,11 @@ model Tenant {
   automationExecutions     AutomationExecution[]
   automationSteps          AutomationExecutionStep[]
   templateVersions         TemplateVersion[]
+  analyticsEvents          AnalyticsEvent[]
+  analyticsRollups         AnalyticsDailyRollup[]
+  analyticsEpisodes        AnalyticsConversationEpisode[]
+  analyticsDirty           AnalyticsDirty[]
+  analyticsState           AnalyticsTenantState?
 
   @@map("tenants")
 }
@@ -774,6 +779,8 @@ model Message {
   templateVersion TemplateVersion? @relation(fields: [templateVersionId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, conversationId, createdAt(sort: Desc)])
+  /// Analytics: bounded per-day scans (docs/ANALYTICS.md).
+  @@index([tenantId, createdAt])
   @@map("messages")
 }
 
@@ -1505,6 +1512,8 @@ model CampaignRecipient {
 
   @@unique([campaignId, contactId])
   @@index([campaignId, status, id])
+  /// Contact → Campaigns.
+  @@index([tenantId, contactId, createdAt(sort: Desc)])
   @@map("campaign_recipients")
 }
 
@@ -1635,6 +1644,7 @@ model UsageEvent {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, type, messageId])
+  @@index([tenantId, occurredAt])
   @@map("usage_events")
 }
 
@@ -1830,6 +1840,7 @@ model AutomationExecution {
   @@unique([triggerRunId, flowId])
   @@index([tenantId, flowId, startedAt(sort: Desc)])
   @@index([tenantId, conversationId, status])
+  @@index([tenantId, startedAt])
   @@map("automation_executions")
 }
 
@@ -1853,5 +1864,104 @@ model AutomationExecutionStep {
   execution AutomationExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
 
   @@unique([executionId, seq])
+  @@index([tenantId, startedAt])
   @@map("automation_execution_steps")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Analytics (Phase 11 Step 2, docs/ANALYTICS.md). Derived projections only: operational tables,
+// the ledger and usage_events stay authoritative, and every projection can be rebuilt.
+// ---------------------------------------------------------------------------------------------
+
+/// Append-only log of the domain events analytics consumed; unique per source event, so a
+/// redelivered event is recorded (and counted) once. Purged by analytics retention (P11-D15).
+model AnalyticsEvent {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  /// The outbox event id (the deduplication identity).
+  sourceEventId String   @map("source_event_id") @db.Uuid
+  eventType     String   @map("event_type")
+  /// When it happened (for conversation.opened: the customer's message time).
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  /// The message, conversation, campaign or execution the event is about.
+  subjectId     String?  @map("subject_id") @db.Uuid
+  dims          Json     @default("{}")
+  recordedAt    DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sourceEventId])
+  @@index([tenantId, eventType, occurredAt])
+  @@map("analytics_events")
+}
+
+/// Daily aggregates per workspace-local day. Recomputed (never incremented) from source data.
+model AnalyticsDailyRollup {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  day       DateTime @db.Date
+  metric    String
+  /// "" for the total, or "dimension:value" (for example "category:UTILITY").
+  dimsKey   String   @default("") @map("dims_key")
+  value     BigInt
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, day, metric, dimsKey])
+  @@index([tenantId, metric, day])
+  @@map("analytics_daily_rollups")
+}
+
+/// One customer-opened conversation episode (a conversation.opened event), with its first human
+/// reply and resolution derived from message history (docs/ANALYTICS.md → Inbox).
+model AnalyticsConversationEpisode {
+  /// The conversation.opened source event id.
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  conversationId   String    @map("conversation_id") @db.Uuid
+  openedAt         DateTime  @map("opened_at") @db.Timestamptz(3)
+  day              DateTime  @db.Date
+  firstResponseAt  DateTime? @map("first_response_at") @db.Timestamptz(3)
+  firstResponderId String?   @map("first_responder_id") @db.Uuid
+  resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(3)
+  resolvedBy       String?   @map("resolved_by") @db.Uuid
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, day])
+  @@index([tenantId, conversationId, openedAt])
+  @@map("analytics_conversation_episodes")
+}
+
+/// Work queue for the rollup pass: a day (scope "day", key YYYY-MM-DD) or a campaign (scope
+/// "campaign", key id) whose aggregates must be recomputed. Durable, so Redis loss loses nothing.
+model AnalyticsDirty {
+  tenantId String   @map("tenant_id") @db.Uuid
+  scope    String
+  key      String
+  markedAt DateTime @default(now()) @map("marked_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, scope, key])
+  @@map("analytics_dirty")
+}
+
+/// Projection health per workspace: freshness, failures, and the timezone/retention the
+/// rollups were built with (a change triggers a rebuild).
+model AnalyticsTenantState {
+  tenantId      String    @id @map("tenant_id") @db.Uuid
+  timezone      String?
+  retentionDays Int?      @map("retention_days")
+  backfilledAt  DateTime? @map("backfilled_at") @db.Timestamptz(3)
+  lastEventAt   DateTime? @map("last_event_at") @db.Timestamptz(3)
+  lastRollupAt  DateTime? @map("last_rollup_at") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  lastErrorAt   DateTime? @map("last_error_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("analytics_tenant_state")
 }

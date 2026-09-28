@@ -66,9 +66,9 @@ export function MetricCard({
           <span className="font-medium text-slate">{delta.value}</span>
           {delta.label ? <span>{delta.label}</span> : null}
         </p>
-      ) : hint ? (
-        <div className="text-sm text-secondary">{hint}</div>
       ) : null}
+      {/* The hint stays under a delta: it explains the figure (for example a rate's denominator). */}
+      {hint ? <div className="text-sm text-secondary">{hint}</div> : null}
     </Card>
   )
 }

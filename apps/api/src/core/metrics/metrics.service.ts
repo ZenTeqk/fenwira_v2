@@ -127,6 +127,41 @@ export class MetricsService implements OnApplicationBootstrap, OnApplicationShut
     registers: [this.registry],
   })
 
+  // Analytics (Phase 11 Step 2, docs/ANALYTICS.md). No tenant labels.
+  readonly analyticsEvents = new Counter({
+    name: 'analytics_events_total',
+    help: 'Domain events consumed by analytics, by type and result (recorded | duplicate | ignored)',
+    labelNames: ['type', 'result'] as const,
+    registers: [this.registry],
+  })
+  readonly analyticsProjectionFailures = new Counter({
+    name: 'analytics_projection_failures_total',
+    help: 'Analytics event projections that threw (the job is retried)',
+    registers: [this.registry],
+  })
+  readonly analyticsRollupFailures = new Counter({
+    name: 'analytics_rollup_failures_total',
+    help: 'Workspace rollup runs that failed, by job (rollup | heal | retention)',
+    labelNames: ['job'] as const,
+    registers: [this.registry],
+  })
+  readonly analyticsRollupDuration = new Histogram({
+    name: 'analytics_rollup_duration_seconds',
+    help: 'Time to bring one workspace up to date',
+    buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 15, 60],
+    registers: [this.registry],
+  })
+  readonly analyticsLag = new Gauge({
+    name: 'analytics_projection_lag_seconds',
+    help: 'Age of the oldest pending recompute mark seen by the last rollup pass',
+    registers: [this.registry],
+  })
+  readonly analyticsCorrections = new Counter({
+    name: 'analytics_reconciliation_corrections_total',
+    help: 'Rollup rows the nightly heal found different from source data and corrected',
+    registers: [this.registry],
+  })
+
   readonly messageStatus = new Counter({
     name: 'messages_status_total',
     help: 'Message status transitions',

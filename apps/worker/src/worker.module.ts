@@ -28,6 +28,11 @@ import {
   BillingUsageProcessor,
 } from '@fenwira/api/modules/billing'
 import {
+  AnalyticsEventsProcessor,
+  AnalyticsModule,
+  AnalyticsRollupProcessor,
+} from '@fenwira/api/modules/analytics'
+import {
   NotificationsDispatchProcessor,
   NotificationsModule,
 } from '@fenwira/api/modules/notifications'
@@ -112,6 +117,7 @@ export class WorkerModule {
       billing: billingPlatform,
       support: billingSupportFromEnv(env),
     })
+    const analytics = AnalyticsModule.forWorker({ settleSeconds: env.ANALYTICS_SETTLE_SECONDS })
     const campaigns = CampaignsModule.forWorker(
       {
         billing: billingPlatform,
@@ -135,6 +141,7 @@ export class WorkerModule {
         templates,
         billing,
         notifications,
+        analytics,
         campaigns,
         automation,
       ],
@@ -150,6 +157,8 @@ export class WorkerModule {
         BillingUsageProcessor,
         BillingMaintenanceProcessor,
         NotificationsDispatchProcessor,
+        AnalyticsEventsProcessor,
+        AnalyticsRollupProcessor,
         CampaignDispatchProcessor,
         CampaignEventsProcessor,
         AutomationTriggerProcessor,

@@ -460,6 +460,37 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT p_limit;
 $$;
 
+-- X10: analytics work fan-out (docs/ANALYTICS.md). Workspaces with pending recompute marks, or
+-- with analytics activity since p_since. IDs only; each rollup re-enters withTenant.
+GRANT SELECT (tenant_id) ON public.analytics_dirty TO fenwira_system;
+GRANT SELECT (tenant_id, last_event_at) ON public.analytics_tenant_state TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.tenants_with_activity(p_since timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT x.tenant_id FROM (
+    SELECT d.tenant_id FROM public.analytics_dirty d
+    UNION
+    SELECT s.tenant_id FROM public.analytics_tenant_state s WHERE s.last_event_at >= p_since
+  ) x
+  ORDER BY x.tenant_id
+  LIMIT p_limit;
+$$;
+
+-- X9 (analytics part): analytics retention for one workspace (P11-D15). analytics_events is
+-- append-only for the runtime role, so the purge runs here: by age only, for that workspace only,
+-- returning a count. Nothing else (ledger, audit, messages) is reachable through it.
+GRANT SELECT (tenant_id, occurred_at), DELETE ON public.analytics_events TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.purge_analytics_events(p_tenant_id uuid, p_before timestamptz)
+RETURNS integer
+LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  WITH d AS (
+    DELETE FROM public.analytics_events
+    WHERE tenant_id = p_tenant_id AND occurred_at < p_before
+    RETURNING 1
+  )
+  SELECT count(*)::integer FROM d;
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -480,7 +511,9 @@ BEGIN
     'system.resolve_flow_webhook(bytea)',
     'system.due_automation_executions(timestamptz, timestamptz, integer)',
     'system.stale_reservations(timestamptz, integer)',
-    'system.wallet_ledger_drift(integer)'
+    'system.wallet_ledger_drift(integer)',
+    'system.tenants_with_activity(timestamptz, integer)',
+    'system.purge_analytics_events(uuid, timestamptz)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

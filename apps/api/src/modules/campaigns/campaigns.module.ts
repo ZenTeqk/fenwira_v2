@@ -3,6 +3,7 @@ import { AuditModule } from '../audit'
 import { CampaignDispatchProcessor } from './campaign-dispatch.processor'
 import { CampaignEventsProcessor } from './campaign-events.processor'
 import { CampaignsController } from './campaigns.controller'
+import { ContactCampaignsController } from './contact-campaigns.controller'
 import { CAMPAIGNS_OPTIONS, type CampaignsOptions } from './campaigns.options'
 import { CampaignsService } from './campaigns.service'
 
@@ -11,7 +12,7 @@ export class CampaignsModule {
   static forApi(options: CampaignsOptions): DynamicModule {
     return {
       module: CampaignsModule,
-      controllers: [CampaignsController],
+      controllers: [CampaignsController, ContactCampaignsController],
       providers: [{ provide: CAMPAIGNS_OPTIONS, useValue: options }, CampaignsService],
     }
   }

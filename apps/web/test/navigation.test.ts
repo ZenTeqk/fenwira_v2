@@ -25,7 +25,7 @@ describe('navigation', () => {
       'Billing',
       'Settings',
     ])
-    expect(flattenLeaves(NAVIGATION)).toHaveLength(26)
+    expect(flattenLeaves(NAVIGATION)).toHaveLength(31)
     const hrefs = flattenLeaves(NAVIGATION).map((l) => l.href)
     expect(new Set(hrefs).size).toBe(hrefs.length)
   })
@@ -34,7 +34,16 @@ describe('navigation', () => {
     const visible = visibleNavigation(false)
     // Only shipped phases, plus Phase 11 pages released early in their approved steps.
     for (const leaf of flattenLeaves(visible))
-      if (leaf.phase > SHIPPED_PHASE) expect(['billing-wallet']).toContain(leaf.id)
+      if (leaf.phase > SHIPPED_PHASE)
+        expect([
+          'billing-wallet',
+          'analytics-overview',
+          'analytics-messaging',
+          'analytics-campaigns',
+          'analytics-inbox',
+          'analytics-automations',
+          'analytics-usage',
+        ]).toContain(leaf.id)
     for (const item of visible) if (item.children) expect(item.children.length).toBeGreaterThan(0)
     expect(visible.map((i) => i.id)).toEqual([
       'dashboard',
@@ -43,6 +52,7 @@ describe('navigation', () => {
       'campaigns',
       'templates',
       'automations',
+      'analytics',
       'integrations',
       'billing',
       'settings',
@@ -72,7 +82,7 @@ describe('navigation', () => {
   })
 
   it('reveals everything in preview mode', () => {
-    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(26)
+    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(31)
   })
 
   it('keeps partially shipped groups with only their shipped children', () => {

@@ -14,17 +14,25 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'whatsapp.connection.changed': [QUEUES.templatesSync],
   // Campaigns subscribe in Phase 9.
   'template.status.changed': [],
-  // Campaign snapshot + dispatch (docs/CAMPAIGN_ENGINE.md).
-  'campaign.launched': [QUEUES.campaignDispatch],
-  'campaign.resumed': [QUEUES.campaignDispatch],
-  'campaign.completed': [],
-  'message.outbound.requested': [QUEUES.whatsappOutbound],
-  // Subscribers (contacts keywords, automation, analytics, billing, campaigns) arrive in P6–P11.
-  // Contacts handles opt-in/out keywords and Meta's 131050 opt-out; automation, analytics,
-  // billing and campaigns subscribe in P9–P11.
-  'message.inbound.received': [QUEUES.contactsEvents, QUEUES.automationTrigger],
-  // Contacts (131050 opt-out), campaign recipient status, billing settlement.
-  'message.status.changed': [QUEUES.contactsEvents, QUEUES.campaignEvents, QUEUES.billingUsage],
+  // Campaign snapshot + dispatch (docs/CAMPAIGN_ENGINE.md); analytics recomputes the campaign.
+  'campaign.launched': [QUEUES.campaignDispatch, QUEUES.analyticsEvents],
+  'campaign.resumed': [QUEUES.campaignDispatch, QUEUES.analyticsEvents],
+  'campaign.completed': [QUEUES.analyticsEvents],
+  'message.outbound.requested': [QUEUES.whatsappOutbound, QUEUES.analyticsEvents],
+  // Contacts handles opt-in/out keywords and Meta's 131050 opt-out; automation triggers;
+  // analytics projects (docs/ANALYTICS.md → Event pipeline).
+  'message.inbound.received': [
+    QUEUES.contactsEvents,
+    QUEUES.automationTrigger,
+    QUEUES.analyticsEvents,
+  ],
+  // Contacts (131050 opt-out), campaign recipient status, billing settlement, analytics.
+  'message.status.changed': [
+    QUEUES.contactsEvents,
+    QUEUES.campaignEvents,
+    QUEUES.billingUsage,
+    QUEUES.analyticsEvents,
+  ],
   'contact.created': [QUEUES.automationTrigger],
   'contact.updated': [],
   'consent.changed': [],
@@ -33,9 +41,11 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'wallet.recovered': [QUEUES.notificationsDispatch],
   // Only a first funding that is already low notifies anyone (P11-D21).
   'wallet.funded': [QUEUES.notificationsDispatch],
-  // Auto-assign (round robin) on open; analytics subscribes in P11.
-  'conversation.opened': [QUEUES.inboxEvents],
-  'conversation.assigned': [],
+  // Auto-assign (round robin) on open; analytics records the episode.
+  'conversation.opened': [QUEUES.inboxEvents, QUEUES.analyticsEvents],
+  'conversation.assigned': [QUEUES.analyticsEvents],
+  // Automation outcomes for analytics (Phase 11).
+  'automation.execution.finished': [QUEUES.analyticsEvents],
   // Takeover stops running automation immediately (P10-D2).
   'conversation.automation_state.changed': [QUEUES.automationTrigger],
 }

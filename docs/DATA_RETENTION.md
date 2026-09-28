@@ -29,7 +29,7 @@ The values of `RETENTION_FINANCIAL_DAYS` and `RETENTION_AUDIT_DAYS` for producti
 | `outbox_events` DISPATCHED | 7 days | `system.purge_expired` |
 | `idempotency_keys` | 24 hours | `system.purge_expired` |
 | `webhook_deliveries` | 30 days | `system.purge_expired` |
-| `analytics_events` | Per `analytics_retention` entitlement | Maintenance job |
+| `analytics_events`, `analytics_daily_rollups`, `analytics_conversation_episodes` | Per `analytics_retention` entitlement (P11-D15) | Nightly analytics retention (`ANALYTICS.md` → Retention); never touches operational, financial or audit records |
 | Import/export files | 7 days | MinIO lifecycle + `files` cleanup |
 | Logs | Configurable (decision O2) | Log platform |
 

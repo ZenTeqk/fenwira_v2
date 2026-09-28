@@ -3,6 +3,7 @@
 import {
   type Campaign,
   type Conversation,
+  type OverviewAnalytics,
   type QualityRating,
   type Template,
 } from '@fenwira/contracts'
@@ -30,7 +31,7 @@ import {
   Megaphone,
   MessageSquare,
   Plus,
-  UserX,
+  Send,
   Wallet,
   Workflow,
 } from 'lucide-react'
@@ -40,6 +41,7 @@ import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { type ApiHealthView } from '@/lib/health'
+import { countDelta, percent, rateDelta, useAnalytics } from '@/lib/analytics'
 import { useWallet } from '@/lib/billing'
 import {
   connectionSummary,
@@ -70,13 +72,21 @@ const QUALITY: Record<QualityRating, { status: StatusKey; label: string }> = {
 
 /**
  * Dashboard (UX_PATTERNS → Dashboard): what is happening, what needs attention, what to do next.
- * Built only from existing endpoints; metrics that need Phase 11 analytics are not faked.
+ * Headline figures come from analytics (last 7 days); live counts and state come from their
+ * owning endpoints. It stays an operational summary, not a second Analytics page.
  */
 export function Dashboard({ health }: { health: ApiHealthView }) {
   const { tenantId, can } = useSession()
   const connections = useConnections()
   const wallet = useWallet()
   const status = useWorkspaceStatus()
+  // Headline figures from analytics (last 7 days, workspace timezone), when the role may see them.
+  const analytics = useAnalytics<OverviewAnalytics>(
+    'overview',
+    { kind: 'preset', days: 7 },
+    can('analytics.read'),
+  )
+  const a = analytics.data?.meta.freshness.status === 'NOT_STARTED' ? undefined : analytics.data
   const conversationsCount = (params: string) =>
     get<{ data: Conversation[] }>(`/conversations?${params}&limit=${MAX}`).then(
       (r) => r.data.length,
@@ -167,6 +177,24 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
       href: '/inbox',
       action: 'Open inbox',
     })
+  if (a && a.kpis.failed.value > 0)
+    attention.push({
+      id: 'failed-messages',
+      tone: 'warning',
+      title: `${a.kpis.failed.value.toLocaleString('en-IN')} message${a.kpis.failed.value > 1 ? 's' : ''} failed in the last 7 days`,
+      body: 'See which numbers, categories and error codes are affected.',
+      href: '/analytics/messaging',
+      action: 'Review failures',
+    })
+  if (a && a.kpis.automationFailures.value > 0)
+    attention.push({
+      id: 'automation-failures',
+      tone: 'warning',
+      title: `${a.kpis.automationFailures.value.toLocaleString('en-IN')} automation run${a.kpis.automationFailures.value > 1 ? 's' : ''} failed in the last 7 days`,
+      body: 'Open the automation to see the failed step and its error.',
+      href: '/analytics/automations',
+      action: 'Review automations',
+    })
   if (paused.length)
     attention.push({
       id: 'paused',
@@ -231,6 +259,22 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
       metrics={
         <>
           <MetricCard
+            label="Messages sent (7 days)"
+            icon={<Send />}
+            loading={can('analytics.read') && analytics.isPending}
+            value={a ? a.kpis.sent.value.toLocaleString('en-IN') : '—'}
+            delta={a ? countDelta(a.kpis.sent) : undefined}
+            hint={
+              can('analytics.read') ? (
+                <Link className="underline-offset-4 hover:underline" href="/analytics/messaging">
+                  Messaging analytics
+                </Link>
+              ) : (
+                'Your role can’t view analytics'
+              )
+            }
+          />
+          <MetricCard
             label="Open conversations"
             icon={<MessageSquare />}
             loading={can('inbox.read') && open.isPending}
@@ -242,22 +286,19 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
             }
           />
           <MetricCard
-            label="Unassigned"
-            icon={<UserX />}
-            loading={can('inbox.read') && unassigned.isPending}
-            value={can('inbox.read') ? (count(unassigned.data) ?? '—') : '—'}
-            hint="Waiting for a teammate"
-          />
-          <MetricCard
-            label="Delivery health"
+            label="Delivery rate (7 days)"
             icon={<HeartPulse />}
-            loading={connections.isPending && can('whatsapp.read')}
-            value={conn.status === 'NONE' ? 'No number' : QUALITY[worstQuality].label}
+            loading={can('analytics.read') && analytics.isPending}
+            value={a ? percent(a.kpis.deliveryRate.value) : '—'}
+            delta={a ? rateDelta(a.kpis.deliveryRate) : undefined}
             hint={
               conn.status === 'NONE' ? (
                 'Connect a number to see Meta’s quality rating'
               ) : (
-                <StatusBadge status={QUALITY[worstQuality].status} />
+                <span className="flex flex-wrap items-center gap-2">
+                  <span>Meta quality</span>
+                  <StatusBadge status={QUALITY[worstQuality].status} />
+                </span>
               )
             }
           />

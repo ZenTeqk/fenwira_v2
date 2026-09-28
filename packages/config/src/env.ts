@@ -171,6 +171,8 @@ export const workerEnvSchema = baseEnvSchema
      * message reached a final state this long ago without being settled is recovered.
      */
     BILLING_RESERVATION_GRACE_MINUTES: z.coerce.number().int().min(1).max(10_080).default(360),
+    /** Analytics recompute marks wait this long so other consumers update source rows first. */
+    ANALYTICS_SETTLE_SECONDS: z.coerce.number().int().min(0).max(600).default(20),
     /** Decision O1: operational alerts (stale reservations, ledger drift) go here. Unset = log only. */
     OPS_ALERT_EMAIL: optionalString.pipe(z.email().optional()),
     ...storageEnv,

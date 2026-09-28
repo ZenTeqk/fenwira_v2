@@ -59,6 +59,12 @@ Logging, correlation, metrics, tracing, health checks and alerting. Phases 1–1
 | `wallet_state_transitions_total` | counter | to (`NORMAL` \| `LOW_BALANCE` \| `INSUFFICIENT_FUNDS`), counted when notified |
 | `billing_reservation_recoveries_total` | counter | outcome (`settled` \| `released`) |
 | `billing_ledger_drift_wallets` | gauge | Wallets with drift at the last daily check |
+| `analytics_events_total` | counter | type, result (`recorded` \| `duplicate` \| `ignored`) |
+| `analytics_projection_failures_total` | counter | |
+| `analytics_rollup_failures_total` | counter | job (`rollup` \| `heal` \| `retention`) |
+| `analytics_rollup_duration_seconds` | histogram | |
+| `analytics_projection_lag_seconds` | gauge | Age of the oldest pending recompute mark |
+| `analytics_reconciliation_corrections_total` | counter | Drift corrected by the nightly heal |
 | `ws_connections` | gauge | |
 | `db_pool_in_use` / `db_pool_waiting` | gauge | service |
 | `redis_memory_used_bytes` | gauge | (from INFO, polled) |

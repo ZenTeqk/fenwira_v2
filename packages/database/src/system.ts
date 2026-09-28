@@ -199,4 +199,18 @@ export class SystemGateway {
       SELECT * FROM system.wallet_ledger_drift(${limit}::int)`
     return rows.map((r) => ({ tenantId: r.tenant_id, walletId: r.wallet_id }))
   }
+
+  /** X10 — workspaces with pending analytics work or activity since `since` (IDs only). */
+  async tenantsWithActivity(since: Date, limit: number): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
+      SELECT * FROM system.tenants_with_activity(${since}, ${limit}::int)`
+    return rows.map((r) => r.tenant_id)
+  }
+
+  /** X9 (analytics) — purge one workspace's analytics events older than `before`. */
+  async purgeAnalyticsEvents(tenantId: string, before: Date): Promise<number> {
+    const rows = await this.prisma.$queryRaw<Array<{ n: number }>>`
+      SELECT system.purge_analytics_events(${tenantId}::uuid, ${before}) AS n`
+    return rows[0]?.n ?? 0
+  }
 }

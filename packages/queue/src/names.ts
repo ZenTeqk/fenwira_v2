@@ -21,6 +21,7 @@ export const QUEUES = {
   automationTrigger: 'automation.trigger',
   automationExecute: 'automation.execute',
   analyticsEvents: 'analytics.events',
+  analyticsRollup: 'analytics.rollup',
   billingUsage: 'billing.usage',
   billingMaintenance: 'billing.maintenance',
   notificationsDispatch: 'notifications.dispatch',

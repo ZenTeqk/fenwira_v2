@@ -20,6 +20,7 @@ import { ContactsModule } from './modules/contacts'
 import { InboxModule } from './modules/inbox'
 import { MessagingModule } from './modules/messaging'
 import { TemplatesModule } from './modules/templates'
+import { AnalyticsModule } from './modules/analytics'
 import { BillingModule, billingPlatformFromEnv, billingSupportFromEnv } from './modules/billing'
 import { CampaignsModule } from './modules/campaigns'
 import { AutomationModule } from './modules/automation'
@@ -75,6 +76,7 @@ export class ApiModule {
         ContactsModule.forApi(),
         messaging,
         InboxModule.forApi([messaging]),
+        AnalyticsModule.forApi(),
         BillingModule.forApi({
           ...billingPlatformFromEnv(env),
           support: billingSupportFromEnv(env),

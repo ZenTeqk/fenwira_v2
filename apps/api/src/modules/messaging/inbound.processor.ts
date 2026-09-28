@@ -217,6 +217,7 @@ export class InboundProcessor implements QueueProcessor<WebhookJob> {
       await outbox('conversation.opened', {
         conversationId: conversation.id,
         contactId: contact.id,
+        messageId: message.id,
       })
     await this.finish(tx, webhookEventId, 'PROCESSED')
     return { message, conversationId: conversation.id }

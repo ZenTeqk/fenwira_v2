@@ -121,7 +121,7 @@ A `DetailDrawer` (right side, 480px) is for lightweight inspection and quick edi
 
 **Dashboard.** Answers "what is happening, what needs me, what do I do next". *Needs attention* first (disconnected number, low wallet, unassigned conversations, failed messages, paused campaigns, rejected templates, failing automations), then four metrics (conversations, unassigned, delivery health, wallet), then shortcuts. No decorative charts.
 
-**Analytics (Phase 11).** Views: Overview, Messaging, Campaigns, Inbox, Automations, Usage. Each: date range → KPIs → one primary chart → breakdown → detail table. Today only campaign analytics exists.
+**Analytics (Phase 11).** Views: Overview, Messaging, Campaigns, Inbox, Automations, Usage (Usage needs `billing.read`). Each: date range (presets resolved in the workspace timezone, or custom workspace-local dates; kept for the browser session) → freshness/retention notices → KPIs (`MetricCard` with change vs the previous period) → one primary chart (`TrendChart`, with "Show as table") → breakdowns and detail tables (`DataTable`). "Not processed yet" (`NOT_STARTED`, "Analytics are being prepared"), "processing" and "couldn't be updated" are distinct from zero; a rate with nothing to divide by shows "—" and says why. Metric definitions: `docs/ANALYTICS.md`.
 
 **Billing (Phase 11).** Wallet: available balance, reserved, usage, promotional credits, adjustments, transaction history from the ledger (never from analytics aggregates). Usage shows provider cost and the Fenwira charge side by side where the price book supports it. Today the wallet balance appears in the shell and on the dashboard.
 

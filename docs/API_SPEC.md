@@ -323,7 +323,9 @@ Implemented in Phase 10:
 | POST | `/billing/wallet/credits` **IK** | Platform admin only in v2 |
 | GET | `/workspace/status` | `workspace.read` (every role). `{wallet: {state, currency, availableMinor}}`; `availableMinor` is null without `billing.read` |
 | POST | `/billing/wallet/transactions/export` | `billing.read`. CSV |
-| GET | `/analytics/overview`, `/analytics/messages`, `/analytics/campaigns`, `/analytics/agents`, `/analytics/automations`, `/analytics/usage` | `analytics.read`. `?from&to&granularity` |
+| GET | `/analytics/overview`, `/analytics/messaging`, `/analytics/campaigns`, `/analytics/inbox`, `/analytics/automations` | `analytics.read`. `?from&to` or `?days`, `compare` (Phase 11 Step 2, `ANALYTICS.md` → API) |
+| GET | `/analytics/usage` | `billing.read` (money) |
+| GET | `/contacts/:id/campaigns` | `campaigns.read`. Contact → Campaigns, cursor-paged |
 | CRUD | `/api-keys` | `integrations.manage` |
 | CRUD | `/webhook-endpoints`, GET `/webhook-endpoints/:id/deliveries`, POST `…/test` | `integrations.manage` |
 
@@ -332,6 +334,8 @@ Implemented in Phase 11 Step 1 (`BILLING.md` → Wallet state, Transactions API)
 - `GET /workspace/status` for the shell and dashboard.
 - `GET /billing/wallet/transactions?type=CREDIT|DEBIT|ADJUSTMENT|REFUND&from&to&cursor&limit` → `{data: [{id, type, fundType, amountMinor, balanceAfterMinor, currency, reason, referenceType, referenceId, expiresAt, createdAt}], page}`.
 - `POST /billing/wallet/transactions/export {type?, from?, to?}` → `text/csv`; 422 `EXPORT_TOO_LARGE` above 50 000 rows.
+
+Implemented in Phase 11 Step 2 (`ANALYTICS.md`): the six analytics views share the range contract (`from`/`to` workspace-local days, or `days`; `compare`) and return `meta {range, previous, timezone, today, partial, retention, freshness}`. Validation errors (from after to, more than 366 days) are 400 `VALIDATION_FAILED`. Daily granularity only; `/analytics/messages` and `/analytics/agents` from the draft became `/analytics/messaging` and `/analytics/inbox`. The Overview's charge is null without `billing.read`.
 
 Implemented in Phase 7: `GET /conversations` takes `view=mine|unassigned|all|takeover|resolved` plus `status, assigneeId, tagId, unread, window, phoneNumberId, q` and `sort=recent|oldest_waiting`, and each item carries `assignee`, `tags`, `automationState`, `unreadCount`, `serviceWindow {expiresAt, isOpen}`, `snoozedUntil`, `firstResponseAt` and, for searches, `snippet`. `POST /conversations/:id/assign` takes `{assigneeId | null}`: claiming for yourself needs `inbox.assign_self`, assigning someone else needs `inbox.reassign`, and the assignee can always unassign themselves. `POST /conversations/:id/compose-lock` takes `{force?}`; a force by anyone other than the assignee or an `inbox.reassign` holder is 409 `COMPOSE_LOCKED`. Replies: 409 `COMPOSE_LOCKED`, and automation sends during a takeover get 422 `AUTOMATION_BLOCKED_BY_TAKEOVER`. Notes take `{body, mentions?: userId[]}`; each mentioned ACTIVE member gets a notification. Visibility `ASSIGNED_ONLY` limits the AGENT role to its own and unassigned conversations; others get 404.
 
