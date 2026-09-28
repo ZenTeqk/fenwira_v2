@@ -1275,12 +1275,15 @@ model Notification {
   title     String
   body      String
   link      String?
+  /// Set by event-driven notifications so a redelivered event never notifies twice.
+  dedupeKey String?              @map("dedupe_key")
   readAt    DateTime?            @map("read_at") @db.Timestamptz(3)
   createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   User   @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, userId, dedupeKey])
   @@index([tenantId, userId, readAt, createdAt(sort: Desc)])
   @@map("notifications")
 }
@@ -1514,6 +1517,22 @@ enum WalletTransactionType {
   @@map("wallet_transaction_type")
 }
 
+enum FundType {
+  PAID
+  PROMOTIONAL
+
+  @@map("fund_type")
+}
+
+/// P11-D12 wallet funds states (NOT_ENFORCED is computed, never stored).
+enum WalletFundsState {
+  NORMAL
+  LOW_BALANCE
+  INSUFFICIENT_FUNDS
+
+  @@map("wallet_funds_state")
+}
+
 enum ReservationStatus {
   ACTIVE
   SETTLED
@@ -1524,15 +1543,18 @@ enum ReservationStatus {
 
 /// Prepaid credits (docs/BILLING.md → Wallet). balance_minor is maintained by the ledger trigger.
 model Wallet {
-  id                       String   @id @default(uuid(7)) @db.Uuid
-  tenantId                 String   @unique @map("tenant_id") @db.Uuid
-  currency                 String   @default("INR") @db.Char(3)
-  balanceMinor             BigInt   @default(0) @map("balance_minor")
-  creditLimitMinor         BigInt   @default(0) @map("credit_limit_minor")
-  reservedMinor            BigInt   @default(0) @map("reserved_minor")
-  lowBalanceThresholdMinor BigInt?  @map("low_balance_threshold_minor")
-  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                       String            @id @default(uuid(7)) @db.Uuid
+  tenantId                 String            @unique @map("tenant_id") @db.Uuid
+  currency                 String            @default("INR") @db.Char(3)
+  balanceMinor             BigInt            @default(0) @map("balance_minor")
+  creditLimitMinor         BigInt            @default(0) @map("credit_limit_minor")
+  reservedMinor            BigInt            @default(0) @map("reserved_minor")
+  lowBalanceThresholdMinor BigInt?           @map("low_balance_threshold_minor")
+  /// Funds state last recorded by a wallet change (P11-D12). Only detects crossings; reads
+  /// compute the live state. NULL until the first change after creation.
+  fundsState               WalletFundsState? @map("funds_state")
+  createdAt                DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   transactions WalletTransaction[]
@@ -1553,6 +1575,10 @@ model WalletTransaction {
   referenceType     String?               @map("reference_type")
   referenceId       String?               @map("reference_id")
   idempotencyKey    String                @map("idempotency_key")
+  /// P11-D7: paid funds vs promotional/trial credits.
+  fundType          FundType              @default(PAID) @map("fund_type")
+  /// P11-D7: expiry metadata for promotional credits. No expiry policy is applied (P11-Q23).
+  expiresAt         DateTime?             @map("expires_at") @db.Timestamptz(3)
   createdBy         String?               @map("created_by") @db.Uuid
   createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
 

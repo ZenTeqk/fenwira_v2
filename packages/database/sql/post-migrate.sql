@@ -425,6 +425,41 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
     LIMIT p_limit);
 $$;
 
+-- X17: stale-reservation recovery (docs/BILLING.md → Reservations). ACTIVE reservations older
+-- than p_older_than whose message is final (FAILED, or SENT/DELIVERED/READ, when Meta's pricing
+-- normally arrives) or missing. IDs only; recovery re-enters withTenant and re-checks.
+GRANT SELECT (id, tenant_id, message_id, status, created_at) ON public.wallet_reservations TO fenwira_system;
+GRANT SELECT (id, status) ON public.messages TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.stale_reservations(p_older_than timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid, message_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT r.tenant_id, r.message_id FROM public.wallet_reservations r
+  LEFT JOIN public.messages m ON m.id = r.message_id
+  WHERE r.status = 'ACTIVE' AND r.created_at < p_older_than
+    AND (m.id IS NULL OR m.status IN ('FAILED', 'SENT', 'DELIVERED', 'READ'))
+  ORDER BY r.created_at
+  LIMIT p_limit;
+$$;
+
+-- X18: daily ledger check (docs/BILLING.md → Wallet). Wallets whose cached balance differs from
+-- the ledger sum, or whose cached holds differ from their ACTIVE reservations. IDs only; the
+-- check re-enters withTenant for the figures. Never corrects anything.
+GRANT SELECT (id, tenant_id, balance_minor, reserved_minor) ON public.wallets TO fenwira_system;
+GRANT SELECT (wallet_id, amount_minor) ON public.wallet_transactions TO fenwira_system;
+GRANT SELECT (wallet_id, status, amount_minor) ON public.wallet_reservations TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.wallet_ledger_drift(p_limit integer)
+RETURNS TABLE (tenant_id uuid, wallet_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT w.tenant_id, w.id FROM public.wallets w
+  WHERE w.balance_minor <> COALESCE(
+          (SELECT sum(t.amount_minor) FROM public.wallet_transactions t WHERE t.wallet_id = w.id), 0)
+     OR w.reserved_minor <> COALESCE(
+          (SELECT sum(r.amount_minor) FROM public.wallet_reservations r
+            WHERE r.wallet_id = w.id AND r.status = 'ACTIVE'), 0)
+  ORDER BY w.id
+  LIMIT p_limit;
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -443,7 +478,9 @@ BEGIN
     'system.due_scheduled_campaigns(timestamptz, integer)',
     'system.active_campaigns(integer)',
     'system.resolve_flow_webhook(bytea)',
-    'system.due_automation_executions(timestamptz, timestamptz, integer)'
+    'system.due_automation_executions(timestamptz, timestamptz, integer)',
+    'system.stale_reservations(timestamptz, integer)',
+    'system.wallet_ledger_drift(integer)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

@@ -1,6 +1,6 @@
 # Phase 11 implementation plan: Billing, Analytics and Administration
 
-**Status:** approved (2026-09-28) with decisions P11-D2–D19 (§10). Implementation proceeds in the §8 order. Production subscription prices, GST invoice issuance, a payment gateway and a permanent usage markup stay unbuilt until their values/rules are approved.
+**Status:** approved (2026-09-28) with decisions P11-D2–D19 (§10). Progress: Step 1 (wallet integrity and Wallet UI) implemented; see `BILLING.md` → Wallet state. Implementation proceeds in the §8 order. Production subscription prices, GST invoice issuance, a payment gateway and a permanent usage markup stay unbuilt until their values/rules are approved.
 **Inputs:** `docs/prompts/PHASE_11_BILLING_ANALYTICS.md`, `docs/BILLING.md`, `docs/DATABASE.md` → Billing / Analytics & developer, `docs/API_SPEC.md` → P11, `docs/MULTI_TENANCY.md` (X7, X9, X10), `docs/DATA_RETENTION.md`, `docs/OBSERVABILITY.md`, the decision register in `docs/PRODUCT.md` (B1–B4, P9-D1, P9-D2, API1, O1), and the Design System v1 contract (`docs/design/FENWIRA_DESIGN_SYSTEM.md`, `docs/design/UX_PATTERNS.md`, `docs/design/UI_AUDIT.md`, `AGENTS.md`).
 **Scope:** 11A Plans & Entitlements · 11B Wallet & Usage · 11C Billing Operations · 11D Analytics · 11E API, Webhooks & Administration.
 
@@ -97,7 +97,7 @@ A recovery pass (`billing.maintenance`, every 5 min, new X-function `system.stal
 
 ### 2.3 Wallet state (P11-D1)
 
-- Configuration `billing.low_balance_threshold` (platform-level, minor units, in the wallet currency). Development default 10 000 (₹100), documented as a development value; production refuses to start without an explicit value when `BILLING_ENFORCED=true` (the same env-validation pattern as other production-only settings). The production value is **P11-Q12**.
+- Configuration `billing.low_balance_threshold` (platform-level, minor units, in the wallet currency), env `BILLING_LOW_BALANCE_THRESHOLD_MINOR`. Default 10 000 (₹100), which P11-D12 approved as the production default, so production doesn't need to override it.
 - `wallets.low_balance_threshold_minor` (already in the schema) stays unused unless tenant-specific thresholds are approved.
 - The backend computes and returns **`state`** with the wallet:
 

@@ -22,6 +22,7 @@ export const QUEUES = {
   automationExecute: 'automation.execute',
   analyticsEvents: 'analytics.events',
   billingUsage: 'billing.usage',
+  billingMaintenance: 'billing.maintenance',
   notificationsDispatch: 'notifications.dispatch',
   webhooksDeliver: 'webhooks.deliver',
   systemMaintenance: 'system.maintenance',

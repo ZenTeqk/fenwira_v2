@@ -25,7 +25,7 @@ import {
   statsOf,
   waitFor,
 } from './support/campaigns'
-import { bootApi, bootWorker } from './support/harness'
+import { bootApi, bootWorker, emailCount } from './support/harness'
 
 /**
  * B3/B4 with BILLING_ENFORCED=true: billable sends reserve atomically; concurrent workers never
@@ -39,6 +39,8 @@ let worker: INestApplication
 let db: Database
 let webhookUrl: string
 const ENV = { BILLING_ENFORCED: 'true' }
+/** Operations alerts (O1) for this run only. */
+const OPS = `ops-campaigns-${Date.now()}@fenwira.test`
 
 const world = (label: string) => campaignWorld(api, mock.url, label)
 /** Any tenant context works for the global price book (no RLS). */
@@ -84,6 +86,7 @@ beforeAll(async () => {
     META_GRAPH_BASE_URL: mock.url,
     WHATSAPP_OUTBOUND_BACKOFF_MS: '20',
     CAMPAIGN_BATCH_SIZE: '5',
+    OPS_ALERT_EMAIL: OPS,
     ...ENV,
   })
   db = Database.connect({ url: process.env.DATABASE_URL!, poolSize: 8 })
@@ -126,6 +129,11 @@ describe('Phase 9: wallet reservations (B4) in campaigns', () => {
       (x) => x.status === 'PAUSED_INSUFFICIENT_FUNDS',
     )
     expect(paused.status).toBe('PAUSED_INSUFFICIENT_FUNDS')
+    // Operators make top-ups (P11-D13), so they are alerted.
+    await waitFor(
+      () => emailCount(OPS),
+      (n) => n >= 1,
+    )
     // Processed recipients are kept; the rest wait, unsent.
     const s = await waitFor(
       () => statsOf(w, c.id),
@@ -340,7 +348,7 @@ describe('Phase 9: wallet reservations (B4) in campaigns', () => {
 
     // TRIAL: the configured trial credit is granted once, when the wallet is first created.
     const trial = await world('bill-trial')
-    const platform = { enforced: true, trialCreditMinor: 500 }
+    const platform = { enforced: true, trialCreditMinor: 500, lowBalanceThresholdMinor: 10_000 }
     for (let i = 0; i < 3; i++)
       await db.withTenant(trial.owner.tenantId, (tx) =>
         lockWallet(tx, trial.owner.tenantId, platform),

@@ -9,6 +9,8 @@ export type NewNotification = {
   body: string
   link?: string
   severity?: 'INFO' | 'WARNING' | 'CRITICAL'
+  /** Event-driven notifications: one per (user, key), so a redelivered event is a no-op. */
+  dedupeKey?: string
 }
 
 /** In-app notification row (the caller emits `notification.created` to `user:{id}` after commit). */
@@ -22,9 +24,22 @@ export async function createNotification(tx: TenantTx, n: NewNotification): Prom
       body: n.body,
       link: n.link ?? null,
       severity: n.severity ?? 'INFO',
+      dedupeKey: n.dedupeKey ?? null,
     },
   })
   return toNotification(row)
+}
+
+/** Like createNotification, but returns null when (user, dedupeKey) was already notified. */
+export async function createNotificationOnce(
+  tx: TenantTx,
+  n: NewNotification & { dedupeKey: string },
+): Promise<Notification | null> {
+  const existing = await tx.notification.findFirst({
+    where: { userId: n.userId, dedupeKey: n.dedupeKey },
+    select: { id: true },
+  })
+  return existing ? null : createNotification(tx, n)
 }
 
 export const toNotification = (n: {

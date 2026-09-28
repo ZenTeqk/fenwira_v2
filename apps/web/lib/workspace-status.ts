@@ -1,6 +1,6 @@
 'use client'
 
-import { type Wallet, type WhatsAppConnection } from '@fenwira/contracts'
+import { type WhatsAppConnection, type WorkspaceStatus } from '@fenwira/contracts'
 import { type ConnectionStatus } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from '@/components/session/session-provider'
@@ -21,12 +21,16 @@ export function useConnections() {
   })
 }
 
-export function useWallet() {
-  const { tenantId, can } = useSession()
+/**
+ * Wallet state and (with billing.read) available funds for the shell and dashboard. The state is
+ * the billing domain's (decision P11-D12): the UI renders it and never compares amounts itself.
+ */
+export function useWorkspaceStatus() {
+  const { tenantId } = useSession()
   return useQuery({
-    queryKey: keys.tenant(tenantId, 'wallet'),
-    queryFn: () => get<{ data: Wallet }>('/billing/wallet').then((r) => r.data),
-    enabled: can('billing.read'),
+    queryKey: keys.tenant(tenantId, 'workspace-status'),
+    queryFn: () => get<{ data: WorkspaceStatus }>('/workspace/status').then((r) => r.data),
+    enabled: Boolean(tenantId),
     staleTime: 60_000,
   })
 }
@@ -49,18 +53,4 @@ export function connectionSummary(list: WhatsAppConnection[] | undefined): {
   }
 }
 
-/**
- * TEMPORARY development default (decision P11-D1): low balance is a billing-domain state. Phase 11
- * returns the wallet state from the backend (`billing.low_balance_threshold`) and this constant and
- * `walletState` are removed; production must never rely on a frontend threshold.
- */
-export const LOW_BALANCE_MINOR = 10_000
-
-export function walletState(w: Wallet | undefined): 'HIDDEN' | 'EMPTY' | 'LOW' | 'OK' {
-  if (!w || !w.enforced) return 'HIDDEN'
-  if (w.availableMinor <= 0) return 'EMPTY'
-  if (w.availableMinor <= LOW_BALANCE_MINOR) return 'LOW'
-  return 'OK'
-}
-
-export { money as formatMoney } from '@/lib/campaigns'
+export { formatMoney } from '@/lib/billing'

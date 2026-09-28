@@ -6,7 +6,6 @@ import {
   type CampaignStats,
   type CampaignStatus,
   type SkipReason,
-  type Wallet,
 } from '@fenwira/contracts'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useSession } from '@/components/session/session-provider'
@@ -88,17 +87,7 @@ export function useRecipients(id: string, status: string, live: boolean) {
   })
 }
 
-export function useWallet(enabled: boolean) {
-  const { tenantId } = useSession()
-  return useQuery({
-    queryKey: keys.tenant(tenantId, 'wallet'),
-    queryFn: () => get<{ data: Wallet }>('/billing/wallet').then((r) => r.data),
-    enabled,
-  })
-}
-
-export const money = (minor: number, currency: string) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(minor / 100)
+export { formatMoney as money } from '@/lib/billing'
 
 export const percent = (rate: number | null) =>
   rate === null ? '—' : `${(rate * 100).toFixed(rate >= 0.995 || rate === 0 ? 0 : 1)}%`

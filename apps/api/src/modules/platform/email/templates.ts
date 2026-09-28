@@ -56,6 +56,37 @@ export function passwordResetEmail(name: string, url: string) {
   }
 }
 
+/**
+ * Low balance / insufficient funds (P11-D12). Amounts are pre-formatted by the caller. Top-ups
+ * are manual and made by the Fenwira team (P11-D13); no payment link exists (P11-D19).
+ */
+export function walletLowBalanceEmail(
+  name: string,
+  workspace: string,
+  state: 'LOW_BALANCE' | 'INSUFFICIENT_FUNDS',
+  available: string,
+  url: string,
+) {
+  const out = state === 'INSUFFICIENT_FUNDS'
+  return {
+    subject: out
+      ? `${workspace}: WhatsApp sends are paused, add credits`
+      : `${workspace}: your Fenwira wallet balance is low`,
+    ...layout(
+      out ? `Hi ${name}, your wallet is out of credits` : `Hi ${name}, your wallet is running low`,
+      [
+        `${workspace} has ${available} available.`,
+        out
+          ? 'Template messages, including those sent by campaigns and automations, are refused until credits are added. Inbound messages and free-form replies inside the 24-hour window continue.'
+          : 'Template messages, including those sent by campaigns and automations, stop when the balance runs out.',
+        'Credits are added by the Fenwira team. Contact Fenwira to arrange a top-up.',
+      ],
+      { label: 'Open wallet', url },
+      'You get this email because you can view billing for this workspace.',
+    ),
+  }
+}
+
 export function invitationEmail(inviter: string, workspace: string, role: string, url: string) {
   return {
     subject: `${inviter} invited you to ${workspace} on Fenwira`,

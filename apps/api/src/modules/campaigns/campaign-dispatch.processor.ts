@@ -15,6 +15,7 @@ import { type QueueProcessor } from '../../core/queue/queue-processor'
 import { QueueRegistry } from '../../core/queue/queue-registry'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { MessagingService } from '../messaging'
+import { OpsAlerts } from '../platform'
 import {
   audienceWhere,
   CONTACT_SELECT,
@@ -63,6 +64,7 @@ export class CampaignDispatchProcessor implements QueueProcessor<Data>, OnApplic
     private readonly messaging: MessagingService,
     private readonly realtime: RealtimeEmitter,
     private readonly metrics: MetricsService,
+    private readonly alerts: OpsAlerts,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext('CampaignDispatch')
@@ -494,6 +496,13 @@ export class CampaignDispatchProcessor implements QueueProcessor<Data>, OnApplic
     if (moved.count) {
       this.logger.info({ campaignId, status, reason }, 'campaign paused by the dispatcher')
       this.progress(tenantId, campaignId)
+      // Top-ups are manual and made by operators (P11-D13), so they hear about it (§2.3).
+      if (status === 'PAUSED_INSUFFICIENT_FUNDS')
+        await this.alerts.raise(
+          'billing.campaign_paused_insufficient_funds',
+          'A campaign paused: the workspace is out of credits',
+          [`tenant ${tenantId}`, `campaign ${campaignId}`],
+        )
     }
   }
 

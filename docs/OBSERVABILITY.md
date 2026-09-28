@@ -55,6 +55,10 @@ Logging, correlation, metrics, tracing, health checks and alerting. Phases 1–1
 | `automation_steps_total` | counter | node_type, status |
 | `automation_step_duration_seconds` | histogram | node_type |
 | `automation_job_retries_total` | counter | |
+| `ops_alerts_total` | counter | kind (`billing.stale_reservations` \| `billing.ledger_drift` \| `billing.campaign_paused_insufficient_funds`) |
+| `wallet_state_transitions_total` | counter | to (`NORMAL` \| `LOW_BALANCE` \| `INSUFFICIENT_FUNDS`), counted when notified |
+| `billing_reservation_recoveries_total` | counter | outcome (`settled` \| `released`) |
+| `billing_ledger_drift_wallets` | gauge | Wallets with drift at the last daily check |
 | `ws_connections` | gauge | |
 | `db_pool_in_use` / `db_pool_waiting` | gauge | service |
 | `redis_memory_used_bytes` | gauge | (from INFO, polled) |
@@ -80,6 +84,8 @@ The worker serves health on an internal port (`WORKER_HEALTH_PORT`, default 4100
 ### Alerts (Phase 12; Grafana alerting or Alertmanager)
 
 Alerts initially go to the configured operations email address (decision O1). Routing is configuration, so Slack or paging destinations can be added without code changes.
+
+Application alerts (Phase 11): jobs raise them through `OpsAlerts` (`apps/api/src/modules/platform/email/ops-alerts.ts`), which logs at warn, increments `ops_alerts_total{kind}` and emails `OPS_ALERT_EMAIL` (unset: log only). They carry IDs and counts, never customer content. Current kinds: `billing.stale_reservations` (the recovery pass changed something), `billing.ledger_drift` (the daily ledger check found drift) and `billing.campaign_paused_insufficient_funds` (top-ups are made by operators, P11-D13).
 
 | Alert | Condition (5-minute window unless noted) | Severity |
 | --- | --- | --- |

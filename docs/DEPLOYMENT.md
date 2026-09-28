@@ -122,6 +122,9 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 | `WHATSAPP_SYNC_INTERVAL_HOURS` | `6` | worker | 4 |
 | `BILLING_ENFORCED` | `false` | api, worker | 9 (platform switch; tenants' billing modes decide, P9-D1. Top up: `pnpm --filter @fenwira/worker wallet:credit -- --tenant <id> --amount <₹>`; mode: `billing:mode -- --tenant <id> --mode PREPAID`) |
 | `TRIAL_CREDIT_MINOR` | `0` | api, worker | 9 (credit granted once to a new TRIAL tenant's wallet) |
+| `BILLING_LOW_BALANCE_THRESHOLD_MINOR` | `10000` (₹100, P11-D12) | api, worker | 11 (`billing.low_balance_threshold`) |
+| `BILLING_RESERVATION_GRACE_MINUTES` | `360` | worker | 11 (stale-reservation recovery) |
+| `OPS_ALERT_EMAIL` | unset (alerts only logged) | worker | 11 (operational alerts, decision O1) |
 | `CAMPAIGN_BATCH_SIZE` | `50` | worker | 9 |
 | `PUBLIC_API_URL` | `http://localhost:4000` | api | 4 |
 | `COMPOSE_PROFILES`, `META_MOCK_PORT` | `meta-mock`, `4200` (local development only) | compose | 4 |

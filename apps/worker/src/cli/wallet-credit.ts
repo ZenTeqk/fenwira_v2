@@ -1,4 +1,4 @@
-import { postTransaction } from '@fenwira/api/modules/billing'
+import { billingPlatformFromEnv, postTransaction } from '@fenwira/api/modules/billing'
 import { loadEnv, uuidv7, workerEnvSchema } from '@fenwira/config'
 import { Database } from '@fenwira/database'
 
@@ -24,12 +24,17 @@ async function main(): Promise<void> {
   try {
     const minor = BigInt(Math.round(amount * 100))
     await db.withTenant(tenantId, (tx) =>
-      postTransaction(tx, tenantId, {
-        type: 'CREDIT',
-        amountMinor: minor,
-        reason: arg('--reason') ?? 'Manual top-up',
-        idempotencyKey: `manual-credit:${uuidv7()}`,
-      }),
+      postTransaction(
+        tx,
+        tenantId,
+        {
+          type: 'CREDIT',
+          amountMinor: minor,
+          reason: arg('--reason') ?? 'Manual top-up',
+          idempotencyKey: `manual-credit:${uuidv7()}`,
+        },
+        billingPlatformFromEnv(env),
+      ),
     )
     const wallet = await db.withTenant(tenantId, (tx) =>
       tx.wallet.findUniqueOrThrow({ where: { tenantId } }),

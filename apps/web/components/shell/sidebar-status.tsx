@@ -8,8 +8,7 @@ import {
   connectionSummary,
   formatMoney,
   useConnections,
-  useWallet,
-  walletState,
+  useWorkspaceStatus,
 } from '@/lib/workspace-status'
 
 const row = cn(
@@ -20,14 +19,15 @@ const row = cn(
 
 /**
  * Persistent, restrained workspace status at the foot of the sidebar: the WhatsApp connection and,
- * when billing is enforced, the wallet (UX_PATTERNS → Application shell).
+ * when billing is enforced, the wallet state from the billing domain (UX_PATTERNS → Application
+ * shell, P11-D12). Amounts appear only for members who can view billing.
  */
 export function SidebarStatus({ collapsed = false }: { collapsed?: boolean }) {
   const { can } = useSession()
   const connections = useConnections()
-  const wallet = useWallet()
+  const status = useWorkspaceStatus()
   const conn = connectionSummary(connections.data)
-  const ws = walletState(wallet.data)
+  const wallet = status.data?.wallet
   const items: Array<{ key: string; href: string; label: string; node: React.ReactNode }> = []
   if (can('whatsapp.read') && connections.data) {
     const label =
@@ -45,23 +45,31 @@ export function SidebarStatus({ collapsed = false }: { collapsed?: boolean }) {
       ),
     })
   }
-  if (ws !== 'HIDDEN' && wallet.data) {
-    const amount = formatMoney(wallet.data.availableMinor, wallet.data.currency)
+  if (wallet && wallet.state !== 'NOT_ENFORCED') {
+    const amount =
+      wallet.availableMinor === null ? null : formatMoney(wallet.availableMinor, wallet.currency)
     const text =
-      ws === 'EMPTY'
-        ? 'Wallet empty'
-        : ws === 'LOW'
-          ? `Low balance · ${amount}`
-          : `Wallet · ${amount}`
+      wallet.state === 'INSUFFICIENT_FUNDS'
+        ? 'No credits'
+        : wallet.state === 'LOW_BALANCE'
+          ? amount
+            ? `Low balance · ${amount}`
+            : 'Low balance'
+          : amount
+            ? `Wallet · ${amount}`
+            : 'Wallet'
     items.push({
       key: 'wallet',
-      href: '/dashboard',
+      href: can('billing.read') ? '/billing/wallet' : '/dashboard',
       label: text,
       node: (
         <span className="inline-flex min-w-0 items-center gap-2">
           <Wallet
             aria-hidden="true"
-            className={cn('size-4 shrink-0', ws === 'OK' ? 'text-slate-400' : 'text-warning')}
+            className={cn(
+              'size-4 shrink-0',
+              wallet.state === 'NORMAL' ? 'text-slate-400' : 'text-warning',
+            )}
           />
           {collapsed ? (
             <span className="sr-only">{text}</span>

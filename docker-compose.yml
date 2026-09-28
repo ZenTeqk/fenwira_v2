@@ -11,6 +11,9 @@ x-server-env: &server-env
   DATABASE_URL: postgresql://fenwira_app:${FENWIRA_APP_PASSWORD}@fenwira-postgres:5432/fenwira
   DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
   REDIS_URL: redis://fenwira-redis:6379/0
+  BILLING_ENFORCED: ${BILLING_ENFORCED:-false}
+  TRIAL_CREDIT_MINOR: ${TRIAL_CREDIT_MINOR:-0}
+  BILLING_LOW_BALANCE_THRESHOLD_MINOR: ${BILLING_LOW_BALANCE_THRESHOLD_MINOR:-10000}
 
 # Object storage (MinIO locally). Browsers get presigned URLs on S3_PUBLIC_ENDPOINT.
 x-storage-env: &storage-env
@@ -177,6 +180,8 @@ services:
       ENCRYPTION_ACTIVE_KEY_ID: ${ENCRYPTION_ACTIVE_KEY_ID:-k1}
       WHATSAPP_SYNC_INTERVAL_HOURS: ${WHATSAPP_SYNC_INTERVAL_HOURS:-6}
       WHATSAPP_OUTBOUND_BACKOFF_MS: ${WHATSAPP_OUTBOUND_BACKOFF_MS:-1000}
+      BILLING_RESERVATION_GRACE_MINUTES: ${BILLING_RESERVATION_GRACE_MINUTES:-360}
+      OPS_ALERT_EMAIL: ${OPS_ALERT_EMAIL:-ops@fenwira.local}
     depends_on:
       fenwira-postgres: { condition: service_healthy }
       fenwira-redis: { condition: service_healthy }

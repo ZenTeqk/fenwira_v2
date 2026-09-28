@@ -32,7 +32,9 @@ describe('navigation', () => {
 
   it('shows only shipped modules and never empty groups', () => {
     const visible = visibleNavigation(false)
-    for (const leaf of flattenLeaves(visible)) expect(leaf.phase).toBeLessThanOrEqual(SHIPPED_PHASE)
+    // Only shipped phases, plus Phase 11 pages released early in their approved steps.
+    for (const leaf of flattenLeaves(visible))
+      if (leaf.phase > SHIPPED_PHASE) expect(['billing-wallet']).toContain(leaf.id)
     for (const item of visible) if (item.children) expect(item.children.length).toBeGreaterThan(0)
     expect(visible.map((i) => i.id)).toEqual([
       'dashboard',
@@ -42,7 +44,11 @@ describe('navigation', () => {
       'templates',
       'automations',
       'integrations',
+      'billing',
       'settings',
+    ])
+    expect(visible.find((i) => i.id === 'billing')!.children!.map((c) => c.label)).toEqual([
+      'Wallet',
     ])
     expect(visible.find((i) => i.id === 'automations')!.children!.map((c) => c.label)).toEqual([
       'Flows',

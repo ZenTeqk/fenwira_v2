@@ -100,7 +100,11 @@ export const STATUS_PRESETS = {
   // Health / attention
   HEALTHY: { tone: 'success', label: 'Healthy', icon: CheckCircle2 },
   ATTENTION: { tone: 'warning', label: 'Needs attention', icon: AlertTriangle },
+  // Wallet (P11-D12): rendered from the backend state, never computed in the UI
+  NORMAL: { tone: 'success', label: 'Funded', icon: CheckCircle2 },
   LOW_BALANCE: { tone: 'warning', label: 'Low balance', icon: AlertTriangle },
+  INSUFFICIENT_FUNDS: { tone: 'danger', label: 'No credits', icon: Ban },
+  NOT_ENFORCED: { tone: 'neutral', label: 'Not billed', icon: CircleDashed },
   INACTIVE: { tone: 'neutral', label: 'Inactive', icon: Square },
   SYNCING: { tone: 'info', label: 'Syncing', icon: Loader2 },
   PROCESSING: { tone: 'info', label: 'Processing', icon: Loader2 },

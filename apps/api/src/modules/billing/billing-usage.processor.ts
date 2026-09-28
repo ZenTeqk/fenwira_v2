@@ -3,12 +3,11 @@ import { type EventJob, QUEUES } from '@fenwira/queue'
 import { Inject, Injectable } from '@nestjs/common'
 import { type Job } from 'bullmq'
 import { PinoLogger } from 'nestjs-pino'
-import { countryOf } from '../../core/phone'
 import { type QueueProcessor } from '../../core/queue/queue-processor'
-import { releaseReservation, settleReservation } from './wallet.core'
+import { BILLING_OPTIONS, type BillingOptions } from './billing.options'
+import { applyStatusPricing, type StatusPricing } from './usage.core'
 
 type StatusJob = EventJob<'message.status.changed'>
-type Pricing = { billable?: boolean; category?: string }
 
 /**
  * billing.usage (docs/BILLING.md → Reservations): Meta's pricing on a status webhook settles the
@@ -22,6 +21,7 @@ export class BillingUsageProcessor implements QueueProcessor<StatusJob> {
 
   constructor(
     @Inject(Database) private readonly db: Database,
+    @Inject(BILLING_OPTIONS) private readonly options: BillingOptions,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext('BillingUsage')
@@ -31,30 +31,9 @@ export class BillingUsageProcessor implements QueueProcessor<StatusJob> {
     const e = job.data
     if (e.eventType !== 'message.status.changed' || !e.tenantId) return 'ignored'
     const { messageId, to } = e.payload
-    const pricing = (e.payload.pricing ?? null) as Pricing | null
-    return this.db.withTenant(e.tenantId, async (tx) => {
-      if (to === 'FAILED') {
-        return (await releaseReservation(tx, e.tenantId!, messageId, 'failed'))
-          ? 'released'
-          : 'none'
-      }
-      if (!pricing) return 'no-pricing'
-      if (pricing.billable === false) {
-        return (await releaseReservation(tx, e.tenantId!, messageId, 'not billable'))
-          ? 'released'
-          : 'none'
-      }
-      const message = await tx.message.findFirst({
-        where: { id: messageId },
-        select: { contact: { select: { phoneE164: true, country: true } } },
-      })
-      if (!message) return 'unknown-message'
-      return settleReservation(tx, e.tenantId!, {
-        messageId,
-        category: (pricing.category ?? 'UTILITY').toUpperCase(),
-        country: message.contact.country ?? countryOf(message.contact.phoneE164),
-        pricing,
-      })
-    })
+    const pricing = (e.payload.pricing ?? null) as StatusPricing | null
+    return this.db.withTenant(e.tenantId, (tx) =>
+      applyStatusPricing(tx, e.tenantId!, { messageId, to, pricing }, this.options),
+    )
   }
 }

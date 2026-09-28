@@ -130,7 +130,8 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `campaign.launched` | campaigns | `campaignId` | `campaign.dispatch`, `analytics.events` |
 | `campaign.completed` | campaigns | `campaignId, counts` | `notifications.dispatch`, `analytics.events` |
 | `automation.execution.finished` | automation (not emitted yet; Phase 11 analytics) | `executionId, flowId, status` | `analytics.events` |
-| `wallet.low_balance` | billing | `walletId, balanceMinor` | `notifications.dispatch` |
+| `wallet.low_balance` | billing (on a crossing into LOW_BALANCE or INSUFFICIENT_FUNDS, P11-D12) | `walletId, from, to, availableMinor, currency` | `notifications.dispatch` |
+| `wallet.recovered` | billing (on a crossing back to NORMAL) | `walletId, from, availableMinor, currency` | `notifications.dispatch` |
 | `whatsapp.connection.changed` | whatsapp-accounts | `phoneNumberId, status` | `notifications.dispatch` |
 
 Payloads carry IDs, not full records. Processors re-read current state inside `withTenant`. Payload schemas live in `packages/contracts/src/events`.
@@ -157,7 +158,8 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `automation.execute` | automation (self), delayed jobs, 60 s recovery scheduler (X16) | Run execution steps: job id `exec__{executionId}__{stepCount}`, ≤ 25 steps per job | 10 |
 | `analytics.events` | outbox relay | Append analytics events | 10 |
 | `billing.usage` | outbox relay | Price billable messages, debit the wallet | 5 |
-| `notifications.dispatch` | outbox relay | In-app notification + email | 5 |
+| `billing.maintenance` | repeatable scheduler | Stale-reservation recovery (every 5 min, X17), daily ledger check (02:15 UTC, X18) | 1 |
+| `notifications.dispatch` | outbox relay | In-app notification + email (wallet crossings since Phase 11) | 5 |
 | `webhooks.deliver` | outbox relay (Phase 11) | Tenant outbound webhooks | 10 |
 | `system.maintenance` | repeatable scheduler | Retention cleanup, idempotency key expiry, rollups | 1 |
 | `system.ping` | health/test | End-to-end queue check | 1 |

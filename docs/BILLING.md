@@ -98,8 +98,36 @@ The wallet row lock serializes reservations, so two workers can never reserve th
 | Retryable failure | **Keep** the reservation through the retry lifecycle. It is released only when the message reaches a final state. |
 
 - Reservations are keyed by message ID. Replays and retries never double-reserve, double-settle or double-release.
-- The maintenance job releases reservations whose message is terminal but unsettled after a grace period, and alerts on any it finds (operator email, O1).
-- **Low balance (decision P11-D1).** The threshold is configuration, `billing.low_balance_threshold` (platform-level; ₹100 is the documented development default; production must set it explicitly). The backend computes the wallet state (`NORMAL`, `LOW_BALANCE`, `INSUFFICIENT_FUNDS`, or `NOT_ENFORCED` when billing doesn't apply) from available funds and returns it with the wallet; the UI renders the state and never compares amounts itself. `wallet.low_balance` is emitted on the crossing only, not on every debit. The same state drives the dashboard, the Billing UI, notifications and operational alerts. Tenant-specific thresholds (`wallets.low_balance_threshold_minor`) stay unused unless Phase 11 requirements justify them. Details: `plans/PHASE_11_PLAN.md` §2.3.
+- **Stale-reservation recovery** (`billing.maintenance`, every 5 minutes, X17). An ACTIVE reservation older than `BILLING_RESERVATION_GRACE_MINUTES` (default 360) whose message is FAILED, SENT, DELIVERED or READ (or missing) is recovered, per message, idempotently:
+  - if a `message.status.changed` event with Meta's pricing was recorded but never applied (a lost or dead-lettered `billing.usage` job), it is applied now: billable pricing **settles**, non-billable releases;
+  - otherwise the hold is **released** with reason `recovered: no pricing received`, because nothing says Meta charged for the message.
+  Any recovery raises an operations alert (O1) with counts and workspace IDs. Recurring alerts point at lost status webhooks or a failing consumer.
+- **Daily ledger check** (`billing.maintenance`, 02:15 UTC, X18). Every wallet must satisfy `balance_minor = Σ wallet_transactions.amount_minor` and `reserved_minor = Σ ACTIVE reservations`. Drift raises an operations alert and the `billing_ledger_drift_wallets` gauge. Nothing is corrected automatically: drift is a bug to investigate, and a fix is an audited ADJUSTMENT.
+
+### Wallet state (decisions P11-D1, P11-D12)
+
+- **Threshold:** `billing.low_balance_threshold` = env `BILLING_LOW_BALANCE_THRESHOLD_MINOR`, platform-level, minor units of the wallet currency. Default **10 000 (₹100)**, the approved production default (P11-D12). Tenant-specific thresholds (`wallets.low_balance_threshold_minor`) stay unused unless requirements justify them.
+- **State** (computed by the backend; the UI renders it and never compares amounts):
+
+| State | Condition |
+| --- | --- |
+| `NOT_ENFORCED` | Billable sends don't reserve funds for this workspace (FREE mode or the platform switch off) |
+| `NORMAL` | available > threshold |
+| `LOW_BALANCE` | 0 < available ≤ threshold |
+| `INSUFFICIENT_FUNDS` | available ≤ 0 |
+
+- `GET /billing/wallet` returns it with the amounts; `GET /workspace/status` returns it to every member (amounts only with `billing.read`). The same state drives the shell, the dashboard's Needs attention, the Wallet page and the notifications.
+- **Crossings:** every wallet change (reserve, settle, release, ledger post) re-reads the locked wallet and compares its funds state with `wallets.funds_state`. On a change it stores the new state and writes, in the same transaction, `wallet.low_balance {walletId, from, to, availableMinor, currency}` (into LOW_BALANCE or INSUFFICIENT_FUNDS) or `wallet.recovered {walletId, from, availableMinor, currency}` (back to NORMAL). The first recording for a wallet sets the state silently. A settlement records the state once, after both the debit and the release of the hold, so no intermediate state is emitted.
+- **Notifications** (`notifications.dispatch`): members whose role has `billing.read` get an in-app notification per crossing (deduplicated per event) and, for LOW_BALANCE and INSUFFICIENT_FUNDS, an email (at most once per member and event). Nothing is sent when billing isn't enforced for the workspace, or when a later change already superseded the crossing. Operators get an operations alert when a campaign pauses for insufficient funds, because they make the top-ups (P11-D13).
+
+### Fund types (decision P11-D7)
+
+Ledger rows carry `fund_type` `PAID` (default) or `PROMOTIONAL` (trial and promotional credits; the Phase 9 trial credits were classified by the migration) and an optional `expires_at`. Expiry is metadata only: no expiry policy or spend order is applied until P11-Q23 is decided, and available funds are the single balance.
+
+### Transactions API
+
+- `GET /billing/wallet/transactions?type&from&to&cursor&limit` (`billing.read`): the ledger, newest first. `from`/`to` take a date (whole UTC day, inclusive) or a timestamp.
+- `POST /billing/wallet/transactions/export {type?, from?, to?}` (`billing.read`): CSV (amounts in major units with the currency column; text cells guarded against spreadsheet formulas), synchronous up to 50 000 rows, else 422 `EXPORT_TOO_LARGE`. Audited as `billing.transactions.exported`.
 
 ### Usage pricing
 
@@ -124,7 +152,7 @@ The wallet row lock serializes reservations, so two workers can never reserve th
 | Mode | Enforced (platform switch on) | Wallet |
 | --- | --- | --- |
 | FREE | Never | Untouched |
-| TRIAL (default) | Yes | `TRIAL_CREDIT_MINOR` granted once when the wallet is created |
+| TRIAL (default) | Yes | `TRIAL_CREDIT_MINOR` granted once when the wallet is created (a PROMOTIONAL ledger row) |
 | PREPAID | Yes | Manual top-ups (B2) |
 
 `BILLING_ENFORCED` is the platform switch: false in development and tests, true in production. POSTPAID is not part of v2. Operators change modes with `pnpm --filter @fenwira/worker billing:mode -- --tenant <id> --mode PREPAID` until the Phase 11 admin UI.

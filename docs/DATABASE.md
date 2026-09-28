@@ -423,6 +423,8 @@ Implemented in Phase 9 (migration `20261001000000_campaigns_wallet`), with these
 - `recipient_status` is `PENDING|QUEUED|SENDING|SENT|DELIVERED|READ|FAILED|SKIPPED` (default PENDING). `campaign_recipients` has `contact_name`, `message_id` (unique) and timestamps per state, and an index `(campaign_id, status, id)`. The per-recipient idempotency key is derived (`campaign:{campaignId}:{recipientId}`), not stored.
 - The Phase 11 wallet core arrived early (B4): `wallets` (with `reserved_minor`), `wallet_transactions` (append-only, with a balance trigger), `wallet_reservations`, `usage_events` (append-only) and `price_book_entries` (global, seeded placeholders, read-only for the app).
 
+Phase 11 Step 1 (migration `20261004000000_wallet_state`): `wallets.funds_state` (`wallet_funds_state` NORMAL|LOW_BALANCE|INSUFFICIENT_FUNDS, null until first recorded; detects low-balance crossings, P11-D12); `wallet_transactions.fund_type` (`fund_type` PAID|PROMOTIONAL, default PAID; existing trial credits classified PROMOTIONAL) and `expires_at` (metadata, P11-D7); `notifications.dedupe_key` with unique `(tenant_id, user_id, dedupe_key)` so event-driven notifications are created once. System functions X17 `stale_reservations` and X18 `wallet_ledger_drift` (`MULTI_TENANCY.md`).
+
 Phase 9 closure (migration `20261002000000_billing_modes`): `tenants.billing_mode` (`billing_mode`: FREE, TRIAL or PREPAID; default TRIAL); `campaign_status` adds `PAUSED_TEMPLATE_UNAVAILABLE`; `price_book_entries.unit_price_minor` is renamed `customer_price_minor`, with new `provider_cost_minor`, `tax_code`, `tax_bps`, `is_placeholder` and `note`; `usage_events.provider_cost_minor`.
 
 ## Automation (P10)

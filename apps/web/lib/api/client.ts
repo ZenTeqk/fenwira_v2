@@ -168,3 +168,40 @@ export const patch = <T>(path: string, body: unknown, opts?: Options) =>
 export const put = <T>(path: string, body: unknown, opts?: Options) =>
   api<T>('PUT', path, { ...opts, body })
 export const del = <T>(path: string, opts?: Options) => api<T>('DELETE', path, opts)
+
+/**
+ * POSTs `body` and saves the response as a file (CSV exports). Errors come back as the usual
+ * JSON envelope and are thrown as ApiError.
+ */
+export async function download(path: string, body: unknown, filename: string): Promise<void> {
+  await ensureCsrf()
+  let res: Response
+  try {
+    res = await send('POST', path, { body })
+  } catch {
+    throw new ApiError(
+      0,
+      'NETWORK',
+      'Could not reach Fenwira. Check your connection and try again.',
+    )
+  }
+  if (!res.ok) {
+    const json = (await res.json().catch(() => null)) as {
+      error?: { code: ErrorCode; message: string; details?: Record<string, unknown> }
+    } | null
+    throw new ApiError(
+      res.status,
+      json?.error?.code ?? 'INTERNAL',
+      json?.error?.message ?? 'The download failed.',
+      json?.error?.details,
+    )
+  }
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}

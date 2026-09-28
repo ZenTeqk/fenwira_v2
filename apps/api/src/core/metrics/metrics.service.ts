@@ -102,6 +102,31 @@ export class MetricsService implements OnApplicationBootstrap, OnApplicationShut
     registers: [this.registry],
   })
 
+  // Billing (Phase 11) and operational alerts (decision O1). No tenant or wallet labels.
+  readonly opsAlerts = new Counter({
+    name: 'ops_alerts_total',
+    help: 'Operational alerts raised, by kind',
+    labelNames: ['kind'] as const,
+    registers: [this.registry],
+  })
+  readonly walletStateTransitions = new Counter({
+    name: 'wallet_state_transitions_total',
+    help: 'Wallet funds-state crossings notified, by new state',
+    labelNames: ['to'] as const,
+    registers: [this.registry],
+  })
+  readonly reservationRecoveries = new Counter({
+    name: 'billing_reservation_recoveries_total',
+    help: 'Stale reservations recovered by the maintenance pass, by outcome',
+    labelNames: ['outcome'] as const,
+    registers: [this.registry],
+  })
+  readonly ledgerDrift = new Gauge({
+    name: 'billing_ledger_drift_wallets',
+    help: 'Wallets whose cached balance or holds differ from the ledger at the last daily check',
+    registers: [this.registry],
+  })
+
   readonly messageStatus = new Counter({
     name: 'messages_status_total',
     help: 'Message status transitions',

@@ -36,6 +36,11 @@ export const baseEnvSchema = z.object({
   BILLING_ENFORCED: booleanString.default(false),
   /** P9-D1: credit (minor units) granted once to a new TRIAL tenant's wallet. 0 = none. */
   TRIAL_CREDIT_MINOR: z.coerce.number().int().min(0).default(0),
+  /**
+   * P11-D12 `billing.low_balance_threshold`: available funds (minor units, wallet currency) at or
+   * below which a wallet is LOW_BALANCE. Default ₹100, the approved production default.
+   */
+  BILLING_LOW_BALANCE_THRESHOLD_MINOR: z.coerce.number().int().min(0).default(10_000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_VERSION: z.string().min(1).default('dev'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -158,6 +163,13 @@ export const workerEnvSchema = baseEnvSchema
           .map((h) => h.trim().toLowerCase())
           .filter(Boolean),
       ),
+    /**
+     * Stale-reservation recovery (docs/BILLING.md → Reservations): an ACTIVE reservation whose
+     * message reached a final state this long ago without being settled is recovered.
+     */
+    BILLING_RESERVATION_GRACE_MINUTES: z.coerce.number().int().min(1).max(10_080).default(360),
+    /** Decision O1: operational alerts (stale reservations, ledger drift) go here. Unset = log only. */
+    OPS_ALERT_EMAIL: optionalString.pipe(z.email().optional()),
     ...storageEnv,
   })
   .superRefine((env, ctx) => {

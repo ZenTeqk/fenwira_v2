@@ -1,4 +1,4 @@
-import { type Wallet } from '@fenwira/contracts'
+import { type Wallet, type WalletState } from '@fenwira/contracts'
 import { type TenantTx } from '@fenwira/database'
 import { AppError } from '../../core/http/app-error'
 
@@ -14,7 +14,10 @@ type WalletRow = {
   balance_minor: bigint
   credit_limit_minor: bigint
   reserved_minor: bigint
+  funds_state: FundsState | null
 }
+
+export type FundsState = Exclude<WalletState, 'NOT_ENFORCED'>
 
 /**
  * Platform billing configuration (P9-D1). `enforced` is the platform switch (BILLING_ENFORCED:
@@ -24,8 +27,30 @@ export type BillingPlatform = {
   enforced: boolean
   /** Trial/promotional credit granted once when a TRIAL tenant's wallet is created. */
   trialCreditMinor: number
+  /** P11-D12 `billing.low_balance_threshold` (minor units). */
+  lowBalanceThresholdMinor: number
 }
-export const NO_BILLING: BillingPlatform = { enforced: false, trialCreditMinor: 0 }
+/** P11-D12: the approved production default, ₹100. Configuration overrides it. */
+export const DEFAULT_LOW_BALANCE_THRESHOLD_MINOR = 10_000
+export const NO_BILLING: BillingPlatform = {
+  enforced: false,
+  trialCreditMinor: 0,
+  lowBalanceThresholdMinor: DEFAULT_LOW_BALANCE_THRESHOLD_MINOR,
+}
+
+/** Funds state from available funds (P11-D12): ≤ 0 insufficient, ≤ threshold low. */
+export function fundsStateOf(availableMinor: bigint, thresholdMinor: number): FundsState {
+  if (availableMinor <= 0n) return 'INSUFFICIENT_FUNDS'
+  if (availableMinor <= BigInt(thresholdMinor)) return 'LOW_BALANCE'
+  return 'NORMAL'
+}
+
+/** The state the product shows: NOT_ENFORCED whenever this tenant's sends aren't billed. */
+export const walletStateOf = (
+  availableMinor: bigint,
+  enforced: boolean,
+  thresholdMinor: number,
+): WalletState => (enforced ? fundsStateOf(availableMinor, thresholdMinor) : 'NOT_ENFORCED')
 
 /** Whether this tenant's billable sends reserve funds: platform switch on and not FREE. */
 export async function billingEnforcedFor(
@@ -70,6 +95,7 @@ export async function lockWallet(
             balanceAfterMinor: amount,
             reason: 'Trial credits',
             referenceType: 'promotion',
+            fundType: 'PROMOTIONAL',
             idempotencyKey: `trial:${tenantId}`,
           },
         ],
@@ -77,10 +103,54 @@ export async function lockWallet(
       })
     }
   }
+  const row = await selectLocked(tx, tenantId)
+  if (created[0]) return recordFundsState(tx, tenantId, row, platform)
+  return row
+}
+
+async function selectLocked(tx: TenantTx, tenantId: string): Promise<WalletRow> {
   const [row] = await tx.$queryRaw<WalletRow[]>`
-    SELECT id, currency, balance_minor, credit_limit_minor, reserved_minor
+    SELECT id, currency, balance_minor, credit_limit_minor, reserved_minor, funds_state::text
     FROM wallets WHERE tenant_id = ${tenantId}::uuid FOR UPDATE`
   return row!
+}
+
+/**
+ * Records the wallet's funds state after a change (P11-D12) and, on a crossing only, emits
+ * `wallet.low_balance` (into LOW_BALANCE or INSUFFICIENT_FUNDS) or `wallet.recovered` (back to
+ * NORMAL) in the same transaction. Runs under the wallet lock, so concurrent changes see each
+ * other's state and each crossing is emitted once. The first recording (a new wallet, or one
+ * that predates the column) sets the state without an event.
+ */
+async function recordFundsState(
+  tx: TenantTx,
+  tenantId: string,
+  w: WalletRow,
+  platform: BillingPlatform,
+): Promise<WalletRow> {
+  const next = fundsStateOf(availableOf(w), platform.lowBalanceThresholdMinor)
+  const prev = w.funds_state
+  if (prev === next) return w
+  await tx.$executeRaw`UPDATE wallets SET funds_state = ${next}::wallet_funds_state
+    WHERE id = ${w.id}::uuid`
+  if (prev !== null) {
+    const base = { walletId: w.id, availableMinor: Number(availableOf(w)), currency: w.currency }
+    await tx.outboxEvent.create({
+      data: {
+        tenantId,
+        eventType: next === 'NORMAL' ? 'wallet.recovered' : 'wallet.low_balance',
+        aggregateType: 'wallet',
+        aggregateId: w.id,
+        payload: next === 'NORMAL' ? { ...base, from: prev } : { ...base, from: prev, to: next },
+      },
+    })
+  }
+  return { ...w, funds_state: next }
+}
+
+/** Re-reads the locked wallet after a change and records its state. */
+async function afterChange(tx: TenantTx, tenantId: string, platform: BillingPlatform) {
+  return recordFundsState(tx, tenantId, await selectLocked(tx, tenantId), platform)
 }
 
 export const availableOf = (w: WalletRow) =>
@@ -90,6 +160,8 @@ export function toWallet(
   w: WalletRow,
   enforced: boolean,
   billingMode: Wallet['billingMode'],
+  platform: BillingPlatform,
+  spentThisMonthMinor: bigint,
 ): Wallet {
   return {
     currency: w.currency,
@@ -99,6 +171,9 @@ export function toWallet(
     availableMinor: Number(availableOf(w)),
     enforced,
     billingMode,
+    state: walletStateOf(availableOf(w), enforced, platform.lowBalanceThresholdMinor),
+    lowBalanceThresholdMinor: platform.lowBalanceThresholdMinor,
+    spentThisMonthMinor: Number(spentThisMonthMinor),
   }
 }
 
@@ -141,25 +216,46 @@ export async function unitPrice(
     : null
 }
 
-/** Appends a ledger row; replay-safe on `idempotencyKey`. Returns the row id. */
+export type LedgerEntry = {
+  type: 'CREDIT' | 'DEBIT' | 'ADJUSTMENT' | 'REFUND'
+  amountMinor: bigint
+  reason: string
+  idempotencyKey: string
+  referenceType?: string
+  referenceId?: string
+  createdBy?: string
+  /** P11-D7: PAID unless this is a promotional/trial credit. */
+  fundType?: 'PAID' | 'PROMOTIONAL'
+  /** P11-D7 metadata only; no expiry policy is applied (P11-Q23). */
+  expiresAt?: Date
+}
+
+/**
+ * Appends a ledger row and records the resulting wallet state; replay-safe on `idempotencyKey`.
+ * Returns the row id.
+ */
 export async function postTransaction(
   tx: TenantTx,
   tenantId: string,
-  input: {
-    type: 'CREDIT' | 'DEBIT' | 'ADJUSTMENT' | 'REFUND'
-    amountMinor: bigint
-    reason: string
-    idempotencyKey: string
-    referenceType?: string
-    referenceId?: string
-    createdBy?: string
-  },
+  input: LedgerEntry,
+  platform: BillingPlatform = NO_BILLING,
 ): Promise<string> {
+  const { id, created } = await appendLedger(tx, tenantId, input)
+  if (created) await afterChange(tx, tenantId, platform)
+  return id
+}
+
+/** The ledger insert alone (callers that change holds too record the state once, at the end). */
+async function appendLedger(
+  tx: TenantTx,
+  tenantId: string,
+  input: LedgerEntry,
+): Promise<{ id: string; created: boolean }> {
   const existing = await tx.walletTransaction.findFirst({
     where: { idempotencyKey: input.idempotencyKey },
     select: { id: true },
   })
-  if (existing) return existing.id
+  if (existing) return { id: existing.id, created: false }
   const w = await lockWallet(tx, tenantId)
   const row = await tx.walletTransaction.create({
     data: {
@@ -173,9 +269,11 @@ export async function postTransaction(
       referenceType: input.referenceType ?? null,
       referenceId: input.referenceId ?? null,
       createdBy: input.createdBy ?? null,
+      fundType: input.fundType ?? 'PAID',
+      expiresAt: input.expiresAt ?? null,
     },
   })
-  return row.id
+  return { id: row.id, created: true }
 }
 
 /**
@@ -210,6 +308,7 @@ export async function reserveForMessage(
   })
   await tx.$executeRaw`UPDATE wallets SET reserved_minor = reserved_minor + ${amount}, updated_at = now()
     WHERE id = ${w.id}::uuid`
+  await afterChange(tx, tenantId, platform)
   return amount
 }
 
@@ -219,6 +318,7 @@ export async function releaseReservation(
   tenantId: string,
   messageId: string,
   reason: string,
+  platform: BillingPlatform = NO_BILLING,
 ): Promise<boolean> {
   const w = await lockWallet(tx, tenantId)
   const r = await tx.walletReservation.findFirst({ where: { messageId, status: 'ACTIVE' } })
@@ -226,6 +326,7 @@ export async function releaseReservation(
   await tx.walletReservation.update({ where: { id: r.id }, data: { status: 'RELEASED', reason } })
   await tx.$executeRaw`UPDATE wallets SET reserved_minor = reserved_minor - ${r.amountMinor}, updated_at = now()
     WHERE id = ${w.id}::uuid`
+  await afterChange(tx, tenantId, platform)
   return true
 }
 
@@ -238,6 +339,7 @@ export async function settleReservation(
   tx: TenantTx,
   tenantId: string,
   input: { messageId: string; category: string; country: string | null; pricing: unknown },
+  platform: BillingPlatform = NO_BILLING,
 ): Promise<'settled' | 'none'> {
   const r = await tx.walletReservation.findFirst({
     where: { messageId: input.messageId, status: 'ACTIVE' },
@@ -245,7 +347,7 @@ export async function settleReservation(
   if (!r) return 'none'
   const price = await unitPrice(tx, input.category, input.country)
   const actual = price?.customerPriceMinor ?? r.amountMinor
-  const txId = await postTransaction(tx, tenantId, {
+  const { id: txId } = await appendLedger(tx, tenantId, {
     type: 'DEBIT',
     amountMinor: -actual,
     reason: `WhatsApp ${input.category.toLowerCase()} message`,
@@ -264,6 +366,7 @@ export async function settleReservation(
   })
   await tx.$executeRaw`UPDATE wallets SET reserved_minor = reserved_minor - ${r.amountMinor}, updated_at = now()
     WHERE id = ${w.id}::uuid`
+  await afterChange(tx, tenantId, platform)
   await tx.usageEvent.createMany({
     data: [
       {

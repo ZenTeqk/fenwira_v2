@@ -182,4 +182,21 @@ export class SystemGateway {
       kind: r.kind,
     }))
   }
+
+  /** X17 — ACTIVE reservations past `olderThan` whose message is final or missing (IDs only). */
+  async staleReservations(
+    olderThan: Date,
+    limit: number,
+  ): Promise<Array<{ tenantId: string; messageId: string }>> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; message_id: string }>>`
+      SELECT * FROM system.stale_reservations(${olderThan}, ${limit}::int)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, messageId: r.message_id }))
+  }
+
+  /** X18 — wallets whose cached balance or holds differ from the ledger (IDs only). */
+  async walletLedgerDrift(limit: number): Promise<Array<{ tenantId: string; walletId: string }>> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; wallet_id: string }>>`
+      SELECT * FROM system.wallet_ledger_drift(${limit}::int)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, walletId: r.wallet_id }))
+  }
 }

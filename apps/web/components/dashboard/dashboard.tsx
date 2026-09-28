@@ -40,12 +40,12 @@ import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { type ApiHealthView } from '@/lib/health'
+import { useWallet } from '@/lib/billing'
 import {
   connectionSummary,
   formatMoney,
   useConnections,
-  useWallet,
-  walletState,
+  useWorkspaceStatus,
 } from '@/lib/workspace-status'
 
 type Attention = {
@@ -76,6 +76,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
   const { tenantId, can } = useSession()
   const connections = useConnections()
   const wallet = useWallet()
+  const status = useWorkspaceStatus()
   const conversationsCount = (params: string) =>
     get<{ data: Conversation[] }>(`/conversations?${params}&limit=${MAX}`).then(
       (r) => r.data.length,
@@ -105,7 +106,8 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
   })
 
   const conn = connectionSummary(connections.data)
-  const ws = walletState(wallet.data)
+  /** The billing domain's state (P11-D12); amounts only with billing.read. */
+  const ws = status.data?.wallet
   const worstQuality = (() => {
     const live = (connections.data ?? []).filter((c) => c.status !== 'PENDING')
     for (const q of ['RED', 'YELLOW', 'GREEN'] as const)
@@ -141,18 +143,21 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
         action: 'Review connection',
       })
   }
-  if ((ws === 'EMPTY' || ws === 'LOW') && wallet.data)
+  if (ws && (ws.state === 'INSUFFICIENT_FUNDS' || ws.state === 'LOW_BALANCE')) {
+    const empty = ws.state === 'INSUFFICIENT_FUNDS'
+    const available =
+      ws.availableMinor === null ? null : formatMoney(ws.availableMinor, ws.currency)
     attention.push({
       id: 'wallet',
-      tone: ws === 'EMPTY' ? 'danger' : 'warning',
-      title: ws === 'EMPTY' ? 'Your wallet is empty' : 'Wallet balance is low',
-      body:
-        ws === 'EMPTY'
-          ? 'Template messages and campaigns pause until credit is added. Replies inside the 24-hour window still work.'
-          : `${formatMoney(wallet.data.availableMinor, wallet.data.currency)} available. Campaigns pause when it runs out.`,
-      href: '/dashboard',
-      action: 'Contact your admin',
+      tone: empty ? 'danger' : 'warning',
+      title: empty ? 'Your wallet is out of credits' : 'Wallet balance is low',
+      body: empty
+        ? `Template messages and campaigns pause until credits are added. Replies inside the 24-hour window still work.${can('billing.read') ? '' : ' Ask a workspace owner or admin to add credits.'}`
+        : `${available ? `${available} available. ` : ''}Template messages and campaigns stop when it runs out.${can('billing.read') ? '' : ' Ask a workspace owner or admin to add credits.'}`,
+      href: can('billing.read') ? '/billing/wallet' : '',
+      action: 'Open wallet',
     })
+  }
   if (unassigned.data)
     attention.push({
       id: 'unassigned',
@@ -203,11 +208,11 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
                     tone={a.tone}
                     title={a.title}
                     action={
-                      a.id === 'wallet' ? undefined : (
+                      a.href ? (
                         <Button variant="secondary" size="sm" asChild>
                           <Link href={a.href}>{a.action}</Link>
                         </Button>
-                      )
+                      ) : undefined
                     }
                   >
                     {a.body}
@@ -268,11 +273,16 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
                   : 'Not charged'
             }
             hint={
-              !wallet.data
-                ? 'Your role can’t view billing'
-                : wallet.data.enforced
-                  ? `${formatMoney(wallet.data.reservedMinor, wallet.data.currency)} held for sends in progress`
-                  : 'Messages aren’t billed in this workspace'
+              !wallet.data ? (
+                'Your role can’t view billing'
+              ) : (
+                <span className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={wallet.data.state} />
+                  <Link className="underline-offset-4 hover:underline" href="/billing/wallet">
+                    Open wallet
+                  </Link>
+                </span>
+              )
             }
           />
         </>

@@ -28,6 +28,11 @@ export type NavLeaf = {
   href: string
   phase: number
   permission?: Permission
+  /**
+   * Live before its phase closes. Phase 11 ships in approved steps (docs/plans/PHASE_11_PLAN.md
+   * §8), so its pages appear one by one; remove the flag once SHIPPED_PHASE reaches 11.
+   */
+  early?: true
   /** `action` leaves (create …) go to the command palette's Create group, not the module tabs. */
   kind?: 'page' | 'action'
 }
@@ -190,9 +195,23 @@ export const NAVIGATION: NavItem[] = [
         label: 'Subscription',
         href: '/billing/subscription',
         phase: 11,
+        permission: 'billing.read',
       },
-      { id: 'billing-wallet', label: 'Wallet', href: '/billing/wallet', phase: 11 },
-      { id: 'billing-usage', label: 'Usage', href: '/billing/usage', phase: 11 },
+      {
+        id: 'billing-wallet',
+        label: 'Wallet',
+        href: '/billing/wallet',
+        phase: 11,
+        permission: 'billing.read',
+        early: true,
+      },
+      {
+        id: 'billing-usage',
+        label: 'Usage',
+        href: '/billing/usage',
+        phase: 11,
+        permission: 'billing.read',
+      },
     ],
   },
   {
@@ -245,7 +264,7 @@ export const NAVIGATION: NavItem[] = [
 export const navPreviewEnabled = (): boolean => process.env.NEXT_PUBLIC_NAV_PREVIEW === 'true'
 
 const visible = (leaf: NavLeaf, preview: boolean, permissions?: readonly Permission[]) =>
-  (preview || leaf.phase <= SHIPPED_PHASE) &&
+  (preview || leaf.phase <= SHIPPED_PHASE || leaf.early === true) &&
   (!leaf.permission || !permissions || permissions.includes(leaf.permission))
 
 /**

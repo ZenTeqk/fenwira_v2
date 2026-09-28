@@ -286,7 +286,7 @@ Implemented in Phase 9:
 - `POST /:id/launch` **IK** → SCHEDULED or PREPARING; 422 `CAMPAIGN_NOT_READY` with `details.problems` (number, template, mapping, audience).
 - `POST /:id/unschedule`, `/pause`, `/resume` (422 `INSUFFICIENT_BALANCE` or `CAMPAIGN_NOT_READY` when what paused it still holds) and `/cancel`.
 - `GET /:id/stats` and `GET /:id/recipients?status=&skipReason=&cursor=`. `POST /:id/recipients/export` streams CSV (`contacts.export`). "Stop" is "cancel"; "retry-failed" is not built.
-- `GET /billing/wallet` (`billing.read`) returns `{currency, balanceMinor, creditLimitMinor, reservedMinor, availableMinor, enforced}`.
+- `GET /billing/wallet` (`billing.read`) returns `{currency, balanceMinor, creditLimitMinor, reservedMinor, availableMinor, enforced, billingMode}`; Phase 11 adds `state`, `lowBalanceThresholdMinor` and `spentThisMonthMinor` (below).
 
 ### Automation (P10)
 
@@ -321,9 +321,17 @@ Implemented in Phase 10:
 | POST | `/billing/subscription/change` | `billing.manage` (admin-driven in v2) |
 | GET | `/billing/wallet`, `/billing/wallet/transactions`, `/billing/usage` | `billing.read` |
 | POST | `/billing/wallet/credits` **IK** | Platform admin only in v2 |
+| GET | `/workspace/status` | `workspace.read` (every role). `{wallet: {state, currency, availableMinor}}`; `availableMinor` is null without `billing.read` |
+| POST | `/billing/wallet/transactions/export` | `billing.read`. CSV |
 | GET | `/analytics/overview`, `/analytics/messages`, `/analytics/campaigns`, `/analytics/agents`, `/analytics/automations`, `/analytics/usage` | `analytics.read`. `?from&to&granularity` |
 | CRUD | `/api-keys` | `integrations.manage` |
 | CRUD | `/webhook-endpoints`, GET `/webhook-endpoints/:id/deliveries`, POST `…/test` | `integrations.manage` |
+
+Implemented in Phase 11 Step 1 (`BILLING.md` → Wallet state, Transactions API):
+- `GET /billing/wallet` adds `state` (`NORMAL`, `LOW_BALANCE`, `INSUFFICIENT_FUNDS`, `NOT_ENFORCED`, decision P11-D12), `lowBalanceThresholdMinor` and `spentThisMonthMinor` (usage debits since the 1st, UTC). Clients render `state`; they never compare amounts.
+- `GET /workspace/status` for the shell and dashboard.
+- `GET /billing/wallet/transactions?type=CREDIT|DEBIT|ADJUSTMENT|REFUND&from&to&cursor&limit` → `{data: [{id, type, fundType, amountMinor, balanceAfterMinor, currency, reason, referenceType, referenceId, expiresAt, createdAt}], page}`.
+- `POST /billing/wallet/transactions/export {type?, from?, to?}` → `text/csv`; 422 `EXPORT_TOO_LARGE` above 50 000 rows.
 
 Implemented in Phase 7: `GET /conversations` takes `view=mine|unassigned|all|takeover|resolved` plus `status, assigneeId, tagId, unread, window, phoneNumberId, q` and `sort=recent|oldest_waiting`, and each item carries `assignee`, `tags`, `automationState`, `unreadCount`, `serviceWindow {expiresAt, isOpen}`, `snoozedUntil`, `firstResponseAt` and, for searches, `snippet`. `POST /conversations/:id/assign` takes `{assigneeId | null}`: claiming for yourself needs `inbox.assign_self`, assigning someone else needs `inbox.reassign`, and the assignee can always unassign themselves. `POST /conversations/:id/compose-lock` takes `{force?}`; a force by anyone other than the assignee or an `inbox.reassign` holder is 409 `COMPOSE_LOCKED`. Replies: 409 `COMPOSE_LOCKED`, and automation sends during a takeover get 422 `AUTOMATION_BLOCKED_BY_TAKEOVER`. Notes take `{body, mentions?: userId[]}`; each mentioned ACTIVE member gets a notification. Visibility `ASSIGNED_ONLY` limits the AGENT role to its own and unassigned conversations; others get 404.
 

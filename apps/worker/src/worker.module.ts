@@ -20,7 +20,16 @@ import { CONTACTS_PROCESSORS, ContactsModule } from '@fenwira/api/modules/contac
 import { InboxEventsProcessor, InboxModule } from '@fenwira/api/modules/inbox'
 import { MESSAGING_PROCESSORS, MessagingModule } from '@fenwira/api/modules/messaging'
 import { TemplatesModule, TemplatesSyncProcessor } from '@fenwira/api/modules/templates'
-import { BillingModule, BillingUsageProcessor } from '@fenwira/api/modules/billing'
+import {
+  BillingMaintenanceProcessor,
+  BillingModule,
+  billingPlatformFromEnv,
+  BillingUsageProcessor,
+} from '@fenwira/api/modules/billing'
+import {
+  NotificationsDispatchProcessor,
+  NotificationsModule,
+} from '@fenwira/api/modules/notifications'
 import {
   CampaignDispatchProcessor,
   CampaignEventsProcessor,
@@ -72,7 +81,7 @@ export class WorkerModule {
         graphBaseUrl: env.META_GRAPH_BASE_URL,
         graphVersion: env.META_GRAPH_API_VERSION,
         outboundBackoffBaseMs: env.WHATSAPP_OUTBOUND_BACKOFF_MS,
-        billing: { enforced: env.BILLING_ENFORCED, trialCreditMinor: env.TRIAL_CREDIT_MINOR },
+        billing: billingPlatformFromEnv(env),
       },
       [platform],
     )
@@ -92,11 +101,15 @@ export class WorkerModule {
       graphVersion: env.META_GRAPH_API_VERSION,
       graphBaseUrl: env.META_GRAPH_BASE_URL,
     })
-    const billingPlatform = {
-      enforced: env.BILLING_ENFORCED,
-      trialCreditMinor: env.TRIAL_CREDIT_MINOR,
-    }
-    const billing = BillingModule.forWorker(billingPlatform)
+    const billingPlatform = billingPlatformFromEnv(env)
+    const billing = BillingModule.forWorker({
+      ...billingPlatform,
+      reservationGraceMinutes: env.BILLING_RESERVATION_GRACE_MINUTES,
+    })
+    const notifications = NotificationsModule.forWorker({
+      webOrigin: env.WEB_ORIGIN,
+      billing: billingPlatform,
+    })
     const campaigns = CampaignsModule.forWorker(
       {
         billing: billingPlatform,
@@ -119,6 +132,7 @@ export class WorkerModule {
         inbox,
         templates,
         billing,
+        notifications,
         campaigns,
         automation,
       ],
@@ -132,6 +146,8 @@ export class WorkerModule {
         InboxEventsProcessor,
         TemplatesSyncProcessor,
         BillingUsageProcessor,
+        BillingMaintenanceProcessor,
+        NotificationsDispatchProcessor,
         CampaignDispatchProcessor,
         CampaignEventsProcessor,
         AutomationTriggerProcessor,
@@ -144,7 +160,11 @@ export class WorkerModule {
       controllers: [MetricsController],
       imports: [
         CoreModule.forRoot(coreConfigFromWorkerEnv(env)),
-        EmailModule.forRoot({ smtpUrl: env.SMTP_URL, from: env.MAIL_FROM }),
+        EmailModule.forRoot({
+          smtpUrl: env.SMTP_URL,
+          from: env.MAIL_FROM,
+          opsAlerts: { to: env.OPS_ALERT_EMAIL, environment: env.NODE_ENV },
+        }),
         platform,
         identity,
         tenancy,

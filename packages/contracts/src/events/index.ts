@@ -73,6 +73,21 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     from: z.string(),
     to: z.string(),
   }),
+  // Billing (Phase 11, P11-D12): emitted in the wallet change's transaction on a state crossing
+  // only, never on every debit. `to` is the new funds state.
+  'wallet.low_balance': z.object({
+    walletId: z.uuid(),
+    from: z.enum(['NORMAL', 'LOW_BALANCE', 'INSUFFICIENT_FUNDS']),
+    to: z.enum(['LOW_BALANCE', 'INSUFFICIENT_FUNDS']),
+    availableMinor: z.number().int(),
+    currency: z.string(),
+  }),
+  'wallet.recovered': z.object({
+    walletId: z.uuid(),
+    from: z.enum(['LOW_BALANCE', 'INSUFFICIENT_FUNDS']),
+    availableMinor: z.number().int(),
+    currency: z.string(),
+  }),
   // WhatsApp accounts (Phase 4). Templates sync a newly connected WABA.
   'whatsapp.connection.changed': z.object({
     phoneId: z.uuid(),

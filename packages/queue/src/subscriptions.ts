@@ -28,6 +28,9 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'contact.created': [QUEUES.automationTrigger],
   'contact.updated': [],
   'consent.changed': [],
+  // Low-balance notifications to members with billing.read (P11-D12).
+  'wallet.low_balance': [QUEUES.notificationsDispatch],
+  'wallet.recovered': [QUEUES.notificationsDispatch],
   // Auto-assign (round robin) on open; analytics subscribes in P11.
   'conversation.opened': [QUEUES.inboxEvents],
   'conversation.assigned': [],

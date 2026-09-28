@@ -20,7 +20,7 @@ import { ContactsModule } from './modules/contacts'
 import { InboxModule } from './modules/inbox'
 import { MessagingModule } from './modules/messaging'
 import { TemplatesModule } from './modules/templates'
-import { BillingModule } from './modules/billing'
+import { BillingModule, billingPlatformFromEnv } from './modules/billing'
 import { CampaignsModule } from './modules/campaigns'
 import { AutomationModule } from './modules/automation'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
@@ -62,7 +62,7 @@ export class ApiModule {
       graphVersion: env.META_GRAPH_API_VERSION,
       appSecret: env.META_APP_SECRET,
       verifyToken: env.META_WEBHOOK_VERIFY_TOKEN,
-      billing: { enforced: env.BILLING_ENFORCED, trialCreditMinor: env.TRIAL_CREDIT_MINOR },
+      billing: billingPlatformFromEnv(env),
     })
     return {
       module: ApiModule,
@@ -75,12 +75,9 @@ export class ApiModule {
         ContactsModule.forApi(),
         messaging,
         InboxModule.forApi([messaging]),
-        BillingModule.forApi({
-          enforced: env.BILLING_ENFORCED,
-          trialCreditMinor: env.TRIAL_CREDIT_MINOR,
-        }),
+        BillingModule.forApi(billingPlatformFromEnv(env)),
         CampaignsModule.forApi({
-          billing: { enforced: env.BILLING_ENFORCED, trialCreditMinor: env.TRIAL_CREDIT_MINOR },
+          billing: billingPlatformFromEnv(env),
         }),
         AutomationModule.forApi({ keyRing, publicApiUrl: env.PUBLIC_API_URL }),
         TemplatesModule.forApi({
