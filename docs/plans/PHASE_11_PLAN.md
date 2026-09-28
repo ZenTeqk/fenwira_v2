@@ -1,6 +1,11 @@
 # Phase 11 implementation plan: Billing, Analytics and Administration
 
-**Status:** approved (2026-09-28) with decisions P11-D2–D19 (§10). Progress: **Step 1 closed** (accepted 2026-09-28; commits 9cf05ce, dc9ba8f, plus P11-D20/D21). Final Step 1 regression: integration 205 database + 10 API + 145 worker (1 skipped perf probe; the security-matrix fix for `/workspace/status` re-run 28/28), e2e 49 passed (1 skipped), unit all passing, Lighthouse accessibility 100 on `/billing/wallet`, axe WCAG 2.2 AA clean. Step 2 (analytics) implemented, awaiting acceptance: see `ANALYTICS.md`. Step 2 verification: integration 225 database + 10 API + 158/159 worker in the full run (the one failure, a verification-email timeout while creating a test workspace in `automation.int.test.ts`, passed 18/18 on rerun), analytics suite 12/12, perf probe (300k messages) green, e2e 51 passed (1 skipped), unit all passing, Lighthouse accessibility 100 on the six analytics views and the dashboard, axe WCAG 2.2 AA clean. Implementation proceeds in the §8 order. Production subscription prices, GST invoice issuance, a payment gateway and a permanent usage markup stay unbuilt until their values/rules are approved.
+**Status:** approved (2026-09-28) with decisions P11-D2–D23 (§10). Progress:
+- **Step 1 closed** (accepted; commits 9cf05ce, dc9ba8f, plus P11-D20/D21). Regression: integration 205 database + 10 API + 145 worker (1 skipped perf probe), e2e 49 passed (1 skipped), Lighthouse a11y 100 on `/billing/wallet`.
+- **Step 2 closed** (accepted; commit 8194c2e, plus P11-D22/D23). Regression: integration 225 database + 10 API + 158/159 worker (the one failure, a verification-email timeout in `automation.int.test.ts`, is recorded as test/infrastructure flakiness — that file passed 18/18 in isolation, not an Analytics product failure), analytics suite 12/12, perf probe (300k messages) green, e2e 51 passed (1 skipped), Lighthouse a11y 100 on the six analytics views and the dashboard. Metric definitions (delivery/read/failure rate, zero-denominator display, first-teammate-reply) and known limitations (≈2 min lag, response-time history bounded by retention, campaigns attributed to their start day) are frozen in `ANALYTICS.md` and not reopened for Step 3.
+- **Step 3 (API keys, public routes, webhooks) in progress.**
+
+Implementation proceeds in the §8 order. Production subscription prices, GST invoice issuance, a payment gateway and a permanent usage markup stay unbuilt until their values/rules are approved.
 **Inputs:** `docs/prompts/PHASE_11_BILLING_ANALYTICS.md`, `docs/BILLING.md`, `docs/DATABASE.md` → Billing / Analytics & developer, `docs/API_SPEC.md` → P11, `docs/MULTI_TENANCY.md` (X7, X9, X10), `docs/DATA_RETENTION.md`, `docs/OBSERVABILITY.md`, the decision register in `docs/PRODUCT.md` (B1–B4, P9-D1, P9-D2, API1, O1), and the Design System v1 contract (`docs/design/FENWIRA_DESIGN_SYSTEM.md`, `docs/design/UX_PATTERNS.md`, `docs/design/UI_AUDIT.md`, `AGENTS.md`).
 **Scope:** 11A Plans & Entitlements · 11B Wallet & Usage · 11C Billing Operations · 11D Analytics · 11E API, Webhooks & Administration.
 
@@ -323,6 +328,8 @@ Steps 1–3 can start as soon as this plan is approved; steps 4–6 wait for the
 | P11-D19 | Payment gateway deferred; gateway-neutral domain. | `BillingProvider` stays manual. |
 | P11-D20 | Billing contact is configuration. | `BILLING_SUPPORT_EMAIL` / `BILLING_SUPPORT_URL`; "Contact billing" action only when set. |
 | P11-D21 | First funding ≠ recovery. | `wallets.funded_at`; `wallet.funded` event; `wallet.recovered` only for funded wallets. |
+| P11-D22 | Financial visibility inside a workspace is `billing.read`-gated, never role-name checks; API omits fields server-side. | Analytics/Usage/Wallet APIs already require `billing.read` for money (Step 1/2); Step 3+ keys/webhooks follow the same rule. |
+| P11-D23 | Provider cost is internal; never exposed to tenants or via API keys; only through the future PLATFORM_OPERATOR area. | Analytics/Usage responses never include provider cost fields (confirmed in Step 2); API-key scopes can never reach it. |
 
 ### Still open (not blocking Steps 1–5)
 
@@ -333,7 +340,6 @@ Steps 1–3 can start as soon as this plan is approved; steps 4–6 wait for the
 | P11-Q22 | GST and invoice rules (P11-D14) | Invoice issuance (not built) |
 | P11-Q23 | Promotional credit consumption order (before or after paid funds) and any expiry policy (P11-D7) | Promotional funds are recorded and shown as granted; spend order and expiry are not applied |
 | P11-Q24 | Downgrade grace duration and what happens when it ends (P11-D16) | Over-limit state is recorded and shown; no automatic change to live capabilities |
-| P11-Q25 | Whether tenants see Meta/provider cost (P11-D10) | Tenant usage shows the customer charge; provider cost is visible to platform operators |
 
 ## 11. Original decision register (historical)
 

@@ -163,6 +163,8 @@ The product owner resolved every question from the original register. These deci
 | P11-D19 | BILLING | Payment gateway deferred; manual payments at launch; the domain stays gateway-neutral. |
 | P11-D20 | BILLING | The billing/support contact is configuration (`billing.support_email`, `billing.support_url`), never hard-coded. Unset → the non-clickable "Contact Fenwira to arrange a top-up" fallback; set → a "Contact billing" action on the Wallet page and the contact in billing emails. No self-service top-up or payment flow. |
 | P11-D21 | BILLING | An unfunded wallet's first credit is initial funding (`wallet.funded`), never "balance restored". `wallet.recovered` means a funded wallet crossing back to NORMAL (from INSUFFICIENT_FUNDS or LOW_BALANCE). Initializing a wallet row notifies nobody; transition events stay idempotent. |
+| P11-D22 | SECURITY | Financial visibility inside a workspace is controlled by `billing.read` (permission/entitlement), never a hard-coded role name. `billing.read` members see wallet balance, customer-facing charges, wallet transactions and billing/usage summaries. Without `billing.read`, members keep operational analytics (volume, rates, campaign/automation performance, non-financial usage counts) but never monetary fields. The API omits or restricts financial fields server-side; the frontend never enforces this alone. Under current RBAC, OWNER/ADMIN normally hold `billing.read`; MANAGER/VIEWER don't unless a future permission change grants it. |
+| P11-D23 | BILLING | Provider (Meta) cost is internal Fenwira commercial information. It is stored separately from the customer charge (P11-D10) but is never returned by tenant-facing Analytics, Usage, Wallet or Billing APIs, including to OWNER, and never reachable through a tenant API key. It becomes visible only through the future PLATFORM_OPERATOR area (Step 5: provider cost, customer charge, adjustments, margin, reconciliation), with platform-level authorization and auditing. |
 | P9-D3 | CAMPAIGNS | A template that becomes unavailable mid-campaign pauses it as PAUSED_TEMPLATE_UNAVAILABLE, never FAILED. Processed recipients keep their states; the rest are preserved and not sent. The same campaign can't switch templates; a new campaign is created instead. Which template version produced each message stays auditable. |
 
 ## Open questions register
@@ -176,6 +178,5 @@ Open, owned by the product owner; none blocks Phase 11 Steps 1–5 (details in `
 | P11-Q22 | GST and invoice rules | Issuing tax invoices |
 | P11-Q23 | Promotional credit spend order and expiry policy | Applying spend order/expiry (credits are recorded and shown as granted) |
 | P11-Q24 | Downgrade grace duration and end-of-grace behavior | Automatic changes after a downgrade (none happen today) |
-| P11-Q25 | Whether tenants see provider (Meta) cost | Tenant usage view (shows the customer charge only) |
 
 A new question is added here, with its owner and the work it blocks, instead of being settled by an implementation assumption.

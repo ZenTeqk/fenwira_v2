@@ -152,7 +152,7 @@ Counted on the execution's start day, from `automation_executions` (execution hi
 | Billable messages | Σ `usage_events.quantity` (messages Meta priced as billable), by priced category |
 | Message charges | Σ `usage_events.amount_minor` in the wallet currency. It equals the usage DEBITs in the ledger; the reconciliation tests assert this. |
 | Promotional credits added | Σ positive PROMOTIONAL ledger rows (P11-D7) |
-| Provider cost | Kept in the rollups for operator reporting. **Not returned to workspaces** (P11-Q25 interim decision). |
+| Provider cost | Kept in the rollups for operator reporting. **Never returned to tenant-facing APIs** — this is now a standing rule (P11-D23), not an interim placeholder: it is internal Fenwira commercial information, visible only through the future PLATFORM_OPERATOR area. |
 
 The Usage view and the Overview's charge need `billing.read`.
 
