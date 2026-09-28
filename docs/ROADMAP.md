@@ -23,7 +23,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 8 | Template management / builder | 🔵 every criterion passes against the simulated Graph API (see below). The real-WABA round trip needs Meta production onboarding (MI1). | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
 | 9 | Campaign / broadcast engine | ✅ complete (closed 2026-09-26 with decisions P9-D1–D3; see below). Real sends need MI1. | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
 | 10 | Automation / visual flow builder | ✅ implemented with decisions P10-D1–D4 (ADR-0025); every criterion passes locally (see below). Real sends need MI1. | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
-| 11 | Billing + analytics + administration | ⬜ | [PHASE_11](prompts/PHASE_11_BILLING_ANALYTICS.md) |
+| 11 | Billing + analytics + administration | 🟡 implementation plan for review, with decision register P11-Q1–Q19: [plans/PHASE_11_PLAN.md](plans/PHASE_11_PLAN.md) | [PHASE_11](prompts/PHASE_11_BILLING_ANALYTICS.md) |
 | 12 | Hardening + testing + production readiness | ⬜ | [PHASE_12](prompts/PHASE_12_HARDENING.md) |
 
 ## Dependency order
@@ -311,7 +311,7 @@ Performance (local Docker, one worker, meta-mock): 200 keyword events × 3 flows
 
 ## Design System v1 (2026-09-28)
 
-UI/UX normalization before Phase 11, on branch `ui-design-system-v1`. Docs: [design/FENWIRA_DESIGN_SYSTEM.md](design/FENWIRA_DESIGN_SYSTEM.md), [design/UX_PATTERNS.md](design/UX_PATTERNS.md), [design/UI_AUDIT.md](design/UI_AUDIT.md). No backend domain behavior changed; one read-only endpoint was added (`GET /contacts/:id/eligibility`, delegating to MessageEligibilityService).
+UI/UX normalization before Phase 11, on branch `ui-design-system-v1`. **Accepted 2026-09-28** (decision DS-v1); remaining UI debt moved to the product backlog. Docs: [design/FENWIRA_DESIGN_SYSTEM.md](design/FENWIRA_DESIGN_SYSTEM.md), [design/UX_PATTERNS.md](design/UX_PATTERNS.md), [design/UI_AUDIT.md](design/UI_AUDIT.md). No backend domain behavior changed; one read-only endpoint was added (`GET /contacts/:id/eligibility`, delegating to MessageEligibilityService).
 
 | Check | Result |
 | --- | --- |

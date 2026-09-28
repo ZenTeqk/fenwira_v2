@@ -79,9 +79,16 @@ Deferred by the product owner; not scheduled in a phase.
 | Retry failed recipients | Phase 9 | Re-send recipients FAILED with a retryable error (new idempotency suffix). |
 | Individual-contact selection in the campaign wizard | Phase 9 | The API already accepts a CONTACTS audience source. |
 | Inbox-message priority over campaign traffic | Phase 9 | Priority lanes in the outbound queue. |
-| Low-balance notifications | Phase 9 | `wallet.low_balance` on crossing the threshold. |
+| Low-balance notifications | Phase 9 | Planned in Phase 11 (P11-D1, PHASE_11_PLAN §2.3). |
 | Campaign throughput optimization toward provider limits | Phase 9 | About 17/s measured locally vs Meta's 80 msg/s per number. |
 | Advanced campaign template replacement/migration | Phase 9 (P9-D3) | v2 requires a new campaign instead. |
+| Template picker: full first-use empty state | Design System v1 | Inline hint today (inside the send dialog). |
+| Campaign wizard tag step: full empty state | Design System v1 | Inline hint today. |
+| Campaign recipients: shared FilterBar | Design System v1 | Single status select today. |
+| Audit logs: shared FilterBar | Design System v1 | Single action select today. |
+| Automation Send Message: media in the builder form | Phase 10 / DS v1 | API and runtime support `mediaFileId`; the form handles text only. |
+| Remove the `KpiCard` compatibility alias | Design System v1 | Use `MetricCard`. |
+| Contact → Campaigns tab | Design System v1 | Placeholder until Phase 11 analytics/query capability (PHASE_11_PLAN §4). |
 
 ## Success metrics (Fenwira Core, Phases 0–7)
 
@@ -135,8 +142,10 @@ The product owner resolved every question from the original register. These deci
 | B4 | BILLING | Billable outbound messages use atomic reservations: available funds = wallet balance + permitted credit limit − active reservations. A reservation is taken atomically before a billable message is accepted, is idempotent per message, and is settled, released, reconciled or kept per the send lifecycle. A campaign that runs out of funds moves to `PAUSED_INSUFFICIENT_FUNDS`, keeps every recipient's state, shows the problem in the UI, and can resume once funds are available. |
 | P9-D1 | BILLING | Tenant-level billing modes FREE, TRIAL and PREPAID (POSTPAID later, not v2). Production PREPAID tenants are enforced. New tenants can receive configurable trial/promotional credits. `BILLING_ENFORCED=false` stays the default for development and tests; the environment switch is not the tenant billing model. The billing UI stays in Phase 11. |
 | P9-D2 | BILLING | Pricing stays configuration-driven and distinguishes provider (Meta) cost, the Fenwira customer charge, and adjustment/tax metadata. The current ₹0.88 / ₹0.13 values are labelled development placeholders; commercial pricing, markup, plans and GST/invoicing are set in Phase 11. |
+| P11-D1 | BILLING | Low balance is a billing-domain state. The threshold is configuration (`billing.low_balance_threshold`; ₹100 is a documented development default, production sets it explicitly). The backend exposes the wallet state (NORMAL, LOW_BALANCE, INSUFFICIENT_FUNDS or equivalent) and the frontend renders it; one source drives the dashboard, Billing UI, notifications and operational alerts. No tenant-specific thresholds unless Phase 11 requirements justify them. (2026-09-28) |
+| DS-v1 | DESIGN_SYSTEM | Design System v1 accepted (`ui-design-system-v1`, 9a0933d). Remaining UI debt is normal backlog. The form-control border treatment (1.48:1 boundary; labelled controls and a compliant focus indicator enforced) is accepted for v1. Phase 11 follows `docs/design/*` and the UI quality gate. (2026-09-28) |
 | P9-D3 | CAMPAIGNS | A template that becomes unavailable mid-campaign pauses it as PAUSED_TEMPLATE_UNAVAILABLE, never FAILED. Processed recipients keep their states; the rest are preserved and not sent. The same campaign can't switch templates; a new campaign is created instead. Which template version produced each message stays auditable. |
 
 ## Open questions register
 
-None. Every question is decided (see the Decision register). A new question is added here, with its owner and the work it blocks, instead of being settled by an implementation assumption.
+Phase 11 commercial and operational questions P11-Q1–Q19 (plans, prices, limits, trial, credits, provider cost, markup, low-balance value, top-ups, GST/invoicing, retention, downgrade behavior, billing operators, API availability, payment gateway timing) are open, owned by the product owner, and listed with what they block in `plans/PHASE_11_PLAN.md` §10. They move to the Decision register as they are answered. A new question is added there, with its owner and the work it blocks, instead of being settled by an implementation assumption.

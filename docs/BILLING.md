@@ -31,7 +31,7 @@ Prices live in `plans.price_minor`. **All prices, entitlement values and price-b
 | `webhooks_enabled` | bool | false | false | true | true |
 | `analytics_retention` | days | 30 | 90 | 365 | 730 |
 
-(These numbers are placeholder configuration. Final values are set before billing launch (B1). The mechanism is what's fixed.)
+(These plan names, numbers and the 14-day trial are **placeholders**. They are open decisions P11-Q1–Q6 and Q15–Q18 in `plans/PHASE_11_PLAN.md` §10 and are not loaded as production data until answered (B1). The mechanism is what's fixed.)
 
 - **Resolution:** `tenant_entitlement_overrides[key]` ?? `plan_entitlements[plan][key]`.
 - `EntitlementService.check(key)` returns the value. `EntitlementService.assertWithin(key, currentUsage)` throws `LIMIT_EXCEEDED {key, limit, current}`. `@RequireEntitlement('api_enabled')` guards whole routes (`ENTITLEMENT_REQUIRED`).
@@ -41,7 +41,7 @@ Prices live in `plans.price_minor`. **All prices, entitlement values and price-b
 ### Subscription
 
 - One row per tenant. Status: `TRIALING`, `ACTIVE`, `PAST_DUE` or `CANCELLED`.
-- New tenants get `TRIAL` with `TRIALING` and a 14-day `trial_ends_at`. When the trial expires, the tenant moves to read-only mode: sends are blocked (`SUBSCRIPTION_INACTIVE`), and viewing and exporting still work.
+- New tenants get `TRIAL` with `TRIALING` and a 14-day `trial_ends_at`. When the trial expires, the tenant moves to read-only mode: sends are blocked (`SUBSCRIPTION_INACTIVE`), and viewing and exporting still work. *(Placeholder: trial strategy, duration and end behavior are open decisions P11-Q5, P11-Q6 and P11-Q16.)*
 - `BillingProvider` interface (`createCheckout`, `handleWebhook`, `cancel`). v2 ships `ManualBillingProvider`, where a platform admin changes plans through the API.
 
 ### Wallet (prepaid credits for WhatsApp messages)
@@ -100,7 +100,7 @@ The wallet row lock serializes reservations, so two workers can never reserve th
 
 - Reservations are keyed by message ID. Replays and retries never double-reserve, double-settle or double-release.
 - The maintenance job releases reservations whose message is terminal but unsettled after a grace period, and alerts on any it finds (operator email, O1).
-- `wallet.low_balance` is emitted when the balance crosses below `low_balance_threshold_minor` (on the crossing only, not on every debit).
+- **Low balance (decision P11-D1).** The threshold is configuration, `billing.low_balance_threshold` (platform-level; ₹100 is the documented development default; production must set it explicitly). The backend computes the wallet state (`NORMAL`, `LOW_BALANCE`, `INSUFFICIENT_FUNDS`, or `NOT_ENFORCED` when billing doesn't apply) from available funds and returns it with the wallet; the UI renders the state and never compares amounts itself. `wallet.low_balance` is emitted on the crossing only, not on every debit. The same state drives the dashboard, the Billing UI, notifications and operational alerts. Tenant-specific thresholds (`wallets.low_balance_threshold_minor`) stay unused unless Phase 11 requirements justify them. Details: `plans/PHASE_11_PLAN.md` §2.3.
 
 ### Usage pricing
 

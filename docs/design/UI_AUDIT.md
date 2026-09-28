@@ -2,6 +2,8 @@
 
 Baseline: branch `phase-10-automation` (3018856), before Design System v1. Scope: `apps/web` (28 app pages, 70 feature components) and `packages/ui` (29 components). Method: source inventory with scripted greps (counts below are reproducible), a read of every shell and module entry point, and the existing axe e2e results.
 
+**Accepted 2026-09-28** (decision DS-v1). The partly fixed and kept items below are normal backlog (`PRODUCT.md` → Product backlog), not a reopened milestone. The form-control border treatment is accepted for v1 while labelled controls and a compliant focus indicator stay enforced.
+
 Each finding has an ID; `FENWIRA_DESIGN_SYSTEM.md` and the completion report refer to them. Status after v1 (branch `ui-design-system-v1`): ✅ fixed, 🔸 partly, ⏭ deferred or kept (with the reason).
 
 ## 1. Foundation already in good shape

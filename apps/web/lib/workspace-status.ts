@@ -49,7 +49,11 @@ export function connectionSummary(list: WhatsAppConnection[] | undefined): {
   }
 }
 
-/** A wallet at or below this many minor units (₹100) shows as low balance. */
+/**
+ * TEMPORARY development default (decision P11-D1): low balance is a billing-domain state. Phase 11
+ * returns the wallet state from the backend (`billing.low_balance_threshold`) and this constant and
+ * `walletState` are removed; production must never rely on a frontend threshold.
+ */
 export const LOW_BALANCE_MINOR = 10_000
 
 export function walletState(w: Wallet | undefined): 'HIDDEN' | 'EMPTY' | 'LOW' | 'OK' {
