@@ -204,6 +204,7 @@ services:
     restart: unless-stopped
     environment:
       API_INTERNAL_URL: http://fenwira-api:4000
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       ENABLE_UI_GALLERY: ${ENABLE_UI_GALLERY:-false}
     ports:
       - '${WEB_PORT:-3000}:3000'

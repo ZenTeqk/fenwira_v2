@@ -73,6 +73,10 @@ A status always shows a **label**, and usually an icon. `StatusBadge` is the onl
 
 `TrendChart` (Phase 11) is the only chart component. Series use `primary-strong`, `info`, `success-strong`, `danger`, `warning-strong` and `secondary`, which all meet 3:1 non-text contrast on the surface (WCAG 1.4.11). Values never depend on color alone: every series has a text legend, the chart's accessible name states the totals, and "Show as table" renders the same numbers as a table. No other chart library is used.
 
+### Brand assets
+
+The Fenwira mark, lockups, app icons and link-preview banner are image assets (`docs/brand/README.md`), produced from originals by `scripts/brand-assets.py`. Their gradient is part of the artwork only; it doesn't add UI colours.
+
 ## 2. Typography
 
 Font: Inter for UI, JetBrains Mono for identifiers, phone numbers and code (loaded with `next/font`).

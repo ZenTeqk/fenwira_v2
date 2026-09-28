@@ -19,7 +19,10 @@ function layout(
   cta: { label: string; url: string },
   footer: string,
 ) {
-  const html = `<div style="${WRAP}"><p style="font-size:18px;font-weight:600">${escape(title)}</p>${lines
+  // The brand lockup is served by the web app; every email's link points there, so its origin is
+  // the web origin (docs/brand/README.md). Alt text keeps the name when images are blocked.
+  const logo = `${new URL(cta.url).origin}/brand/fenwira-lockup-light.png`
+  const html = `<div style="${WRAP}"><p><img src="${escape(logo)}" alt="Fenwira by ZenteqK" width="160" height="50" style="display:block;border:0;height:auto"/></p><p style="font-size:18px;font-weight:600">${escape(title)}</p>${lines
     .map((l) => `<p>${escape(l)}</p>`)
     .join(
       '',

@@ -53,7 +53,7 @@ export default function InvitationPage() {
   const shell = (children: React.ReactNode) => (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background px-4 py-10">
       <p>
-        <BrandMark size="lg" />
+        <BrandMark variant="lockup" size="lg" />
       </p>
       <div className="w-full max-w-md">{children}</div>
     </main>
