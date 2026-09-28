@@ -1,6 +1,6 @@
 # Phase 11 implementation plan: Billing, Analytics and Administration
 
-**Status:** for review (2026-09-28). No Phase 11 application code is written until the product owner approves this plan and answers the decision register (§10).
+**Status:** approved (2026-09-28) with decisions P11-D2–D19 (§10). Implementation proceeds in the §8 order. Production subscription prices, GST invoice issuance, a payment gateway and a permanent usage markup stay unbuilt until their values/rules are approved.
 **Inputs:** `docs/prompts/PHASE_11_BILLING_ANALYTICS.md`, `docs/BILLING.md`, `docs/DATABASE.md` → Billing / Analytics & developer, `docs/API_SPEC.md` → P11, `docs/MULTI_TENANCY.md` (X7, X9, X10), `docs/DATA_RETENTION.md`, `docs/OBSERVABILITY.md`, the decision register in `docs/PRODUCT.md` (B1–B4, P9-D1, P9-D2, API1, O1), and the Design System v1 contract (`docs/design/FENWIRA_DESIGN_SYSTEM.md`, `docs/design/UX_PATTERNS.md`, `docs/design/UI_AUDIT.md`, `AGENTS.md`).
 **Scope:** 11A Plans & Entitlements · 11B Wallet & Usage · 11C Billing Operations · 11D Analytics · 11E API, Webhooks & Administration.
 
@@ -206,6 +206,27 @@ Also in 11D:
 - Gated by `api_enabled` (P11-Q18 decides per plan) and the key's scopes; requests act as a synthetic principal recorded in audit logs.
 - **Surface for v2:** a documented subset of the existing `/api/v1` routes (contacts, messages send, templates read, campaigns read, conversations read) rather than a second API, with its own rate limits per key, published as a public OpenAPI document generated from the same controllers (`x-public: true`). Which routes are public is part of P11-Q18.
 
+### 5.1a Public route allowlist v1 (required by P11-D18 before implementation)
+
+The public API is the existing `/api/v1` routes below, reachable with an API key. Everything else answers 404 to an API key (never 403, so the surface isn't discoverable). The allowlist lives in one place in code (`PUBLIC_API_ROUTES`) and each route is flagged `x-public` in the OpenAPI document; a test asserts the two agree.
+
+| Resource | Method and path | Scope (permission key) |
+| --- | --- | --- |
+| Contacts | `POST /contacts/search` · `GET /contacts/:id` | `contacts.read` |
+| Contacts | `POST /contacts` · `PATCH /contacts/:id` | `contacts.write` |
+| Consent | `GET /contacts/:id/consents` | `contacts.read` |
+| Consent | `POST /contacts/:id/consents` | `contacts.write` |
+| Messaging | `POST /conversations` (start a conversation, usually with a template) · `POST /conversations/:id/messages` | `inbox.reply` |
+| Messaging | `GET /messages/:id` (status) · `GET /conversations/:id` | `inbox.read` |
+| Templates | `GET /templates` · `GET /templates/approved` | `templates.read` |
+| Campaigns (read) | `GET /campaigns` · `GET /campaigns/:id` · `GET /campaigns/:id/stats` | `campaigns.read` |
+
+Rules:
+- Sends made with an API key use message source **`API`**: they pass MessagingService's eligibility, window, balance and entitlement checks like any other send, carry the caller's `Idempotency-Key` (required), and **do not** trigger human takeover (only an agent reply does).
+- A key's scopes are a subset of the permission keys above and of its creator's permissions at creation time.
+- Not exposed: billing, platform, workspace/team/roles, WhatsApp connections, imports/exports, automations administration, audit logs, webhook management, notifications, and every mutation of campaigns and templates.
+- Per-key rate limits reuse the existing rate-limit service (values are operational configuration).
+
 ### 5.2 Outbound webhooks
 
 - `webhook_endpoints` / `webhook_deliveries` per `DATABASE.md`; events chosen from a public catalog (message status, inbound message, conversation assigned, campaign completed, contact created, automation finished).
@@ -278,7 +299,42 @@ Steps 1–3 can start as soon as this plan is approved; steps 4–6 wait for the
 
 ---
 
-## 10. Decision register — approval required before the affected work
+## 10. Decisions (approved 2026-09-28)
+
+| # | Decision | Implementation consequence |
+| --- | --- | --- |
+| P11-D2 | Plans STARTER, GROWTH, BUSINESS as data. Launch defaults: users 3/10/25, contacts 5,000/25,000/100,000, active flows 5/20/100. Other limits stay configurable and are not invented. | Seeded as configuration rows; keys not referenced in code. Unset limits resolve to unlimited. |
+| P11-D3 | Monthly subscriptions at launch; the model may support annual; no annual discount. | `plan_prices.interval` supports YEAR; only MONTH is exposed. |
+| P11-D4 | Subscription prices not approved. | No prices seeded as production values; UI shows "Contact us" instead of a price. |
+| P11-D5 | 14-day trial with Growth-equivalent entitlements unless configured otherwise. | Config `billing.trial_days` (14) and `billing.trial_entitlements_plan` (GROWTH); resolved through entitlements, no plan-name checks. |
+| P11-D6 | At trial expiry: no data deleted; customer-initiated billable outbound and gated paid capabilities off; inbound and status processing continue; the OWNER can review and choose a plan. | Subscription status `EXPIRED`; `SUBSCRIPTION_INACTIVE` on billable sends; capability entitlements resolve off; everything readable. |
+| P11-D7 | Configurable promotional/trial credits in the ledger, auditable, distinguishable from paid funds; expiry metadata designed, no expiry policy invented. | Ledger rows carry `fund_type PAID|PROMOTIONAL` and optional `expires_at` (unused until a policy exists). |
+| P11-D8 | INR at launch; currency-aware schema; no conversion. | Currency columns kept; single-currency checks. |
+| P11-D9 | Modes FREE, TRIAL, PREPAID (POSTPAID later), never derived from plan name. | `tenants.billing_mode` stays independent of the plan. |
+| P11-D10 | Provider cost tracked separately from the customer charge. | Usage events and reports carry both; neither is derived from the other. |
+| P11-D11 | No permanent markup approved; customer charge stays configuration-driven. | Price book unchanged (placeholders flagged); no markup code. |
+| P11-D12 | Low-balance production default ₹100 via `billing.low_balance_threshold`; backend states NORMAL / LOW_BALANCE / INSUFFICIENT_FUNDS / NOT_ENFORCED. | §2.3. |
+| P11-D13 | Manual top-ups by platform operators with reason/reference, idempotency and immutable audit. | §3, Step 5. |
+| P11-D14 | No final GST/invoice rules; design for tax metadata and invoices; don't block wallet/usage. | No invoices issued; tax metadata kept. |
+| P11-D15 | Analytics retention defaults 30/90/365 days via entitlements; financial/audit retention separate. | `analytics_retention` entitlement; purge touches analytics tables only. |
+| P11-D16 | Downgrades never delete data; over-limit state; inbound-created contacts always accepted; flows preserved, no activation that increases usage; configurable grace mechanism. | Over-limit reported per key; enforcement only on user-initiated growth; grace configuration recorded (see open items). |
+| P11-D17 | PLATFORM_OPERATOR, separate from tenant roles; CLI-granted; mandatory 2FA; separate protected area; short privileged sessions; audited financial operations; least privilege; no separate app. | Step 5. |
+| P11-D18 | API and webhooks for GROWTH and BUSINESS via entitlements; scoped keys; smallest public surface; signed webhooks with retries, history, SSRF-safe delivery. | §5.1a allowlist; `api_enabled`/`webhooks_enabled` data. |
+| P11-D19 | Payment gateway deferred; gateway-neutral domain. | `BillingProvider` stays manual. |
+
+### Still open (not blocking Steps 1–5)
+
+| # | Question | Where it matters |
+| --- | --- | --- |
+| P11-Q20 | Subscription prices per plan (P11-D4) | Subscription page shows "Contact us"; no charge is computed |
+| P11-Q21 | Permanent usage markup / customer price book values (P11-D11) | Production price book (placeholders flagged today) |
+| P11-Q22 | GST and invoice rules (P11-D14) | Invoice issuance (not built) |
+| P11-Q23 | Promotional credit consumption order (before or after paid funds) and any expiry policy (P11-D7) | Promotional funds are recorded and shown as granted; spend order and expiry are not applied |
+| P11-Q24 | Downgrade grace duration and what happens when it ends (P11-D16) | Over-limit state is recorded and shown; no automatic change to live capabilities |
+| P11-Q25 | Whether tenants see Meta/provider cost (P11-D10) | Tenant usage shows the customer charge; provider cost is visible to platform operators |
+
+## 11. Original decision register (historical)
+
 
 Nothing below is decided by this plan. Where the specs contain values today (the plan table and entitlement numbers in `BILLING.md`, the 14-day trial, the price-book paise values), they are **placeholders** and stay flagged until answered.
 

@@ -144,8 +144,37 @@ The product owner resolved every question from the original register. These deci
 | P9-D2 | BILLING | Pricing stays configuration-driven and distinguishes provider (Meta) cost, the Fenwira customer charge, and adjustment/tax metadata. The current ₹0.88 / ₹0.13 values are labelled development placeholders; commercial pricing, markup, plans and GST/invoicing are set in Phase 11. |
 | P11-D1 | BILLING | Low balance is a billing-domain state. The threshold is configuration (`billing.low_balance_threshold`; ₹100 is a documented development default, production sets it explicitly). The backend exposes the wallet state (NORMAL, LOW_BALANCE, INSUFFICIENT_FUNDS or equivalent) and the frontend renders it; one source drives the dashboard, Billing UI, notifications and operational alerts. No tenant-specific thresholds unless Phase 11 requirements justify them. (2026-09-28) |
 | DS-v1 | DESIGN_SYSTEM | Design System v1 accepted (`ui-design-system-v1`, 9a0933d). Remaining UI debt is normal backlog. The form-control border treatment (1.48:1 boundary; labelled controls and a compliant focus indicator enforced) is accepted for v1. Phase 11 follows `docs/design/*` and the UI quality gate. (2026-09-28) |
+| P11-D2 | BILLING | Customer plans STARTER, GROWTH, BUSINESS, all as data. Launch defaults (configuration, not constants): users 3 / 10 / 25; contacts 5,000 / 25,000 / 100,000; active flows 5 / 20 / 100. Other limits stay configurable and aren't invented. Feature access only through EntitlementsService. |
+| P11-D3 | BILLING | Monthly subscriptions at launch; the model may support annual; no annual discount. |
+| P11-D4 | BILLING | Subscription prices are not approved; pricing stays configuration and a separate commercial review sets it. |
+| P11-D5 | BILLING | 14-day trial with Growth-equivalent entitlements unless configured otherwise, represented through entitlement resolution (no plan-name checks). |
+| P11-D6 | BILLING | Trial expiry deletes nothing; customer-initiated billable outbound and gated paid capabilities stop; inbound and status processing continue; the OWNER can review the workspace and choose a plan. |
+| P11-D7 | BILLING | Configurable promotional/trial credits in the immutable ledger, auditable and distinguishable from paid funds; expiry metadata designed, no expiry policy invented. |
+| P11-D8 | BILLING | INR at launch; currency-aware schema; no multi-currency conversion in Phase 11. |
+| P11-D9 | BILLING | Billing modes FREE (explicitly configured internal/development/promotional), TRIAL, PREPAID (normal paying customers); POSTPAID later; mode is never derived from the plan. |
+| P11-D10 | BILLING | Provider (Meta) cost and Fenwira's customer charge are recorded separately and answer independently. |
+| P11-D11 | BILLING | No permanent markup approved; customer charge stays configuration-driven; provider cost, markup/platform component, tax metadata and final charge stay separately representable. |
+| P11-D12 | BILLING | Low-balance production default ₹100 as configuration (`billing.low_balance_threshold`); the backend returns NORMAL / LOW_BALANCE / INSUFFICIENT_FUNDS / NOT_ENFORCED; the frontend never compares amounts. Supersedes the value part of P11-D1. |
+| P11-D13 | BILLING | Manual top-ups at launch, by platform operators, with reason/reference, idempotency and immutable audit. |
+| P11-D14 | BILLING | No final GST/invoice rules; the domain keeps tax metadata and can add invoice records; production tax invoices need accounting validation first. |
+| P11-D15 | ANALYTICS | Analytics retention defaults 30 / 90 / 365 days (STARTER / GROWTH / BUSINESS) via entitlements; financial, audit and legal retention are separate and never purged by analytics retention. |
+| P11-D16 | BILLING | Downgrades never delete data; over-limit resources are marked; user-initiated growth of a constrained resource is blocked; inbound messages and inbound-created contacts are always accepted; active flows are preserved and not randomly disabled; a configurable grace mechanism covers already-active capabilities. |
+| P11-D17 | SECURITY | PLATFORM_OPERATOR, separate from tenant roles: CLI-granted, mandatory 2FA, separate protected area, short privileged sessions, audited financial operations with reason/reference and idempotency, least privilege, no customer-data browsing, no separate admin app. |
+| P11-D18 | API | API and outbound webhooks available to GROWTH and BUSINESS through entitlements; scoped API keys; the smallest public route allowlist (PHASE_11_PLAN §5.1a); signed webhook deliveries with retries, history and the SSRF-safe client. |
+| P11-D19 | BILLING | Payment gateway deferred; manual payments at launch; the domain stays gateway-neutral. |
 | P9-D3 | CAMPAIGNS | A template that becomes unavailable mid-campaign pauses it as PAUSED_TEMPLATE_UNAVAILABLE, never FAILED. Processed recipients keep their states; the rest are preserved and not sent. The same campaign can't switch templates; a new campaign is created instead. Which template version produced each message stays auditable. |
 
 ## Open questions register
 
-Phase 11 commercial and operational questions P11-Q1–Q19 (plans, prices, limits, trial, credits, provider cost, markup, low-balance value, top-ups, GST/invoicing, retention, downgrade behavior, billing operators, API availability, payment gateway timing) are open, owned by the product owner, and listed with what they block in `plans/PHASE_11_PLAN.md` §10. They move to the Decision register as they are answered. A new question is added there, with its owner and the work it blocks, instead of being settled by an implementation assumption.
+Open, owned by the product owner; none blocks Phase 11 Steps 1–5 (details in `plans/PHASE_11_PLAN.md` §10):
+
+| # | Question | Blocks |
+| --- | --- | --- |
+| P11-Q20 | Subscription prices per plan | Charging subscriptions |
+| P11-Q21 | Permanent usage markup / production customer price book | Production price book (placeholders flagged) |
+| P11-Q22 | GST and invoice rules | Issuing tax invoices |
+| P11-Q23 | Promotional credit spend order and expiry policy | Applying spend order/expiry (credits are recorded and shown as granted) |
+| P11-Q24 | Downgrade grace duration and end-of-grace behavior | Automatic changes after a downgrade (none happen today) |
+| P11-Q25 | Whether tenants see provider (Meta) cost | Tenant usage view (shows the customer charge only) |
+
+A new question is added here, with its owner and the work it blocks, instead of being settled by an implementation assumption.

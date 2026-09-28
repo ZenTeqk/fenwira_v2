@@ -6,32 +6,29 @@ Subscription plans, entitlements, the prepaid wallet with its immutable ledger, 
 
 ## Decisions
 
-### Plans (seeded, global)
+### Plans (seeded configuration, global) — decisions P11-D2–D5, D15, D18
 
-| Key | Name | Intended for |
+| Key | Name | Status |
 | --- | --- | --- |
-| `TRIAL` | Free trial (14 days) | Evaluation |
-| `STARTER` | Starter | Small teams |
-| `GROWTH` | Growth | Growing teams running campaigns and automations |
-| `BUSINESS` | Business | Larger teams, API access, long analytics retention |
+| `STARTER` | Starter | customer plan |
+| `GROWTH` | Growth | customer plan; the trial resolves to its entitlements (P11-D5) |
+| `BUSINESS` | Business | customer plan |
 
-Prices live in `plans.price_minor`. **All prices, entitlement values and price-book entries are configuration data** (decision B1): seeded rows, changed by an admin, never hard-coded in the application. Final commercial pricing is decided before billing launch. **Plan keys are never referenced in feature code.** Only entitlements are.
+Plans, their names and entitlements are rows (decision B1), changed by a platform operator, never referenced by key in feature code. **Prices are not approved (P11-D4):** `plan_prices` holds no production value and the UI shows "Contact us". Monthly cadence at launch (P11-D3).
 
-### Entitlements
+### Entitlements (launch defaults, configuration)
 
-| Key | Type | TRIAL | STARTER | GROWTH | BUSINESS |
+| Key | Type | STARTER | GROWTH | BUSINESS | Source |
 | --- | --- | --- | --- | --- | --- |
-| `max_users` | int | 3 | 5 | 15 | 50 |
-| `max_contacts` | int | 1,000 | 10,000 | 100,000 | 1,000,000 |
-| `max_phone_numbers` | int | 1 | 1 | 3 | 10 |
-| `max_campaigns_per_month` | int | 5 | 30 | 200 | unlimited (`-1`) |
-| `automation_enabled` | bool | true | false | true | true |
-| `max_active_flows` | int | 3 | 0 | 25 | 200 |
-| `api_enabled` | bool | false | false | true | true |
-| `webhooks_enabled` | bool | false | false | true | true |
-| `analytics_retention` | days | 30 | 90 | 365 | 730 |
+| `max_users` | int | 3 | 10 | 25 | P11-D2 |
+| `max_contacts` | int | 5,000 | 25,000 | 100,000 | P11-D2 |
+| `max_active_flows` | int | 5 | 20 | 100 | P11-D2 |
+| `automation_enabled` | bool | true | true | true | implied by P11-D2 (every plan has active flows) |
+| `api_enabled` | bool | false | true | true | P11-D18 |
+| `webhooks_enabled` | bool | false | true | true | P11-D18 |
+| `analytics_retention` | days | 30 | 90 | 365 | P11-D15 |
 
-(These plan names, numbers and the 14-day trial are **placeholders**. They are open decisions P11-Q1–Q6 and Q15–Q18 in `plans/PHASE_11_PLAN.md` §10 and are not loaded as production data until answered (B1). The mechanism is what's fixed.)
+Every other key (`max_phone_numbers`, `max_campaigns_per_month`, `automation_execution_limit`) is **unset**, which resolves to unlimited; values are not invented (P11-D2).
 
 - **Resolution:** `tenant_entitlement_overrides[key]` ?? `plan_entitlements[plan][key]`.
 - `EntitlementService.check(key)` returns the value. `EntitlementService.assertWithin(key, currentUsage)` throws `LIMIT_EXCEEDED {key, limit, current}`. `@RequireEntitlement('api_enabled')` guards whole routes (`ENTITLEMENT_REQUIRED`).
@@ -41,7 +38,9 @@ Prices live in `plans.price_minor`. **All prices, entitlement values and price-b
 ### Subscription
 
 - One row per tenant. Status: `TRIALING`, `ACTIVE`, `PAST_DUE` or `CANCELLED`.
-- New tenants get `TRIAL` with `TRIALING` and a 14-day `trial_ends_at`. When the trial expires, the tenant moves to read-only mode: sends are blocked (`SUBSCRIPTION_INACTIVE`), and viewing and exporting still work. *(Placeholder: trial strategy, duration and end behavior are open decisions P11-Q5, P11-Q6 and P11-Q16.)*
+- New tenants start `TRIALING` for `billing.trial_days` (14, P11-D5) with the entitlements of `billing.trial_entitlements_plan` (GROWTH) unless configured otherwise.
+- **Trial expiry (P11-D6):** status `EXPIRED`. Nothing is deleted; customer-initiated **billable** outbound sends are refused with `SUBSCRIPTION_INACTIVE`; gated capabilities (automations, API, webhooks) resolve off; inbound messages, status updates and non-billable processing continue; members can read and export, and the OWNER can review the workspace and choose a plan.
+- **Downgrades (P11-D16):** no data is deleted; a resource above its new limit is reported **over limit**; only user-initiated growth of that resource is refused (`LIMIT_EXCEEDED`); inbound messages and contacts created by inbound messages are always accepted; active flows keep running and aren't disabled, but none can be published or resumed while over the flow limit. Grace duration and end-of-grace behavior are open (P11-Q24).
 - `BillingProvider` interface (`createCheckout`, `handleWebhook`, `cancel`). v2 ships `ManualBillingProvider`, where a platform admin changes plans through the API.
 
 ### Wallet (prepaid credits for WhatsApp messages)
