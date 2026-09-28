@@ -66,8 +66,11 @@ export function walletLowBalanceEmail(
   state: 'LOW_BALANCE' | 'INSUFFICIENT_FUNDS',
   available: string,
   url: string,
+  /** P11-D20: shown when configured; otherwise the neutral fallback line. */
+  support: { email?: string; url?: string } = {},
 ) {
   const out = state === 'INSUFFICIENT_FUNDS'
+  const contact = [support.email, support.url].filter(Boolean).join(' or ')
   return {
     subject: out
       ? `${workspace}: WhatsApp sends are paused, add credits`
@@ -79,7 +82,9 @@ export function walletLowBalanceEmail(
         out
           ? 'Template messages, including those sent by campaigns and automations, are refused until credits are added. Inbound messages and free-form replies inside the 24-hour window continue.'
           : 'Template messages, including those sent by campaigns and automations, stop when the balance runs out.',
-        'Credits are added by the Fenwira team. Contact Fenwira to arrange a top-up.',
+        contact
+          ? `Credits are added by the Fenwira team. To arrange a top-up, contact billing: ${contact}.`
+          : 'Credits are added by the Fenwira team. Contact Fenwira to arrange a top-up.',
       ],
       { label: 'Open wallet', url },
       'You get this email because you can view billing for this workspace.',

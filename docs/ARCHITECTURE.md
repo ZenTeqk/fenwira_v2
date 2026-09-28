@@ -131,7 +131,8 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `campaign.completed` | campaigns | `campaignId, counts` | `notifications.dispatch`, `analytics.events` |
 | `automation.execution.finished` | automation (not emitted yet; Phase 11 analytics) | `executionId, flowId, status` | `analytics.events` |
 | `wallet.low_balance` | billing (on a crossing into LOW_BALANCE or INSUFFICIENT_FUNDS, P11-D12) | `walletId, from, to, availableMinor, currency` | `notifications.dispatch` |
-| `wallet.recovered` | billing (on a crossing back to NORMAL) | `walletId, from, availableMinor, currency` | `notifications.dispatch` |
+| `wallet.funded` | billing (an unfunded wallet's first available funds, P11-D21) | `walletId, to, availableMinor, currency` | `notifications.dispatch` |
+| `wallet.recovered` | billing (a funded wallet crossing back to NORMAL) | `walletId, from, availableMinor, currency` | `notifications.dispatch` |
 | `whatsapp.connection.changed` | whatsapp-accounts | `phoneNumberId, status` | `notifications.dispatch` |
 
 Payloads carry IDs, not full records. Processors re-read current state inside `withTenant`. Payload schemas live in `packages/contracts/src/events`.

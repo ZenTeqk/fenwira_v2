@@ -31,6 +31,8 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   // Low-balance notifications to members with billing.read (P11-D12).
   'wallet.low_balance': [QUEUES.notificationsDispatch],
   'wallet.recovered': [QUEUES.notificationsDispatch],
+  // Only a first funding that is already low notifies anyone (P11-D21).
+  'wallet.funded': [QUEUES.notificationsDispatch],
   // Auto-assign (round robin) on open; analytics subscribes in P11.
   'conversation.opened': [QUEUES.inboxEvents],
   'conversation.assigned': [],

@@ -328,7 +328,7 @@ Implemented in Phase 10:
 | CRUD | `/webhook-endpoints`, GET `/webhook-endpoints/:id/deliveries`, POST `…/test` | `integrations.manage` |
 
 Implemented in Phase 11 Step 1 (`BILLING.md` → Wallet state, Transactions API):
-- `GET /billing/wallet` adds `state` (`NORMAL`, `LOW_BALANCE`, `INSUFFICIENT_FUNDS`, `NOT_ENFORCED`, decision P11-D12), `lowBalanceThresholdMinor` and `spentThisMonthMinor` (usage debits since the 1st, UTC). Clients render `state`; they never compare amounts.
+- `GET /billing/wallet` adds `support {email, url}` (P11-D20, null when not configured), `state` (`NORMAL`, `LOW_BALANCE`, `INSUFFICIENT_FUNDS`, `NOT_ENFORCED`, decision P11-D12), `lowBalanceThresholdMinor` and `spentThisMonthMinor` (usage debits since the 1st, UTC). Clients render `state`; they never compare amounts.
 - `GET /workspace/status` for the shell and dashboard.
 - `GET /billing/wallet/transactions?type=CREDIT|DEBIT|ADJUSTMENT|REFUND&from&to&cursor&limit` → `{data: [{id, type, fundType, amountMinor, balanceAfterMinor, currency, reason, referenceType, referenceId, expiresAt, createdAt}], page}`.
 - `POST /billing/wallet/transactions/export {type?, from?, to?}` → `text/csv`; 422 `EXPORT_TOO_LARGE` above 50 000 rows.

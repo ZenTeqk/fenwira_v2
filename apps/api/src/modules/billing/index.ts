@@ -1,5 +1,11 @@
 export { BillingModule } from './billing.module'
-export { BILLING_OPTIONS, type BillingOptions, billingPlatformFromEnv } from './billing.options'
+export {
+  BILLING_OPTIONS,
+  type BillingOptions,
+  billingPlatformFromEnv,
+  type BillingSupport,
+  billingSupportFromEnv,
+} from './billing.options'
 export { BillingMaintenanceProcessor } from './billing-maintenance.processor'
 export { BillingUsageProcessor } from './billing-usage.processor'
 export { applyStatusPricing, ledgerFigures, recoverReservation } from './usage.core'

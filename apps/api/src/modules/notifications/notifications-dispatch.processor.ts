@@ -12,7 +12,8 @@ import { Mailer, walletLowBalanceEmail } from '../platform'
 import { createNotificationOnce } from './notifications'
 import { NOTIFICATIONS_OPTIONS, type NotificationsOptions } from './notifications.options'
 
-type WalletJob = EventJob<'wallet.low_balance'> | EventJob<'wallet.recovered'>
+type WalletJob =
+  EventJob<'wallet.low_balance'> | EventJob<'wallet.recovered'> | EventJob<'wallet.funded'>
 
 /** Roles that can view billing (ROLE_PERMISSIONS is the single source, never a hard-coded list). */
 const BILLING_READERS = (Object.keys(ROLE_PERMISSIONS) as Role[]).filter((r) =>
@@ -53,6 +54,9 @@ export class NotificationsDispatchProcessor implements QueueProcessor<WalletJob>
   async process(job: Job<WalletJob>): Promise<string> {
     const e = job.data
     if (!e.tenantId) return 'ignored'
+    // P11-D21: first funding is not a recovery; it notifies only when it is already low.
+    if (e.eventType === 'wallet.funded')
+      return e.payload.to === 'LOW_BALANCE' ? this.wallet(e.tenantId, e) : 'funded'
     if (e.eventType === 'wallet.low_balance' || e.eventType === 'wallet.recovered')
       return this.wallet(e.tenantId, e)
     return 'ignored'
@@ -60,6 +64,7 @@ export class NotificationsDispatchProcessor implements QueueProcessor<WalletJob>
 
   private async wallet(tenantId: string, e: WalletJob): Promise<string> {
     const to = e.eventType === 'wallet.recovered' ? 'NORMAL' : e.payload.to
+    const type = e.eventType === 'wallet.funded' ? 'wallet.low_balance' : e.eventType
     const result = await this.db.withTenant(tenantId, async (tx) => {
       if (!(await billingEnforcedFor(tx, tenantId, this.billing))) return 'not-enforced' as const
       const wallet = await tx.wallet.findFirst({ where: { id: e.payload.walletId } })
@@ -99,7 +104,7 @@ export class NotificationsDispatchProcessor implements QueueProcessor<WalletJob>
         const notification = await createNotificationOnce(tx, {
           tenantId,
           userId: user.id,
-          type: e.eventType,
+          type,
           ...copy,
           link: '/billing/wallet',
           dedupeKey: `event:${e.eventId}`,
@@ -123,6 +128,7 @@ export class NotificationsDispatchProcessor implements QueueProcessor<WalletJob>
               to,
               result.available,
               `${this.options.webOrigin}/billing/wallet`,
+              this.options.support,
             ),
           })
           .catch((err: unknown) =>

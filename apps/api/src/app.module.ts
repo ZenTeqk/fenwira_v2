@@ -20,7 +20,7 @@ import { ContactsModule } from './modules/contacts'
 import { InboxModule } from './modules/inbox'
 import { MessagingModule } from './modules/messaging'
 import { TemplatesModule } from './modules/templates'
-import { BillingModule, billingPlatformFromEnv } from './modules/billing'
+import { BillingModule, billingPlatformFromEnv, billingSupportFromEnv } from './modules/billing'
 import { CampaignsModule } from './modules/campaigns'
 import { AutomationModule } from './modules/automation'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
@@ -75,7 +75,10 @@ export class ApiModule {
         ContactsModule.forApi(),
         messaging,
         InboxModule.forApi([messaging]),
-        BillingModule.forApi(billingPlatformFromEnv(env)),
+        BillingModule.forApi({
+          ...billingPlatformFromEnv(env),
+          support: billingSupportFromEnv(env),
+        }),
         CampaignsModule.forApi({
           billing: billingPlatformFromEnv(env),
         }),

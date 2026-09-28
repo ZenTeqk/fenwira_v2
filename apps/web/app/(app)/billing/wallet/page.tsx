@@ -1,6 +1,6 @@
 'use client'
 
-import { WALLET_TRANSACTION_TYPES, type WalletTransaction } from '@fenwira/contracts'
+import { type Wallet, WALLET_TRANSACTION_TYPES, type WalletTransaction } from '@fenwira/contracts'
 import {
   Alert,
   Badge,
@@ -37,6 +37,29 @@ import {
 } from '@/lib/billing'
 
 const ALL = 'ALL'
+
+type Support = Wallet['support']
+
+/** P11-D20: top-ups are manual (P11-D13); the contact comes from configuration, never code. */
+function TopUpLine({ support }: { support: Support }) {
+  return support.email || support.url ? (
+    <>Credits are added by the Fenwira team: contact billing to arrange a top-up.</>
+  ) : (
+    <>Credits are added by the Fenwira team: contact Fenwira to arrange a top-up.</>
+  )
+}
+
+function ContactBilling({ support }: { support: Support }) {
+  const href = support.url ?? (support.email ? `mailto:${support.email}` : null)
+  if (!href) return null
+  return (
+    <Button variant="secondary" size="sm" asChild>
+      <a href={href} {...(support.url ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+        Contact billing
+      </a>
+    </Button>
+  )
+}
 const MODE_LABEL = { FREE: 'Free', TRIAL: 'Trial', PREPAID: 'Prepaid' } as const
 const dateFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -142,15 +165,22 @@ export default function WalletPage() {
       }}
       banner={
         w?.state === 'INSUFFICIENT_FUNDS' ? (
-          <Alert tone="danger" title="Your wallet is out of credits">
+          <Alert
+            tone="danger"
+            title="Your wallet is out of credits"
+            action={<ContactBilling support={w.support} />}
+          >
             Template messages, campaigns and automations that send templates are paused. Replies
-            inside the 24-hour window still work. Credits are added by the Fenwira team: contact
-            Fenwira to arrange a top-up.
+            inside the 24-hour window still work. <TopUpLine support={w.support} />
           </Alert>
         ) : w?.state === 'LOW_BALANCE' ? (
-          <Alert tone="warning" title="Wallet balance is low">
-            {money(w.availableMinor)} available. Template messages stop when it runs out. Credits
-            are added by the Fenwira team: contact Fenwira to arrange a top-up.
+          <Alert
+            tone="warning"
+            title="Wallet balance is low"
+            action={<ContactBilling support={w.support} />}
+          >
+            {money(w.availableMinor)} available. Template messages stop when it runs out.{' '}
+            <TopUpLine support={w.support} />
           </Alert>
         ) : w?.state === 'NOT_ENFORCED' ? (
           <Alert tone="info" title="Messages aren’t billed in this workspace">
@@ -226,9 +256,7 @@ export default function WalletPage() {
             transactions.isError
               ? {
                   message:
-                    transactions.error instanceof ApiError
-                      ? transactions.error.message
-                      : undefined,
+                    transactions.error instanceof ApiError ? transactions.error.message : undefined,
                   onRetry: () => void transactions.refetch(),
                 }
               : undefined

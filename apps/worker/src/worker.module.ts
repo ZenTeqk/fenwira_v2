@@ -24,6 +24,7 @@ import {
   BillingMaintenanceProcessor,
   BillingModule,
   billingPlatformFromEnv,
+  billingSupportFromEnv,
   BillingUsageProcessor,
 } from '@fenwira/api/modules/billing'
 import {
@@ -109,6 +110,7 @@ export class WorkerModule {
     const notifications = NotificationsModule.forWorker({
       webOrigin: env.WEB_ORIGIN,
       billing: billingPlatform,
+      support: billingSupportFromEnv(env),
     })
     const campaigns = CampaignsModule.forWorker(
       {

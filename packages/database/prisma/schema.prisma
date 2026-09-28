@@ -1553,6 +1553,9 @@ model Wallet {
   /// Funds state last recorded by a wallet change (P11-D12). Only detects crossings; reads
   /// compute the live state. NULL until the first change after creation.
   fundsState               WalletFundsState? @map("funds_state")
+  /// P11-D21: when the wallet first had available funds. Null = never funded, so the first
+  /// credit is initial funding (`wallet.funded`), not a recovery.
+  fundedAt                 DateTime?         @map("funded_at") @db.Timestamptz(3)
   createdAt                DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 

@@ -82,6 +82,13 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     availableMinor: z.number().int(),
     currency: z.string(),
   }),
+  // P11-D21: an unfunded wallet's first available funds (not a recovery).
+  'wallet.funded': z.object({
+    walletId: z.uuid(),
+    to: z.enum(['NORMAL', 'LOW_BALANCE']),
+    availableMinor: z.number().int(),
+    currency: z.string(),
+  }),
   'wallet.recovered': z.object({
     walletId: z.uuid(),
     from: z.enum(['LOW_BALANCE', 'INSUFFICIENT_FUNDS']),

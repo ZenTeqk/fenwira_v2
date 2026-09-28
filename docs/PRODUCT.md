@@ -162,6 +162,8 @@ The product owner resolved every question from the original register. These deci
 | P11-D17 | SECURITY | PLATFORM_OPERATOR, separate from tenant roles: CLI-granted, mandatory 2FA, separate protected area, short privileged sessions, audited financial operations with reason/reference and idempotency, least privilege, no customer-data browsing, no separate admin app. |
 | P11-D18 | API | API and outbound webhooks available to GROWTH and BUSINESS through entitlements; scoped API keys; the smallest public route allowlist (PHASE_11_PLAN §5.1a); signed webhook deliveries with retries, history and the SSRF-safe client. |
 | P11-D19 | BILLING | Payment gateway deferred; manual payments at launch; the domain stays gateway-neutral. |
+| P11-D20 | BILLING | The billing/support contact is configuration (`billing.support_email`, `billing.support_url`), never hard-coded. Unset → the non-clickable "Contact Fenwira to arrange a top-up" fallback; set → a "Contact billing" action on the Wallet page and the contact in billing emails. No self-service top-up or payment flow. |
+| P11-D21 | BILLING | An unfunded wallet's first credit is initial funding (`wallet.funded`), never "balance restored". `wallet.recovered` means a funded wallet crossing back to NORMAL (from INSUFFICIENT_FUNDS or LOW_BALANCE). Initializing a wallet row notifies nobody; transition events stay idempotent. |
 | P9-D3 | CAMPAIGNS | A template that becomes unavailable mid-campaign pauses it as PAUSED_TEMPLATE_UNAVAILABLE, never FAILED. Processed recipients keep their states; the rest are preserved and not sent. The same campaign can't switch templates; a new campaign is created instead. Which template version produced each message stays auditable. |
 
 ## Open questions register

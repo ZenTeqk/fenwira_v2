@@ -10,7 +10,10 @@ export class NotificationsModule {
     return {
       module: NotificationsModule,
       providers: [
-        { provide: NOTIFICATIONS_OPTIONS, useValue: { webOrigin: options.webOrigin } },
+        {
+          provide: NOTIFICATIONS_OPTIONS,
+          useValue: { webOrigin: options.webOrigin, support: options.support },
+        },
         { provide: BILLING_OPTIONS, useValue: options.billing },
         NotificationsDispatchProcessor,
       ],

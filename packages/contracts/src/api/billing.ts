@@ -30,6 +30,8 @@ export const walletSchema = z.object({
   lowBalanceThresholdMinor: z.number().int(),
   /** Usage debits this calendar month (UTC), as a positive amount. */
   spentThisMonthMinor: z.number().int(),
+  /** P11-D20: configured billing contact; both null → show the "Contact Fenwira" fallback. */
+  support: z.object({ email: z.string().nullable(), url: z.string().nullable() }),
 })
 export type Wallet = z.infer<typeof walletSchema>
 

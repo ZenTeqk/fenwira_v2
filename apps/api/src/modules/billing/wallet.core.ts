@@ -15,6 +15,7 @@ type WalletRow = {
   credit_limit_minor: bigint
   reserved_minor: bigint
   funds_state: FundsState | null
+  funded_at: Date | null
 }
 
 export type FundsState = Exclude<WalletState, 'NOT_ENFORCED'>
@@ -110,17 +111,21 @@ export async function lockWallet(
 
 async function selectLocked(tx: TenantTx, tenantId: string): Promise<WalletRow> {
   const [row] = await tx.$queryRaw<WalletRow[]>`
-    SELECT id, currency, balance_minor, credit_limit_minor, reserved_minor, funds_state::text
+    SELECT id, currency, balance_minor, credit_limit_minor, reserved_minor, funds_state::text,
+      funded_at
     FROM wallets WHERE tenant_id = ${tenantId}::uuid FOR UPDATE`
   return row!
 }
 
 /**
- * Records the wallet's funds state after a change (P11-D12) and, on a crossing only, emits
- * `wallet.low_balance` (into LOW_BALANCE or INSUFFICIENT_FUNDS) or `wallet.recovered` (back to
- * NORMAL) in the same transaction. Runs under the wallet lock, so concurrent changes see each
- * other's state and each crossing is emitted once. The first recording (a new wallet, or one
- * that predates the column) sets the state without an event.
+ * Records the wallet's funds state after a change (P11-D12, P11-D21) and emits, in the same
+ * transaction and under the wallet lock (so each transition is emitted once):
+ * - `wallet.funded` the first time an unfunded wallet gets available funds (initial funding is
+ *   not a recovery);
+ * - then, for a funded wallet, `wallet.low_balance` on a crossing into LOW_BALANCE or
+ *   INSUFFICIENT_FUNDS and `wallet.recovered` on a crossing back to NORMAL.
+ * Initializing the wallet row (the first recording, including a trial credit granted at creation)
+ * records the state without any event.
  */
 async function recordFundsState(
   tx: TenantTx,
@@ -130,22 +135,24 @@ async function recordFundsState(
 ): Promise<WalletRow> {
   const next = fundsStateOf(availableOf(w), platform.lowBalanceThresholdMinor)
   const prev = w.funds_state
-  if (prev === next) return w
-  await tx.$executeRaw`UPDATE wallets SET funds_state = ${next}::wallet_funds_state
-    WHERE id = ${w.id}::uuid`
-  if (prev !== null) {
-    const base = { walletId: w.id, availableMinor: Number(availableOf(w)), currency: w.currency }
-    await tx.outboxEvent.create({
-      data: {
-        tenantId,
-        eventType: next === 'NORMAL' ? 'wallet.recovered' : 'wallet.low_balance',
-        aggregateType: 'wallet',
-        aggregateId: w.id,
-        payload: next === 'NORMAL' ? { ...base, from: prev } : { ...base, from: prev, to: next },
-      },
+  const firstFunding = w.funded_at === null && next !== 'INSUFFICIENT_FUNDS'
+  if (prev === next && !firstFunding) return w
+  const fundedAt = firstFunding ? new Date() : w.funded_at
+  await tx.$executeRaw`UPDATE wallets SET funds_state = ${next}::wallet_funds_state,
+    funded_at = ${fundedAt} WHERE id = ${w.id}::uuid`
+  const recorded = { ...w, funds_state: next, funded_at: fundedAt }
+  if (prev === null) return recorded
+  const base = { walletId: w.id, availableMinor: Number(availableOf(w)), currency: w.currency }
+  const emit = (eventType: string, payload: Record<string, string | number>) =>
+    tx.outboxEvent.create({
+      data: { tenantId, eventType, aggregateType: 'wallet', aggregateId: w.id, payload },
     })
-  }
-  return { ...w, funds_state: next }
+  if (firstFunding) await emit('wallet.funded', { ...base, to: next })
+  else if (w.funded_at === null)
+    return recorded // still unfunded: nothing to announce
+  else if (next === 'NORMAL') await emit('wallet.recovered', { ...base, from: prev })
+  else await emit('wallet.low_balance', { ...base, from: prev, to: next })
+  return recorded
 }
 
 /** Re-reads the locked wallet after a change and records its state. */
@@ -162,7 +169,7 @@ export function toWallet(
   billingMode: Wallet['billingMode'],
   platform: BillingPlatform,
   spentThisMonthMinor: bigint,
-): Wallet {
+): Omit<Wallet, 'support'> {
   return {
     currency: w.currency,
     balanceMinor: Number(w.balance_minor),

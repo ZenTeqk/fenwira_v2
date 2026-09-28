@@ -12,7 +12,7 @@ import { type Job } from 'bullmq'
 import { type Server } from 'node:http'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { campaignWorld, metaId, phoneNo, waitFor } from './support/campaigns'
-import { bootApi, bootWorker, emailCount } from './support/harness'
+import { bootApi, bootWorker, emailCount, linkFromEmail } from './support/harness'
 import { addMember, createOwner, type Member } from './support/workspace'
 
 /**
@@ -23,9 +23,12 @@ import { addMember, createOwner, type Member } from './support/workspace'
  */
 const THRESHOLD = 100
 const OPS = 'ops-alerts@fenwira.test'
+const SUPPORT_URL = 'https://billing.fenwira.test/top-up'
 const ENV = {
   BILLING_ENFORCED: 'true',
   BILLING_LOW_BALANCE_THRESHOLD_MINOR: String(THRESHOLD),
+  BILLING_SUPPORT_URL: SUPPORT_URL,
+  BILLING_SUPPORT_EMAIL: 'billing@fenwira.test',
 }
 const PLATFORM = { enforced: true, trialCreditMinor: 0, lowBalanceThresholdMinor: THRESHOLD }
 const GRACE_MS = 361 * 60_000
@@ -54,7 +57,7 @@ const post = (tenantId: string, amount: number, type: 'CREDIT' | 'DEBIT' = 'CRED
 const walletEvents = (tenantId: string) =>
   db.withTenant(tenantId, (tx) =>
     tx.outboxEvent.findMany({
-      where: { eventType: { in: ['wallet.low_balance', 'wallet.recovered'] } },
+      where: { eventType: { in: ['wallet.low_balance', 'wallet.recovered', 'wallet.funded'] } },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     }),
   )
@@ -130,7 +133,7 @@ describe('Phase 11 Step 1: wallet state (P11-D12)', () => {
     })
     expect(await walletEvents(t)).toHaveLength(0)
 
-    await post(t, THRESHOLD) // exactly at the threshold: LOW
+    await post(t, THRESHOLD) // first funding, exactly at the threshold: LOW
     expect((await state()).state).toBe('LOW_BALANCE')
     await post(t, 1) // above: NORMAL
     expect((await state()).state).toBe('NORMAL')
@@ -147,14 +150,8 @@ describe('Phase 11 Step 1: wallet state (P11-D12)', () => {
 
     const events = await walletEvents(t)
     expect(events.map((e) => [e.eventType, e.payload])).toEqual([
-      [
-        'wallet.low_balance',
-        expect.objectContaining({
-          from: 'INSUFFICIENT_FUNDS',
-          to: 'LOW_BALANCE',
-          availableMinor: 100,
-        }),
-      ],
+      // P11-D21: initial funding is its own event, never a "restored" balance.
+      ['wallet.funded', expect.objectContaining({ to: 'LOW_BALANCE', availableMinor: 100 })],
       ['wallet.recovered', expect.objectContaining({ from: 'LOW_BALANCE', availableMinor: 101 })],
       [
         'wallet.low_balance',
@@ -194,6 +191,64 @@ describe('Phase 11 Step 1: wallet state (P11-D12)', () => {
     const dispatch = worker.get(NotificationsDispatchProcessor)
     await expect(dispatch.process(asJob(low!))).resolves.toBe('not-enforced')
     expect(await walletNotifications(t)).toHaveLength(0)
+  })
+})
+
+describe('P11-D21: first funding is not a recovery', () => {
+  it('first credit → wallet.funded without notifications; later recoveries are wallet.recovered', async () => {
+    const owner = await createOwner(api, 'ws-funded')
+    const t = owner.tenantId
+    const dispatch = worker.get(NotificationsDispatchProcessor)
+    expect((await owner.client.get('/billing/wallet')).body.data.state).toBe('INSUFFICIENT_FUNDS')
+    await post(t, 500) // unfunded → NORMAL
+    let events = await walletEvents(t)
+    expect(events.map((e) => [e.eventType, (e.payload as { to?: string }).to])).toEqual([
+      ['wallet.funded', 'NORMAL'],
+    ])
+    await expect(dispatch.process(asJob(events[0]!))).resolves.toBe('funded')
+    // Replaying the same ledger post records nothing new (idempotent under the wallet lock).
+    for (let i = 0; i < 2; i++)
+      await db.withTenant(t, (tx) =>
+        postTransaction(
+          tx,
+          t,
+          { type: 'CREDIT', amountMinor: 500n, reason: 'x', idempotencyKey: `dup-${t}` },
+          PLATFORM,
+        ),
+      )
+    await post(t, 1000, 'DEBIT') // → 0: INSUFFICIENT
+    // Let the notification land before the top-up supersedes the crossing.
+    await until(async () => ((await walletNotifications(t)).length === 1 ? true : null))
+    await post(t, 300) // INSUFFICIENT → NORMAL: a real recovery
+    events = await walletEvents(t)
+    expect(events.map((e) => e.eventType)).toEqual([
+      'wallet.funded',
+      'wallet.low_balance',
+      'wallet.recovered',
+    ])
+    expect(events[2]!.payload).toMatchObject({ from: 'INSUFFICIENT_FUNDS' })
+    // The first funding never produced a "restored" notification.
+    const notes = await until(async () => {
+      const n = await walletNotifications(t)
+      return n.length >= 2 ? n : null
+    })
+    expect(notes.map((n) => n.title)).toEqual([
+      'Wallet is out of credits',
+      'Wallet balance restored',
+    ])
+  })
+})
+
+describe('P11-D20: billing contact', () => {
+  it('comes from configuration and is shown by the API and the email', async () => {
+    const owner = await createOwner(api, 'ws-support')
+    expect((await owner.client.get('/billing/wallet')).body.data.support).toEqual({
+      email: 'billing@fenwira.test',
+      url: SUPPORT_URL,
+    })
+    await post(owner.tenantId, 40) // first funding, already low → low-balance email
+    const link = await linkFromEmail(owner.email, 'billing.fenwira.test')
+    expect(link).toContain(SUPPORT_URL)
   })
 })
 

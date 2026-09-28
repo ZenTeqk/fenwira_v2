@@ -425,6 +425,8 @@ Implemented in Phase 9 (migration `20261001000000_campaigns_wallet`), with these
 
 Phase 11 Step 1 (migration `20261004000000_wallet_state`): `wallets.funds_state` (`wallet_funds_state` NORMAL|LOW_BALANCE|INSUFFICIENT_FUNDS, null until first recorded; detects low-balance crossings, P11-D12); `wallet_transactions.fund_type` (`fund_type` PAID|PROMOTIONAL, default PAID; existing trial credits classified PROMOTIONAL) and `expires_at` (metadata, P11-D7); `notifications.dedupe_key` with unique `(tenant_id, user_id, dedupe_key)` so event-driven notifications are created once. System functions X17 `stale_reservations` and X18 `wallet_ledger_drift` (`MULTI_TENANCY.md`).
 
+P11-D21 (migration `20261005000000_wallet_funding`): `wallets.funded_at` (first time the wallet had available funds; backfilled from the first positive ledger row).
+
 Phase 9 closure (migration `20261002000000_billing_modes`): `tenants.billing_mode` (`billing_mode`: FREE, TRIAL or PREPAID; default TRIAL); `campaign_status` adds `PAUSED_TEMPLATE_UNAVAILABLE`; `price_book_entries.unit_price_minor` is renamed `customer_price_minor`, with new `provider_cost_minor`, `tax_code`, `tax_bps`, `is_placeholder` and `note`; `usage_events.provider_cost_minor`.
 
 ## Automation (P10)

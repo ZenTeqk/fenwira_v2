@@ -44,13 +44,19 @@ export class BillingService {
         where: { walletId: w.id, type: 'DEBIT', createdAt: { gte: monthStart } },
         _sum: { amountMinor: true },
       })
-      return toWallet(
-        w,
-        await billingEnforcedFor(tx, tenantId, this.options),
-        t.billingMode,
-        this.options,
-        -(spent._sum.amountMinor ?? 0n),
-      )
+      return {
+        ...toWallet(
+          w,
+          await billingEnforcedFor(tx, tenantId, this.options),
+          t.billingMode,
+          this.options,
+          -(spent._sum.amountMinor ?? 0n),
+        ),
+        support: {
+          email: this.options.support?.email ?? null,
+          url: this.options.support?.url ?? null,
+        },
+      }
     })
   }
 

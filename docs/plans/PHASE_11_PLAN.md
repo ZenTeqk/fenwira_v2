@@ -1,6 +1,6 @@
 # Phase 11 implementation plan: Billing, Analytics and Administration
 
-**Status:** approved (2026-09-28) with decisions P11-D2–D19 (§10). Progress: Step 1 (wallet integrity and Wallet UI) implemented; see `BILLING.md` → Wallet state. Implementation proceeds in the §8 order. Production subscription prices, GST invoice issuance, a payment gateway and a permanent usage markup stay unbuilt until their values/rules are approved.
+**Status:** approved (2026-09-28) with decisions P11-D2–D19 (§10). Progress: **Step 1 closed** (accepted 2026-09-28; commits 9cf05ce, dc9ba8f, plus P11-D20/D21). Final Step 1 regression: integration 205 database + 10 API + 145 worker (1 skipped perf probe; the security-matrix fix for `/workspace/status` re-run 28/28), e2e 49 passed (1 skipped), unit all passing, Lighthouse accessibility 100 on `/billing/wallet`, axe WCAG 2.2 AA clean. Step 2 (analytics) in progress. Implementation proceeds in the §8 order. Production subscription prices, GST invoice issuance, a payment gateway and a permanent usage markup stay unbuilt until their values/rules are approved.
 **Inputs:** `docs/prompts/PHASE_11_BILLING_ANALYTICS.md`, `docs/BILLING.md`, `docs/DATABASE.md` → Billing / Analytics & developer, `docs/API_SPEC.md` → P11, `docs/MULTI_TENANCY.md` (X7, X9, X10), `docs/DATA_RETENTION.md`, `docs/OBSERVABILITY.md`, the decision register in `docs/PRODUCT.md` (B1–B4, P9-D1, P9-D2, API1, O1), and the Design System v1 contract (`docs/design/FENWIRA_DESIGN_SYSTEM.md`, `docs/design/UX_PATTERNS.md`, `docs/design/UI_AUDIT.md`, `AGENTS.md`).
 **Scope:** 11A Plans & Entitlements · 11B Wallet & Usage · 11C Billing Operations · 11D Analytics · 11E API, Webhooks & Administration.
 
@@ -321,6 +321,8 @@ Steps 1–3 can start as soon as this plan is approved; steps 4–6 wait for the
 | P11-D17 | PLATFORM_OPERATOR, separate from tenant roles; CLI-granted; mandatory 2FA; separate protected area; short privileged sessions; audited financial operations; least privilege; no separate app. | Step 5. |
 | P11-D18 | API and webhooks for GROWTH and BUSINESS via entitlements; scoped keys; smallest public surface; signed webhooks with retries, history, SSRF-safe delivery. | §5.1a allowlist; `api_enabled`/`webhooks_enabled` data. |
 | P11-D19 | Payment gateway deferred; gateway-neutral domain. | `BillingProvider` stays manual. |
+| P11-D20 | Billing contact is configuration. | `BILLING_SUPPORT_EMAIL` / `BILLING_SUPPORT_URL`; "Contact billing" action only when set. |
+| P11-D21 | First funding ≠ recovery. | `wallets.funded_at`; `wallet.funded` event; `wallet.recovered` only for funded wallets. |
 
 ### Still open (not blocking Steps 1–5)
 

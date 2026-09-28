@@ -31,6 +31,11 @@ const postgresUrl = z
 
 const redisUrl = z.string().refine((v) => /^rediss?:\/\//.test(v), 'must be a redis:// URL')
 
+const optionalString = z
+  .string()
+  .optional()
+  .transform((v) => (v && v.trim() ? v.trim() : undefined))
+
 export const baseEnvSchema = z.object({
   /** B3/B4: billable sends reserve wallet funds. Off until billing launches (docs/BILLING.md). */
   BILLING_ENFORCED: booleanString.default(false),
@@ -41,15 +46,13 @@ export const baseEnvSchema = z.object({
    * below which a wallet is LOW_BALANCE. Default ₹100, the approved production default.
    */
   BILLING_LOW_BALANCE_THRESHOLD_MINOR: z.coerce.number().int().min(0).default(10_000),
+  /** P11-D20 `billing.support_email` / `billing.support_url`: where to arrange top-ups. Optional. */
+  BILLING_SUPPORT_EMAIL: optionalString.pipe(z.email().optional()),
+  BILLING_SUPPORT_URL: optionalString.pipe(z.url({ protocol: /^https?$/ }).optional()),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_VERSION: z.string().min(1).default('dev'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 })
-
-const optionalString = z
-  .string()
-  .optional()
-  .transform((v) => (v && v.trim() ? v.trim() : undefined))
 
 /** Meta platform config (docs/META_INTEGRATION.md → Platform model). Never stored per tenant. */
 const metaEnv = {
