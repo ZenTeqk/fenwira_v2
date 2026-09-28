@@ -29,7 +29,10 @@ test('Wallet: backend state, ledger, filters, CSV export, accessible', async ({ 
 
   // Billing is reachable from the sidebar (Phase 11 step 1 ships the Wallet page).
   await page.goto('/dashboard')
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Billing' }).click()
+  await page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('link', { name: 'Billing' })
+    .click()
   await expect(page).toHaveURL(/\/billing\/wallet$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Wallet' })).toBeVisible()
 
