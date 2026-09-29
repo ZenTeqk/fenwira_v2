@@ -37,7 +37,7 @@ The web app is at http://localhost:3000, the API at http://localhost:4000, Mailp
 - Network: a single bridge network, `fenwira-network`.
 - Volumes: `fenwira-postgres-data`, `fenwira-redis-data`, `fenwira-minio-data` and `fenwira-mailpit-data`.
 - MinIO buckets (created by `fenwira-minio-init`): `fenwira-media`, `fenwira-imports` (7-day expiry), `fenwira-exports` (7-day expiry) and `fenwira-uploads`.
-- Docker Hub `minio/minio` no longer receives community images, so the MinIO images come from `quay.io`.
+- Docker Hub `minio/minio` no longer receives community images, so the MinIO images come from `quay.io`. **Known blocker (2026-09-29):** `quay.io/minio/minio` itself now also refuses anonymous pulls (MinIO discontinued free container distribution); the only remaining public path, `quay.io/minio/aistor/minio`, pulls but refuses to create buckets without a paid/free-tier AIStor license. This blocks `docker compose up` and CI until a license is obtained or MinIO is replaced — see the comment on `fenwira-minio` in `docker-compose.yml` for the two remediation paths.
 - Postgres and Redis publish no host ports. For a DB shell, use `docker compose exec fenwira-postgres psql -U postgres -d fenwira`.
 
 ### Images (`infrastructure/docker/`)
