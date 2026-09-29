@@ -65,9 +65,7 @@ beforeAll(async () => {
                now() - random() * ${DAYS - 1} * interval '1 day', now()
         FROM generate_series(${chunk + 1}, ${Math.min(chunk + CHUNK, MESSAGES)}) AS g, cv`
     })
-  log(
-    `[perf] seeded ${MESSAGES} messages over ${DAYS} days in ${ms(started).toFixed(0)} ms`,
-  )
+  log(`[perf] seeded ${MESSAGES} messages over ${DAYS} days in ${ms(started).toFixed(0)} ms`)
 }, 900_000)
 
 afterAll(async () => {
