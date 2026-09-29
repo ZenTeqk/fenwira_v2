@@ -26,6 +26,7 @@ export const QUEUES = {
   billingMaintenance: 'billing.maintenance',
   notificationsDispatch: 'notifications.dispatch',
   webhooksDeliver: 'webhooks.deliver',
+  webhooksMaintenance: 'webhooks.maintenance',
   systemMaintenance: 'system.maintenance',
   systemPing: 'system.ping',
 } as const

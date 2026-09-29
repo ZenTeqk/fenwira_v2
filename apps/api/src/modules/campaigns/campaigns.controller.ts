@@ -20,7 +20,7 @@ import {
 import { z } from 'zod'
 import { IdempotencyInterceptor } from '../../core/http/idempotency.interceptor'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
-import { RequirePermission } from '../../core/security/decorators'
+import { PublicApi, RequirePermission } from '../../core/security/decorators'
 import { CampaignsService } from './campaigns.service'
 
 const uuidParam = new ZodValidationPipe(z.uuid())
@@ -35,6 +35,7 @@ export class CampaignsController {
 
   @Get()
   @RequirePermission('campaigns.read')
+  @PublicApi()
   async list(@Query(pipe(listQuerySchema)) q: In<typeof listQuerySchema>) {
     return { data: await this.campaigns.list(q.status) }
   }
@@ -47,6 +48,7 @@ export class CampaignsController {
 
   @Get(':id')
   @RequirePermission('campaigns.read')
+  @PublicApi()
   async get(@Param('id', uuidParam) id: string) {
     return { data: await this.campaigns.get(id) }
   }
@@ -113,6 +115,7 @@ export class CampaignsController {
 
   @Get(':id/stats')
   @RequirePermission('campaigns.read')
+  @PublicApi()
   async stats(@Param('id', uuidParam) id: string) {
     return { data: await this.campaigns.stats(id) }
   }

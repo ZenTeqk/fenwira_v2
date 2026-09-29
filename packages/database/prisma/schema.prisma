@@ -75,6 +75,8 @@ model User {
   notifications           Notification[]           @relation("NotificationRecipient")
   cannedReplies           CannedReply[]            @relation("CannedReplyAuthor")
   templateVersions        TemplateVersion[]        @relation("TemplateVersionAuthor")
+  apiKeysCreated          ApiKey[]                 @relation("ApiKeyCreator")
+  webhookEndpointsCreated WebhookEndpoint[]        @relation("WebhookEndpointCreator")
   campaignsCreated        Campaign[]               @relation("CampaignCreator")
 
   @@map("users")
@@ -257,6 +259,9 @@ model Tenant {
   analyticsEpisodes        AnalyticsConversationEpisode[]
   analyticsDirty           AnalyticsDirty[]
   analyticsState           AnalyticsTenantState?
+  apiKeys                  ApiKey[]
+  webhookEndpoints         WebhookEndpoint[]
+  webhookDeliveries        WebhookDelivery[]
 
   @@map("tenants")
 }
@@ -1964,4 +1969,102 @@ model AnalyticsTenantState {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("analytics_tenant_state")
+}
+
+// ---------------------------------------------------------------------------------------------
+// API keys and outbound webhooks (Phase 11 Step 3, docs/API_KEYS.md, docs/WEBHOOKS.md).
+// ---------------------------------------------------------------------------------------------
+
+/// A tenant-scoped API key (decision P11-D18). Only `keyHash` (sha256 of the secret + a server
+/// pepper) is stored; the secret itself is shown once, at creation, and never again.
+model ApiKey {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  name       String
+  /// 8 chars, unique platform-wide: looked up via X7 before the tenant is known.
+  prefix     String    @unique @db.Char(8)
+  keyHash    Bytes     @map("key_hash")
+  /// Permission keys from API_KEY_SCOPES only; a subset of the creator's own permissions at
+  /// creation time (P11-D18, P11-D22). Never a source of authority beyond RBAC.
+  scopes     String[]
+  createdBy  String?   @map("created_by") @db.Uuid
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedBy  String?   @map("revoked_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator User?  @relation("ApiKeyCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, revokedAt])
+  @@map("api_keys")
+}
+
+enum WebhookEndpointStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("webhook_endpoint_status")
+}
+
+/// A customer-configured outbound webhook destination (docs/WEBHOOKS.md). `secretCiphertext` is
+/// AES-256-GCM (the shared keyRing); the plaintext secret is shown once, at creation/rotation.
+model WebhookEndpoint {
+  id               String                @id @default(uuid(7)) @db.Uuid
+  tenantId         String                @map("tenant_id") @db.Uuid
+  name             String
+  url              String
+  secretCiphertext Bytes                 @map("secret_ciphertext")
+  /// Event types from WEBHOOK_EVENTS only (an explicit allowlist, never every internal event).
+  events           String[]
+  status           WebhookEndpointStatus @default(ACTIVE)
+  /// Consecutive delivery failures since the last success; disables the endpoint past a threshold.
+  failureCount     Int                   @default(0) @map("failure_count")
+  createdBy        String?               @map("created_by") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?             @map("deleted_at") @db.Timestamptz(3)
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator    User?             @relation("WebhookEndpointCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  deliveries WebhookDelivery[]
+
+  @@index([tenantId, status])
+  @@map("webhook_endpoints")
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+
+  @@map("webhook_delivery_status")
+}
+
+/// One delivery attempt history entry (retention 30 days, docs/WEBHOOKS.md). `eventId` is the
+/// source domain event id: redelivery of the same event reuses the same row set (idempotent).
+model WebhookDelivery {
+  id             String                @id @default(uuid(7)) @db.Uuid
+  tenantId       String                @map("tenant_id") @db.Uuid
+  endpointId     String                @map("endpoint_id") @db.Uuid
+  eventId        String                @map("event_id") @db.Uuid
+  eventType      String                @map("event_type")
+  /// The exact payload sent (the versioned external contract), for redelivery and audit.
+  payload        Json
+  attempt        Int                   @default(1)
+  status         WebhookDeliveryStatus @default(PENDING)
+  responseStatus Int?                  @map("response_status")
+  responseBody   String?               @map("response_body")
+  durationMs     Int?                  @map("duration_ms")
+  errorCode      String?               @map("error_code")
+  nextAttemptAt  DateTime?             @map("next_attempt_at") @db.Timestamptz(3)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([endpointId, eventId])
+  @@index([tenantId, endpointId, createdAt(sort: Desc)])
+  @@map("webhook_deliveries")
 }

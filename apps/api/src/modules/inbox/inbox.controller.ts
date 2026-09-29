@@ -28,8 +28,8 @@ import { type Request } from 'express'
 import { z } from 'zod'
 import { IdempotencyInterceptor } from '../../core/http/idempotency.interceptor'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
-import { RequirePermission } from '../../core/security/decorators'
-import { currentAuth } from '../identity'
+import { PublicApi, RequirePermission } from '../../core/security/decorators'
+import { currentApiKey, currentAuth } from '../identity'
 import { MessagingService } from '../messaging'
 import { currentTenant } from '../tenancy'
 import { InboxService } from './inbox.service'
@@ -55,28 +55,36 @@ export class ConversationsController {
     return { data: items, page }
   }
 
-  /** Starts (or continues) a conversation with a phone number. Usually a template. */
+  /**
+   * Starts (or continues) a conversation with a phone number. Usually a template. Public API
+   * (docs/API_KEYS.md → allowlist): an API-key send is source `API` — it passes eligibility,
+   * window, balance and entitlement checks like any other send, but never triggers human
+   * takeover (only an agent reply, source `INBOX`, does).
+   */
   @Post('conversations')
   @RequirePermission('inbox.reply')
+  @PublicApi()
   @UseInterceptors(IdempotencyInterceptor)
   @HttpCode(201)
   async start(
     @Req() req: Request,
     @Body(pipe(startConversationRequestSchema)) body: In<typeof startConversationRequestSchema>,
   ) {
+    const apiKey = currentApiKey()
     const message = await this.messaging.send({
       tenantId: currentTenant().tenantId,
       target: { phoneE164: body.to, phoneNumberId: body.phoneNumberId },
       content: body.content,
-      source: 'INBOX',
+      source: apiKey ? 'API' : 'INBOX',
       idempotencyKey: messageKey(req, 'start'),
-      actorUserId: currentAuth().userId,
+      actorUserId: apiKey ? undefined : currentAuth().userId,
     })
     return { data: message }
   }
 
   @Get('conversations/:id')
   @RequirePermission('inbox.read')
+  @PublicApi()
   async get(@Param('id', uuidParam) id: string) {
     return { data: await this.inbox.get(id) }
   }
@@ -91,8 +99,14 @@ export class ConversationsController {
     return { data: items, page }
   }
 
+  /**
+   * Public API (docs/API_KEYS.md → allowlist): an API-key send goes straight through
+   * MessagingService as source `API` — no compose lock, no per-agent visibility, no takeover.
+   * A session reply keeps the full human flow via InboxService (compose lock, takeover on send).
+   */
   @Post('conversations/:id/messages')
   @RequirePermission('inbox.reply')
+  @PublicApi()
   @UseInterceptors(IdempotencyInterceptor)
   @HttpCode(201)
   async reply(
@@ -100,6 +114,16 @@ export class ConversationsController {
     @Param('id', uuidParam) id: string,
     @Body(pipe(sendMessageRequestSchema)) body: In<typeof sendMessageRequestSchema>,
   ) {
+    if (currentApiKey())
+      return {
+        data: await this.messaging.send({
+          tenantId: currentTenant().tenantId,
+          target: { conversationId: id },
+          content: body.content,
+          source: 'API',
+          idempotencyKey: messageKey(req, `conv:${id}`),
+        }),
+      }
     return { data: await this.inbox.reply(id, body.content, messageKey(req, `conv:${id}`)) }
   }
 
@@ -194,6 +218,7 @@ export class ConversationsController {
 
   @Get('messages/:id')
   @RequirePermission('inbox.read')
+  @PublicApi()
   async message(@Param('id', uuidParam) id: string) {
     return { data: await this.inbox.message(id) }
   }

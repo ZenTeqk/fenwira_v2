@@ -74,13 +74,15 @@ export async function addActivity(
     actorId?: string | null
   },
 ): Promise<void> {
-  const actorId = a.actorId === undefined ? (requestContext.get()?.auth?.userId ?? null) : a.actorId
+  const ctx = requestContext.get()
+  const actorId =
+    a.actorId === undefined ? (ctx?.apiKey?.id ?? ctx?.auth?.userId ?? null) : a.actorId
   await tx.contactActivity.create({
     data: {
       tenantId: a.tenantId,
       contactId: a.contactId,
       type: a.type,
-      actorType: actorId ? 'USER' : 'SYSTEM',
+      actorType: ctx?.apiKey ? 'API_KEY' : actorId ? 'USER' : 'SYSTEM',
       actorId,
       data: (a.data ?? {}) as object,
     },

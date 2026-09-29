@@ -162,6 +162,20 @@ export class MetricsService implements OnApplicationBootstrap, OnApplicationShut
     registers: [this.registry],
   })
 
+  // Outbound webhooks (Phase 11 Step 3, docs/WEBHOOKS.md). No tenant or endpoint labels.
+  readonly webhookDeliveries = new Counter({
+    name: 'webhook_deliveries_total',
+    help: 'Outbound webhook delivery attempts, by outcome',
+    labelNames: ['result'] as const,
+    registers: [this.registry],
+  })
+  readonly apiKeyRequests = new Counter({
+    name: 'api_key_requests_total',
+    help: 'Requests authenticated by an API key, by outcome',
+    labelNames: ['result'] as const,
+    registers: [this.registry],
+  })
+
   readonly messageStatus = new Counter({
     name: 'messages_status_total',
     help: 'Message status transitions',

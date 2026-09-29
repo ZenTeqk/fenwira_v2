@@ -1,4 +1,4 @@
-export { currentAuth, AuthGuard } from './auth.guard'
+export { currentActorId, currentApiKey, currentAuth, AuthGuard } from './auth.guard'
 export { IdentityModule, IdentityWorkerModule } from './identity.module'
 export { IDENTITY_OPTIONS, type IdentityOptions } from './identity.options'
 export { IdentityProcessor } from './identity.processor'

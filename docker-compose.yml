@@ -156,6 +156,8 @@ services:
       META_ES_CONFIG_ID: ${META_ES_CONFIG_ID:-}
       WHATSAPP_DEV_CONNECT: ${WHATSAPP_DEV_CONNECT:-false}
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:4000}
+      API_KEY_PEPPER: ${API_KEY_PEPPER:-development-only-api-key-pepper}
+      API_KEY_RATE_LIMIT_PER_MINUTE: ${API_KEY_RATE_LIMIT_PER_MINUTE:-120}
       METRICS_PORT: 9464 # internal only (docs/OBSERVABILITY.md); not published
     ports:
       - '${API_PORT:-4000}:4000'
@@ -184,6 +186,10 @@ services:
       WHATSAPP_OUTBOUND_BACKOFF_MS: ${WHATSAPP_OUTBOUND_BACKOFF_MS:-1000}
       BILLING_RESERVATION_GRACE_MINUTES: ${BILLING_RESERVATION_GRACE_MINUTES:-360}
       OPS_ALERT_EMAIL: ${OPS_ALERT_EMAIL:-ops@fenwira.local}
+      WEBHOOK_BACKOFF_MS: ${WEBHOOK_BACKOFF_MS:-30000}
+      WEBHOOK_MAX_RETRY_HOURS: ${WEBHOOK_MAX_RETRY_HOURS:-24}
+      WEBHOOK_DISABLE_AFTER_FAILURES: ${WEBHOOK_DISABLE_AFTER_FAILURES:-20}
+      AUTOMATION_WEBHOOK_DEV_HOSTS: ${AUTOMATION_WEBHOOK_DEV_HOSTS:-}
     depends_on:
       fenwira-postgres: { condition: service_healthy }
       fenwira-redis: { condition: service_healthy }

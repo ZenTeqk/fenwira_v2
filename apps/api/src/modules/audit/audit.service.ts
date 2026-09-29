@@ -30,11 +30,14 @@ export class AuditService {
     const ctx = requestContext.get()
     const tenantId = entry.tenantId ?? ctx?.tenant?.tenantId
     if (!tenantId) throw new Error('Audit entry without tenant context')
-    const actorId = entry.actorId === undefined ? (ctx?.auth?.userId ?? null) : entry.actorId
+    // An API-key request (docs/API_KEYS.md) has no human actor: the key itself is the actor,
+    // recorded distinctly (ActorType.API_KEY) so audit readers never mistake it for a teammate.
+    const actorId =
+      entry.actorId === undefined ? (ctx?.apiKey?.id ?? ctx?.auth?.userId ?? null) : entry.actorId
     await tx.auditLog.create({
       data: {
         tenantId,
-        actorType: actorId ? 'USER' : 'SYSTEM',
+        actorType: ctx?.apiKey ? 'API_KEY' : actorId ? 'USER' : 'SYSTEM',
         actorId,
         action: entry.action,
         targetType: entry.targetType,

@@ -467,6 +467,156 @@
         "x-permission": "billing.read"
       }
     },
+    "/api/v1/api-keys": {
+      "post": {
+        "operationId": "ApiKeys_create",
+        "tags": [
+          "ApiKeys"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "scopes": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "contacts.read",
+                        "contacts.write",
+                        "inbox.read",
+                        "inbox.reply",
+                        "templates.read",
+                        "campaigns.read"
+                      ]
+                    }
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  }
+                },
+                "required": [
+                  "name",
+                  "scopes"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      },
+      "get": {
+        "operationId": "ApiKeys_list",
+        "tags": [
+          "ApiKeys"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      }
+    },
+    "/api/v1/api-keys/{id}": {
+      "delete": {
+        "operationId": "ApiKeys_revoke",
+        "tags": [
+          "ApiKeys"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      }
+    },
     "/api/v1/audit-logs": {
       "get": {
         "operationId": "Audit_list",
@@ -1786,10 +1936,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "campaigns.read"
+        "x-permission": "campaigns.read",
+        "x-public": true
       }
     },
     "/api/v1/campaigns/{id}": {
@@ -1830,10 +1981,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "campaigns.read"
+        "x-permission": "campaigns.read",
+        "x-public": true
       },
       "delete": {
         "operationId": "Campaigns_remove",
@@ -2865,10 +3017,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "campaigns.read"
+        "x-permission": "campaigns.read",
+        "x-public": true
       }
     },
     "/api/v1/campaigns/{id}/unschedule": {
@@ -3545,10 +3698,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "contacts.write"
+        "x-permission": "contacts.write",
+        "x-public": true
       }
     },
     "/api/v1/contacts/bulk": {
@@ -3773,10 +3927,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "contacts.read"
+        "x-permission": "contacts.read",
+        "x-public": true
       }
     },
     "/api/v1/contacts/{id}": {
@@ -3817,10 +3972,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "contacts.read"
+        "x-permission": "contacts.read",
+        "x-public": true
       },
       "delete": {
         "operationId": "Contacts_remove",
@@ -3998,10 +4154,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "contacts.write"
+        "x-permission": "contacts.write",
+        "x-public": true
       }
     },
     "/api/v1/contacts/{id}/activities": {
@@ -4189,10 +4346,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "contacts.write"
+        "x-permission": "contacts.write",
+        "x-public": true
       },
       "get": {
         "operationId": "Contacts_consents",
@@ -4231,10 +4389,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "contacts.read"
+        "x-permission": "contacts.read",
+        "x-public": true
       }
     },
     "/api/v1/contacts/{id}/conversations": {
@@ -4799,11 +4958,12 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
         "x-permission": "inbox.reply",
-        "x-idempotent": true
+        "x-idempotent": true,
+        "x-public": true
       }
     },
     "/api/v1/conversations/{id}": {
@@ -4844,10 +5004,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "inbox.read"
+        "x-permission": "inbox.read",
+        "x-public": true
       }
     },
     "/api/v1/conversations/{id}/assign": {
@@ -5385,11 +5546,12 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
         "x-permission": "inbox.reply",
-        "x-idempotent": true
+        "x-idempotent": true,
+        "x-public": true
       }
     },
     "/api/v1/conversations/{id}/notes": {
@@ -8126,10 +8288,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "inbox.read"
+        "x-permission": "inbox.read",
+        "x-public": true
       }
     },
     "/api/v1/notifications": {
@@ -9517,10 +9680,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "templates.read"
+        "x-permission": "templates.read",
+        "x-public": true
       }
     },
     "/api/v1/templates/accounts": {
@@ -9604,10 +9768,11 @@
         },
         "security": [
           {
-            "session": []
+            "apiKey": []
           }
         ],
-        "x-permission": "templates.read"
+        "x-permission": "templates.read",
+        "x-public": true
       }
     },
     "/api/v1/templates/samples/upload-url": {
@@ -10698,6 +10863,525 @@
             "session": []
           }
         ]
+      }
+    },
+    "/api/v1/webhook-endpoints": {
+      "post": {
+        "operationId": "Webhooks_create",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "url": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 2000
+                  },
+                  "events": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "message.status.changed",
+                        "message.inbound.received",
+                        "conversation.opened",
+                        "conversation.assigned",
+                        "contact.created",
+                        "contact.updated",
+                        "campaign.completed",
+                        "automation.execution.finished"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "url",
+                  "events"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      },
+      "get": {
+        "operationId": "Webhooks_list",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      }
+    },
+    "/api/v1/webhook-endpoints/{id}": {
+      "delete": {
+        "operationId": "Webhooks_remove",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      },
+      "patch": {
+        "operationId": "Webhooks_update",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "url": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 2000
+                  },
+                  "events": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "message.status.changed",
+                        "message.inbound.received",
+                        "conversation.opened",
+                        "conversation.assigned",
+                        "contact.created",
+                        "contact.updated",
+                        "campaign.completed",
+                        "automation.execution.finished"
+                      ]
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "DISABLED"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      }
+    },
+    "/api/v1/webhook-endpoints/{id}/deliveries": {
+      "get": {
+        "operationId": "Webhooks_deliveries",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "SUCCEEDED",
+                "FAILED"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      }
+    },
+    "/api/v1/webhook-endpoints/{id}/deliveries/{deliveryId}": {
+      "get": {
+        "operationId": "Webhooks_delivery",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "deliveryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      }
+    },
+    "/api/v1/webhook-endpoints/{id}/deliveries/{deliveryId}/retry": {
+      "post": {
+        "operationId": "Webhooks_retry",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "deliveryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      }
+    },
+    "/api/v1/webhook-endpoints/{id}/rotate-secret": {
+      "post": {
+        "operationId": "Webhooks_rotateSecret",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
+      }
+    },
+    "/api/v1/webhook-endpoints/{id}/test": {
+      "post": {
+        "operationId": "Webhooks_test",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "integrations.manage"
       }
     },
     "/api/v1/webhooks/automation/{token}": {
@@ -11901,6 +12585,9 @@
                   "FLOW_INVALID_STATE",
                   "ENTITLEMENT_REQUIRED",
                   "EXPORT_TOO_LARGE",
+                  "WEBHOOK_URL_INVALID",
+                  "WEBHOOK_BLOCKED_DESTINATION",
+                  "API_KEY_SCOPE_INVALID",
                   "RATE_LIMITED",
                   "INTERNAL",
                   "UPSTREAM_UNAVAILABLE"
@@ -12001,6 +12688,11 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "fw_at"
+      },
+      "apiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A tenant API key (docs/API_KEYS.md): `Authorization: Bearer fw_<prefix>_<secret>`. Only routes marked `x-public` accept it; every other route answers 404."
       }
     }
   }

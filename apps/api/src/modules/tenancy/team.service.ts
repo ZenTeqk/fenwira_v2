@@ -38,7 +38,8 @@ export class TeamService {
   /** docs/SECURITY.md: never above your own rank, never your own role, OWNER only via transfer. */
   async changeRole(membershipId: string, role: Exclude<Role, 'OWNER'>): Promise<void> {
     const actor = currentTenant()
-    if (!canAssignRole(actor.role, role))
+    // team.manage is never a public-API scope, so actor.role is always set here.
+    if (!canAssignRole(actor.role!, role))
       throw new AppError('FORBIDDEN', 403, 'You cannot assign a role above your own.')
     await this.db.run(async (tx) => {
       const target = await this.loadTarget(tx, membershipId, actor.tenantId)

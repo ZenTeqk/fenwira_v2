@@ -9,9 +9,17 @@ export type AuthContext = { userId: string; sessionId: string }
 export type TenantContext = {
   tenantId: string
   membershipId: string
-  role: Role
+  /** Unset for an API-key request: keys have no membership role, only their granted scopes. */
+  role?: Role
   permissions: readonly Permission[]
 }
+
+/**
+ * A request authenticated by a tenant API key instead of a user session, set by ApiKeyGuard
+ * (docs/API_KEYS.md). No human actor: `tenant.role` is never set for these requests, and
+ * `AuditService` records `actorType: 'API_KEY'` with `actorId = apiKey.id`.
+ */
+export type ApiKeyContext = { id: string; name: string; tenantId: string }
 
 /**
  * Per-request / per-job context. The logger mixin reads correlationId/tenantId/userId; guards fill
@@ -27,6 +35,7 @@ export type RequestContext = {
   userAgent?: string
   auth?: AuthContext
   tenant?: TenantContext
+  apiKey?: ApiKeyContext
 }
 
 const storage = new AsyncLocalStorage<RequestContext>()

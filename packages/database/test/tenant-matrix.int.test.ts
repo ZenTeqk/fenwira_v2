@@ -386,6 +386,49 @@ const FIXTURES: Record<string, Fixture> = {
       create: { tenantId },
       update: {},
     }),
+  api_keys: (tx, { tenantId, userId }) =>
+    tx.apiKey.create({
+      data: {
+        tenantId,
+        name: 'Matrix key',
+        prefix: crypto.randomUUID().replace(/-/g, '').slice(0, 8),
+        keyHash: Buffer.from('x'.repeat(32)),
+        scopes: ['contacts.read'],
+        createdBy: userId,
+      },
+    }),
+  webhook_endpoints: (tx, { tenantId, userId }) =>
+    tx.webhookEndpoint.create({
+      data: {
+        tenantId,
+        name: 'Matrix endpoint',
+        url: 'https://example.test/hook',
+        secretCiphertext: Buffer.from('x'.repeat(32)),
+        events: ['message.status.changed'],
+        createdBy: userId,
+      },
+    }),
+  webhook_deliveries: async (tx, { tenantId, userId }) => {
+    const ep = await tx.webhookEndpoint.create({
+      data: {
+        tenantId,
+        name: 'Matrix endpoint for delivery',
+        url: 'https://example.test/hook',
+        secretCiphertext: Buffer.from('x'.repeat(32)),
+        events: ['message.status.changed'],
+        createdBy: userId,
+      },
+    })
+    return tx.webhookDelivery.create({
+      data: {
+        tenantId,
+        endpointId: ep.id,
+        eventId: crypto.randomUUID(),
+        eventType: 'message.status.changed',
+        payload: {},
+      },
+    })
+  },
   webhook_subscriptions: async (tx, { tenantId }) =>
     tx.webhookSubscription.create({
       data: { tenantId, wabaId: (await waba(tx, tenantId)).id, subscribedFields: ['messages'] },

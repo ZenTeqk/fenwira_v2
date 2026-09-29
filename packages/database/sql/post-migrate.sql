@@ -491,6 +491,43 @@ LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, public AS $
   SELECT count(*)::integer FROM d;
 $$;
 
+-- X7: API key authentication (docs/API_KEYS.md). The hash is verified in app code with a
+-- constant-time compare against a server-side pepper; this function never touches the secret.
+-- `prefix` is granted too even though it isn't returned: it's referenced in the WHERE clause, and
+-- column-level privileges cover every column a query touches, not only the ones it selects out.
+GRANT SELECT (id, tenant_id, key_hash, scopes, revoked_at, expires_at, prefix)
+  ON public.api_keys TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.resolve_api_key(p_prefix text)
+RETURNS TABLE (tenant_id uuid, api_key_id uuid, key_hash bytea, scopes text[],
+               revoked_at timestamptz, expires_at timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT k.tenant_id, k.id, k.key_hash, k.scopes, k.revoked_at, k.expires_at
+  FROM public.api_keys k WHERE k.prefix = p_prefix
+  LIMIT 1;
+$$;
+
+-- Webhook delivery retention (docs/WEBHOOKS.md → Retention, 30 days): which workspaces have
+-- deliveries older than the cutoff, then a tenant-scoped, age-only purge for each.
+GRANT SELECT (tenant_id, created_at), DELETE ON public.webhook_deliveries TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.tenants_with_stale_webhook_deliveries(p_before timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT DISTINCT d.tenant_id FROM public.webhook_deliveries d
+  WHERE d.created_at < p_before
+  LIMIT p_limit;
+$$;
+
+CREATE OR REPLACE FUNCTION system.purge_webhook_deliveries(p_tenant_id uuid, p_before timestamptz)
+RETURNS integer
+LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  WITH d AS (
+    DELETE FROM public.webhook_deliveries
+    WHERE tenant_id = p_tenant_id AND created_at < p_before
+    RETURNING 1
+  )
+  SELECT count(*)::integer FROM d;
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -513,7 +550,10 @@ BEGIN
     'system.stale_reservations(timestamptz, integer)',
     'system.wallet_ledger_drift(integer)',
     'system.tenants_with_activity(timestamptz, integer)',
-    'system.purge_analytics_events(uuid, timestamptz)'
+    'system.purge_analytics_events(uuid, timestamptz)',
+    'system.resolve_api_key(text)',
+    'system.purge_webhook_deliveries(uuid, timestamptz)',
+    'system.tenants_with_stale_webhook_deliveries(timestamptz, integer)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

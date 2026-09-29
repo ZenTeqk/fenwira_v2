@@ -1,6 +1,7 @@
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { type Request } from 'express'
+import { requestContext } from '../context/request-context'
 import { CORE_CONFIG, type CoreConfig } from '../config/core-config'
 import { AppError } from '../http/app-error'
 import { safeEqual } from '@fenwira/config'
@@ -25,6 +26,9 @@ export class CsrfGuard implements CanActivate {
     if (context.getType() !== 'http') return true
     const req = context.switchToHttp().getRequest<Request>()
     if (SAFE_METHODS.has(req.method)) return true
+    // Bearer-authenticated API key requests use no cookies, so CSRF (a cookie-forgery defense)
+    // doesn't apply to them.
+    if (requestContext.get()?.apiKey) return true
 
     const origin = req.header('origin')
     if (origin && this.config.webOrigin && origin !== this.config.webOrigin) {

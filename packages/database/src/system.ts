@@ -213,4 +213,49 @@ export class SystemGateway {
       SELECT system.purge_analytics_events(${tenantId}::uuid, ${before}) AS n`
     return rows[0]?.n ?? 0
   }
+
+  /** X7 — the key row for `prefix` (IDs, scopes and hash only; the app verifies the secret). */
+  async resolveApiKey(prefix: string): Promise<{
+    tenantId: string
+    apiKeyId: string
+    keyHash: Buffer
+    scopes: string[]
+    revokedAt: Date | null
+    expiresAt: Date | null
+  } | null> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        tenant_id: string
+        api_key_id: string
+        key_hash: Buffer
+        scopes: string[]
+        revoked_at: Date | null
+        expires_at: Date | null
+      }>
+    >`SELECT * FROM system.resolve_api_key(${prefix})`
+    const r = rows[0]
+    if (!r) return null
+    return {
+      tenantId: r.tenant_id,
+      apiKeyId: r.api_key_id,
+      keyHash: r.key_hash,
+      scopes: r.scopes,
+      revokedAt: r.revoked_at,
+      expiresAt: r.expires_at,
+    }
+  }
+
+  /** Purge one workspace's webhook delivery history older than `before` (retention, 30 days). */
+  async purgeWebhookDeliveries(tenantId: string, before: Date): Promise<number> {
+    const rows = await this.prisma.$queryRaw<Array<{ n: number }>>`
+      SELECT system.purge_webhook_deliveries(${tenantId}::uuid, ${before}) AS n`
+    return rows[0]?.n ?? 0
+  }
+
+  /** Which workspaces have webhook deliveries older than `before` (IDs only). */
+  async tenantsWithStaleWebhookDeliveries(before: Date, limit: number): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
+      SELECT * FROM system.tenants_with_stale_webhook_deliveries(${before}, ${limit}::int)`
+    return rows.map((r) => r.tenant_id)
+  }
 }

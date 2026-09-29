@@ -22,6 +22,8 @@ export class TenantGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true
+    // ApiKeyGuard already resolved and set the tenant context from the key itself.
+    if (requestContext.get()?.apiKey) return true
     const targets = [context.getHandler(), context.getClass()]
     const scoped =
       this.reflector.getAllAndOverride<boolean>(TENANT_SCOPED_KEY, targets) ||

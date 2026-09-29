@@ -21,7 +21,7 @@ import {
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common'
 import { z } from 'zod'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
-import { RequirePermission } from '../../core/security/decorators'
+import { PublicApi, RequirePermission } from '../../core/security/decorators'
 import { ContactCatalogService } from './catalog.service'
 import { ContactsService } from './contacts.service'
 import { ExportsService } from './exports'
@@ -38,6 +38,7 @@ export class ContactsController {
 
   @Post('search')
   @RequirePermission('contacts.read')
+  @PublicApi()
   @HttpCode(200)
   async search(
     @Body(pipe(searchContactsRequestSchema)) body: In<typeof searchContactsRequestSchema>,
@@ -55,6 +56,7 @@ export class ContactsController {
 
   @Post()
   @RequirePermission('contacts.write')
+  @PublicApi()
   @HttpCode(201)
   async create(
     @Body(pipe(createContactRequestSchema)) body: In<typeof createContactRequestSchema>,
@@ -71,12 +73,14 @@ export class ContactsController {
 
   @Get(':id')
   @RequirePermission('contacts.read')
+  @PublicApi()
   async get(@Param('id', uuidParam) id: string) {
     return { data: await this.contacts.get(id) }
   }
 
   @Patch(':id')
   @RequirePermission('contacts.write')
+  @PublicApi()
   async update(
     @Param('id', uuidParam) id: string,
     @Body(pipe(updateContactRequestSchema)) body: In<typeof updateContactRequestSchema>,
@@ -100,12 +104,14 @@ export class ContactsController {
 
   @Get(':id/consents')
   @RequirePermission('contacts.read')
+  @PublicApi()
   async consents(@Param('id', uuidParam) id: string) {
     return { data: await this.contacts.consents(id) }
   }
 
   @Post(':id/consents')
   @RequirePermission('contacts.write')
+  @PublicApi()
   @HttpCode(200)
   async changeConsent(
     @Param('id', uuidParam) id: string,

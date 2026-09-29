@@ -75,7 +75,10 @@ export const sha256 = (value: string | Buffer): Uint8Array<ArrayBuffer> =>
 /** URL-safe random token with `bytes` of entropy (default 32 = 256 bits). */
 export const randomToken = (bytes = 32): string => randomBytes(bytes).toString('base64url')
 
-export function safeEqual(a: string | Buffer, b: string | Buffer): boolean {
+export function safeEqual(
+  a: string | Buffer | Uint8Array,
+  b: string | Buffer | Uint8Array,
+): boolean {
   const x = Buffer.isBuffer(a) ? a : Buffer.from(a)
   const y = Buffer.isBuffer(b) ? b : Buffer.from(b)
   return x.length === y.length && timingSafeEqual(x, y)

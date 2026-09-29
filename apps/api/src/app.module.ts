@@ -25,6 +25,8 @@ import { BillingModule, billingPlatformFromEnv, billingSupportFromEnv } from './
 import { CampaignsModule } from './modules/campaigns'
 import { AutomationModule } from './modules/automation'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
+import { ApiKeyGuard, ApiKeysModule } from './modules/api-keys'
+import { WebhooksModule } from './modules/webhooks'
 
 export function coreConfigFromApiEnv(
   env: ApiEnv,
@@ -77,6 +79,11 @@ export class ApiModule {
         messaging,
         InboxModule.forApi([messaging]),
         AnalyticsModule.forApi(),
+        ApiKeysModule.forApi({
+          pepper: env.API_KEY_PEPPER,
+          rateLimitPerMinute: env.API_KEY_RATE_LIMIT_PER_MINUTE,
+        }),
+        WebhooksModule.forApi({ keyRing, devHosts: env.AUTOMATION_WEBHOOK_DEV_HOSTS }),
         BillingModule.forApi({
           ...billingPlatformFromEnv(env),
           support: billingSupportFromEnv(env),
@@ -106,8 +113,11 @@ export class ApiModule {
         }),
         PlatformApiModule.forRoot({ systemPingEnabled: env.SYSTEM_PING_ENABLED }),
       ],
-      // Order matters: authenticate → CSRF → resolve tenant → check permission (default deny).
+      // Order matters: API key → authenticate (session) → CSRF → resolve tenant → check permission
+      // (default deny). ApiKeyGuard fully authenticates and short-circuits the rest for a Bearer
+      // fw_ request; every other guard then sees requestContext.apiKey and passes through.
       providers: [
+        { provide: APP_GUARD, useExisting: ApiKeyGuard },
         { provide: APP_GUARD, useExisting: AuthGuard },
         { provide: APP_GUARD, useClass: CsrfGuard },
         { provide: APP_GUARD, useExisting: TenantGuard },

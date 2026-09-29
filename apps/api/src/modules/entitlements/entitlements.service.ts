@@ -12,8 +12,12 @@ export type EntitlementKey =
   | 'automation_execution_limit'
   /** P11-D15: days of product-analytics history kept (plan data: 30 / 90 / 365). */
   | 'analytics_retention'
+  /** P11-D18: the public API surface is reachable at all (plan data: GROWTH/BUSINESS). */
+  | 'api_enabled'
+  /** P11-D18: outbound webhooks may be configured (plan data: GROWTH/BUSINESS). */
+  | 'webhooks_enabled'
 
-type FeatureKey = Extract<EntitlementKey, 'automation_enabled'>
+type FeatureKey = Extract<EntitlementKey, 'automation_enabled' | 'api_enabled' | 'webhooks_enabled'>
 type LimitKey = Exclude<EntitlementKey, FeatureKey>
 
 /** Where entitlements come from. A limit of `null` means unlimited. */
@@ -78,6 +82,16 @@ export class EntitlementsService {
    */
   analyticsRetentionDays(tx: TenantTx, tenantId: string): Promise<number | null> {
     return this.source.limit(tx, tenantId, 'analytics_retention')
+  }
+
+  /** P11-D18: whether this workspace's plan includes the public API. Unset source ⇒ enabled. */
+  apiEnabled(tx: TenantTx, tenantId: string): Promise<boolean> {
+    return this.source.enabled(tx, tenantId, 'api_enabled')
+  }
+
+  /** P11-D18: whether this workspace's plan includes outbound webhooks. */
+  webhooksEnabled(tx: TenantTx, tenantId: string): Promise<boolean> {
+    return this.source.enabled(tx, tenantId, 'webhooks_enabled')
   }
 
   async canStartExecution(tx: TenantTx, tenantId: string, now: Date): Promise<EntitlementDecision> {

@@ -17,7 +17,7 @@ import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { normalizePhone } from '../../core/phone'
 import { AuditService } from '../audit'
-import { currentAuth } from '../identity'
+import { currentActorId, currentAuth } from '../identity'
 import { currentTenant } from '../tenancy'
 import { evaluateEligibility, type EligibilityDecision } from '../messaging'
 import { addActivity, recordConsent } from './consent'
@@ -92,7 +92,7 @@ export class ContactsService {
 
   async create(input: CreateContactRequest): Promise<Contact> {
     const { tenantId } = currentTenant()
-    const actorId = currentAuth().userId
+    const actorId = currentActorId()
     return this.tenantDb.run(async (tx) => {
       const phone = await this.normalize(tx, tenantId, input.phone)
       await this.assertPhoneFree(tx, phone.e164)
@@ -302,7 +302,7 @@ export class ContactsService {
     input: { purpose: 'MARKETING' | 'UTILITY'; status: 'GRANTED' | 'REVOKED'; note: string },
   ): Promise<Contact> {
     const { tenantId } = currentTenant()
-    const actorId = currentAuth().userId
+    const actorId = currentActorId()
     return this.tenantDb.run(async (tx) => {
       await this.find(tx, id)
       const applied = await recordConsent(tx, {

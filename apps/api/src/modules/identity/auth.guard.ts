@@ -22,6 +22,8 @@ export class AuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true
+    // ApiKeyGuard (registered first) already authenticated this request; cookies don't apply.
+    if (requestContext.get()?.apiKey) return true
     const targets = [context.getHandler(), context.getClass()]
     const isPublic = this.reflector.getAllAndOverride<boolean>(PUBLIC_KEY, targets)
     const optional = this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH_KEY, targets)
@@ -49,4 +51,22 @@ export function currentAuth(): { userId: string; sessionId: string } {
   const auth = requestContext.get()?.auth
   if (!auth) throw new AppError('UNAUTHENTICATED', 401, 'Please sign in.')
   return auth
+}
+
+/** The API key authenticating this request, or undefined for an ordinary session request. */
+export function currentApiKey(): { id: string; name: string; tenantId: string } | undefined {
+  return requestContext.get()?.apiKey
+}
+
+/**
+ * The acting user's id for `createdBy`/actor columns on the handful of allowlisted API-key
+ * mutations (docs/API_KEYS.md): a real user id for a session request, `null` for an API-key
+ * request (those columns are nullable — there is no human actor; the audit trail instead records
+ * `actorType: 'API_KEY'`). Throws only when neither auth mechanism authenticated the request.
+ */
+export function currentActorId(): string | null {
+  const ctx = requestContext.get()
+  if (ctx?.auth) return ctx.auth.userId
+  if (ctx?.apiKey) return null
+  throw new AppError('UNAUTHENTICATED', 401, 'Please sign in.')
 }

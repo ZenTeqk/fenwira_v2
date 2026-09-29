@@ -18,6 +18,7 @@ import { ZodValidationPipe } from '../core/http/zod-validation.pipe'
 import { ACCESS_COOKIE, CSRF_COOKIE } from '../core/security/cookies'
 import {
   PERMISSION_KEY,
+  PUBLIC_API_KEY,
   PUBLIC_KEY,
   ROLE_KEY,
   SKIP_CSRF_KEY,
@@ -115,6 +116,10 @@ export interface RouteInfo {
   operationId: string
   bodySchema: boolean
   querySchema: boolean
+  /** Reachable by a tenant API key (decision P11-D18, docs/API_KEYS.md → allowlist). */
+  publicApi: boolean
+  /** The permission (and API-key scope) the route requires, when any. */
+  permission?: Permission
 }
 
 export function buildOpenApiDocument(): { document: Json; routes: RouteInfo[] } {
@@ -138,6 +143,7 @@ export function buildOpenApiDocument(): { document: Json; routes: RouteInfo[] } 
       const isPublic = Boolean(read(PUBLIC_KEY))
       const permission = read<Permission>(PERMISSION_KEY)
       const role = read<Role>(ROLE_KEY)
+      const isPublicApi = Boolean(read(PUBLIC_API_KEY))
       const tenantScoped = Boolean(read(TENANT_SCOPED_KEY) || permission || role)
       const interceptors = [
         ...((Reflect.getMetadata(INTERCEPTORS_METADATA, controller) ?? []) as unknown[]),
@@ -231,6 +237,7 @@ export function buildOpenApiDocument(): { document: Json; routes: RouteInfo[] } 
             ...(permission ? { 'x-permission': permission } : {}),
             ...(role ? { 'x-role': role } : {}),
             ...(idempotent ? { 'x-idempotent': true } : {}),
+            ...(isPublicApi ? { 'x-public': true, security: [{ apiKey: [] }] } : {}),
           }
           ;(paths[oaPath] ??= {})[verb] = operation
           routes.push({
@@ -239,6 +246,8 @@ export function buildOpenApiDocument(): { document: Json; routes: RouteInfo[] } 
             operationId,
             bodySchema,
             querySchema,
+            publicApi: isPublicApi,
+            ...(permission ? { permission } : {}),
           })
         }
     }
@@ -304,6 +313,13 @@ export function buildOpenApiDocument(): { document: Json; routes: RouteInfo[] } 
       },
       securitySchemes: {
         session: { type: 'apiKey', in: 'cookie', name: ACCESS_COOKIE },
+        apiKey: {
+          type: 'http',
+          scheme: 'bearer',
+          description:
+            'A tenant API key (docs/API_KEYS.md): `Authorization: Bearer fw_<prefix>_<secret>`. ' +
+            'Only routes marked `x-public` accept it; every other route answers 404.',
+        },
       },
     },
   }

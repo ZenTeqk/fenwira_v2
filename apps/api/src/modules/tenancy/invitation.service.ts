@@ -70,7 +70,8 @@ export class InvitationService {
     await this.limits.consume([
       { bucket: 'invite:tenant', key: actor.tenantId, limit: 50, windowSeconds: 3600 },
     ])
-    if (!canAssignRole(actor.role, input.role))
+    // team.manage is never a public-API scope, so actor.role is always set here.
+    if (!canAssignRole(actor.role!, input.role))
       throw new AppError('FORBIDDEN', 403, 'You cannot invite someone with a role above your own.')
     return this.tenantDb.run(async (tx) => {
       const existingUser = await tx.user.findUnique({ where: { email: input.email } })

@@ -18,7 +18,7 @@ import { AppError } from '../../core/http/app-error'
 import { QueueRegistry } from '../../core/queue/queue-registry'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { AuditService } from '../audit'
-import { currentAuth } from '../identity'
+import { currentApiKey, currentAuth } from '../identity'
 import { MARK_READ_JOB, MessagingService, toMessage, writeSystemEvent } from '../messaging'
 import { currentTenant } from '../tenancy'
 import { ComposeLockService } from './compose-lock.service'
@@ -31,6 +31,8 @@ import {
 import { createNotification, toNotification } from '../notifications'
 
 const encodeOffset = (n: number) => Buffer.from(JSON.stringify({ o: n })).toString('base64url')
+/** Matches no real user (visibility()/CONVERSATION_INCLUDE only need *a* uuid for an API key). */
+const NIL_USER_ID = '00000000-0000-0000-0000-000000000000'
 function decodeOffset(cursor?: string): number {
   if (!cursor) return 0
   try {
@@ -120,7 +122,10 @@ export class InboxService {
   }
 
   async get(id: string): Promise<Conversation> {
-    const { userId } = currentAuth()
+    // An API key has no per-user assignment visibility or unread count (docs/API_KEYS.md → the
+    // allowlist is workspace-wide, never scoped to one agent); `find`'s visibility() only
+    // restricts AGENT-role sessions, which an API key never is.
+    const userId = currentApiKey() ? NIL_USER_ID : currentAuth().userId
     return this.tenantDb.run(async (tx) => toConversation(await this.find(tx, id, userId)))
   }
 

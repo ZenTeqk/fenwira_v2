@@ -50,6 +50,11 @@ import {
   WhatsAppAccountsModule,
   WhatsAppSyncProcessor,
 } from '@fenwira/api/modules/whatsapp-accounts'
+import {
+  WebhookEventsProcessor,
+  WebhooksMaintenanceProcessor,
+  WebhooksModule,
+} from '@fenwira/api/modules/webhooks'
 import { parseKeyRing, type WorkerEnv } from '@fenwira/config'
 import { type DynamicModule, Module } from '@nestjs/common'
 import { ProcessorsHealthIndicator } from './processors.health'
@@ -129,6 +134,13 @@ export class WorkerModule {
       { webhookDevHosts: env.AUTOMATION_WEBHOOK_DEV_HOSTS },
       [messaging],
     )
+    const webhooks = WebhooksModule.forWorker({
+      keyRing,
+      devHosts: env.AUTOMATION_WEBHOOK_DEV_HOSTS,
+      backoffMs: env.WEBHOOK_BACKOFF_MS,
+      maxRetryHours: env.WEBHOOK_MAX_RETRY_HOURS,
+      disableAfterFailures: env.WEBHOOK_DISABLE_AFTER_FAILURES,
+    })
     const runtime = WorkerRuntimeModule.forRoot({
       imports: [
         platform,
@@ -144,6 +156,7 @@ export class WorkerModule {
         analytics,
         campaigns,
         automation,
+        webhooks,
       ],
       processors: [
         ...PLATFORM_PROCESSORS,
@@ -163,6 +176,8 @@ export class WorkerModule {
         CampaignEventsProcessor,
         AutomationTriggerProcessor,
         AutomationExecuteProcessor,
+        WebhookEventsProcessor,
+        WebhooksMaintenanceProcessor,
       ],
     })
 

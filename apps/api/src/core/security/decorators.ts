@@ -8,6 +8,7 @@ export const PERMISSION_KEY = 'fenwira:permission'
 export const ROLE_KEY = 'fenwira:role'
 export const SKIP_CSRF_KEY = 'fenwira:skip-csrf'
 export const ALLOW_UNENROLLED_2FA_KEY = 'fenwira:allow-unenrolled-2fa'
+export const PUBLIC_API_KEY = 'fenwira:public-api'
 
 /** No authentication required (default is deny: every route needs a session). */
 export const Public = () => SetMetadata(PUBLIC_KEY, true)
@@ -21,3 +22,11 @@ export const RequirePermission = (permission: Permission) => SetMetadata(PERMISS
 export const RequireRole = (role: Role) => SetMetadata(ROLE_KEY, role)
 /** Cookie-authenticated mutation that is safe without the double-submit token (SameSite=Strict). */
 export const SkipCsrf = () => SetMetadata(SKIP_CSRF_KEY, true)
+/**
+ * Marks a route reachable by a tenant API key (docs/API_KEYS.md → Public route allowlist).
+ * Requires `@RequirePermission`: that permission is both the human RBAC check and the API-key
+ * scope requirement, so the allowlist can never drift from what a key actually needs — the
+ * OpenAPI `x-public` flag and `ApiKeyGuard`'s enforcement read the same two decorators. Every
+ * other route answers 404 to an API key, never 403, so the private surface isn't discoverable.
+ */
+export const PublicApi = () => SetMetadata(PUBLIC_API_KEY, true)

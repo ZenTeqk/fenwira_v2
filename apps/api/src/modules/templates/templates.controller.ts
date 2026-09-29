@@ -21,7 +21,7 @@ import {
 import { z } from 'zod'
 import { IdempotencyInterceptor } from '../../core/http/idempotency.interceptor'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
-import { RequirePermission } from '../../core/security/decorators'
+import { PublicApi, RequirePermission } from '../../core/security/decorators'
 import { TemplatesService } from './templates.service'
 
 const uuidParam = new ZodValidationPipe(z.uuid())
@@ -40,12 +40,14 @@ export class TemplatesController {
 
   @Get()
   @RequirePermission('templates.read')
+  @PublicApi()
   async list(@Query(pipe(templatesQuerySchema)) query: In<typeof templatesQuerySchema>) {
     return { data: await this.templates.list(query) }
   }
 
   @Get('approved')
   @RequirePermission('templates.read')
+  @PublicApi()
   async approved(
     @Query(pipe(approvedTemplatesQuerySchema)) query: In<typeof approvedTemplatesQuerySchema>,
   ) {

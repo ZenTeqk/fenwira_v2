@@ -118,6 +118,28 @@ export const apiEnvSchema = baseEnvSchema
     ...storageEnv,
     /** Internal Prometheus listener (docs/OBSERVABILITY.md); compose doesn't publish it. */
     METRICS_PORT: z.coerce.number().int().positive().optional(),
+    /**
+     * P10-D4 development exception, also used for webhook-endpoint URL validation at creation
+     * time (Phase 11 Step 3): comma-separated host names allowed over http:/private addresses
+     * (local simulated receivers). Refused in production.
+     */
+    AUTOMATION_WEBHOOK_DEV_HOSTS: z
+      .string()
+      .optional()
+      .transform((v) =>
+        (v ?? '')
+          .split(',')
+          .map((h) => h.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    /**
+     * Server-side secret mixed into every API key hash (docs/API_KEYS.md → Storage), so a leaked
+     * `key_hash` column alone can never be brute-forced offline. Required in production; a fixed
+     * development value keeps local API keys working across restarts.
+     */
+    API_KEY_PEPPER: z.string().min(16).default('development-only-api-key-pepper'),
+    /** Requests per key per minute (docs/API_KEYS.md → Rate limits). */
+    API_KEY_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(6000).default(120),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return
@@ -128,6 +150,10 @@ export const apiEnvSchema = baseEnvSchema
     if (!env.COOKIE_SECURE) fail('COOKIE_SECURE', 'must be true in production')
     if (env.SYSTEM_PING_ENABLED) fail('SYSTEM_PING_ENABLED', 'must be false in production')
     if (env.WHATSAPP_DEV_CONNECT) fail('WHATSAPP_DEV_CONNECT', 'must be false in production')
+    if (env.API_KEY_PEPPER === 'development-only-api-key-pepper')
+      fail('API_KEY_PEPPER', 'must be set to a real secret in production')
+    if (env.AUTOMATION_WEBHOOK_DEV_HOSTS.length)
+      fail('AUTOMATION_WEBHOOK_DEV_HOSTS', 'must be empty in production')
   })
 export type ApiEnv = z.infer<typeof apiEnvSchema>
 
@@ -154,8 +180,9 @@ export const workerEnvSchema = baseEnvSchema
     /** Outbound retry base delay; attempts wait 2^n × base with jitter. Tests shorten it. */
     WHATSAPP_OUTBOUND_BACKOFF_MS: z.coerce.number().int().min(10).max(60_000).default(1000),
     /**
-     * P10-D4 development exception: comma-separated host names the automation webhook action may
-     * call over http: or at private addresses (local simulated receivers). Refused in production.
+     * P10-D4 development exception: comma-separated host names the automation trigger action and
+     * outbound webhook delivery (Phase 11) may call over http: or at private addresses (local
+     * simulated receivers). Refused in production.
      */
     AUTOMATION_WEBHOOK_DEV_HOSTS: z
       .string()
@@ -175,6 +202,12 @@ export const workerEnvSchema = baseEnvSchema
     ANALYTICS_SETTLE_SECONDS: z.coerce.number().int().min(0).max(600).default(20),
     /** Decision O1: operational alerts (stale reservations, ledger drift) go here. Unset = log only. */
     OPS_ALERT_EMAIL: optionalString.pipe(z.email().optional()),
+    /** Outbound webhook delivery (docs/WEBHOOKS.md → Retries): attempts wait 2^n × this, capped. */
+    WEBHOOK_BACKOFF_MS: z.coerce.number().int().min(100).max(300_000).default(30_000),
+    /** Delivery attempts stop being retried after this long since the first attempt. */
+    WEBHOOK_MAX_RETRY_HOURS: z.coerce.number().min(0.1).max(168).default(24),
+    /** Consecutive failed deliveries (across events) before an endpoint is auto-disabled. */
+    WEBHOOK_DISABLE_AFTER_FAILURES: z.coerce.number().int().min(1).max(1000).default(20),
     ...storageEnv,
   })
   .superRefine((env, ctx) => {
