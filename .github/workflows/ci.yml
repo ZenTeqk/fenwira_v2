@@ -99,9 +99,10 @@ jobs:
       - name: gitleaks (full history)
         run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest git /repo --redact --verbose
       - uses: pnpm/action-setup@v4
+      # No `cache: pnpm` here: this job never runs `pnpm install` (pnpm audit reads
+      # pnpm-lock.yaml directly), so there is no pnpm store to cache or restore.
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: pnpm
       - name: Dependency audit (production deps, high+)
         run: pnpm audit --prod --audit-level high
