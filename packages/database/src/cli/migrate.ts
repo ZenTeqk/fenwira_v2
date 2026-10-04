@@ -4,6 +4,7 @@ import { loadEnv, migrateEnvSchema } from '@fenwira/config'
 import { Client } from 'pg'
 import { POST_MIGRATE_SQL_PATH, PRISMA_SCHEMA_PATH } from '../paths'
 import { findRlsViolations } from '../rls'
+import { seedPlans } from '../seed-plans'
 import { seedRbac } from '../seed-rbac'
 
 /**
@@ -34,6 +35,9 @@ async function main(): Promise<void> {
     console.log(
       `RBAC seeded: ${seeded.roles} roles, ${seeded.permissions} permissions, ${seeded.grants} grants`,
     )
+
+    const plans = await seedPlans(client)
+    console.log(`Plans seeded: ${plans.plans} (missing rows only)`)
 
     const violations = await findRlsViolations(client)
     if (violations.length > 0) {

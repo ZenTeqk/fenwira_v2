@@ -386,6 +386,16 @@ const FIXTURES: Record<string, Fixture> = {
       create: { tenantId },
       update: {},
     }),
+  subscriptions: (tx, { tenantId }) =>
+    tx.subscription.upsert({
+      where: { tenantId },
+      create: { tenantId, status: 'TRIALING', trialEndsAt: new Date(Date.now() + 86_400_000) },
+      update: {},
+    }),
+  tenant_entitlement_overrides: (tx, { tenantId }) =>
+    tx.tenantEntitlementOverride.create({
+      data: { tenantId, key: 'max_contacts', value: 10, reason: 'Matrix' },
+    }),
   api_keys: (tx, { tenantId, userId }) =>
     tx.apiKey.create({
       data: {

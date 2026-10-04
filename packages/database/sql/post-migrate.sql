@@ -176,6 +176,9 @@ WHERE NOT EXISTS (
 );
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.price_book_entries FROM fenwira_app;
 
+-- Plans (Phase 11 Step 4): global configuration, seeded by the migrate step, read-only at runtime.
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.plans, public.plan_entitlements, public.plan_prices FROM fenwira_app;
+
 -- Wallet ledger → balance cache (docs/BILLING.md → Wallet): the only writer of balance_minor.
 CREATE OR REPLACE FUNCTION public.fenwira_wallet_apply() RETURNS trigger
 LANGUAGE plpgsql AS $$

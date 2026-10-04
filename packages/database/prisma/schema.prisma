@@ -262,6 +262,8 @@ model Tenant {
   apiKeys                  ApiKey[]
   webhookEndpoints         WebhookEndpoint[]
   webhookDeliveries        WebhookDelivery[]
+  subscription             Subscription?
+  entitlementOverrides     TenantEntitlementOverride[]
 
   @@map("tenants")
 }
@@ -1651,6 +1653,118 @@ model UsageEvent {
   @@unique([tenantId, type, messageId])
   @@index([tenantId, occurredAt])
   @@map("usage_events")
+}
+
+/// Phase 11 Step 4 (docs/BILLING.md → Plans): plans are data — keys, names and entitlements are
+/// rows, never referenced by key in feature code.
+model Plan {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  key       String   @unique
+  name      String
+  isPublic  Boolean  @default(true) @map("is_public")
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  entitlements  PlanEntitlement[]
+  prices        PlanPrice[]
+  subscriptions Subscription[]    @relation("SubscriptionPlan")
+  requested     Subscription[]    @relation("SubscriptionRequestedPlan")
+
+  @@map("plans")
+}
+
+/// value: boolean for capabilities, number or null (unlimited) for limits.
+model PlanEntitlement {
+  planId String @map("plan_id") @db.Uuid
+  key    String
+  value  Json
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@id([planId, key])
+  @@map("plan_entitlements")
+}
+
+enum BillingInterval {
+  MONTH
+  YEAR
+
+  @@map("billing_interval")
+}
+
+/// Prices are not approved (P11-D4): this table exists so they can be configured later; empty at launch.
+model PlanPrice {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  planId      String          @map("plan_id") @db.Uuid
+  currency    String          @db.Char(3)
+  interval    BillingInterval
+  amountMinor BigInt          @map("amount_minor")
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, currency, interval])
+  @@map("plan_prices")
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+
+  @@map("subscription_status")
+}
+
+/// One per tenant. Independent of tenants.billing_mode and of the wallet (P11-D9).
+model Subscription {
+  id                 String             @id @default(uuid(7)) @db.Uuid
+  tenantId           String             @unique @map("tenant_id") @db.Uuid
+  /// Kept after expiry/cancel: the expired profile reuses its limits (nothing turns over-limit by expiring).
+  planId             String?            @map("plan_id") @db.Uuid
+  /// P11-D24: the OWNER requests a plan; an operator activates it.
+  requestedPlanId    String?            @map("requested_plan_id") @db.Uuid
+  requestedAt        DateTime?          @map("requested_at") @db.Timestamptz(3)
+  status             SubscriptionStatus @default(TRIALING)
+  interval           BillingInterval    @default(MONTH)
+  trialEndsAt        DateTime?          @map("trial_ends_at") @db.Timestamptz(3)
+  currentPeriodStart DateTime?          @map("current_period_start") @db.Timestamptz(3)
+  currentPeriodEnd   DateTime?          @map("current_period_end") @db.Timestamptz(3)
+  cancelAtPeriodEnd  Boolean            @default(false) @map("cancel_at_period_end")
+  expiredAt          DateTime?          @map("expired_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?          @map("cancelled_at") @db.Timestamptz(3)
+  /// Trial-ending notices already sent: e.g. ["T-3","T-1"].
+  noticesSent        String[]           @default([]) @map("notices_sent")
+  /// key → ISO time it first went over limit (daily snapshot; never changes data).
+  overLimitSince     Json               @default("{}") @map("over_limit_since")
+  provider           String?
+  providerRef        String?            @map("provider_ref")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan          Plan?  @relation("SubscriptionPlan", fields: [planId], references: [id])
+  requestedPlan Plan?  @relation("SubscriptionRequestedPlan", fields: [requestedPlanId], references: [id])
+
+  @@index([status, trialEndsAt])
+  @@map("subscriptions")
+}
+
+/// Per-tenant entitlement override; wins over the plan/trial profile until expires_at.
+model TenantEntitlementOverride {
+  tenantId  String    @map("tenant_id") @db.Uuid
+  key       String
+  value     Json
+  reason    String
+  createdBy String?   @map("created_by") @db.Uuid
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, key])
+  @@map("tenant_entitlement_overrides")
 }
 
 /// Platform configuration (decision B1): per-message prices by category and country.
