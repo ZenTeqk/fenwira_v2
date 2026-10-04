@@ -531,6 +531,20 @@ LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, public AS $
   SELECT count(*)::integer FROM d;
 $$;
 
+-- X20: subscription lifecycle (Phase 11 Step 4, docs/BILLING.md → Lifecycle). IDs only: trials
+-- ending within 3 days (notices, expiry) and active subscriptions whose period has ended (roll or
+-- cancel). Each tenant is then processed inside withTenant and re-checks its own row.
+GRANT SELECT (tenant_id, status, trial_ends_at, current_period_end) ON public.subscriptions TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.subscriptions_due(p_now timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT s.tenant_id FROM public.subscriptions s
+  WHERE (s.status = 'TRIALING' AND s.trial_ends_at <= p_now + interval '3 days')
+     OR (s.status = 'ACTIVE' AND s.current_period_end <= p_now)
+  ORDER BY s.tenant_id
+  LIMIT p_limit;
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -556,7 +570,8 @@ BEGIN
     'system.purge_analytics_events(uuid, timestamptz)',
     'system.resolve_api_key(text)',
     'system.purge_webhook_deliveries(uuid, timestamptz)',
-    'system.tenants_with_stale_webhook_deliveries(timestamptz, integer)'
+    'system.tenants_with_stale_webhook_deliveries(timestamptz, integer)',
+    'system.subscriptions_due(timestamptz, integer)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

@@ -6,6 +6,7 @@ import {
 } from '@fenwira/contracts'
 import { Inject, Injectable, Optional } from '@nestjs/common'
 import { AppError } from '../../core/http/app-error'
+import { MetricsService } from '../../core/metrics/metrics.service'
 import { SUBSCRIPTION_ACTIVE } from './subscription-entitlement.source'
 
 /**
@@ -39,7 +40,10 @@ export type EntitlementDecision =
 export class EntitlementsService {
   private source: EntitlementSource
 
-  constructor(@Optional() @Inject(ENTITLEMENT_SOURCE) source?: EntitlementSource) {
+  constructor(
+    @Optional() @Inject(ENTITLEMENT_SOURCE) source?: EntitlementSource,
+    @Optional() private readonly metrics?: MetricsService,
+  ) {
     this.source = source ?? ALLOW_ALL_ENTITLEMENTS
   }
 
@@ -96,12 +100,14 @@ export class EntitlementsService {
     if (limit === null) return
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:${key}`}))`
     const current = (await this.usage(tx, key)) ?? 0
-    if (current + increment > limit)
+    if (current + increment > limit) {
+      this.metrics?.entitlementDenials.inc({ key })
       throw new AppError('LIMIT_EXCEEDED', 422, limitMessage(key, limit), {
         key,
         limit,
         current,
       })
+    }
   }
 
   /** TRIALING (unexpired) or ACTIVE (P11-D6). Expired workspaces keep operating, but don't grow. */

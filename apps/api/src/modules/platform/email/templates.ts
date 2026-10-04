@@ -95,6 +95,24 @@ export function walletLowBalanceEmail(
   }
 }
 
+/** Phase 11 Step 4 trial/subscription lifecycle notice (docs/BILLING.md → Lifecycle). */
+export function subscriptionNoticeEmail(
+  name: string,
+  workspace: string,
+  copy: { title: string; body: string },
+  url: string,
+) {
+  return {
+    subject: `${workspace}: ${copy.title.toLowerCase()}`,
+    ...layout(
+      `Hi ${name}, ${copy.title.charAt(0).toLowerCase()}${copy.title.slice(1)}`,
+      [copy.body, 'Plans are activated by the Fenwira team once you request one.'],
+      { label: 'Open subscription', url },
+      'You get this email because you can view billing for this workspace.',
+    ),
+  }
+}
+
 export function invitationEmail(inviter: string, workspace: string, role: string, url: string) {
   return {
     subject: `${inviter} invited you to ${workspace} on Fenwira`,

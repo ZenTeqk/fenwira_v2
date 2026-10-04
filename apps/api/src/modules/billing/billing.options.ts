@@ -9,6 +9,8 @@ export type BillingSupport = { email?: string; url?: string }
 
 export type BillingOptions = BillingPlatform & {
   support?: BillingSupport
+  /** Worker: web origin for links in lifecycle emails. */
+  webOrigin?: string
   /** Worker: minutes after which a final message's unsettled reservation is recovered. */
   reservationGraceMinutes?: number
 }

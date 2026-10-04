@@ -150,6 +150,19 @@ export class MessagingService {
       )
     // 8. Compose lock: enforced by the inbox before it calls send (docs/INBOX.md).
 
+    // 8b. Subscription (P11-D6): an expired or cancelled workspace keeps receiving and replying
+    // in-window for free, but customer-initiated billable (template) sends are refused.
+    if (
+      template &&
+      input.source !== 'SYSTEM' &&
+      !(await this.entitlements.subscriptionActive(tx, tenantId))
+    )
+      throw new AppError(
+        'SUBSCRIPTION_INACTIVE',
+        422,
+        'This workspace’s trial or subscription has ended. Request a plan to send template messages.',
+      )
+
     // 9. Balance (B3/B4): a billable message reserves its estimated cost in this transaction.
     const messageId = uuidv7()
     const billing = this.options.billing ?? NO_BILLING

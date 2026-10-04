@@ -48,7 +48,7 @@ export const SKIP_REASONS = [
 export type SkipReason = (typeof SKIP_REASONS)[number]
 
 /** Why a campaign is paused (PAUSED); PAUSED_INSUFFICIENT_FUNDS is its own status. */
-export const PAUSE_REASONS = ['MANUAL', 'NUMBER_UNAVAILABLE'] as const
+export const PAUSE_REASONS = ['MANUAL', 'NUMBER_UNAVAILABLE', 'SUBSCRIPTION_INACTIVE'] as const
 export type PauseReason = (typeof PAUSE_REASONS)[number]
 
 const audienceSource = z.discriminatedUnion('kind', [

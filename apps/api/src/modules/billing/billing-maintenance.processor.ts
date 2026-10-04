@@ -3,6 +3,7 @@ import { QUEUES } from '@fenwira/queue'
 import {
   Inject,
   Injectable,
+  Optional,
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common'
@@ -11,12 +12,14 @@ import { PinoLogger } from 'nestjs-pino'
 import { MetricsService } from '../../core/metrics/metrics.service'
 import { type QueueProcessor } from '../../core/queue/queue-processor'
 import { QueueRegistry } from '../../core/queue/queue-registry'
-import { OpsAlerts } from '../platform'
+import { Mailer, OpsAlerts, subscriptionNoticeEmail } from '../platform'
 import { BILLING_OPTIONS, type BillingOptions } from './billing.options'
+import { noticeCopy, stepSubscription } from './subscriptions.core'
 import { ledgerFigures, recoverReservation } from './usage.core'
 
 export const RECOVER_JOB = 'recover-reservations'
 export const LEDGER_CHECK_JOB = 'ledger-check'
+export const SUBSCRIPTIONS_JOB = 'subscriptions-tick'
 const DEFAULT_GRACE_MINUTES = 360
 const BATCH = 500
 
@@ -41,6 +44,7 @@ export class BillingMaintenanceProcessor
     private readonly alerts: OpsAlerts,
     private readonly metrics: MetricsService,
     private readonly logger: PinoLogger,
+    @Optional() private readonly mailer?: Mailer,
   ) {
     this.logger.setContext('BillingMaintenance')
   }
@@ -63,6 +67,11 @@ export class BillingMaintenanceProcessor
         { name: RECOVER_JOB, data: {}, opts },
       )
       await queue.upsertJobScheduler(
+        'billing-subscriptions-tick',
+        { every: 15 * 60_000 },
+        { name: SUBSCRIPTIONS_JOB, data: {}, opts },
+      )
+      await queue.upsertJobScheduler(
         'billing-ledger-check',
         { pattern: '15 2 * * *', tz: 'UTC' },
         { name: LEDGER_CHECK_JOB, data: {}, opts },
@@ -78,6 +87,7 @@ export class BillingMaintenanceProcessor
   async process(job: Job): Promise<unknown> {
     if (job.name === RECOVER_JOB) return this.recoverStale()
     if (job.name === LEDGER_CHECK_JOB) return this.checkLedger()
+    if (job.name === SUBSCRIPTIONS_JOB) return this.tickSubscriptions()
     return 'ignored'
   }
 
@@ -131,5 +141,42 @@ export class BillingMaintenanceProcessor
       [...lines, 'Nothing was corrected. Investigate before adjusting (docs/BILLING.md → Wallet).'],
     )
     return drifted.length
+  }
+
+  /**
+   * Phase 11 Step 4 lifecycle (X20 → per tenant): trial notices and expiry, cancel at period end,
+   * monthly period roll. Each workspace is a separate transaction, so one failure can't block
+   * the rest; repeats are no-ops.
+   */
+  async tickSubscriptions(now = new Date()): Promise<string> {
+    const tenantIds = await this.db.system.subscriptionsDue(now, BATCH)
+    let notices = 0
+    for (const tenantId of tenantIds) {
+      try {
+        const r = await this.db.withTenant(tenantId, (tx) => stepSubscription(tx, tenantId, now))
+        if (!r.notice) continue
+        notices++
+        this.metrics.subscriptionTransitions.inc({ to: r.notice })
+        if (!this.mailer) continue
+        const copy = noticeCopy(r.notice, r.trialEndsAt)
+        for (const user of r.recipients)
+          await this.mailer
+            .send({
+              to: user.email,
+              ...subscriptionNoticeEmail(
+                user.name,
+                r.workspace,
+                copy,
+                `${this.options.webOrigin ?? ''}/billing/subscription`,
+              ),
+            })
+            .catch((err: unknown) =>
+              this.logger.error({ err, tenantId }, 'subscription notice email failed'),
+            )
+      } catch (err) {
+        this.logger.error({ err, tenantId }, 'subscription lifecycle step failed')
+      }
+    }
+    return `subscriptions:${tenantIds.length}:notices:${notices}`
   }
 }

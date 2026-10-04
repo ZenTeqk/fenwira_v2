@@ -318,6 +318,11 @@ export class CampaignDispatchProcessor implements QueueProcessor<Data>, OnApplic
         await this.pause(tenantId, campaignId, 'PAUSED_INSUFFICIENT_FUNDS', null)
         this.metrics.campaignRecipients.inc({ outcome: 'unfunded' })
         return 'insufficient-funds'
+      case 'SUBSCRIPTION_INACTIVE':
+        // P11-D6: paused, never failed; remaining recipients stay PENDING for a resume once a
+        // plan is active again (resume re-dispatches and is refused again while it isn't).
+        await this.pause(tenantId, campaignId, 'PAUSED', 'SUBSCRIPTION_INACTIVE')
+        return 'subscription-inactive'
       case 'NO_CONNECTED_NUMBER':
         await this.pause(tenantId, campaignId, 'PAUSED', 'NUMBER_UNAVAILABLE')
         return 'number-unavailable'

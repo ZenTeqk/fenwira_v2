@@ -258,4 +258,11 @@ export class SystemGateway {
       SELECT * FROM system.tenants_with_stale_webhook_deliveries(${before}, ${limit}::int)`
     return rows.map((r) => r.tenant_id)
   }
+
+  /** X20: subscriptions with lifecycle work due (Phase 11 Step 4) — tenant ids only. */
+  async subscriptionsDue(now: Date, limit: number): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
+      SELECT * FROM system.subscriptions_due(${now}, ${limit}::int)`
+    return rows.map((r) => r.tenant_id)
+  }
 }

@@ -121,6 +121,7 @@ export class WorkerModule {
     const billing = BillingModule.forWorker({
       ...billingPlatform,
       reservationGraceMinutes: env.BILLING_RESERVATION_GRACE_MINUTES,
+      webOrigin: env.WEB_ORIGIN,
     })
     const notifications = NotificationsModule.forWorker({
       webOrigin: env.WEB_ORIGIN,

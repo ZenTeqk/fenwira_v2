@@ -1,3 +1,4 @@
+import { BillingMaintenanceProcessor } from '@fenwira/api/modules/billing'
 import { Database } from '@fenwira/database'
 import {
   deliverWebhook,
@@ -10,7 +11,15 @@ import { type Server } from 'node:http'
 import { type AddressInfo } from 'node:net'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createFlow, chain, keyword, text } from './support/automation'
-import { campaignWorld, metaId } from './support/campaigns'
+import {
+  campaignOf,
+  campaignWorld,
+  draftCampaign,
+  launch,
+  metaId,
+  seedContacts,
+  waitFor,
+} from './support/campaigns'
 import { bootApi, bootWorker } from './support/harness'
 import { createOwner, type Member } from './support/workspace'
 
@@ -161,5 +170,120 @@ describe('Phase 11 Step 4: downgrade keeps active automations', { timeout: 90_00
     const pub = await owner.client.post(`/flows/${id}/publish`, {}, { 'Idempotency-Key': metaId() })
     expect(pub.status).toBe(403)
     expect(pub.body.error.details).toMatchObject({ entitlement: 'max_active_flows', limit: 1 })
+  })
+})
+
+const tick = (now?: Date) => worker.get(BillingMaintenanceProcessor).tickSubscriptions(now)
+const subOf = (tenantId: string) =>
+  db.withTenant(tenantId, (tx) => tx.subscription.findUniqueOrThrow({ where: { tenantId } }))
+const setSub = (tenantId: string, data: Record<string, unknown>) =>
+  db.withTenant(tenantId, (tx) =>
+    tx.subscription.upsert({
+      where: { tenantId },
+      create: { tenantId, ...data },
+      update: data,
+    }),
+  )
+const lifecycleNotices = (tenantId: string) =>
+  db.withTenant(tenantId, (tx) =>
+    tx.notification.findMany({ where: { type: 'subscription.lifecycle' } }),
+  )
+
+describe('Phase 11 Step 4: trial lifecycle', { timeout: 120_000 }, () => {
+  it('T-3 and T-1 notices are sent once each', async () => {
+    const owner = await createOwner(api, 'sub-notice')
+    await setSub(owner.tenantId, {
+      status: 'TRIALING',
+      trialEndsAt: new Date(Date.now() + 2 * 86_400_000),
+    })
+    await tick()
+    await tick()
+    expect((await subOf(owner.tenantId)).noticesSent).toEqual(['T-3'])
+    expect(await lifecycleNotices(owner.tenantId)).toHaveLength(1)
+    await setSub(owner.tenantId, { trialEndsAt: new Date(Date.now() + 12 * 3_600_000) })
+    await tick()
+    expect((await subOf(owner.tenantId)).noticesSent).toEqual(['T-3', 'T-1'])
+  })
+
+  it('expiry: nothing deleted, inbound continues, billable sends and API refused, campaigns pause', async () => {
+    const w = await campaignWorld(api, mock.url, 'sub-expire')
+    const { tagId } = await seedContacts(db, w.owner.tenantId, `wave-${metaId()}`, [
+      { utility: 'GRANTED', orderNo: '#1' },
+    ])
+    const key = await w.owner.client.post('/api-keys', { name: 'k', scopes: ['contacts.read'] })
+    const token = key.body.data.secret as string
+    const contactsBefore = await contactCount(w.owner.tenantId)
+
+    await setSub(w.owner.tenantId, { status: 'TRIALING', trialEndsAt: new Date(Date.now() - 1000) })
+    await tick()
+    const sub = await subOf(w.owner.tenantId)
+    expect(sub.status).toBe('EXPIRED')
+    expect(await lifecycleNotices(w.owner.tenantId)).toHaveLength(1)
+    const audit = await w.owner.client.get('/audit-logs?action=subscription.')
+    expect(audit.body.data.map((a: { action: string }) => a.action)).toContain(
+      'subscription.expired',
+    )
+    expect(await contactCount(w.owner.tenantId)).toBe(contactsBefore)
+
+    // API keys stay, but authenticate to 403 ENTITLEMENT_REQUIRED.
+    const apiCall = await w.owner.client.agent
+      .post('/api/v1/contacts/search')
+      .set({ Authorization: `Bearer ${token}` })
+      .send({})
+    expect(apiCall.status).toBe(403)
+    expect((await w.owner.client.get('/api-keys')).body.data).toHaveLength(1)
+
+    // A campaign launched now pauses with SUBSCRIPTION_INACTIVE instead of sending or failing.
+    const c = await draftCampaign(w, tagId)
+    expect((await launch(w, c.id)).status).toBe(200)
+    const paused = await waitFor(
+      () => campaignOf(w, c.id),
+      (x) => x.status === 'PAUSED',
+    )
+    expect(paused.pauseReason).toBe('SUBSCRIPTION_INACTIVE')
+
+    // Inbound still lands.
+    const from = `9192${String(Math.random()).slice(2, 10)}`
+    expect(
+      await deliverWebhook(
+        webhookUrl,
+        SECRET,
+        inboundMessageWebhook(w.ids, {
+          from,
+          wamid: `wamid.${metaId()}`,
+          text: 'Hi',
+          name: 'Ravi',
+        }),
+      ),
+    ).toBe(200)
+    await waitFor(
+      () =>
+        db.withTenant(w.owner.tenantId, (tx) =>
+          tx.message.count({ where: { direction: 'INBOUND', contact: { phoneE164: `+${from}` } } }),
+        ),
+      (n) => n === 1,
+    )
+  })
+
+  it('active subscriptions roll monthly, or end when cancelling at period end', async () => {
+    const a = await createOwner(api, 'sub-roll-a')
+    const b = await createOwner(api, 'sub-roll-b')
+    const end = new Date(Date.now() - 1000)
+    await setSub(a.tenantId, {
+      status: 'ACTIVE',
+      currentPeriodStart: new Date(0),
+      currentPeriodEnd: end,
+    })
+    await setSub(b.tenantId, {
+      status: 'ACTIVE',
+      currentPeriodEnd: end,
+      cancelAtPeriodEnd: true,
+    })
+    await tick()
+    const rolled = await subOf(a.tenantId)
+    expect(rolled.status).toBe('ACTIVE')
+    expect(rolled.currentPeriodStart?.getTime()).toBe(end.getTime())
+    expect(rolled.currentPeriodEnd!.getTime()).toBeGreaterThan(Date.now() + 27 * 86_400_000)
+    expect((await subOf(b.tenantId)).status).toBe('CANCELLED')
   })
 })

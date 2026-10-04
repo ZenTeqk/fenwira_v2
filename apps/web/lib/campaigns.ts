@@ -34,6 +34,8 @@ export const skipLabel = (reason: string) => SKIP_REASON_LABEL[reason as SkipRea
 export const PAUSE_LABEL: Record<string, string> = {
   MANUAL: 'Paused by your team.',
   NUMBER_UNAVAILABLE: 'The WhatsApp number is disconnected. Reconnect it, then resume.',
+  SUBSCRIPTION_INACTIVE:
+    'The workspace’s trial or subscription has ended. Resume after a plan is active again.',
 }
 
 export const FIELD_LABEL = {

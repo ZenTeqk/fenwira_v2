@@ -169,6 +169,20 @@ export class MetricsService implements OnApplicationBootstrap, OnApplicationShut
     labelNames: ['result'] as const,
     registers: [this.registry],
   })
+  /** Phase 11 Step 4: subscription lifecycle transitions and notices. */
+  readonly subscriptionTransitions = new Counter({
+    name: 'subscription_transitions_total',
+    help: 'Subscription lifecycle notices and transitions',
+    labelNames: ['to'] as const,
+    registers: [this.registry],
+  })
+  /** Phase 11 Step 4: user-initiated actions refused by an entitlement or limit. */
+  readonly entitlementDenials = new Counter({
+    name: 'entitlement_denials_total',
+    help: 'Requests refused by a plan limit or capability',
+    labelNames: ['key'] as const,
+    registers: [this.registry],
+  })
   readonly apiKeyRequests = new Counter({
     name: 'api_key_requests_total',
     help: 'Requests authenticated by an API key, by outcome',
