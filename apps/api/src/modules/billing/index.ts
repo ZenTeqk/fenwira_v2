@@ -26,3 +26,5 @@ export {
   unitPrice,
   walletStateOf,
 } from './wallet.core'
+export { activatePlan, RETENTION_GRACE_DAYS, stepSubscription } from './subscriptions.core'
+export { SubscriptionsService } from './subscriptions.service'

@@ -87,6 +87,8 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     availableMinor: z.number().int(),
     currency: z.string(),
   }),
+  // Phase 11 Step 4 (P11-D24): an OWNER asked for a plan; operators activate it.
+  'subscription.plan_requested': z.object({ subscriptionId: z.uuid(), planId: z.uuid() }),
   // P11-D21: an unfunded wallet's first available funds (not a recovery).
   'wallet.funded': z.object({
     walletId: z.uuid(),

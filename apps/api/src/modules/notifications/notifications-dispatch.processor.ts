@@ -8,12 +8,13 @@ import { MetricsService } from '../../core/metrics/metrics.service'
 import { type QueueProcessor } from '../../core/queue/queue-processor'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { BILLING_OPTIONS, billingEnforcedFor, type BillingOptions } from '../billing'
-import { Mailer, walletLowBalanceEmail } from '../platform'
+import { Mailer, OpsAlerts, walletLowBalanceEmail } from '../platform'
 import { createNotificationOnce } from './notifications'
 import { NOTIFICATIONS_OPTIONS, type NotificationsOptions } from './notifications.options'
 
 type WalletJob =
   EventJob<'wallet.low_balance'> | EventJob<'wallet.recovered'> | EventJob<'wallet.funded'>
+type DispatchJob = WalletJob | EventJob<'subscription.plan_requested'>
 
 /** Roles that can view billing (ROLE_PERMISSIONS is the single source, never a hard-coded list). */
 const BILLING_READERS = (Object.keys(ROLE_PERMISSIONS) as Role[]).filter((r) =>
@@ -35,7 +36,7 @@ export const formatMoney = (minor: number, currency: string) => {
  * notification and the Billing page carry the state if an email is lost).
  */
 @Injectable()
-export class NotificationsDispatchProcessor implements QueueProcessor<WalletJob> {
+export class NotificationsDispatchProcessor implements QueueProcessor<DispatchJob> {
   readonly queue = QUEUES.notificationsDispatch
   readonly concurrency = 5
 
@@ -47,11 +48,12 @@ export class NotificationsDispatchProcessor implements QueueProcessor<WalletJob>
     private readonly realtime: RealtimeEmitter,
     private readonly metrics: MetricsService,
     private readonly logger: PinoLogger,
+    private readonly alerts: OpsAlerts,
   ) {
     this.logger.setContext('NotificationsDispatch')
   }
 
-  async process(job: Job<WalletJob>): Promise<string> {
+  async process(job: Job<DispatchJob>): Promise<string> {
     const e = job.data
     if (!e.tenantId) return 'ignored'
     // P11-D21: first funding is not a recovery; it notifies only when it is already low.
@@ -59,7 +61,29 @@ export class NotificationsDispatchProcessor implements QueueProcessor<WalletJob>
       return e.payload.to === 'LOW_BALANCE' ? this.wallet(e.tenantId, e) : 'funded'
     if (e.eventType === 'wallet.low_balance' || e.eventType === 'wallet.recovered')
       return this.wallet(e.tenantId, e)
+    if (e.eventType === 'subscription.plan_requested')
+      return this.planRequested(e.tenantId, e.payload)
     return 'ignored'
+  }
+
+  /** P11-D24: plans are activated by the Fenwira team — they hear about every request. */
+  private async planRequested(tenantId: string, p: { planId: string }): Promise<string> {
+    const info = await this.db.withTenant(tenantId, async (tx) => ({
+      tenant: await tx.tenant.findUniqueOrThrow({
+        where: { id: tenantId },
+        select: { name: true },
+      }),
+      plan: await tx.plan.findUnique({
+        where: { id: p.planId },
+        select: { key: true, name: true },
+      }),
+    }))
+    await this.alerts.raise('billing.plan_requested', 'A workspace requested a plan', [
+      `tenant ${tenantId} (${info.tenant.name})`,
+      `plan ${info.plan?.key ?? p.planId} (${info.plan?.name ?? 'unknown'})`,
+      `activate: pnpm --filter @fenwira/worker subscription:activate -- --tenant ${tenantId} --plan ${info.plan?.key ?? '<KEY>'}`,
+    ])
+    return 'plan-requested'
   }
 
   private async wallet(tenantId: string, e: WalletJob): Promise<string> {

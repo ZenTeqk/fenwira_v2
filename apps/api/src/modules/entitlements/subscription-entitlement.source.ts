@@ -40,6 +40,10 @@ export class SubscriptionEntitlementSource {
     return hit
   }
 
+  async status(tx: TenantTx, tenantId: string): Promise<ResolvedEntitlements['status'] | null> {
+    return this.options.enforced ? (await this.resolve(tx, tenantId)).status : null
+  }
+
   async enabled(tx: TenantTx, tenantId: string, key: string): Promise<boolean> {
     const v = (await this.resolve(tx, tenantId)).values.get(key)
     return v === undefined || v === null ? true : v === true

@@ -166,8 +166,11 @@ describe('Phase 11 Step 1: wallet state (P11-D12)', () => {
         }),
       ],
     ])
-    expect((await owner.client.get('/workspace/status')).body.data).toEqual({
-      wallet: { state: 'INSUFFICIENT_FUNDS', currency: 'INR', availableMinor: 0 },
+    // The wallet part is exact; Phase 11 Step 4 adds `subscription` alongside it (separate concept).
+    expect((await owner.client.get('/workspace/status')).body.data.wallet).toEqual({
+      state: 'INSUFFICIENT_FUNDS',
+      currency: 'INR',
+      availableMinor: 0,
     })
     await assertLedger(t)
   })

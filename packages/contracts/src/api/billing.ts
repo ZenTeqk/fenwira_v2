@@ -73,6 +73,14 @@ export type WalletTransactionsQuery = z.infer<typeof walletTransactionsQuerySche
  * gets the wallet state; amounts only with `billing.read`.
  */
 export const workspaceStatusSchema = z.object({
+  /** Phase 11 Step 4: for the shell's trial/expired banner. Independent of the wallet. */
+  subscription: z
+    .object({
+      status: z.enum(['TRIALING', 'ACTIVE', 'EXPIRED', 'CANCELLED']),
+      trialEndsAt: z.string().nullable(),
+      trialDaysLeft: z.number().int().nullable(),
+    })
+    .optional(),
   wallet: z.object({
     state: walletStateSchema,
     currency: z.string(),

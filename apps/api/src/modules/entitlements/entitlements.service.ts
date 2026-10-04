@@ -3,6 +3,7 @@ import {
   type CapabilityKey,
   type EntitlementKey as ContractEntitlementKey,
   type LimitKey as ContractLimitKey,
+  type SubscriptionStatus,
 } from '@fenwira/contracts'
 import { Inject, Injectable, Optional } from '@nestjs/common'
 import { AppError } from '../../core/http/app-error'
@@ -22,6 +23,8 @@ type LimitKey = ContractLimitKey
 export interface EntitlementSource {
   enabled(tx: TenantTx, tenantId: string, key: FeatureKey): Promise<boolean>
   limit(tx: TenantTx, tenantId: string, key: LimitKey): Promise<number | null>
+  /** Live subscription status, when the source knows it (null: not enforced / no subscriptions). */
+  status?(tx: TenantTx, tenantId: string): Promise<SubscriptionStatus | null>
 }
 
 /** Phase 10 source: everything enabled, nothing limited. */
@@ -108,6 +111,11 @@ export class EntitlementsService {
         current,
       })
     }
+  }
+
+  /** Live status (e.g. EXPIRED for a trial past its end before the job moves it); null if unknown. */
+  async subscriptionStatus(tx: TenantTx, tenantId: string): Promise<SubscriptionStatus | null> {
+    return (await this.source.status?.(tx, tenantId)) ?? null
   }
 
   /** TRIALING (unexpired) or ACTIVE (P11-D6). Expired workspaces keep operating, but don't grow. */

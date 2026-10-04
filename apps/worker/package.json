@@ -13,6 +13,8 @@
     "watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "dlq": "node dist/cli/replay-dlq.js",
     "wallet:credit": "node dist/cli/wallet-credit.js",
+    "subscription:activate": "node dist/cli/subscription-activate.js",
+    "entitlement:override": "node dist/cli/entitlement-override.js",
     "billing:mode": "node dist/cli/billing-mode.js"
   },
   "dependencies": {

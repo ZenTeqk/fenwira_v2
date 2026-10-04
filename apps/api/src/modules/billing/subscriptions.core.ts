@@ -169,3 +169,96 @@ async function audit(
     },
   })
 }
+
+/** Keep a shrinking analytics window for this long before the nightly job purges (P11-D28). */
+export const RETENTION_GRACE_DAYS = 30
+
+/**
+ * Activates (or changes) a plan — the operator action behind P11-D24. Effective immediately
+ * (P11-D26): no data touched; anything above the new limits is simply over limit. When the new
+ * plan keeps less analytics history, the old window is kept as an expiring override for
+ * RETENTION_GRACE_DAYS (P11-D28), so nothing is purged the night of a downgrade.
+ */
+export async function activatePlan(
+  tx: TenantTx,
+  tenantId: string,
+  planKey: string,
+  now: Date,
+  actor: { type: 'SYSTEM' | 'USER'; id?: string | null; note?: string },
+  /** Whose entitlements a trial (or an expired trial) had — for the retention grace. */
+  trialPlanKey?: string,
+): Promise<{ from: string | null; to: string }> {
+  const plan = await tx.plan.findUnique({
+    where: { key: planKey },
+    include: { entitlements: true },
+  })
+  if (!plan) throw new Error(`Unknown plan "${planKey}"`)
+  const sub = await tx.subscription.findUnique({
+    where: { tenantId },
+    include: { plan: { include: { entitlements: true } } },
+  })
+  const trialPlan =
+    !sub?.plan && trialPlanKey
+      ? await tx.plan.findUnique({ where: { key: trialPlanKey }, include: { entitlements: true } })
+      : null
+  const oldRetention = retentionOf(sub?.plan?.entitlements ?? trialPlan?.entitlements)
+  const newRetention = retentionOf(plan.entitlements)
+  await tx.subscription.upsert({
+    where: { tenantId },
+    create: {
+      tenantId,
+      planId: plan.id,
+      status: 'ACTIVE',
+      currentPeriodStart: now,
+      currentPeriodEnd: addMonth(now),
+    },
+    update: {
+      planId: plan.id,
+      status: 'ACTIVE',
+      requestedPlanId: null,
+      requestedAt: null,
+      cancelAtPeriodEnd: false,
+      expiredAt: null,
+      cancelledAt: null,
+      currentPeriodStart: now,
+      currentPeriodEnd: addMonth(now),
+    },
+  })
+  if (oldRetention !== undefined && shrinks(oldRetention, newRetention))
+    await tx.tenantEntitlementOverride.upsert({
+      where: { tenantId_key: { tenantId, key: 'analytics_retention' } },
+      create: {
+        tenantId,
+        key: 'analytics_retention',
+        value: oldRetention as never,
+        reason: `Retention grace after plan change (${RETENTION_GRACE_DAYS} days)`,
+        expiresAt: new Date(now.getTime() + RETENTION_GRACE_DAYS * DAY),
+      },
+      update: {
+        value: oldRetention as never,
+        expiresAt: new Date(now.getTime() + RETENTION_GRACE_DAYS * DAY),
+      },
+    })
+  const from = sub?.plan?.key ?? null
+  await tx.auditLog.create({
+    data: {
+      tenantId,
+      actorType: actor.type,
+      actorId: actor.id ?? null,
+      action: from && from !== plan.key ? 'subscription.plan_changed' : 'subscription.activated',
+      targetType: 'subscription',
+      targetId: sub?.id ?? null,
+      changes: { from, to: plan.key, ...(actor.note ? { note: actor.note } : {}) } as never,
+    },
+  })
+  return { from, to: plan.key }
+}
+
+const retentionOf = (ents?: Array<{ key: string; value: unknown }>): number | null | undefined => {
+  if (!ents) return undefined
+  const v = ents.find((e) => e.key === 'analytics_retention')?.value
+  return typeof v === 'number' ? v : null
+}
+/** null = unlimited. */
+const shrinks = (from: number | null, to: number | null | undefined) =>
+  to !== undefined && to !== null && (from === null || to < from)

@@ -1,4 +1,4 @@
-import { BillingMaintenanceProcessor } from '@fenwira/api/modules/billing'
+import { activatePlan, BillingMaintenanceProcessor } from '@fenwira/api/modules/billing'
 import { WebhookEventsProcessor } from '@fenwira/api/modules/webhooks'
 import { Database } from '@fenwira/database'
 import {
@@ -330,5 +330,97 @@ describe('Phase 11 Step 4: API and webhooks suspended by plan', { timeout: 60_00
     expect(await processor.fanOut({ ...event, eventId: crypto.randomUUID() })).toMatch(
       /^fanned-out:1/,
     )
+  })
+})
+
+const activate = (tenantId: string, plan: string) =>
+  db.withTenant(tenantId, (tx) =>
+    activatePlan(tx, tenantId, plan, new Date(), { type: 'SYSTEM' }, 'GROWTH'),
+  )
+
+describe('Phase 11 Step 4: plans, subscription and entitlements API', { timeout: 90_000 }, () => {
+  it('lists plans as data with no price; entitlements report usage and over-limit', async () => {
+    const owner = await createOwner(api, 'sub-api')
+    const plans = (await owner.client.get('/billing/plans')).body.data as Array<{
+      key: string
+      price: unknown
+      entitlements: Record<string, unknown>
+    }>
+    expect(plans.map((p) => p.key)).toEqual(['STARTER', 'GROWTH', 'BUSINESS'])
+    expect(plans.every((p) => p.price === null)).toBe(true)
+    expect(plans[0]!.entitlements).toMatchObject({ max_contacts: 5000, api_enabled: false })
+
+    await owner.client.post('/contacts', { phone: phone() })
+    await override(owner.tenantId, 'max_contacts', 0)
+    const ents = (await owner.client.get('/billing/entitlements')).body.data as Array<{
+      key: string
+      limit: number | null
+      usage: number | null
+      overLimit: boolean
+    }>
+    expect(ents.find((e) => e.key === 'max_contacts')).toMatchObject({
+      limit: 0,
+      usage: 1,
+      overLimit: true,
+    })
+
+    const status = (await owner.client.get('/workspace/status')).body.data
+    expect(status.subscription).toMatchObject({ status: 'TRIALING' })
+    expect(status.subscription.trialDaysLeft).toBeGreaterThan(0)
+    expect(status.wallet).toBeDefined()
+  })
+
+  it('OWNER requests a plan; an operator activates it; access returns', async () => {
+    const owner = await createOwner(api, 'sub-request')
+    const key = await owner.client.post('/api-keys', { name: 'k', scopes: ['contacts.read'] })
+    const token = key.body.data.secret as string
+    await setSub(owner.tenantId, { status: 'EXPIRED', trialEndsAt: new Date(Date.now() - 1000) })
+    const call = () =>
+      owner.client.agent
+        .post('/api/v1/contacts/search')
+        .set({ Authorization: `Bearer ${token}` })
+        .send({})
+    expect((await call()).status).toBe(403)
+
+    const growth = (
+      (await owner.client.get('/billing/plans')).body.data as Array<{ id: string; key: string }>
+    ).find((p) => p.key === 'GROWTH')!
+    const req = await owner.client.post('/billing/subscription/request', { planId: growth.id })
+    expect(req.status).toBe(200)
+    expect(req.body.data).toMatchObject({ status: 'EXPIRED', requestedPlan: { key: 'GROWTH' } })
+
+    await activate(owner.tenantId, 'GROWTH')
+    const sub = (await owner.client.get('/billing/subscription')).body.data
+    expect(sub).toMatchObject({ status: 'ACTIVE', plan: { key: 'GROWTH' }, requestedPlan: null })
+    expect((await call()).status).toBe(200)
+    const audit = await owner.client.get('/audit-logs?action=subscription.')
+    const actions = audit.body.data.map((a: { action: string }) => a.action)
+    expect(actions).toEqual(
+      expect.arrayContaining(['subscription.plan_requested', 'subscription.activated']),
+    )
+  })
+
+  it('a downgrade keeps the old analytics window for 30 days (P11-D28)', async () => {
+    const owner = await createOwner(api, 'sub-retention')
+    await activate(owner.tenantId, 'BUSINESS')
+    await activate(owner.tenantId, 'STARTER')
+    const grace = await db.withTenant(owner.tenantId, (tx) =>
+      tx.tenantEntitlementOverride.findUniqueOrThrow({
+        where: { tenantId_key: { tenantId: owner.tenantId, key: 'analytics_retention' } },
+      }),
+    )
+    expect(grace.value).toBe(365)
+    const days = (grace.expiresAt!.getTime() - Date.now()) / 86_400_000
+    expect(days).toBeGreaterThan(29)
+    expect(days).toBeLessThanOrEqual(30)
+    // Everything else follows STARTER immediately (P11-D26).
+    const ents = (await owner.client.get('/billing/entitlements')).body.data as Array<{
+      key: string
+      limit: number | null
+      enabled: boolean | null
+    }>
+    expect(ents.find((e) => e.key === 'max_contacts')!.limit).toBe(5000)
+    expect(ents.find((e) => e.key === 'api_enabled')!.enabled).toBe(false)
+    expect(ents.find((e) => e.key === 'analytics_retention')!.limit).toBe(365)
   })
 })

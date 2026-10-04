@@ -43,6 +43,7 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'wallet.recovered': [QUEUES.notificationsDispatch],
   // Only a first funding that is already low notifies anyone (P11-D21).
   'wallet.funded': [QUEUES.notificationsDispatch],
+  'subscription.plan_requested': [QUEUES.notificationsDispatch],
   // Auto-assign (round robin) on open; analytics records the episode.
   'conversation.opened': [QUEUES.inboxEvents, QUEUES.analyticsEvents, QUEUES.webhooksDeliver],
   'conversation.assigned': [QUEUES.analyticsEvents, QUEUES.webhooksDeliver],
