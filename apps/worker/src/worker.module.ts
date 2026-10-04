@@ -69,6 +69,11 @@ export function coreConfigFromWorkerEnv(env: WorkerEnv): CoreConfig {
     dbPoolSize: env.DB_POOL_SIZE,
     redisUrl: env.REDIS_URL,
     storage: storageConfigFromEnv(env),
+    entitlements: {
+      enforced: env.BILLING_SUBSCRIPTIONS_ENFORCED,
+      trialDays: env.BILLING_TRIAL_DAYS,
+      trialPlanKey: env.BILLING_TRIAL_PLAN,
+    },
   }
 }
 

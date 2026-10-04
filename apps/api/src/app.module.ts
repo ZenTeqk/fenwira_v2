@@ -44,6 +44,11 @@ export function coreConfigFromApiEnv(
     webOrigin: env.WEB_ORIGIN,
     storage: storageConfigFromEnv(env),
     metricsPort: env.METRICS_PORT,
+    entitlements: {
+      enforced: env.BILLING_SUBSCRIPTIONS_ENFORCED,
+      trialDays: env.BILLING_TRIAL_DAYS,
+      trialPlanKey: env.BILLING_TRIAL_PLAN,
+    },
   }
 }
 

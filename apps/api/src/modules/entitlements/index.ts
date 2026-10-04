@@ -7,3 +7,9 @@ export {
   type EntitlementSource,
   EntitlementsService,
 } from './entitlements.service'
+export {
+  type EntitlementOptions,
+  type ResolvedEntitlements,
+  SUBSCRIPTION_ACTIVE,
+  SubscriptionEntitlementSource,
+} from './subscription-entitlement.source'

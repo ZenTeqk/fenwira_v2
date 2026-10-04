@@ -30,6 +30,8 @@ export type CoreConfig = {
   storage?: StorageConfig
   /** API only: internal /metrics listener port (never published). Unset = off. */
   metricsPort?: number
+  /** Phase 11 Step 4: how EntitlementsService resolves entitlements (docs/BILLING.md → Plans). */
+  entitlements?: { enforced: boolean; trialDays: number; trialPlanKey: string }
   /** Tests only: capture log output (default stdout). */
   logDestination?: DestinationStream
 }

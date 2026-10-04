@@ -1,24 +1,21 @@
 import { type TenantTx } from '@fenwira/database'
+import {
+  type CapabilityKey,
+  type EntitlementKey as ContractEntitlementKey,
+  type LimitKey as ContractLimitKey,
+} from '@fenwira/contracts'
 import { Inject, Injectable, Optional } from '@nestjs/common'
+import { AppError } from '../../core/http/app-error'
+import { SUBSCRIPTION_ACTIVE } from './subscription-entitlement.source'
 
 /**
- * Entitlement keys (decision P10-D3). Code asks about capabilities and limits, never about plan
- * names; which plan grants what is data owned by the source (Phase 11 plugs in plan data).
+ * Entitlement keys (decision P10-D3; catalog in @fenwira/contracts → subscriptions). Code asks about
+ * capabilities and limits, never about plan names; which plan grants what is data owned by the
+ * source (Phase 11 Step 4: SubscriptionEntitlementSource).
  */
-export type EntitlementKey =
-  | 'automation_enabled'
-  | 'max_active_flows'
-  /** Automation executions a tenant may start per calendar month (UTC). */
-  | 'automation_execution_limit'
-  /** P11-D15: days of product-analytics history kept (plan data: 30 / 90 / 365). */
-  | 'analytics_retention'
-  /** P11-D18: the public API surface is reachable at all (plan data: GROWTH/BUSINESS). */
-  | 'api_enabled'
-  /** P11-D18: outbound webhooks may be configured (plan data: GROWTH/BUSINESS). */
-  | 'webhooks_enabled'
-
-type FeatureKey = Extract<EntitlementKey, 'automation_enabled' | 'api_enabled' | 'webhooks_enabled'>
-type LimitKey = Exclude<EntitlementKey, FeatureKey>
+export type EntitlementKey = ContractEntitlementKey
+type FeatureKey = CapabilityKey | typeof SUBSCRIPTION_ACTIVE
+type LimitKey = ContractLimitKey
 
 /** Where entitlements come from. A limit of `null` means unlimited. */
 export interface EntitlementSource {
@@ -51,11 +48,79 @@ export class EntitlementsService {
     this.source = source
   }
 
+  /** Whether a capability is on (unset ⇒ on). */
+  isEnabled(tx: TenantTx, tenantId: string, key: FeatureKey): Promise<boolean> {
+    return this.source.enabled(tx, tenantId, key)
+  }
+
+  /** A numeric limit (null ⇒ unlimited). */
+  getLimit(tx: TenantTx, tenantId: string, key: LimitKey): Promise<number | null> {
+    return this.source.limit(tx, tenantId, key)
+  }
+
+  /**
+   * Current usage of a quantitative limit (docs/BILLING.md → Limits). `null` for limits that are
+   * enforced elsewhere by their own counters (executions per month, retention days).
+   */
+  async usage(tx: TenantTx, key: LimitKey): Promise<number | null> {
+    switch (key) {
+      case 'max_users': {
+        const [members, invites] = await Promise.all([
+          tx.membership.count({ where: { status: 'ACTIVE' } }),
+          tx.invitation.count({
+            where: {
+              status: 'PENDING',
+              OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+            },
+          }),
+        ])
+        return members + invites
+      }
+      case 'max_contacts':
+        return tx.contact.count({ where: { deletedAt: null } })
+      case 'max_active_flows':
+        return tx.flow.count({ where: { status: 'ACTIVE', deletedAt: null } })
+      default:
+        return null
+    }
+  }
+
+  /**
+   * Refuses user-initiated growth past a limit with 422 LIMIT_EXCEEDED {key, limit, current}.
+   * Takes a transaction-scoped advisory lock per tenant and key first, so concurrent creates at
+   * `limit - 1` serialize and exactly one wins. Inbound paths never call this (P11-D16): a
+   * customer writing in is never refused or dropped to enforce a commercial limit.
+   */
+  async assertWithin(tx: TenantTx, tenantId: string, key: LimitKey, increment = 1): Promise<void> {
+    const limit = await this.source.limit(tx, tenantId, key)
+    if (limit === null) return
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:${key}`}))`
+    const current = (await this.usage(tx, key)) ?? 0
+    if (current + increment > limit)
+      throw new AppError('LIMIT_EXCEEDED', 422, limitMessage(key, limit), {
+        key,
+        limit,
+        current,
+      })
+  }
+
+  /** TRIALING (unexpired) or ACTIVE (P11-D6). Expired workspaces keep operating, but don't grow. */
+  subscriptionActive(tx: TenantTx, tenantId: string): Promise<boolean> {
+    return this.source.enabled(tx, tenantId, SUBSCRIPTION_ACTIVE)
+  }
+
   async canPublishFlow(
     tx: TenantTx,
     tenantId: string,
     alreadyActive: boolean,
   ): Promise<EntitlementDecision> {
+    if (!alreadyActive && !(await this.subscriptionActive(tx, tenantId)))
+      return {
+        allowed: false,
+        key: 'automation_enabled',
+        message:
+          'This workspace’s trial or subscription has ended. Choose a plan to publish automations.',
+      }
     if (!(await this.source.enabled(tx, tenantId, 'automation_enabled')))
       return {
         allowed: false,
@@ -111,5 +176,19 @@ export class EntitlementsService {
           limit: max,
           message: `The monthly automation limit (${max}) is reached.`,
         }
+  }
+}
+
+function limitMessage(key: LimitKey, limit: number): string {
+  const n = limit.toLocaleString('en-IN')
+  switch (key) {
+    case 'max_users':
+      return `Your plan allows ${n} team members. Remove someone or change plan to add more.`
+    case 'max_contacts':
+      return `Your plan allows ${n} contacts. Delete contacts or change plan to add more.`
+    case 'max_active_flows':
+      return `Your plan allows ${n} active automations. Pause one or change plan to publish another.`
+    default:
+      return `Your plan's limit (${n}) is reached.`
   }
 }

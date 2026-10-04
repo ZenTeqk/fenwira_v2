@@ -39,6 +39,15 @@ const optionalString = z
 export const baseEnvSchema = z.object({
   /** B3/B4: billable sends reserve wallet funds. Off until billing launches (docs/BILLING.md). */
   BILLING_ENFORCED: booleanString.default(false),
+  /**
+   * Phase 11 Step 4: plans/subscriptions drive entitlements. Off = every workspace is allow-all
+   * (the pre-Step-4 behaviour), so local development and existing tests are never limited.
+   */
+  BILLING_SUBSCRIPTIONS_ENFORCED: booleanString.default(false),
+  /** P11-D5 `billing.trial_days`. */
+  BILLING_TRIAL_DAYS: z.coerce.number().int().min(1).max(365).default(14),
+  /** P11-D5 `billing.trial_entitlements_plan`: whose entitlements a trial resolves to (data). */
+  BILLING_TRIAL_PLAN: z.string().min(1).default('GROWTH'),
   /** P9-D1: credit (minor units) granted once to a new TRIAL tenant's wallet. 0 = none. */
   TRIAL_CREDIT_MINOR: z.coerce.number().int().min(0).default(0),
   /**
