@@ -131,7 +131,7 @@ A few routes behave slightly differently under key auth than under a human sessi
 ```bash
 curl https://api.fenwira.com/api/v1/contacts/search \
   -X POST \
-  -H "Authorization: Bearer fw_a1b2c3d4_Jk8xQ2mN9pL4vR7tY1wZ3cF6hB0sD5eG" \
+  -H "Authorization: Bearer fw_<prefix>_<secret>" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -169,7 +169,7 @@ POST /api/v1/api-keys
       "lastUsedAt": null, "expiresAt": "2027-01-01T00:00:00.000Z",
       "revokedAt": null, "createdAt": "2026-10-04T12:00:00.000Z"
     },
-    "secret": "fw_a1b2c3d4_Jk8xQ2mN9pL4vR7tY1wZ3cF6hB0sD5eG"
+    "secret": "fw_<prefix>_<secret>"
   }
 }
 ```
