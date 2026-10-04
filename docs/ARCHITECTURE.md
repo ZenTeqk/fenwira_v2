@@ -118,18 +118,18 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `identity.password_reset.requested` | identity (platform event) | `userId` | `identity.events` |
 | `tenancy.invitation.sent` | tenancy | `invitationId` | `tenancy.events` |
 | `message.outbound.requested` | messaging (`MessagingService.send`) | `messageId` | `whatsapp.outbound` |
-| `message.inbound.received` | messaging (inbound processor) | `messageId, conversationId, contactId, text?` | `contacts.events` (opt-in/out keywords), `automation.trigger`, `analytics.events` |
-| `message.status.changed` | messaging (status processor) | `messageId, from, to, errorCode?, pricing?` | `campaign.events`, `analytics.events`, `billing.usage`, `contacts.events` (on 131050) |
-| `conversation.opened` | messaging | `conversationId, contactId, messageId?` (the opening customer message, since Phase 11) | `analytics.events`, `inbox.events` (auto-assign) |
-| `conversation.assigned` | inbox | `conversationId, assigneeId, previousAssigneeId?` | `notifications.dispatch` |
+| `message.inbound.received` | messaging (inbound processor) | `messageId, conversationId, contactId, text?` | `contacts.events` (opt-in/out keywords), `automation.trigger`, `analytics.events`, `webhooks.deliver` |
+| `message.status.changed` | messaging (status processor) | `messageId, from, to, errorCode?, pricing?` | `campaign.events`, `analytics.events`, `billing.usage`, `contacts.events` (on 131050), `webhooks.deliver` |
+| `conversation.opened` | messaging | `conversationId, contactId, messageId?` (the opening customer message, since Phase 11) | `analytics.events`, `inbox.events` (auto-assign), `webhooks.deliver` |
+| `conversation.assigned` | inbox | `conversationId, assigneeId, previousAssigneeId?` | `notifications.dispatch`, `webhooks.deliver` |
 | `conversation.automation_state.changed` | inbox, messaging (an agent's first reply) | `conversationId, from, to, actorId?` | `automation.trigger` (stops the conversation's executions, P10-D2) |
-| `contact.created` | contacts, messaging (first message from a new number), automation webhook | `contactId, source` | `automation.trigger`, `analytics.events` |
-| `contact.updated` | contacts | `contactId, changedFields[]` | `automation.trigger` |
+| `contact.created` | contacts, messaging (first message from a new number), automation webhook | `contactId, source` | `automation.trigger`, `analytics.events`, `webhooks.deliver` |
+| `contact.updated` | contacts | `contactId, changedFields[]` | `automation.trigger`, `webhooks.deliver` |
 | `consent.changed` | contacts | `contactId, purpose, status, source` | `analytics.events` |
 | `template.status.changed` | templates | `templateVersionId, from, to, reason?` | `notifications.dispatch` |
 | `campaign.launched` | campaigns | `campaignId` | `campaign.dispatch`, `analytics.events` |
-| `campaign.completed` | campaigns | `campaignId, counts` | `notifications.dispatch`, `analytics.events` |
-| `automation.execution.finished` | automation (`finishExecution`, in the terminal-state transaction; Phase 11) | `executionId, flowId, status` | `analytics.events` |
+| `campaign.completed` | campaigns | `campaignId, counts` | `notifications.dispatch`, `analytics.events`, `webhooks.deliver` |
+| `automation.execution.finished` | automation (`finishExecution`, in the terminal-state transaction; Phase 11) | `executionId, flowId, status` | `analytics.events`, `webhooks.deliver` |
 | `wallet.low_balance` | billing (on a crossing into LOW_BALANCE or INSUFFICIENT_FUNDS, P11-D12) | `walletId, from, to, availableMinor, currency` | `notifications.dispatch` |
 | `wallet.funded` | billing (an unfunded wallet's first available funds, P11-D21) | `walletId, to, availableMinor, currency` | `notifications.dispatch` |
 | `wallet.recovered` | billing (a funded wallet crossing back to NORMAL) | `walletId, from, availableMinor, currency` | `notifications.dispatch` |
@@ -162,7 +162,8 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `billing.usage` | outbox relay | Price billable messages, debit the wallet | 5 |
 | `billing.maintenance` | repeatable scheduler | Stale-reservation recovery (every 5 min, X17), daily ledger check (02:15 UTC, X18) | 1 |
 | `notifications.dispatch` | outbox relay | In-app notification + email (wallet crossings since Phase 11) | 5 |
-| `webhooks.deliver` | outbox relay (Phase 11) | Tenant outbound webhooks | 10 |
+| `webhooks.deliver` | outbox relay (Phase 11 Step 3) | Tenant outbound webhooks: fan-out (idempotent, by domain event) and per-attempt delivery, two job kinds sharing one queue | 10 |
+| `webhooks.maintenance` | repeatable scheduler | Delivery retention (30 days, nightly 03:30 UTC, X19) | 1 |
 | `system.maintenance` | repeatable scheduler | Retention cleanup, idempotency key expiry, rollups | 1 |
 | `system.ping` | health/test | End-to-end queue check | 1 |
 

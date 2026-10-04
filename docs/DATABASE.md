@@ -542,17 +542,24 @@ analytics_daily_rollups                         T
   tenant_id, day date, metric text, dims_key text, value numeric
   pk (tenant_id, day, metric, dims_key)
 
-api_keys                                        T
-  id, tenant_id, name, prefix text unique (8 chars), key_hash bytea (sha256 of secret, + pepper)
-  scopes text[] (permission keys), created_by, last_used_at null, expires_at null, revoked_at null, created_at
+api_keys                                        T   (implemented, migration 20261007000000_api_keys_webhooks)
+  id, tenant_id, name, prefix char(8) unique, key_hash bytea (sha256 of secret + API_KEY_PEPPER)
+  scopes text[] (permission keys, from API_KEY_SCOPES only), created_by null, last_used_at null
+  expires_at null, revoked_at null, revoked_by null, created_at
+  idx (tenant_id, revoked_at)
 
 webhook_endpoints                               T SD
-  id, tenant_id, url text, secret_ciphertext bytea, events text[], status (ACTIVE|DISABLED)
-  failure_count int, created_at, updated_at, deleted_at
+  id, tenant_id, name, url text, secret_ciphertext bytea, events text[], status (ACTIVE|DISABLED)
+  failure_count int default 0, created_by null, created_at, updated_at, deleted_at
+  idx (tenant_id, status)
 
-webhook_deliveries                              T   (retention 30d)
-  id, tenant_id, endpoint_id, event_id uuid, event_type, attempt int, status (PENDING|SUCCEEDED|FAILED)
-  response_status int null, duration_ms int null, next_attempt_at null, created_at
+webhook_deliveries                              T   (retention 30d, own purge job — not system.purge_expired)
+  id, tenant_id, endpoint_id, event_id uuid, event_type text, payload jsonb (the external payload sent)
+  attempt int default 1, status (PENDING|SUCCEEDED|FAILED)
+  response_status int null, response_body text null, duration_ms int null, error_code text null
+  next_attempt_at null, created_at
+  unique (endpoint_id, event_id)   -- idempotent fan-out: a redelivered event reuses this row
+  idx (tenant_id, endpoint_id, created_at desc)
 ```
 
 ## Retention
@@ -564,7 +571,7 @@ The retention categories, and what happens to each at tenant deletion, are in `D
 | `webhook_events` | 30 days | `system.purge_expired` |
 | `outbox_events` DISPATCHED | 7 days | `system.purge_expired` |
 | `idempotency_keys` | 24 hours | `system.purge_expired` |
-| `webhook_deliveries` | 30 days | `system.purge_expired` |
+| `webhook_deliveries` | 30 days | Nightly worker job, per tenant: `system.tenants_with_stale_webhook_deliveries` + `system.purge_webhook_deliveries` (its own functions, not `system.purge_expired`) |
 | `analytics_events` and the other analytics projections | Per `analytics_retention` entitlement | Nightly analytics retention (`ANALYTICS.md`) |
 | `audit_logs` | ≥ 1 year | Never auto-purged in v2 |
 | Messages, contacts | Until the contact is deleted, or the tenant is purged | Contact soft delete; tenant purge (below) |

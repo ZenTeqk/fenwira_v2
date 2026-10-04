@@ -18,8 +18,8 @@ Conventions for every HTTP endpoint, plus the endpoint inventory per phase. Requ
 | Header / cookie | Purpose |
 | --- | --- |
 | `fw_at` cookie | User access token (see `SECURITY.md`) |
-| `Authorization: Bearer fw_live_…` | API key (alternative to cookies) |
-| `X-Tenant-Id` | Required on tenant-scoped routes for cookie auth. Ignored for API keys. |
+| `Authorization: Bearer fw_<prefix>_<secret>` | API key (alternative to cookies, `docs/API_KEYS.md`); runs through a separate guard ahead of the cookie guards, decides the request alone when present |
+| `X-Tenant-Id` | Required on tenant-scoped routes for cookie auth. Ignored for API keys — the key's own tenant is resolved from its prefix. |
 | `X-CSRF-Token` | Required on cookie-authenticated mutations. The `fw_csrf` cookie is HttpOnly; clients get the value from login/refresh/`/auth/me` bodies. |
 | `X-Correlation-Id` | Optional inbound, always returned |
 | `Idempotency-Key` | Required on the endpoints marked **IK**, optional elsewhere on POST |
@@ -326,14 +326,20 @@ Implemented in Phase 10:
 | GET | `/analytics/overview`, `/analytics/messaging`, `/analytics/campaigns`, `/analytics/inbox`, `/analytics/automations` | `analytics.read`. `?from&to` or `?days`, `compare` (Phase 11 Step 2, `ANALYTICS.md` → API) |
 | GET | `/analytics/usage` | `billing.read` (money) |
 | GET | `/contacts/:id/campaigns` | `campaigns.read`. Contact → Campaigns, cursor-paged |
-| CRUD | `/api-keys` | `integrations.manage` |
-| CRUD | `/webhook-endpoints`, GET `/webhook-endpoints/:id/deliveries`, POST `…/test` | `integrations.manage` |
+| GET, POST | `/api-keys` | `integrations.manage` |
+| DELETE | `/api-keys/:id` | `integrations.manage` |
+| GET, POST, PATCH, DELETE | `/webhook-endpoints`, `/webhook-endpoints/:id` | `integrations.manage` |
+| POST | `/webhook-endpoints/:id/rotate-secret`, `/webhook-endpoints/:id/test` | `integrations.manage` |
+| GET | `/webhook-endpoints/:id/deliveries`, `/webhook-endpoints/:id/deliveries/:deliveryId` | `integrations.manage` |
+| POST | `/webhook-endpoints/:id/deliveries/:deliveryId/retry` | `integrations.manage` |
 
 Implemented in Phase 11 Step 1 (`BILLING.md` → Wallet state, Transactions API):
 - `GET /billing/wallet` adds `support {email, url}` (P11-D20, null when not configured), `state` (`NORMAL`, `LOW_BALANCE`, `INSUFFICIENT_FUNDS`, `NOT_ENFORCED`, decision P11-D12), `lowBalanceThresholdMinor` and `spentThisMonthMinor` (usage debits since the 1st, UTC). Clients render `state`; they never compare amounts.
 - `GET /workspace/status` for the shell and dashboard.
 - `GET /billing/wallet/transactions?type=CREDIT|DEBIT|ADJUSTMENT|REFUND&from&to&cursor&limit` → `{data: [{id, type, fundType, amountMinor, balanceAfterMinor, currency, reason, referenceType, referenceId, expiresAt, createdAt}], page}`.
 - `POST /billing/wallet/transactions/export {type?, from?, to?}` → `text/csv`; 422 `EXPORT_TOO_LARGE` above 50 000 rows.
+
+Implemented in Phase 11 Step 3 (`docs/API_KEYS.md`, `docs/WEBHOOKS.md`): tenant API keys and outbound webhooks, both `integrations.manage`-only (never reachable by an API key — a key can never create or manage other keys or webhook endpoints). A separate, fixed subset of `/api/v1` is also reachable with `Authorization: Bearer fw_<prefix>_<secret>` instead of a session cookie — the public API route allowlist in `docs/API_KEYS.md`. Non-allowlisted routes answer `404`, never `403`, to a key.
 
 Implemented in Phase 11 Step 2 (`ANALYTICS.md`): the six analytics views share the range contract (`from`/`to` workspace-local days, or `days`; `compare`) and return `meta {range, previous, timezone, today, partial, retention, freshness}`. Validation errors (from after to, more than 366 days) are 400 `VALIDATION_FAILED`. Daily granularity only; `/analytics/messages` and `/analytics/agents` from the draft became `/analytics/messaging` and `/analytics/inbox`. The Overview's charge is null without `billing.read`.
 

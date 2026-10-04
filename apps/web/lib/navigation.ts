@@ -235,8 +235,20 @@ export const NAVIGATION: NavItem[] = [
         phase: 4,
         permission: 'whatsapp.read',
       },
-      { id: 'integrations-webhooks', label: 'Webhooks', href: '/integrations/webhooks', phase: 11 },
-      { id: 'integrations-api', label: 'API', href: '/integrations/api', phase: 11 },
+      {
+        id: 'integrations-webhooks',
+        label: 'Webhooks',
+        href: '/integrations/webhooks',
+        phase: 11,
+        permission: 'integrations.manage',
+      },
+      {
+        id: 'integrations-api',
+        label: 'API',
+        href: '/integrations/api',
+        phase: 11,
+        permission: 'integrations.manage',
+      },
     ],
   },
   {

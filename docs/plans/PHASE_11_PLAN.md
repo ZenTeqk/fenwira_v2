@@ -3,7 +3,7 @@
 **Status:** approved (2026-09-28) with decisions P11-D2–D23 (§10). Progress:
 - **Step 1 closed** (accepted; commits 9cf05ce, dc9ba8f, plus P11-D20/D21). Regression: integration 205 database + 10 API + 145 worker (1 skipped perf probe), e2e 49 passed (1 skipped), Lighthouse a11y 100 on `/billing/wallet`.
 - **Step 2 closed** (accepted; commit 8194c2e, plus P11-D22/D23). Regression: integration 225 database + 10 API + 158/159 worker (the one failure, a verification-email timeout in `automation.int.test.ts`, is recorded as test/infrastructure flakiness — that file passed 18/18 in isolation, not an Analytics product failure), analytics suite 12/12, perf probe (300k messages) green, e2e 51 passed (1 skipped), Lighthouse a11y 100 on the six analytics views and the dashboard. Metric definitions (delivery/read/failure rate, zero-denominator display, first-teammate-reply) and known limitations (≈2 min lag, response-time history bounded by retention, campaigns attributed to their start day) are frozen in `ANALYTICS.md` and not reopened for Step 3.
-- **Step 3 (API keys, public routes, webhooks) in progress.**
+- **Step 3 closed** (API keys, public routes, outbound webhooks; `docs/API_KEYS.md`, `docs/WEBHOOKS.md`). Three real bugs found and fixed by the new integration tests before shipping: `system.resolve_api_key`'s column grant omitted `prefix` (would have broken every API-key request), webhook delivery idempotency used create-then-catch-P2002 which doesn't survive inside a Postgres transaction (replaced with an atomic upsert), and the webhook-endpoint URL contract wrongly duplicated the HTTPS/SSRF policy that belongs solely to `safeFetch`. Also fixed while hardening CI: 3 HIGH-severity production dependency CVEs (nodemailer, transitive `deepmerge-ts`). Regression: integration 237 database + 10 API + 181/183 worker (2 skipped perf probes), e2e 59 passed (1 skipped — the pre-existing visual-capture test), Lighthouse a11y 100 on both `/integrations/api` and `/integrations/webhooks`, WCAG 2.1 AA (axe) clean on every signed-in page including both. UI deliberately deviated from the original §5.1/§5.2 table (dense `DataTable`s) to integration cards, a guided creation flow and a tabbed detail page with a `DetailDrawer`, per explicit product direction during the step.
 
 Implementation proceeds in the §8 order. Production subscription prices, GST invoice issuance, a payment gateway and a permanent usage markup stay unbuilt until their values/rules are approved.
 **Inputs:** `docs/prompts/PHASE_11_BILLING_ANALYTICS.md`, `docs/BILLING.md`, `docs/DATABASE.md` → Billing / Analytics & developer, `docs/API_SPEC.md` → P11, `docs/MULTI_TENANCY.md` (X7, X9, X10), `docs/DATA_RETENTION.md`, `docs/OBSERVABILITY.md`, the decision register in `docs/PRODUCT.md` (B1–B4, P9-D1, P9-D2, API1, O1), and the Design System v1 contract (`docs/design/FENWIRA_DESIGN_SYSTEM.md`, `docs/design/UX_PATTERNS.md`, `docs/design/UI_AUDIT.md`, `AGENTS.md`).
@@ -205,6 +205,8 @@ Also in 11D:
 
 ## 11E — API, Webhooks & Administration
 
+**Implemented as planned**, with one deliberate deviation: scope membership is enforced by the Zod contract's enum (not a hand-rolled list check), the creator's-own-permissions check is defense-in-depth behind it, and the UI ended up as integration cards + a focused create dialog rather than a dense `DataTable`, per explicit product direction during Step 3 ("feel like a developer-product surface, not an administrative database table") — see the UI subsection below, which supersedes the table in the original plan.
+
 ### 5.1 Public API (decision API1)
 
 - API keys: `api_keys` per `DATABASE.md` (prefix + SHA-256 hash with a server pepper, shown once, scoped to permission keys, last-used, expiry, revocation). Auth `Authorization: Bearer fw_<prefix>_<secret>` via X7; revocation takes effect on the next request (no caching beyond the request).
@@ -232,13 +234,19 @@ Rules:
 - Not exposed: billing, platform, workspace/team/roles, WhatsApp connections, imports/exports, automations administration, audit logs, webhook management, notifications, and every mutation of campaigns and templates.
 - Per-key rate limits reuse the existing rate-limit service (values are operational configuration).
 
+**Implemented as planned**, with the allowlist's exact 15 routes pinned by `test/openapi.test.ts` against `docs/openapi.json`'s `x-public` flags, and `docs/API_KEYS.md` as the authoritative write-up of this table and its rules.
+
 ### 5.2 Outbound webhooks
 
 - `webhook_endpoints` / `webhook_deliveries` per `DATABASE.md`; events chosen from a public catalog (message status, inbound message, conversation assigned, campaign completed, contact created, automation finished).
 - Delivery by the `webhooks.deliver` queue using `safeFetch` (P10-D4: HTTPS, SSRF protection, redirects re-validated, timeouts, size caps), HMAC `X-Fenwira-Signature`, exponential retries for 24 h, then the endpoint is disabled after sustained failure with a notification. Deliveries are at-least-once with an `Idempotency-Key`/event id.
-- Delivery log retention 30 days (X9).
+- Delivery log retention 30 days (its own system functions, X19 — not reused from X9, which has different, analytics-specific semantics).
+
+**Implemented as planned**, with "Idempotency-Key"-style dedup done as an atomic DB `upsert` on `(endpoint_id, event_id)` rather than a separate idempotency-key table — same guarantee (a redelivered event never produces a second delivery row), one less moving part. `docs/WEBHOOKS.md` is the authoritative write-up.
 
 ### 5.3 Notifications
+
+**Implemented for webhooks:** an OWNER/ADMIN notification fires when an endpoint auto-disables (as planned). The other notification types listed here belong to other phases/steps and are tracked separately.
 
 The bell (Phase 7) gains: low balance / insufficient funds, template approved/rejected, campaign completed or paused, number disconnected or flagged, webhook endpoint disabled. Email copies go to members with the relevant permission. Operational alerts (stale reservations, ledger drift, webhook disablement spikes) go to the operations address (O1).
 
@@ -246,9 +254,9 @@ The bell (Phase 7) gains: low balance / insufficient funds, template approved/re
 
 | Screen | Route | Pattern | Components |
 | --- | --- | --- | --- |
-| API keys | `/integrations/api` | `ListPage` | `DataTable` (name, prefix, scopes, last used, status) with `RowActions` (revoke → `useConfirm` impact: "requests with this key stop immediately"); create dialog shows the secret once with copy |
-| Webhooks | `/integrations/webhooks` | `ListPage` | Endpoints table, status badges, create/edit dialog (URL, events, secret shown once) |
-| Webhook endpoint | `/integrations/webhooks/:id` | `DetailPage` | Summary strip, delivery log `DataTable` with `FilterBar` (status), redeliver action, test event |
+| API keys | `/integrations/api` | `ListPage` | **As implemented:** keys as cards (name, masked prefix, scope chips, last-used/created/expiry, status), Manage (read-only detail drawer) / Revoke (`useConfirm` impact: dependent integrations stop authenticating immediately); focused create dialog (name, a checklist of only the creator's own grantable scopes, expiration), ending in the one-time secret dialog |
+| Webhooks | `/integrations/webhooks` | `ListPage` | **As implemented:** endpoints as integration cards (status dot, URL, event-family count, health), not a table; 4-step guided creation (Endpoint URL → Events, grouped by family → Security, explanatory → Review), ending in the one-time secret dialog |
+| Webhook endpoint | `/integrations/webhooks/:id` | `DetailPage` | **As implemented:** Overview / Deliveries / Settings tabs; a delivery row opens a `DetailDrawer` (never a page navigation) with safe request/response metadata; a disabled endpoint shows a persistent danger banner (why, last success, how to recover); Settings holds edit, enable/disable, secret rotation (no overlap window, stated plainly) and delete |
 
 ---
 

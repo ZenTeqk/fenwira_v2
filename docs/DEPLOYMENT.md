@@ -130,7 +130,12 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 | `CAMPAIGN_BATCH_SIZE` | `50` | worker | 9 |
 | `PUBLIC_API_URL` | `http://localhost:4000` | api | 4 |
 | `COMPOSE_PROFILES`, `META_MOCK_PORT` | `meta-mock`, `4200` (local development only) | compose | 4 |
-| `API_KEY_PEPPER` | | api | 11 |
+| `API_KEY_PEPPER` | `development-only-api-key-pepper` (refused in production) | api | 11 Step 3 — server-side secret mixed into every key's hash (`docs/API_KEYS.md`) |
+| `API_KEY_RATE_LIMIT_PER_MINUTE` | `120` | api | 11 Step 3 |
+| `WEBHOOK_BACKOFF_MS` | `30000` | worker | 11 Step 3 — first retry delay, doubles each attempt up to 1h |
+| `WEBHOOK_MAX_RETRY_HOURS` | `24` (min `0.1`, max `168`) | worker | 11 Step 3 — a delivery older than this becomes terminally FAILED |
+| `WEBHOOK_DISABLE_AFTER_FAILURES` | `20` | worker | 11 Step 3 — consecutive terminal failures before auto-disable |
+| `AUTOMATION_WEBHOOK_DEV_HOSTS` | unset (refused in production) | api, worker | 10/11 — hostnames allowed `http:` + private addresses, shared by automation's webhook action and outbound webhooks (`docs/WEBHOOKS.md` → Development-host exception) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | | all | 12 |
 
 Each app validates its variables at boot with the Zod schemas in `packages/config/src/env.ts`. A missing or invalid variable stops the process with one message listing every problem.

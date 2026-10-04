@@ -82,11 +82,14 @@ Permission catalog and matrix (● = granted):
 - An actor cannot grant a role with a higher `rank` than their own, and cannot change their own role.
 - There is exactly one OWNER. Ownership transfer is atomic: the old OWNER becomes ADMIN.
 
-### API keys (Phase 11)
+### API keys (Phase 11 Step 3, `docs/API_KEYS.md`)
 
-- Format: `fw_live_{prefix8}_{secret32}` (base62). Only `sha256(secret + API_KEY_PEPPER)` is stored. The full key is shown once.
-- A key's scopes are a subset of the permission catalog and cannot exceed its creator's permissions at creation time.
-- Keys are rate-limited separately from user traffic.
+- Format: `fw_{prefix8}_{secret}` — an 8-character prefix (identification only, no entropy) and a 20–128-character URL-safe secret (256 bits). Only `sha256(pepper:secret)` is stored, verified with a constant-time compare; the full key is shown once, at creation.
+- A key's scopes are a fixed public-API catalog (`API_KEY_SCOPES`), never the full permission catalog, and can never exceed its creator's own permissions at creation time.
+- A key reaches only routes carrying both `@PublicApi()` and `@RequirePermission(...)`; anything else answers `404`, never `403` — the private surface is never discoverable by probing with a valid key.
+- Rate-limited per key (`API_KEY_RATE_LIMIT_PER_MINUTE`, default 120/minute), separately from human-session traffic.
+- Revocation is immediate and irreversible; expiry (optional) fails the same generic `401` as a wrong or revoked key, so a caller can never distinguish the two.
+- Audited as `actorType: 'API_KEY'`, never attributed to a human.
 
 ### Secret encryption
 
@@ -196,6 +199,8 @@ These describe what shipped where it refines the decisions above.
 - Credentials never follow a redirect to another origin (secret-looking headers are dropped). Credentials in the URL are refused.
 - The inbound webhook trigger's token is 256-bit and stored only as its SHA-256 (X8); the HMAC secret is encrypted with the app key ring and shown once. The browser API's CORS allow-list includes `If-Match` (draft saves) and exposes `ETag`.
 - Development exception: `AUTOMATION_WEBHOOK_DEV_HOSTS` (comma-separated host names) allows `http:` and private addresses **for those hosts only**. The env schema refuses it when `NODE_ENV=production`.
+- **Reused unchanged for tenant outbound webhooks (Phase 11 Step 3, `docs/WEBHOOKS.md`):** every protection above applies identically to `webhook_endpoints` deliveries — the same `safeFetch`/`validateDestination`, not a second HTTP client. The webhook-endpoint-URL contract (`packages/contracts/src/api/webhooks.ts`) is deliberately a plain bounded string rather than a `https`-only schema, so this is the *only* place the policy is enforced — a contract-level duplicate would have made the dev-host exception unreachable.
+- **Webhook signing:** every delivery carries `X-Fenwira-Signature: sha256=hmac_sha256(secret, "{timestamp}.{raw body}")`, `X-Fenwira-Timestamp`, `X-Fenwira-Event` and `X-Fenwira-Delivery`. Signing the timestamp is the replay protection (a captured delivery can't be replayed later with a forged newer timestamp without also forging the signature). Rotating a signing secret has no overlap window — the old secret stops verifying the moment rotation completes.
 
 ## Open questions
 

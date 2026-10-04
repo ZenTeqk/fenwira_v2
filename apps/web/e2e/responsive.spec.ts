@@ -8,9 +8,10 @@ const VIEWPORTS = [
 ]
 
 for (const vp of VIEWPORTS) {
-  for (const path of ['/dashboard', '/dev/ui']) {
+  for (const path of ['/dashboard', '/dev/ui', '/integrations/api', '/integrations/webhooks']) {
     test(`${path} has no horizontal scroll at ${vp.width}px`, async ({ page }) => {
-      if (path === '/dashboard') await signInAsNewOwner(page, `ui-rwd-${vp.width}`)
+      if (path !== '/dev/ui')
+        await signInAsNewOwner(page, `ui-rwd-${path.replace(/\W/g, '')}-${vp.width}`)
       await page.setViewportSize({ width: vp.width, height: vp.height })
       await page.goto(path)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()

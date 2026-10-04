@@ -25,7 +25,7 @@ Logging, correlation, metrics, tracing, health checks and alerting. Phases 1–1
 | `err` | pino error serializer (message, stack, code) |
 
 - HTTP access log: one line per request with `method`, `route` (the template, not the raw path), `status`, `durationMs`, `contentLength`. Query strings are never logged.
-- **Redaction** (central pino config): `req.headers.authorization`, `req.headers.cookie`, `res.headers["set-cookie"]`, `*.password`, `*.token`, `*.accessToken`, `*.secret`, `*.code` (OAuth), `*.pin`, `*.phone*`, `*.email`, `*.text`, `*.body`, `*.content`, `*.variables`. See the PII rules in `SECURITY.md`.
+- **Redaction** (central pino config): `req.headers.authorization`, `req.headers.cookie`, `res.headers["set-cookie"]`, `*.password`, `*.token`, `*.accessToken`, `*.secret`, `*.code` (OAuth), `*.pin`, `*.phone*`, `*.email`, `*.text`, `*.body`, `*.content`, `*.variables`. See the PII rules in `SECURITY.md`. This covers the `Authorization: Bearer fw_...` header on every API-key request and `*.secret` on webhook-endpoint create/rotate responses — an API key's secret and a webhook's signing secret are never written to a log line, by the same redaction rule, not a special case for Phase 11 Step 3.
 
 ### Correlation IDs
 
@@ -68,6 +68,10 @@ Logging, correlation, metrics, tracing, health checks and alerting. Phases 1–1
 | `ws_connections` | gauge | |
 | `db_pool_in_use` / `db_pool_waiting` | gauge | service |
 | `redis_memory_used_bytes` | gauge | (from INFO, polled) |
+| `api_key_requests_total` | counter | result (`ok` \| `unauthenticated` \| `not_found` \| `entitlement_required` \| `rate_limited` \| `error`) — every `ApiKeyGuard` outcome, including authentication failures and rate-limit events (Phase 11 Step 3, `docs/API_KEYS.md`) |
+| `webhook_deliveries_total` | counter | result (`succeeded` \| `retrying` \| `failed`) — each `WebhookEventsProcessor.send` outcome; sustained `retrying` growth without matching `succeeded` is the signal to check a specific endpoint's Deliveries tab (Phase 11 Step 3, `docs/WEBHOOKS.md`) |
+
+Queue backlog and failure signals for `webhooks.deliver` and `webhooks.maintenance` come from the generic `queue_depth`, `queue_job_duration_ms` and `queue_job_failures_total` rows above (labeled by `queue`) — no separate metric. Per-endpoint delivery success/failure/retry counts and disabled-endpoint state are not metrics (too high-cardinality); they're read from `webhook_endpoints.failure_count`/`status` and the `webhook_deliveries` rows themselves, surfaced in the endpoint detail page's Overview and Deliveries tabs, and in the OWNER/ADMIN notification sent on auto-disable.
 
 Labels **never** include tenantId, userId or other high-cardinality IDs. Per-tenant views come from analytics, not metrics.
 
