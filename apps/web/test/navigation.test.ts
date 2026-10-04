@@ -36,6 +36,7 @@ describe('navigation', () => {
     for (const leaf of flattenLeaves(visible))
       if (leaf.phase > SHIPPED_PHASE)
         expect([
+          'billing-subscription',
           'billing-wallet',
           'analytics-overview',
           'analytics-messaging',
@@ -58,6 +59,7 @@ describe('navigation', () => {
       'settings',
     ])
     expect(visible.find((i) => i.id === 'billing')!.children!.map((c) => c.label)).toEqual([
+      'Subscription',
       'Wallet',
     ])
     expect(visible.find((i) => i.id === 'automations')!.children!.map((c) => c.label)).toEqual([

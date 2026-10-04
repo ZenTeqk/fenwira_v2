@@ -19,6 +19,7 @@ import {
   useCommandPaletteShortcut,
 } from '@fenwira/ui'
 import Link from 'next/link'
+import { SubscriptionBanner } from '@/components/billing/subscription-banner'
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Shield } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
@@ -252,7 +253,10 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           {fullBleed ? (
             children
           ) : (
-            <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6">{children}</div>
+            <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 md:px-6">
+              <SubscriptionBanner />
+              <div>{children}</div>
+            </div>
           )}
         </main>
       </div>

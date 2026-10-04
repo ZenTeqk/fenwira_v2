@@ -8,7 +8,13 @@ const VIEWPORTS = [
 ]
 
 for (const vp of VIEWPORTS) {
-  for (const path of ['/dashboard', '/dev/ui', '/integrations/api', '/integrations/webhooks']) {
+  for (const path of [
+    '/dashboard',
+    '/dev/ui',
+    '/integrations/api',
+    '/integrations/webhooks',
+    '/billing/subscription',
+  ]) {
     test(`${path} has no horizontal scroll at ${vp.width}px`, async ({ page }) => {
       if (path !== '/dev/ui')
         await signInAsNewOwner(page, `ui-rwd-${path.replace(/\W/g, '')}-${vp.width}`)

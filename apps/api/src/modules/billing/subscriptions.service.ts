@@ -111,10 +111,19 @@ export class SubscriptionsService {
     return this.tenantDb.run(async (tx) => {
       const plan = await tx.plan.findFirst({ where: { id: planId, isPublic: true } })
       if (!plan) throw AppError.notFound('Plan not found.')
-      await this.read(tx, tenantId) // ensures the row exists (lazy trial)
-      const sub = await tx.subscription.update({
+      // The row may not exist yet (subscriptions not enforced): create it as the trial the
+      // workspace has, from its creation, then record the request.
+      const current = await this.read(tx, tenantId)
+      const requested = { requestedPlanId: plan.id, requestedAt: new Date() }
+      const sub = await tx.subscription.upsert({
         where: { tenantId },
-        data: { requestedPlanId: plan.id, requestedAt: new Date() },
+        create: {
+          tenantId,
+          status: 'TRIALING',
+          trialEndsAt: current.trialEndsAt ? new Date(current.trialEndsAt) : null,
+          ...requested,
+        },
+        update: requested,
       })
       await this.audit.write(tx, {
         action: 'subscription.plan_requested',
@@ -189,17 +198,18 @@ export class SubscriptionsService {
               (this.config.entitlements?.trialDays ?? 14) * DAY,
           ))
     const now = Date.now()
+    const resolved = status ?? sub?.status ?? 'TRIALING'
     const brief = (p: { id: string; key: string; name: string } | null | undefined) =>
       p ? { id: p.id, key: p.key, name: p.name } : null
     return {
-      status: status ?? sub?.status ?? 'TRIALING',
+      status: resolved,
       plan: brief(sub?.plan),
       requestedPlan: brief(sub?.requestedPlan),
       requestedAt: sub?.requestedAt?.toISOString() ?? null,
       interval: sub?.interval ?? 'MONTH',
       trialEndsAt: trialEndsAt?.toISOString() ?? null,
       trialDaysLeft:
-        trialEndsAt && (status ?? sub?.status) === 'TRIALING'
+        trialEndsAt && resolved === 'TRIALING'
           ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now) / DAY))
           : null,
       currentPeriodEnd: sub?.currentPeriodEnd?.toISOString() ?? null,

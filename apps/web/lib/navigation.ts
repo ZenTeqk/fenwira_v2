@@ -264,6 +264,7 @@ export const NAVIGATION: NavItem[] = [
         href: '/billing/subscription',
         phase: 11,
         permission: 'billing.read',
+        early: true,
       },
       {
         id: 'billing-wallet',

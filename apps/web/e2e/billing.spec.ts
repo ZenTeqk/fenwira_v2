@@ -27,11 +27,17 @@ test('Wallet: backend state, ledger, filters, CSV export, accessible', async ({ 
   const owner = await signInAsNewOwner(page, 'e2e-wallet')
   topUp(owner.tenantId, 250, 'E2E top-up')
 
-  // Billing is reachable from the sidebar (Phase 11 step 1 ships the Wallet page).
+  // Billing is reachable from the sidebar; it opens on Subscription (Phase 11 Step 4), and the
+  // Wallet is its own tab — subscription and wallet are separate concepts.
   await page.goto('/dashboard')
   await page
     .getByRole('navigation', { name: 'Main' })
     .getByRole('link', { name: 'Billing' })
+    .click()
+  await expect(page).toHaveURL(/\/billing\/subscription$/)
+  await page
+    .getByRole('navigation', { name: 'Billing pages' })
+    .getByRole('link', { name: 'Wallet' })
     .click()
   await expect(page).toHaveURL(/\/billing\/wallet$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Wallet' })).toBeVisible()
