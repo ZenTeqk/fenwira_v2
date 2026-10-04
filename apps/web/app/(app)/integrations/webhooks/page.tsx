@@ -6,6 +6,7 @@ import {
   type WebhookEventType,
 } from '@fenwira/contracts'
 import {
+  Alert,
   Button,
   Card,
   Checkbox,
@@ -32,6 +33,7 @@ import {
   eventLabel,
   useCreateWebhookEndpoint,
   useWebhookEndpoints,
+  useWebhooksEntitled,
   WEBHOOK_EVENT_FAMILIES,
 } from '@/lib/webhooks'
 import { ApiError } from '@/lib/api/client'
@@ -348,6 +350,7 @@ function EndpointCard({ endpoint }: { endpoint: WebhookEndpoint }) {
 export default function WebhooksPage() {
   const { can } = useSession()
   const list = useWebhookEndpoints()
+  const entitled = useWebhooksEntitled().data ?? true
   const [createOpen, setCreateOpen] = useState(false)
   const [created, setCreated] = useState<CreatedWebhookEndpoint | null>(null)
 
@@ -359,13 +362,24 @@ export default function WebhooksPage() {
       header={{
         title: 'Webhooks',
         description: 'Receive Fenwira events in your application.',
-        actions: (
+        actions: entitled ? (
           <Button onClick={() => setCreateOpen(true)}>
             <Plus aria-hidden="true" />
             Add endpoint
           </Button>
-        ),
+        ) : null,
       }}
+      banner={
+        entitled ? null : (
+          <Alert tone="warning" title="Webhooks aren’t included in your current plan">
+            Your endpoints are kept, but no events are delivered until webhooks are available again.
+            Events in the meantime aren’t queued for later.{' '}
+            <Link href="/billing/subscription" className="font-medium underline underline-offset-4">
+              View subscription
+            </Link>
+          </Alert>
+        )
+      }
     >
       {list.isLoading ? (
         <div className="flex flex-col gap-3">

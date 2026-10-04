@@ -16,6 +16,15 @@ export class EntitlementsModule {
    * source, or swap one in with EntitlementsService.useSource.
    */
   static forRoot(source?: EntitlementSource): DynamicModule {
+    // One authority, one instance: every feature module importing the default gets the same
+    // DynamicModule object, which Nest instantiates once per application.
+    if (!source) return (EntitlementsModule.shared ??= EntitlementsModule.build())
+    return EntitlementsModule.build(source)
+  }
+
+  private static shared?: DynamicModule
+
+  private static build(source?: EntitlementSource): DynamicModule {
     return {
       module: EntitlementsModule,
       providers: [

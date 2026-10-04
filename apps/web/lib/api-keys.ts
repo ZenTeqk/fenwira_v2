@@ -8,14 +8,21 @@ import { keys } from '@/lib/api/keys'
 
 /** Tenant API keys (docs/API_KEYS.md, decisions P11-D18, P11-D22). */
 
-export function useApiKeys() {
+type ApiKeysResponse = { data: ApiKey[]; meta?: { entitled: boolean } }
+
+function useApiKeysQuery<T>(select: (r: ApiKeysResponse) => T) {
   const { tenantId, can } = useSession()
   return useQuery({
     queryKey: keys.tenant(tenantId, 'api-keys'),
-    queryFn: () => get<{ data: ApiKey[] }>('/api-keys').then((r) => r.data),
+    queryFn: () => get<ApiKeysResponse>('/api-keys'),
     enabled: can('integrations.manage'),
+    select,
   })
 }
+
+export const useApiKeys = () => useApiKeysQuery((r) => r.data)
+/** Phase 11 Step 4: false = suspended by plan (keys kept, requests get 403). Same request as the list. */
+export const useApiEntitled = () => useApiKeysQuery((r) => r.meta?.entitled ?? true)
 
 export function useCreateApiKey() {
   const { tenantId } = useSession()

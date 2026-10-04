@@ -21,7 +21,9 @@ export class WebhooksController {
   @Get()
   @RequirePermission('integrations.manage')
   async list() {
-    return { data: await this.webhooks.list() }
+    const [data, entitled] = await Promise.all([this.webhooks.list(), this.webhooks.entitled()])
+    // meta.entitled false = suspended by plan: endpoints are kept, nothing is delivered.
+    return { data, meta: { entitled } }
   }
 
   /** The signing secret is returned once, here, and never again. */

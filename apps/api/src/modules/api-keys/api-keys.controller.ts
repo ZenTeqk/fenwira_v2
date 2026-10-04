@@ -15,7 +15,9 @@ export class ApiKeysController {
   @Get()
   @RequirePermission('integrations.manage')
   async list() {
-    return { data: await this.apiKeys.list() }
+    const [data, entitled] = await Promise.all([this.apiKeys.list(), this.apiKeys.entitled()])
+    // meta.entitled false = suspended by plan: keys are kept and revocable, requests get 403.
+    return { data, meta: { entitled } }
   }
 
   /** The secret is returned once, here, and never again. */

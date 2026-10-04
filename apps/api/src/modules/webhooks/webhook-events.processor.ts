@@ -19,6 +19,7 @@ import { createNotificationOnce } from '../notifications'
 import { buildWebhookPayload, isWebhookEvent } from './webhooks.core'
 import { signWebhookBody } from './webhook-signing'
 import { WEBHOOKS_OPTIONS, type WebhooksOptions } from './webhooks.options'
+import { EntitlementsService } from '../entitlements'
 
 const SEND_JOB = 'send'
 
@@ -45,6 +46,7 @@ export class WebhookEventsProcessor implements QueueProcessor<EventJob | SendDat
     private readonly alerts: OpsAlerts,
     private readonly metrics: MetricsService,
     private readonly logger: PinoLogger,
+    private readonly entitlements: EntitlementsService,
   ) {
     this.logger.setContext('WebhookEvents')
   }
@@ -57,6 +59,9 @@ export class WebhookEventsProcessor implements QueueProcessor<EventJob | SendDat
   async fanOut(e: EventJob): Promise<string> {
     if (!e.tenantId || !isWebhookEvent(e.eventType)) return 'ignored'
     const created = await this.db.withTenant(e.tenantId, async (tx) => {
+      // Suspended by plan (Phase 11 Step 4): endpoints are kept, but no delivery is created for
+      // events while the workspace lacks webhooks_enabled — they aren't queued for later either.
+      if (!(await this.entitlements.webhooksEnabled(tx, e.tenantId!))) return null
       const endpoints = await tx.webhookEndpoint.findMany({
         where: { status: 'ACTIVE', deletedAt: null, events: { has: e.eventType } },
         select: { id: true },
@@ -68,6 +73,7 @@ export class WebhookEventsProcessor implements QueueProcessor<EventJob | SendDat
       }
       return ids
     })
+    if (!created) return 'suspended-by-plan'
     for (const deliveryId of created) await this.enqueueSend(e.tenantId!, deliveryId, 0)
     return `fanned-out:${created.length}`
   }
@@ -120,6 +126,15 @@ export class WebhookEventsProcessor implements QueueProcessor<EventJob | SendDat
       if (!delivery || delivery.status !== 'PENDING') return 'skipped'
       const endpoint = await tx.webhookEndpoint.findFirst({ where: { id: delivery.endpointId } })
       if (!endpoint || endpoint.status !== 'ACTIVE' || endpoint.deletedAt) return 'skipped'
+      // Lost the entitlement while a retry was pending: close it out without counting toward the
+      // endpoint's failure count or auto-disable — the receiver did nothing wrong.
+      if (!(await this.entitlements.webhooksEnabled(tx, data.tenantId))) {
+        await tx.webhookDelivery.update({
+          where: { id: delivery.id },
+          data: { status: 'FAILED', errorCode: 'SUSPENDED_BY_PLAN', nextAttemptAt: null },
+        })
+        return 'suspended'
+      }
 
       const payload = delivery.payload as { createdAt: string }
       const secret = decryptSecret(this.options.keyRing, endpoint.secretCiphertext)

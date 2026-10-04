@@ -1,4 +1,5 @@
 import { BillingMaintenanceProcessor } from '@fenwira/api/modules/billing'
+import { WebhookEventsProcessor } from '@fenwira/api/modules/webhooks'
 import { Database } from '@fenwira/database'
 import {
   deliverWebhook,
@@ -285,5 +286,49 @@ describe('Phase 11 Step 4: trial lifecycle', { timeout: 120_000 }, () => {
     expect(rolled.currentPeriodStart?.getTime()).toBe(end.getTime())
     expect(rolled.currentPeriodEnd!.getTime()).toBeGreaterThan(Date.now() + 27 * 86_400_000)
     expect((await subOf(b.tenantId)).status).toBe('CANCELLED')
+  })
+})
+
+describe('Phase 11 Step 4: API and webhooks suspended by plan', { timeout: 60_000 }, () => {
+  it('keeps keys and endpoints, reports meta.entitled, and creates no deliveries', async () => {
+    const owner = await createOwner(api, 'sub-suspend')
+    await owner.client.post('/api-keys', { name: 'k', scopes: ['contacts.read'] })
+    const ep = await owner.client.post('/webhook-endpoints', {
+      name: 'CRM',
+      url: 'https://example.com/hook',
+      events: ['contact.updated'],
+    })
+    const endpointId = ep.body.data.endpoint.id as string
+    expect((await owner.client.get('/api-keys')).body.meta).toEqual({ entitled: true })
+
+    await override(owner.tenantId, 'api_enabled', false)
+    await override(owner.tenantId, 'webhooks_enabled', false)
+    const keys = await owner.client.get('/api-keys')
+    expect(keys.body.meta).toEqual({ entitled: false })
+    expect(keys.body.data).toHaveLength(1)
+    const eps = await owner.client.get('/webhook-endpoints')
+    expect(eps.body.meta).toEqual({ entitled: false })
+    expect(eps.body.data[0].status).toBe('ACTIVE') // not auto-disabled: regaining resumes delivery
+
+    const processor = worker.get(WebhookEventsProcessor)
+    const event = {
+      eventId: crypto.randomUUID(),
+      eventType: 'contact.updated' as const,
+      tenantId: owner.tenantId,
+      correlationId: null,
+      occurredAt: new Date().toISOString(),
+      payload: { contactId: crypto.randomUUID(), changedFields: ['name'] },
+    }
+    expect(await processor.fanOut(event)).toBe('suspended-by-plan')
+    const deliveries = await db.withTenant(owner.tenantId, (tx) =>
+      tx.webhookDelivery.count({ where: { endpointId } }),
+    )
+    expect(deliveries).toBe(0)
+
+    // Regained: deliveries are created again, without any action on the endpoint.
+    await override(owner.tenantId, 'webhooks_enabled', true)
+    expect(await processor.fanOut({ ...event, eventId: crypto.randomUUID() })).toMatch(
+      /^fanned-out:1/,
+    )
   })
 })

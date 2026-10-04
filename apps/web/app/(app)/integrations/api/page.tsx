@@ -8,6 +8,7 @@ import {
   PERMISSIONS,
 } from '@fenwira/contracts'
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -34,10 +35,11 @@ import {
   useConfirm,
 } from '@fenwira/ui'
 import { Check, Copy, Key, Plus } from 'lucide-react'
+import Link from 'next/link'
 import { type FormEvent, useState } from 'react'
 import { FormError } from '@/components/auth/form-error'
 import { useSession } from '@/components/session/session-provider'
-import { useApiKeys, useCreateApiKey, useRevokeApiKey } from '@/lib/api-keys'
+import { useApiEntitled, useApiKeys, useCreateApiKey, useRevokeApiKey } from '@/lib/api-keys'
 import { relativeTime } from '@/lib/relative-time'
 
 const EXPIRATION_OPTIONS = [
@@ -290,6 +292,7 @@ function ApiKeyDetailDrawer({ apiKey, onClose }: { apiKey: ApiKey | null; onClos
 export default function ApiKeysPage() {
   const { can, membership } = useSession()
   const list = useApiKeys()
+  const entitled = useApiEntitled().data ?? true
   const revoke = useRevokeApiKey()
   const confirm = useConfirm()
   const [createOpen, setCreateOpen] = useState(false)
@@ -325,13 +328,24 @@ export default function ApiKeysPage() {
       header={{
         title: 'API',
         description: 'Build secure integrations with your Fenwira workspace.',
-        actions: (
+        actions: entitled ? (
           <Button onClick={() => setCreateOpen(true)}>
             <Plus aria-hidden="true" />
             Create API key
           </Button>
-        ),
+        ) : null,
       }}
+      banner={
+        entitled ? null : (
+          <Alert tone="warning" title="API access isn’t included in your current plan">
+            Existing keys are kept and can still be revoked, but requests made with them are refused
+            until the API is available again.{' '}
+            <Link href="/billing/subscription" className="font-medium underline underline-offset-4">
+              View subscription
+            </Link>
+          </Alert>
+        )
+      }
     >
       {list.isLoading ? (
         <div className="flex flex-col gap-3">

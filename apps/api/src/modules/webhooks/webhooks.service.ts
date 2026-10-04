@@ -99,6 +99,12 @@ export class WebhooksService {
     })
   }
 
+  /** Whether the workspace's plan currently includes webhooks (Phase 11 Step 4). */
+  entitled(): Promise<boolean> {
+    const { tenantId } = currentTenant()
+    return this.tenantDb.run((tx) => this.entitlements.webhooksEnabled(tx, tenantId))
+  }
+
   private async assertUrl(url: string): Promise<void> {
     try {
       // Only ever throws WEBHOOK_URL_INVALID or WEBHOOK_BLOCKED_DESTINATION (no network hop here).

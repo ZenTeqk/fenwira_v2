@@ -29,6 +29,7 @@ export class WebhooksModule {
   static forWorker(options: WebhooksOptions): DynamicModule {
     return {
       module: WebhooksModule,
+      imports: [EntitlementsModule.forRoot()],
       providers: [
         { provide: WEBHOOKS_OPTIONS, useValue: options },
         WebhookEventsProcessor,

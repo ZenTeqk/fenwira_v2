@@ -57,14 +57,21 @@ export function eventFamiliesLabel(events: readonly string[]): string {
 
 export const ALL_WEBHOOK_EVENTS = WEBHOOK_EVENTS as readonly WebhookEventType[]
 
-export function useWebhookEndpoints() {
+type EndpointsResponse = { data: WebhookEndpoint[]; meta?: { entitled: boolean } }
+
+function useEndpointsQuery<T>(select: (r: EndpointsResponse) => T) {
   const { tenantId, can } = useSession()
   return useQuery({
     queryKey: keys.tenant(tenantId, 'webhook-endpoints'),
-    queryFn: () => get<{ data: WebhookEndpoint[] }>('/webhook-endpoints').then((r) => r.data),
+    queryFn: () => get<EndpointsResponse>('/webhook-endpoints'),
     enabled: can('integrations.manage'),
+    select,
   })
 }
+
+export const useWebhookEndpoints = () => useEndpointsQuery((r) => r.data)
+/** Phase 11 Step 4: false = suspended by plan (endpoints kept, nothing delivered). */
+export const useWebhooksEntitled = () => useEndpointsQuery((r) => r.meta?.entitled ?? true)
 
 /** No single-endpoint GET route exists; the detail page reads it from the list cache. */
 export function useWebhookEndpoint(id: string) {

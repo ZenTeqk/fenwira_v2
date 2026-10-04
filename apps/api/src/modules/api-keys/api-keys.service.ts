@@ -9,6 +9,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { AuditService } from '../audit'
+import { EntitlementsService } from '../entitlements'
 import { currentAuth } from '../identity'
 import { currentTenant } from '../tenancy'
 import { generateApiKeyToken, hashApiKeySecret } from './api-key-token'
@@ -49,7 +50,14 @@ export class ApiKeysService {
     private readonly tenantDb: TenantDb,
     private readonly audit: AuditService,
     @Inject(API_KEYS_OPTIONS) private readonly options: ApiKeysOptions,
+    private readonly entitlements: EntitlementsService,
   ) {}
+
+  /** Whether the workspace's plan currently includes the public API (Phase 11 Step 4). */
+  entitled(): Promise<boolean> {
+    const { tenantId } = currentTenant()
+    return this.tenantDb.run((tx) => this.entitlements.apiEnabled(tx, tenantId))
+  }
 
   list(): Promise<ApiKey[]> {
     return this.tenantDb.run(async (tx) => {
