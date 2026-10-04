@@ -17,6 +17,7 @@ import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { normalizePhone } from '../../core/phone'
 import { AuditService } from '../audit'
+import { EntitlementsService } from '../entitlements'
 import { currentActorId, currentAuth } from '../identity'
 import { currentTenant } from '../tenancy'
 import { evaluateEligibility, type EligibilityDecision } from '../messaging'
@@ -45,6 +46,7 @@ export class ContactsService {
   constructor(
     private readonly tenantDb: TenantDb,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   // -------------------------------------------------------------------------- search and count
@@ -96,6 +98,8 @@ export class ContactsService {
     return this.tenantDb.run(async (tx) => {
       const phone = await this.normalize(tx, tenantId, input.phone)
       await this.assertPhoneFree(tx, phone.e164)
+      // User-initiated growth (manual or API key): limited by plan. Inbound never comes here.
+      await this.entitlements.assertWithin(tx, tenantId, 'max_contacts')
       if (input.ownerId) await this.assertMember(tx, input.ownerId)
       const values = await this.coerceProperties(tx, input.properties ?? {}, true)
       const contact = await tx.contact.create({

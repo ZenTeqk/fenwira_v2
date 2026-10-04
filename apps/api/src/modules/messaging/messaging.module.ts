@@ -1,3 +1,4 @@
+import { EntitlementsModule } from '../entitlements'
 import { type DynamicModule, Module } from '@nestjs/common'
 import { MessageEligibilityService } from './eligibility'
 import { FilesController } from './messaging.controller'
@@ -24,6 +25,7 @@ export class MessagingModule {
   static forApi(options: MessagingOptions): DynamicModule {
     return {
       module: MessagingModule,
+      imports: [EntitlementsModule.forRoot()],
       controllers: [WhatsAppWebhookController, FilesController],
       providers: [
         { provide: MESSAGING_OPTIONS, useValue: options },
@@ -40,7 +42,7 @@ export class MessagingModule {
   static forWorker(options: MessagingOptions, imports: DynamicModule[]): DynamicModule {
     return {
       module: MessagingModule,
-      imports,
+      imports: [EntitlementsModule.forRoot(), ...imports],
       providers: [
         { provide: MESSAGING_OPTIONS, useValue: options },
         MessagingService,

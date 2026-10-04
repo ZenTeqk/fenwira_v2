@@ -1,3 +1,4 @@
+import { EntitlementsModule } from '../entitlements'
 import { type DynamicModule, Module } from '@nestjs/common'
 import { InvitationService } from './invitation.service'
 import { MeService } from './me.service'
@@ -21,7 +22,7 @@ export class TenancyModule {
   static forApi(identity: DynamicModule): DynamicModule {
     return {
       module: TenancyModule,
-      imports: [identity],
+      imports: [identity, EntitlementsModule.forRoot()],
       controllers: [
         MeController,
         WorkspaceController,

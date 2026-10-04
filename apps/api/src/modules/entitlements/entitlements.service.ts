@@ -130,6 +130,8 @@ export class EntitlementsService {
     if (alreadyActive) return { allowed: true }
     const max = await this.source.limit(tx, tenantId, 'max_active_flows')
     if (max === null) return { allowed: true }
+    // Same per-tenant lock as assertWithin: two concurrent publishes can't both take the last slot.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:max_active_flows`}))`
     const active = await tx.flow.count({ where: { status: 'ACTIVE', deletedAt: null } })
     return active < max
       ? { allowed: true }

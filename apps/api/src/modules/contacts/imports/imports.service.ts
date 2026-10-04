@@ -8,6 +8,7 @@ import { AppError } from '../../../core/http/app-error'
 import { QueueRegistry } from '../../../core/queue/queue-registry'
 import { StorageService } from '../../../core/storage/storage.service'
 import { AuditService } from '../../audit'
+import { EntitlementsService } from '../../entitlements'
 import { currentAuth } from '../../identity'
 import { currentTenant } from '../../tenancy'
 
@@ -59,6 +60,7 @@ export class ImportsService {
     private readonly queues: QueueRegistry,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async list(): Promise<ImportJob[]> {
@@ -218,6 +220,8 @@ export class ImportsService {
       const job = await this.find(tx, id)
       if (job.status !== 'PREVIEW_READY')
         throw new AppError('IMPORT_NOT_READY', 409, 'Review the preview before importing.')
+      // The projected total (existing + the preview's new rows) must fit the plan's contact limit.
+      await this.entitlements.assertWithin(tx, tenantId, 'max_contacts', job.newRows)
       return tx.importJob.update({
         where: { id },
         data: { status: 'IMPORTING', startedAt: new Date() },

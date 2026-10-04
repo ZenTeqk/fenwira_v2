@@ -19,6 +19,7 @@ import { MessageEligibilityService } from './eligibility'
 import { MESSAGING_OPTIONS, type MessagingOptions } from './messaging.options'
 import { previewOf, toMessage } from './messaging.mapper'
 import { writeSystemEvent } from './system-events'
+import { EntitlementsService } from '../entitlements'
 
 export type SendTarget = { conversationId: string } | { phoneE164: string; phoneNumberId?: string }
 
@@ -59,6 +60,7 @@ export class MessagingService {
     private readonly realtime: RealtimeEmitter,
     private readonly eligibility: MessageEligibilityService,
     @Inject(MESSAGING_OPTIONS) private readonly options: MessagingOptions,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async send(input: SendInput): Promise<Message> {
@@ -287,11 +289,17 @@ export class MessagingService {
         { path: 'to', code: 'invalid_phone', message: normalized.reason },
       ])
     const phoneE164 = normalized.e164
-    const contact =
-      (await tx.contact.findFirst({ where: { phoneE164, deletedAt: null } })) ??
-      (await tx.contact.create({
+    let contact = await tx.contact.findFirst({ where: { phoneE164, deletedAt: null } })
+    if (!contact) {
+      // A person starting a conversation with a new number grows the contact list (plan limit);
+      // campaign, automation and system sends only ever reach numbers that already exist or
+      // came in on their own, so they're never refused for a commercial limit.
+      if (input.source === 'INBOX' || input.source === 'API')
+        await this.entitlements.assertWithin(tx, input.tenantId, 'max_contacts')
+      contact = await tx.contact.create({
         data: { tenantId: input.tenantId, phoneE164, source: CONTACT_SOURCE[input.source] },
-      }))
+      })
+    }
     const conversation = await tx.conversation.upsert({
       where: {
         tenantId_contactId_phoneNumberId: {

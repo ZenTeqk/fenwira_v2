@@ -15,6 +15,7 @@ import { RateLimitService } from '../../core/security/rate-limit.service'
 import { AuditService } from '../audit'
 import { currentAuth, IdentityService, type SessionTokens } from '../identity'
 import { currentTenant } from './permission.guard'
+import { EntitlementsService } from '../entitlements'
 
 const invalidLink = () =>
   new AppError(
@@ -50,6 +51,7 @@ export class InvitationService {
     private readonly audit: AuditService,
     private readonly identity: IdentityService,
     private readonly limits: RateLimitService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async list(): Promise<Invitation[]> {
@@ -101,6 +103,8 @@ export class InvitationService {
           409,
           'This person already has a pending invitation. Resend it instead.',
         )
+      // Pending invitations count toward the plan's team-member limit.
+      await this.entitlements.assertWithin(tx, actor.tenantId, 'max_users')
       const invitation = await tx.invitation.create({
         data: {
           tenantId: actor.tenantId,
@@ -227,6 +231,9 @@ export class InvitationService {
         )
         tokens = await this.identity.startSession(userId, tx)
       }
+      // This invitation is already counted as pending, so accepting it is net zero — refused only
+      // when the workspace is already over its limit (e.g. after a downgrade).
+      await this.entitlements.assertWithin(tx, inv.tenantId, 'max_users', 0)
       const membership = await tx.membership.findFirst({
         where: { tenantId: inv.tenantId, userId },
       })

@@ -1,4 +1,5 @@
 import { type DynamicModule, Module } from '@nestjs/common'
+import { EntitlementsModule } from '../entitlements'
 import { ContactCatalogService } from './catalog.service'
 import {
   ContactCatalogController,
@@ -18,6 +19,7 @@ export class ContactsModule {
   static forApi(): DynamicModule {
     return {
       module: ContactsModule,
+      imports: [EntitlementsModule.forRoot()],
       controllers: [ContactsController, ContactCatalogController, ImportExportController],
       providers: [ContactsService, ContactCatalogService, ImportsService, ExportsService],
     }
