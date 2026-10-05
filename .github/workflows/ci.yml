@@ -76,7 +76,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install Playwright Chromium
         run: pnpm --filter @fenwira/web exec playwright install --with-deps chromium
-      - name: E2E (axe WCAG 2.1 AA, responsive, keyboard) against the composed stack
+      - name: E2E (axe WCAG 2.2 AA critical routes, responsive, keyboard) against the composed stack
         run: pnpm --filter @fenwira/web test:e2e
       - name: Scan images (Trivy, fixable HIGH/CRITICAL)
         run: |

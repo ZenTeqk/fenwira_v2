@@ -448,6 +448,16 @@ describe('Table and DataTable', () => {
     expect(screen.getByRole('table', { name: 'Simple' })).toBeInTheDocument()
   })
 
+  it('makes the labelled table scroll area keyboard reachable with a visible focus ring', async () => {
+    render(
+      <DataTable label="Wallet transactions" columns={columns} data={[]} getRowId={(r) => r.id} />,
+    )
+    const area = screen.getByRole('region', { name: 'Wallet transactions scroll area' })
+    await userEvent.tab()
+    expect(area).toHaveFocus()
+    expect(area.className).toContain('focus-visible:outline-primary')
+  })
+
   it('sorts by a column and exposes aria-sort', async () => {
     render(<DataTable label="Campaigns" columns={columns} data={rows} getRowId={(r) => r.id} />)
     const nameHeader = screen.getByRole('columnheader', { name: /Name/ })

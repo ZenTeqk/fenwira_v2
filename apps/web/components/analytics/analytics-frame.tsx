@@ -184,7 +184,12 @@ export function AnalyticsFrame<T extends { meta: AnalyticsMeta }>({
           />
         </Card>
       ) : !data ? (
-        <div className="flex flex-col gap-4" aria-busy="true" aria-label="Loading analytics">
+        <div
+          className="flex flex-col gap-4"
+          role="status"
+          aria-busy="true"
+          aria-label="Loading analytics"
+        >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-28" />

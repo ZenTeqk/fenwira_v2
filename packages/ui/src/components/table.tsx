@@ -1,5 +1,6 @@
 import { type ComponentProps } from 'react'
 import { cn } from '../lib/cn'
+import { focusRing } from '../lib/focus'
 
 /** Semantic table in a horizontally scrollable container, so wide tables never scroll the page. */
 export function Table({
@@ -13,7 +14,10 @@ export function Table({
       role={containerLabel ? 'region' : undefined}
       aria-label={containerLabel}
       tabIndex={containerLabel ? 0 : undefined}
-      className="relative w-full overflow-x-auto rounded-lg border border-border bg-surface"
+      className={cn(
+        'relative w-full overflow-x-auto rounded-lg border border-border bg-surface',
+        containerLabel && focusRing,
+      )}
     >
       <table
         data-slot="table"

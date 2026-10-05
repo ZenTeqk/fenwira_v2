@@ -184,7 +184,11 @@ export function DataTable<Row>({
           </Button>
         </div>
       ) : null}
-      <Table aria-label={label} aria-busy={loading || undefined}>
+      <Table
+        containerLabel={`${label} scroll area`}
+        aria-label={label}
+        aria-busy={loading || undefined}
+      >
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
             <TableRow key={group.id} className="hover:bg-transparent">
