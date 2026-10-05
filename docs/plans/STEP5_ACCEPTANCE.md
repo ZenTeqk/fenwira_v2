@@ -1,6 +1,6 @@
 # Phase 11 Step 5 acceptance preparation
 
-Step 4 ACCEPTED; Step 5 implementation in nine increments. Phase 11 remains OPEN. Implementation and local checks are complete and ready for acceptance review. Concrete evidence is recorded in [STEP5_VALIDATION.md](STEP5_VALIDATION.md): 291 unit tests, 470 integration tests, 70 browser tests, healthy built images and smoke checks, and five Lighthouse accessibility scores of 100. Existing optional skips are documented. CI, clean-clone deployment and production rollout are not claimed.
+Step 4 ACCEPTED; Step 5 implementation in nine increments. Phase 11 remains OPEN. Step 5 was accepted by the subsequent closure-verification request. Its original local implementation checks are complete; current combined verification is recorded in [PHASE_11_CLOSURE.md](PHASE_11_CLOSURE.md). Concrete evidence is recorded in [STEP5_VALIDATION.md](STEP5_VALIDATION.md): 291 unit tests, 470 integration tests, 70 browser tests, healthy built images and smoke checks, and five Lighthouse accessibility scores of 100. Existing optional skips are documented. CI, clean-clone deployment and production rollout are not claimed.
 
 ## Reviewable behavior
 

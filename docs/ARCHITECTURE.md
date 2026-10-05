@@ -64,9 +64,10 @@ Both api and worker use the same domain modules from `apps/api/src/modules/*`. T
 | `templates` | `templates`, `template_versions` | 8 |
 | `campaigns` | `campaigns`, `campaign_recipients` | 9 |
 | `automation` | `flows`, `flow_versions`, `automation_executions`, `automation_execution_steps` | 10 |
-| `billing` | `plans`, `plan_entitlements`, `subscriptions`, `tenant_entitlement_overrides`, `wallets`, `wallet_transactions`, `usage_events`, `price_book_entries` | 11 |
+| `billing` | `plans`, `plan_entitlements`, `subscriptions`, `tenant_entitlement_overrides`, `wallets`, `wallet_transactions`, `wallet_reservations`, `usage_events`, `price_book_entries` | 11 |
 | `analytics` | `analytics_events`, `analytics_daily_rollups`, `analytics_conversation_episodes`, `analytics_dirty`, `analytics_tenant_state` (`ANALYTICS.md`) | 11 |
-| `developer` | `api_keys`, `webhook_endpoints`, `webhook_deliveries` | 11 |
+| `api-keys`, `webhooks` | `api_keys`, `webhook_endpoints`, `webhook_deliveries` | 11 |
+| `platform-operations` | global `platform_grants`, `platform_challenges`, `platform_sessions`, immutable `platform_audit`; tenant `commercial_operations` | 11 Step 5 |
 
 ### Module rules
 
@@ -204,3 +205,7 @@ SMTP via Nodemailer (`SMTP_URL`), pointed at Mailpit locally. Templates are Reac
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+### Platform Operations boundary (Phase 11 Step 5)
+
+`/platform` is a separate web shell using dedicated platform-session/CSRF cookies and explicit global operator authorization. Tenant roles, memberships and API keys grant no platform access. Password/TOTP and short privilege are mandatory; grant/revoke remains restricted infrastructure tooling. Bounded `system.platform_workspaces` discovery returns identity fields only; commercial services then use ordinary `withTenant` transactions for the explicitly selected workspace. No general RLS bypass or conversation access is granted. HTTP and CLI share operation services; domain mutation, immutable receipt, tenant/platform audit and `commercial.operation_completed` outbox event commit atomically. Notification realtime emission follows commit.

@@ -38,7 +38,7 @@ An endpoint subscribes to any subset; fan-out only reaches endpoints whose `even
 
 ```json
 {
-  "id": "<delivery id, changes on every attempt>",
+  "id": "<delivery id, stable across retries>",
   "type": "contact.created",
   "apiVersion": "2026-09-28",
   "createdAt": "2026-10-04T12:00:00.000Z",
@@ -171,3 +171,5 @@ Delivery history is purged after 30 days (`system.tenants_with_stale_webhook_del
 ## UI
 
 `/integrations/webhooks` (`apps/web/app/(app)/integrations/webhooks/page.tsx`): endpoints as integration cards (status dot, URL, subscribed event-family count, health, Manage) rather than a dense table. Creation is a 4-step guided flow — Endpoint URL → Events (grouped by family, from the allowlist above only) → Security (what protections apply, no configuration needed) → Review — ending in the one-time secret dialog. The detail page (`/integrations/webhooks/[id]`) has Overview / Deliveries / Settings tabs; a delivery row opens a `DetailDrawer` (never a page navigation) with the full safe request/response metadata described above. A disabled endpoint shows the persistent danger banner described in *Endpoint auto-disable behavior*. Visibility of the whole page follows `integrations.manage` from the backend.
+
+Closure verification exercises entitlement loss during a pending retry: FAILED/SUSPENDED_BY_PLAN, no endpoint failure-count increment or auto-disable, preserved configuration, and explicit retry after entitlement restoration reuses the same delivery row. Events occurring while suspended are not replayed automatically.

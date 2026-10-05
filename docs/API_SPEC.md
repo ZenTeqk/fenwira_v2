@@ -383,3 +383,7 @@ All require platform-session cookies, never tenant/API-key authorization. `GET /
 Platform POST `/platform/workspaces/:workspaceId/subscription-operations` (`subscription.manage`): activate configured planId, cancel at period-end, billing_mode FREE/TRIAL/PREPAID. POST `entitlement-operations` (`entitlements.manage`): typed override_set/override_remove. Shared contracts require commercial metadata and accept expectedVersion; retries replay immutable receipts.
 
 Platform POST `wallet-preview`, `subscription-preview`, `entitlement-preview` under `/platform/workspaces/:workspaceId` use the same corresponding permission/request contract. Domain calculations and validation run in a transaction that always rolls back; no receipt, ledger, subscription, override or outbox change persists. A separate immutable preview-access event is recorded. Preview returns version, before/after/result and effective configured entitlements. Confirmation submits expectedVersion; stale state is 409 VERSION_CONFLICT.
+
+## Phase 11 closure verification
+
+[Phase 11 closure evidence](plans/PHASE_11_CLOSURE.md) exercises platform MFA, shared commercial operations and tenant financial allowlists against the real API. Closure adds no endpoint or public API scope.

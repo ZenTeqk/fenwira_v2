@@ -1,6 +1,6 @@
 # Phase 11 Step 4 — Plans, Entitlements and Subscriptions (plan, for review)
 
-**Status:** approved 2026-10-04 with F1–F6 answered (P11-D24–D28); implemented 2026-10-05 in increments 1–8, awaiting acceptance. Frozen inputs: P11-D2–D6, D9, D15, D16, D18, plus the Step 4 brief (plans STARTER/GROWTH/BUSINESS as data; launch defaults; monthly only; no prices; 14-day Growth-equivalent trial as a *state*; expiry never deletes; FREE/TRIAL/PREPAID modes independent of plan; downgrade never deletes; inbound never blocked; one entitlement authority; wallet separate; INR; no gateway; no GST rules).
+**Status:** approved 2026-10-04 with F1–F6 answered (P11-D24–D28); implemented 2026-10-05 in increments 1–8, accepted 2026-10-05. Closure correctness evidence: [PHASE_11_CLOSURE.md](PHASE_11_CLOSURE.md). Frozen inputs: P11-D2–D6, D9, D15, D16, D18, plus the Step 4 brief (plans STARTER/GROWTH/BUSINESS as data; launch defaults; monthly only; no prices; 14-day Growth-equivalent trial as a *state*; expiry never deletes; FREE/TRIAL/PREPAID modes independent of plan; downgrade never deletes; inbound never blocked; one entitlement authority; wallet separate; INR; no gateway; no GST rules).
 
 ## 1. What already exists (repository assessment)
 

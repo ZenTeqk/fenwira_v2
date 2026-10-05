@@ -183,3 +183,7 @@ POST /api/v1/api-keys
 ## UI
 
 `/integrations/api` (Design System v1, `apps/web/app/(app)/integrations/api/page.tsx`): a developer-product surface, not a database table. API keys are listed as cards (name, masked prefix, scope chips, last-used/created/expiry, status) with **Manage** (a read-only detail drawer) and **Revoke** (a confirmation explaining that dependent integrations stop authenticating immediately). Creation is a focused dialog — name, a checklist of only the scopes the creator's own role holds, expiration — and ends with the one-time secret dialog described above. Visibility of the whole page follows `integrations.manage` from the backend (`PermissionState` when absent); nothing is merely hidden client-side that the API would still allow.
+
+## Phase 11 closure verification
+
+The public route catalog and scope schema exclude platform operations. The combined enforced lifecycle verifies that an existing key is preserved and denied during entitlement loss, then works after valid restoration. Role/key/platform separation and cross-tenant authorization are recorded in [closure evidence](plans/PHASE_11_CLOSURE.md).

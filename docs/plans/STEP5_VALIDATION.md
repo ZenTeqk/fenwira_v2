@@ -1,6 +1,6 @@
 # Step 5 validation
 
-Status: ready for Step 5 acceptance review; neither acceptance nor Phase 11 closure claimed.
+Historical validation record for the nine Step 5 increments. Step 5 was accepted in the subsequent closure-verification request; current closure results and blockers are in [PHASE_11_CLOSURE.md](PHASE_11_CLOSURE.md). Counts below describe the original Step 5 checkpoint.
 
 ## Increment 1 — operator identity
 

@@ -594,3 +594,7 @@ None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → De
 Global read-only `platform_grants`; global credential/session `platform_challenges`/`platform_sessions`; forced-RLS platform-only `platform_audit` (AO); tenant-owned forced-RLS `commercial_operations` (AO), unique `(tenant_id,idempotency_key)`. Receipts contain immutable before/after, request fingerprint, actor, reason/reference and linked results. Existing financial history is not rewritten/backfilled. Runtime cannot update/delete/truncate receipts, ledger or audit.
 
 Step 5 security binding migration adds nullable parentFamilyId to platform challenges (legacy challenges expired) and nullable JSON details to append-only platform audit. No wallet/subscription/analytics history is rewritten. Prisma models express existing grant/challenge/session/receipt foreign keys with NO ACTION; operator identity and financial history cannot be cascade-deleted.
+
+## Phase 11 closure verification
+
+Phase 11 closure adds no schema migration or financial-history backfill. Subscription lifecycle transitions acquire the existing subscription row lock to prevent concurrent duplicate notices. See [closure evidence](plans/PHASE_11_CLOSURE.md).

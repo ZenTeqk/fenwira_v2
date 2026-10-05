@@ -125,7 +125,7 @@ The `fenwira-migrate` one-shot (`node packages/database/dist/cli/migrate.js`, as
 | `BILLING_LOW_BALANCE_THRESHOLD_MINOR` | `10000` (₹100, P11-D12) | api, worker | 11 (`billing.low_balance_threshold`) |
 | `BILLING_SUPPORT_EMAIL`, `BILLING_SUPPORT_URL` | unset (fallback text) | api, worker | 11 (billing contact, P11-D20) |
 | `BILLING_RESERVATION_GRACE_MINUTES` | `360` | worker | 11 (stale-reservation recovery) |
-| `BILLING_SUBSCRIPTIONS_ENFORCED` | `false` | api, worker | 11 Step 4 (plans and subscriptions decide entitlements; `false` keeps allow-all. Activate: `pnpm --filter @fenwira/worker subscription:activate -- --tenant <id> --plan <KEY>`; override: `entitlement:override -- --tenant <id> --key <key> --value <true|false|null|n> --reason <text> [--days N]` or `--remove`) |
+| `BILLING_SUBSCRIPTIONS_ENFORCED` | `false` | api, worker | 11 Step 4; plan-backed entitlements when explicitly enabled. Production enablement requires a separate rollout decision. Operator HTTP/CLI authentication and required metadata: [runbook](runbooks/PLATFORM_OPERATIONS.md). |
 | `BILLING_TRIAL_DAYS` | `14` | api, worker | 11 Step 4 (trial length for new workspaces, P11-D5/D25) |
 | `BILLING_TRIAL_PLAN` | `GROWTH` | api, worker | 11 Step 4 (plan whose entitlements a trial resolves to) |
 | `ANALYTICS_SETTLE_SECONDS` | `20` | worker | 11 (analytics recompute marks wait this long; tests use 0) |
@@ -170,3 +170,9 @@ Without a Meta app, local development uses `fenwira-meta-mock`, a small simulate
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Phase 11 closure verification
+
+[Phase 11 closure evidence](plans/PHASE_11_CLOSURE.md) distinguishes successful cached local startup from the unresolved fresh MinIO image pull. A local healthy stack is not a clean-clone CI pass; Phase 11 must remain open until the distribution/startup blocker and current CI acceptance are resolved.
+
+Production runtime layers install the available Debian PCRE security patch and remove bundled global npm/npx; API, worker, Prisma migration and standalone web start through Node directly. Build/development stages retain their package tooling. The closure scan regression checks all four final production images with the established fixable HIGH/CRITICAL threshold; no vulnerability ignore is introduced.

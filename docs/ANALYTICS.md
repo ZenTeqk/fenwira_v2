@@ -74,7 +74,7 @@ Projection state is durable in Postgres; Redis is only the delivery mechanism.
 
 ## Retention (P11-D15)
 
-- Retention is the `analytics_retention` entitlement, in days, resolved through `EntitlementsService`. No plan names appear anywhere. The launch values (30, 90 and 365 days) are plan data that Step 4 seeds. Until then the Phase 10 allow-all source returns "unlimited", so nothing is purged yet.
+- Retention is the `analytics_retention` entitlement, in days, resolved through `EntitlementsService`. No plan names appear anywhere. The launch values (30, 90 and 365 days) are configured plan data seeded by Step 4. With subscription enforcement OFF the source remains unlimited; isolated enforcement-ON tests exercise the configured windows and downgrade grace.
 - The nightly job (03:45 UTC) deletes, per workspace, analytics rows older than the retained window: rollups, episodes, stale marks, and `analytics_events`. The events go through `system.purge_analytics_events`, because the log is append-only for the runtime role.
 - It never touches messages, conversations, campaigns, executions, `usage_events`, the ledger or audit logs. Those have their own retention (`DATA_RETENTION.md`).
 - **Retention lowered:** older history disappears at the next nightly run, and the API clamps ranges to the retained window at once (`meta.retention.clamped`).
@@ -152,7 +152,7 @@ Counted on the execution's start day, from `automation_executions` (execution hi
 | Billable messages | Σ `usage_events.quantity` (messages Meta priced as billable), by priced category |
 | Message charges | Σ `usage_events.amount_minor` in the wallet currency. It equals the usage DEBITs in the ledger; the reconciliation tests assert this. |
 | Promotional credits added | Σ positive PROMOTIONAL ledger rows (P11-D7) |
-| Provider cost | Kept in the rollups for operator reporting. **Never returned to tenant-facing APIs** — this is now a standing rule (P11-D23), not an interim placeholder: it is internal Fenwira commercial information, visible only through the future PLATFORM_OPERATOR area. |
+| Provider cost | Kept in the rollups for operator reporting. **Never returned to tenant-facing APIs** — this is now a standing rule (P11-D23), not an interim placeholder: it is internal Fenwira commercial information, visible only through explicitly authorized Platform Operations financial reads. |
 
 The Usage view and the Overview's charge need `billing.read`.
 
@@ -211,4 +211,4 @@ The day scan is an index-only scan on `messages (tenant_id, created_at)`.
 - Customer-opened episodes (first reply and resolution times) exist only from the day analytics started for a workspace, and can't be rebuilt once their events pass retention.
 - Figures lag activity by up to about two minutes (settle delay plus the per-minute pass). Views show `PROCESSING` meanwhile.
 - A campaign's figures belong to its start day; a campaign that runs across midnight isn't split by day.
-- Until plan data arrives (Step 4), `analytics_retention` is unlimited for every workspace.
+- Subscription enforcement remains rollout-controlled and OFF by default; configured retention applies when it is enabled.

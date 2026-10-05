@@ -14,7 +14,7 @@ Subscription plans, entitlements, the prepaid wallet with its immutable ledger, 
 | `GROWTH` | Growth | customer plan; the trial resolves to its entitlements (P11-D5) |
 | `BUSINESS` | Business | customer plan |
 
-Plans, their names and entitlements are rows (decision B1), changed by a platform operator, never referenced by key in feature code. **Prices are not approved (P11-D4):** `plan_prices` holds no production value and the UI shows "Contact us". Monthly cadence at launch (P11-D3).
+Plans, their names and entitlements are configuration rows (decision B1), provisioned by seed/deployment tooling; no generic plan-data editor is shipped. Feature authorization never references their keys. **Prices are not approved (P11-D4):** `plan_prices` holds no production value and the UI shows "Contact us". Monthly cadence at launch (P11-D3).
 
 ### Entitlements (launch defaults, configuration)
 
@@ -34,7 +34,7 @@ Every other key (`max_phone_numbers`, `max_campaigns_per_month`, `automation_exe
 - **Limit checks are transactional:** `assertWithin(tx, tenantId, key, increment)` takes `pg_advisory_xact_lock(hashtext(tenant:key))`, counts, and refuses with 422 `LIMIT_EXCEEDED {key, limit, current}`; concurrent creates at limit−1 admit exactly one.
 - `EntitlementService.check(key)` returns the value. `EntitlementService.assertWithin(key, currentUsage)` throws `LIMIT_EXCEEDED {key, limit, current}`. `@RequireEntitlement('api_enabled')` guards whole routes (`ENTITLEMENT_REQUIRED`).
 - **Enforcement points:** invite/accept membership (`max_users`); contact create and import confirm (`max_contacts`, where the import checks the projected total); connect number (`max_phone_numbers`); campaign launch (`max_campaigns_per_month`); flow publish (`automation_enabled`, `max_active_flows`); API key auth (`api_enabled`); webhook endpoint create (`webhooks_enabled`); analytics queries clamp to `analytics_retention`.
-- **Downgrades never delete data.** Over-limit resources keep working read-only where applicable (for example extra flows are paused, and new contacts are blocked until the tenant is under the limit).
+- **Downgrades never delete data.** Over-limit resources keep working read-only where applicable (active flows are retained, while new contacts and additional flow publication are blocked until usage permits growth).
 
 ### Subscription
 
@@ -44,9 +44,9 @@ Every other key (`max_phone_numbers`, `max_campaigns_per_month`, `automation_exe
 - **Lifecycle job:** `billing.maintenance` `subscriptions-tick` every 15 min (X20 `system.subscriptions_due`): T-3 and T-1 trial notices, trial expiry → `EXPIRED`, period roll, cancel at period end. Idempotent (conditional status updates, notification dedupe keys).
 - **Downgrade is immediate (P11-D26).** If analytics retention shrinks, a 30-day override keeps the old window (P11-D28).
 - **Suspension after expiry:** template sends not from SYSTEM are refused (`SUBSCRIPTION_INACTIVE`); running campaigns pause (`PAUSED`, reason `SUBSCRIPTION_INACTIVE`, resumable after activation); webhook fan-out stops and pending retries close as `FAILED` `SUSPENDED_BY_PLAN` (not counted toward auto-disable); API keys get 403 `ENTITLEMENT_REQUIRED` but are never deleted. Inbound is never blocked.
-- **Trial expiry (P11-D6):** status `EXPIRED`. Nothing is deleted; customer-initiated **billable** outbound sends are refused with `SUBSCRIPTION_INACTIVE`; gated capabilities (automations, API, webhooks) resolve off; inbound messages, status updates and non-billable processing continue; members can read and export, and the OWNER can review the workspace and choose a plan.
+- **Trial expiry (P11-D6):** status `EXPIRED`. Nothing is deleted; customer-initiated **billable** outbound sends are refused with `SUBSCRIPTION_INACTIVE`; API and webhooks resolve off; template-send suspension also applies to automation actions; inbound messages, status updates and non-billable processing continue; members can read and export, and the OWNER can review the workspace and choose a plan.
 - **Downgrades (P11-D16):** no data is deleted; a resource above its new limit is reported **over limit**; only user-initiated growth of that resource is refused (`LIMIT_EXCEEDED`); inbound messages and contacts created by inbound messages are always accepted; active flows keep running and aren't disabled, but none can be published or resumed while over the flow limit. No grace period: the downgrade applies immediately (P11-D26).
-- `BillingProvider` interface (`createCheckout`, `handleWebhook`, `cancel`). v2 ships `ManualBillingProvider`, where a platform admin changes plans through the API.
+- Manual operations use the shared subscription domain through authenticated Platform Operations HTTP/CLI adapters. A payment-provider interface/gateway is deferred; no `ManualBillingProvider` checkout implementation exists.
 
 ### Wallet (prepaid credits for WhatsApp messages)
 
@@ -154,7 +154,7 @@ Ledger rows carry `fund_type` `PAID` (default) or `PROMOTIONAL` (trial and promo
 | --- | --- | --- |
 | Available funds below a message's estimated cost | That billable outbound message, from any source (`INSUFFICIENT_BALANCE`). A running campaign moves to `PAUSED_INSUFFICIENT_FUNDS` (`CAMPAIGN_ENGINE.md`). | Inbound messages, delivery/read status updates, non-billable sends, essential processing |
 | Balance < campaign estimate | Warning in the Review step only | |
-| Subscription inactive (trial expired or CANCELLED) | All outbound sends (`SUBSCRIPTION_INACTIVE`) | Reading, exporting |
+| Subscription inactive (trial expired or CANCELLED) | Customer-initiated template sends (`SUBSCRIPTION_INACTIVE`) | Inbound, status updates, non-billable freeform processing, reading, exporting |
 
 ### Billing modes (decision P9-D1)
 
@@ -164,24 +164,24 @@ Ledger rows carry `fund_type` `PAID` (default) or `PROMOTIONAL` (trial and promo
 | TRIAL (default) | Yes | `TRIAL_CREDIT_MINOR` granted once when the wallet is created (a PROMOTIONAL ledger row) |
 | PREPAID | Yes | Manual top-ups (B2) |
 
-`BILLING_ENFORCED` is the platform switch: false in development and tests, true in production. POSTPAID is not part of v2. Operators change modes with `pnpm --filter @fenwira/worker billing:mode -- --tenant <id> --mode PREPAID` until the Phase 11 admin UI.
+`BILLING_ENFORCED` is the wallet switch (safe default false); isolated billing integration tests enable it. POSTPAID is deferred. Operators change modes in `/platform` or the authenticated `billing:mode` adapter; credentials and required reason/reference/idempotency are documented in [PLATFORM_OPERATIONS.md](runbooks/PLATFORM_OPERATIONS.md). Subscription enforcement is a separate switch and remains false.
 
 ### Price book structure (decision P9-D2)
 
-`customer_price_minor` is what the tenant is charged. `provider_cost_minor` is Meta's cost (reporting and margin), `markup_bps` and `tax_code`/`tax_bps` are metadata for Phase 11 invoicing, and `is_placeholder` plus `note` flag values that aren't commercial pricing. Usage events store the charge and the provider cost. Commercial pricing, markup, plans and GST are Phase 11.
+`customer_price_minor` is what the tenant is charged. `provider_cost_minor` is Meta's cost (reporting and margin), `markup_bps` and `tax_code`/`tax_bps` are metadata for future accounting validation, and `is_placeholder` plus `note` flag values that aren't commercial pricing. Usage events store the charge and the provider cost. Configured plans are implemented. Production subscription prices, customer price book, tax rules and invoices remain unapproved/deferred.
 
 ### Implemented in Phase 9 (the wallet core B3/B4 needs)
 
 - `wallets`, the append-only `wallet_transactions` (the trigger maintains `balance_minor`), `wallet_reservations`, `usage_events` and `price_book_entries`. The price book is seeded with **placeholder** INR prices (MARKETING 88, UTILITY 13, AUTHENTICATION 13, SERVICE 0 paise), which are configuration, not code (B1).
 - `apps/api/src/modules/billing/wallet.core.ts`: reserve (in MessagingService's accept transaction, under the wallet row lock), settle (a DEBIT at the price for Meta's pricing category and the recipient's country, closing the reservation at its estimate), release (a final failure or non-billable) and credits. All are idempotent. `billing.usage` settles from `message.status.changed`, and every failure path of the outbound worker emits that event.
 - **`BILLING_ENFORCED`** (env, default `false`) is the platform switch; each tenant's billing mode then decides (above).
-- Manual top-ups (B2): `pnpm --filter @fenwira/worker wallet:credit -- --tenant <id> --amount 500`. `GET /billing/wallet` shows the balance, credit limit, held and available funds.
-- **Not yet built (Phase 11):** plans, subscriptions and entitlements, the billing UI, the low-balance notification and the daily ledger check. **Stale-reservation recovery** is a high-priority production-readiness item (ROADMAP).
+- Manual funding (B2): `/platform` and authenticated `wallet:credit` use the same immutable operation service; see the operator runbook for credentials/reason/reference/idempotency. `GET /billing/wallet` shows balance, credit limit, held and available funds.
+- **Implemented in Phase 11:** configured plans/subscriptions/entitlements, billing UI, low-balance notifications, daily ledger checks and stale-reservation recovery. Production enforcement rollout remains separately gated.
 
 ### Billing UI
 
 - **Subscription:** current plan, status, renewal or trial end, an entitlement usage table (for example "Users 4 / 5"), and a plan comparison with "Contact us to upgrade" (manual in v2).
-- **Wallet:** Available Credits (large, formatted `₹4,827.42`), This Month's spend, a low-balance threshold setting, Add Credits (shows the manual top-up instructions in v2), and Transaction History (DataTable: date, type, reason, reference link, amount, balance after; export CSV).
+- **Wallet:** Available Credits (large, formatted `₹4,827.42`), This Month's spend, configured low-balance state and manual billing-support instructions, and Transaction History (DataTable: date, type, reason, reference link, amount, balance after; export CSV).
 - **Usage:** billable messages by category and country per day, cost per campaign, cost per phone number.
 
 ### Money formatting
@@ -205,3 +205,9 @@ Platform activation calls `activatePlan`; cancellation remains period-end; FREE/
 Focused Step 4 correctness fix: reproduced a negotiated 500-day unexpired retention override being overwritten to 365 on Business→Starter. Activation now preserves any active override instead of overwriting it with automatic grace. Regression verifies value/reason/expiry unchanged. No rollout or plan authorization change.
 
 The retention regression also covers successive downgrades: automatic grace retains the largest prior retention window (including unlimited) and renews the existing 30-day period. Explicit support overrides keep their value/reason/expiry unchanged. The former behavior overwrote 365-day grace with 90 days on Business→Growth→Starter; the focused test proves preservation.
+
+### Closure correctness regression — concurrent lifecycle notices
+
+Eight concurrent `stepSubscription` transactions reproduced eight T-3 notice claims. The lifecycle now locks the subscription row before reading notice/status state, so only one scheduler invocation claims each warning or expiry and its notification/email recipients. The closure regression covers eight concurrent calls each at T-3, T-1 and expiry; existing lifecycle policy and retention decisions are unchanged.
+
+Closure also reproduced automatic 90-day downgrade grace capping a later 365-day upgrade. When the new configured plan supplies at least the automatic grace window, activation now expires that system-generated override (retaining its metadata), so the new plan applies immediately. Explicit negotiated overrides remain untouched. The configured over-limit downgrade/upgrade closure test verifies the 365-day result; both Step 5 retention regressions remain in the platform suite.

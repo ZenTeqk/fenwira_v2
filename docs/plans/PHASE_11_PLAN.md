@@ -357,7 +357,7 @@ Steps 1–3 can start as soon as this plan is approved; steps 4–6 wait for the
 ## 11. Original decision register (historical)
 
 
-Nothing below is decided by this plan. Where the specs contain values today (the plan table and entitlement numbers in `BILLING.md`, the 14-day trial, the price-book paise values), they are **placeholders** and stay flagged until answered.
+This original register is historical. Resolved questions are governed by the approved decision register above and P11-D24–D28; configured plans, approved limits and the 14-day trial are frozen. Production prices, customer price book, promotional consumption, tax/invoices, gateways and postpaid remain deferred. Historical options below do not reopen approved decisions.
 
 | # | Decision needed | Why it matters / what's in the specs today | Options (no recommendation on commercial values) | Blocks |
 | --- | --- | --- | --- | --- |
@@ -385,4 +385,4 @@ When a question is answered it moves to `PRODUCT.md` → Decision register (and 
 
 ## Step 5 implementation checkpoint
 
-Internal Billing Operations and global PLATFORM_OPERATOR have been implemented in nine increments; local validation complete and ready for acceptance review; evidence: [STEP5_ACCEPTANCE.md](STEP5_ACCEPTANCE.md), [STEP5_VALIDATION.md](STEP5_VALIDATION.md). This supersedes the historical option discussion in §3 for implementation: global grant outside tenant RBAC, password/TOTP and short privilege, bounded system discovery, withTenant domain writes, immutable receipt/audit/outbox, separate platform UI. Phase 11 remains OPEN and closure is not executed. Negative corrections preserve nonnegative available funds; full/partial message-usage refunds are capped at the original debit. Commercial decisions not approved remain unimplemented.
+Internal Billing Operations and global PLATFORM_OPERATOR have been implemented in nine increments; accepted by the subsequent closure-verification request; original local evidence: [STEP5_ACCEPTANCE.md](STEP5_ACCEPTANCE.md), [STEP5_VALIDATION.md](STEP5_VALIDATION.md). This supersedes the historical option discussion in §3 for implementation: global grant outside tenant RBAC, password/TOTP and short privilege, bounded system discovery, withTenant domain writes, immutable receipt/audit/outbox, separate platform UI. Phase 11 remains OPEN; the authorized closure checkpoint is now recorded in [PHASE_11_CLOSURE.md](PHASE_11_CLOSURE.md). Negative corrections preserve nonnegative available funds; full/partial message-usage refunds are capped at the original debit. Commercial decisions not approved remain unimplemented.

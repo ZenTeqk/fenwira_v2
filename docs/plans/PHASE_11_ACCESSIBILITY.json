@@ -1,0 +1,110 @@
+{
+  "capturedAt": "2026-10-05T18:20:48.637Z",
+  "lighthouse": "12.8.2",
+  "category": "accessibility",
+  "finalUrlsVerified": true,
+  "scores": [
+    {
+      "path": "/billing/wallet",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/billing/subscription",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/analytics",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/analytics/messaging",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/analytics/campaigns",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/analytics/inbox",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/analytics/automations",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/analytics/usage",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/integrations/api",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/integrations/webhooks",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/platform/login",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/platform/workspaces",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/platform/billing-operations",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/platform/audit",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/platform/workspaces/:workspaceId",
+      "score": 100,
+      "failing": []
+    }
+  ],
+  "responsiveWidths": [
+    375,
+    768,
+    1024,
+    1440
+  ],
+  "tenantRouteViewportChecks": 40,
+  "axeTags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa"
+  ],
+  "knownAxeViolations": 0,
+  "analyticsLoadingStateAudited": true,
+  "bannerStatesAudited": [
+    "T-3",
+    "T-1",
+    "EXPIRED",
+    "CANCELLED"
+  ],
+  "bannerViewportWidths": [
+    375,
+    1024
+  ],
+  "bannerResponses": "Controlled UI fixtures; actual transitions verified by integration"
+}

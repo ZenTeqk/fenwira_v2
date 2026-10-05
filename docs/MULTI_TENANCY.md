@@ -164,3 +164,7 @@ Platform grants are global identities, runtime read-only. `withPlatform` recheck
 X21 `system.platform_workspaces(operator_id, query, limit)` requires an active grant, returns only workspace ID/name/slug/creation time, excludes deleted tenants, clamps limits to 50, has fixed search_path and no PUBLIC execute. `fenwira_system` gets only required tenant identity columns. Commercial details use `withTenant` through the separate platform service; it exposes no raw database/table selector or message-content service.
 
 Commercial read services lock an existing wallet for shared read consistency, while mutations lock it for update and serialize the workspace's commercial state. No operator membership is created. Preview rolls back the same tenant domain transaction; no tenant financial changes are committed. Global grant provisioning remains migration-role-only.
+
+## Phase 11 closure verification
+
+[Phase 11 closure evidence](plans/PHASE_11_CLOSURE.md) verifies all tenant roles denied platform access, membership-free operator services and cross-workspace financial boundaries against the existing forced-RLS matrix. No new RLS exception is introduced.

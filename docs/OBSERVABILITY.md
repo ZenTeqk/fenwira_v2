@@ -126,3 +126,7 @@ None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → De
 Existing wallet maintenance still raises ledger/hold drift through `OpsAlerts` and configured OPS_ALERT_EMAIL. Platform authentication/failure counters support the following alert rules (monitoring deployment remains Phase 12): >=10 failed logins/MFA in 5m warning; any commercial INTERNAL/FAILED in 5m critical; >=10 IDEMPOTENCY_KEY_REUSED in 5m warning; any failed activation in 5m warning; >20 override commits in 5m review. Replays are tracked separately from changed-payload rejection.
 
 Access to >25 distinct workspace IDs per operator in 5m raises one structured warning, immutable FLAGGED event and existing `ops_alerts_total{kind="platform.unusual_workspace_access"}` per window. Redis counters have bounded TTL, no customer content; investigate authorization/audit before revoking using restricted tooling. Alert on this counter's increase. Authentication rate limiting remains independent.
+
+## Phase 11 closure verification
+
+[Phase 11 closure evidence](plans/PHASE_11_CLOSURE.md) records wallet/usage reconciliation, concurrent trial-notice deduplication, failure logging/redaction and remaining CI/startup blockers. Closure does not deploy monitoring or change enforcement flags.
