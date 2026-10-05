@@ -133,6 +133,7 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `wallet.low_balance` | billing (on a crossing into LOW_BALANCE or INSUFFICIENT_FUNDS, P11-D12) | `walletId, from, to, availableMinor, currency` | `notifications.dispatch` |
 | `wallet.funded` | billing (an unfunded wallet's first available funds, P11-D21) | `walletId, to, availableMinor, currency` | `notifications.dispatch` |
 | `wallet.recovered` | billing (a funded wallet crossing back to NORMAL) | `walletId, from, availableMinor, currency` | `notifications.dispatch` |
+| `subscription.plan_requested` | billing (OWNER requests a plan, Phase 11 Step 4, P11-D24) | `subscriptionId, planId` | `notifications.dispatch` (operator alert) |
 | `whatsapp.connection.changed` | whatsapp-accounts | `phoneNumberId, status` | `notifications.dispatch` |
 
 Payloads carry IDs, not full records. Processors re-read current state inside `withTenant`. Payload schemas live in `packages/contracts/src/events`.
@@ -160,8 +161,8 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `analytics.events` | outbox relay | Record each consumed event once and mark days/campaigns to recompute (`ANALYTICS.md`) | 5 |
 | `analytics.rollup` | repeatable scheduler | Recompute marked days and campaigns (every minute, X10), nightly heal (02:30 UTC) and retention (03:45 UTC) | 1 |
 | `billing.usage` | outbox relay | Price billable messages, debit the wallet | 5 |
-| `billing.maintenance` | repeatable scheduler | Stale-reservation recovery (every 5 min, X17), daily ledger check (02:15 UTC, X18) | 1 |
-| `notifications.dispatch` | outbox relay | In-app notification + email (wallet crossings since Phase 11) | 5 |
+| `billing.maintenance` | repeatable scheduler | Stale-reservation recovery (every 5 min, X17), daily ledger check (02:15 UTC, X18), `subscriptions-tick` (every 15 min, X20: trial notices, expiry, period roll, cancel at period end) | 1 |
+| `notifications.dispatch` | outbox relay | In-app notification + email (wallet crossings since Phase 11; plan requests and subscription notices since Step 4) | 5 |
 | `webhooks.deliver` | outbox relay (Phase 11 Step 3) | Tenant outbound webhooks: fan-out (idempotent, by domain event) and per-attempt delivery, two job kinds sharing one queue | 10 |
 | `webhooks.maintenance` | repeatable scheduler | Delivery retention (30 days, nightly 03:30 UTC, X19) | 1 |
 | `system.maintenance` | repeatable scheduler | Retention cleanup, idempotency key expiry, rollups | 1 |

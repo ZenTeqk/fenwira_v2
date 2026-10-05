@@ -1,6 +1,6 @@
 # Phase 11 Step 4 — Plans, Entitlements and Subscriptions (plan, for review)
 
-**Status:** proposed 2026-10-04; not approved; nothing implemented. Frozen inputs: P11-D2–D6, D9, D15, D16, D18, plus the Step 4 brief (plans STARTER/GROWTH/BUSINESS as data; launch defaults; monthly only; no prices; 14-day Growth-equivalent trial as a *state*; expiry never deletes; FREE/TRIAL/PREPAID modes independent of plan; downgrade never deletes; inbound never blocked; one entitlement authority; wallet separate; INR; no gateway; no GST rules).
+**Status:** approved 2026-10-04 with F1–F6 answered (P11-D24–D28); implemented 2026-10-05 in increments 1–8, awaiting acceptance. Frozen inputs: P11-D2–D6, D9, D15, D16, D18, plus the Step 4 brief (plans STARTER/GROWTH/BUSINESS as data; launch defaults; monthly only; no prices; 14-day Growth-equivalent trial as a *state*; expiry never deletes; FREE/TRIAL/PREPAID modes independent of plan; downgrade never deletes; inbound never blocked; one entitlement authority; wallet separate; INR; no gateway; no GST rules).
 
 ## 1. What already exists (repository assessment)
 
@@ -157,4 +157,4 @@ Developer/e2e lockout (mitigated by the enforcement flag); analytics data loss o
 
 ## 22. Decisions requiring product approval
 
-See the completion message (F1–F6); everything else above follows frozen decisions.
+Answered: F1 → P11-D24 (operator activates; OWNER requests), F2 → P11-D25 (trial for every new workspace; backfill), F3/F6 → P11-D26 (immediate downgrade, no grace), F4 → P11-D27 (FREE not exempt), F5 → P11-D28 (30-day retention grace). Prices, GST and payment remain open (P11-Q20–Q23).

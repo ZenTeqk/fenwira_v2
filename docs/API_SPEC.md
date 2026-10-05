@@ -321,7 +321,12 @@ Implemented in Phase 10:
 | POST | `/billing/subscription/change` | `billing.manage` (admin-driven in v2) |
 | GET | `/billing/wallet`, `/billing/wallet/transactions`, `/billing/usage` | `billing.read` |
 | POST | `/billing/wallet/credits` **IK** | Platform admin only in v2 |
-| GET | `/workspace/status` | `workspace.read` (every role). `{wallet: {state, currency, availableMinor}}`; `availableMinor` is null without `billing.read` |
+| GET | `/workspace/status` | `workspace.read` (every role). `{wallet: {state, currency, availableMinor}, subscription: {status, trialEndsAt, trialDaysLeft}}`; `availableMinor` is null without `billing.read` |
+| GET | `/billing/plans` | `billing.read` (Phase 11 Step 4) |
+| GET | `/billing/subscription` | `billing.read` |
+| GET | `/billing/entitlements` | `workspace.read` |
+| POST | `/billing/subscription/request` | `billing.manage` |
+| POST | `/billing/subscription/cancel` | `billing.manage` |
 | POST | `/billing/wallet/transactions/export` | `billing.read`. CSV |
 | GET | `/analytics/overview`, `/analytics/messaging`, `/analytics/campaigns`, `/analytics/inbox`, `/analytics/automations` | `analytics.read`. `?from&to` or `?days`, `compare` (Phase 11 Step 2, `ANALYTICS.md` → API) |
 | GET | `/analytics/usage` | `billing.read` (money) |
@@ -338,6 +343,16 @@ Implemented in Phase 11 Step 1 (`BILLING.md` → Wallet state, Transactions API)
 - `GET /workspace/status` for the shell and dashboard.
 - `GET /billing/wallet/transactions?type=CREDIT|DEBIT|ADJUSTMENT|REFUND&from&to&cursor&limit` → `{data: [{id, type, fundType, amountMinor, balanceAfterMinor, currency, reason, referenceType, referenceId, expiresAt, createdAt}], page}`.
 - `POST /billing/wallet/transactions/export {type?, from?, to?}` → `text/csv`; 422 `EXPORT_TOO_LARGE` above 50 000 rows.
+
+Phase 11 Step 4 (plans and subscriptions, `docs/BILLING.md` → Subscription):
+
+- `GET /billing/plans` → `{data: [{id, key, name, price: {amountMinor, currency, interval} | null, entitlements: {key: boolean | number | null}}]}`. Public plans in `sort` order. `price` is null until prices are approved (P11-D4); the UI shows "Contact us".
+- `GET /billing/subscription` → `{data: {status: TRIALING|ACTIVE|EXPIRED|CANCELLED, plan, requestedPlan, requestedAt, interval, trialEndsAt, trialDaysLeft, currentPeriodEnd, cancelAtPeriodEnd}}` (`plan`/`requestedPlan` are `{id, key, name}` or null). A workspace without a row reports the trial it is entitled to.
+- `GET /billing/entitlements` → `{data: [{key, label, kind: capability|limit, enabled, limit, usage, overLimit}]}`. `limit` null = unlimited.
+- `POST /billing/subscription/request {planId}` → the subscription. Records the request and alerts the operator (`subscription.plan_requested`); it does not change entitlements (P11-D24). 404 for an unknown or non-public plan.
+- `POST /billing/subscription/cancel` → the subscription with `cancelAtPeriodEnd: true`. 409 when there is no ACTIVE subscription.
+- Errors: 422 `LIMIT_EXCEEDED {key, limit, current}` on user-initiated growth past a limit; 403 `ENTITLEMENT_REQUIRED {key}` for a capability the plan lacks; 422 `SUBSCRIPTION_INACTIVE` for template sends after expiry or cancellation. Inbound is never refused.
+- `GET /api-keys` and `GET /webhook-endpoints` add `meta.entitled` (false = suspended by plan; records are kept).
 
 Implemented in Phase 11 Step 3 (`docs/API_KEYS.md`, `docs/WEBHOOKS.md`): tenant API keys and outbound webhooks, both `integrations.manage`-only (never reachable by an API key — a key can never create or manage other keys or webhook endpoints). A separate, fixed subset of `/api/v1` is also reachable with `Authorization: Bearer fw_<prefix>_<secret>` instead of a session cookie — the public API route allowlist in `docs/API_KEYS.md`. Non-allowlisted routes answer `404`, never `403`, to a key.
 

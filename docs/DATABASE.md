@@ -484,20 +484,27 @@ Implemented in Phase 10 (migration `20261003000000_automation`). The partial uni
 ## Billing (P11)
 
 ```text
-plans                                           G
-  id, key plan_key (TRIAL|STARTER|GROWTH|BUSINESS) unique, name, price_minor bigint, currency, interval (MONTH|YEAR)
-  is_public boolean, sort int
+plans                                           G   (Phase 11 Step 4, migration 20261008000000_plans_subscriptions)
+  id, key text unique (STARTER|GROWTH|BUSINESS — data, never referenced in feature code; no TRIAL plan:
+  trial is a subscription status), name, is_public boolean, sort int, created_at
 
 plan_entitlements                               G
-  plan_id, key text, value jsonb; pk (plan_id, key)     -- keys: BILLING.md
+  plan_id, key text, value jsonb; pk (plan_id, key)     -- keys: BILLING.md; unset key = unlimited/enabled
+
+plan_prices                                     G
+  id, plan_id, currency char(3), interval (MONTH|YEAR), amount_minor bigint, active; unique (plan_id, currency, interval)
+  -- empty in production: prices are not approved (P11-D4)
 
 subscriptions                                   T
-  id, tenant_id unique, plan_id, status (TRIALING|ACTIVE|PAST_DUE|CANCELLED)
-  current_period_start, current_period_end, trial_ends_at null
-  provider text null, provider_ref text null, created_at, updated_at
+  id, tenant_id unique, plan_id null, requested_plan_id null, requested_at null
+  status (TRIALING|ACTIVE|EXPIRED|CANCELLED; PAST_DUE reserved), interval (MONTH)
+  trial_ends_at, current_period_start, current_period_end, cancel_at_period_end, expired_at, cancelled_at
+  notices_sent text[], over_limit_since jsonb, provider null, provider_ref null, created_at, updated_at
+  index (status, trial_ends_at)
 
 tenant_entitlement_overrides                    T
-  tenant_id, key, value jsonb, reason text, created_by; pk (tenant_id, key)
+  tenant_id, key, value jsonb, reason text, created_by null, expires_at null, created_at; pk (tenant_id, key)
+  -- an unexpired override wins over the subscription (BILLING.md → Entitlements)
 
 wallets                                         T
   id, tenant_id unique, currency char(3)

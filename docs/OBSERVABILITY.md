@@ -57,6 +57,8 @@ Logging, correlation, metrics, tracing, health checks and alerting. Phases 1–1
 | `automation_job_retries_total` | counter | |
 | `ops_alerts_total` | counter | kind (`billing.stale_reservations` \| `billing.ledger_drift` \| `billing.campaign_paused_insufficient_funds`) |
 | `wallet_state_transitions_total` | counter | to (`NORMAL` \| `LOW_BALANCE` \| `INSUFFICIENT_FUNDS`), counted when notified |
+| `subscription_transitions_total` | counter | to (`T-3` \| `T-1` \| `EXPIRED` \| `CANCELLED`): trial notices and lifecycle transitions that notified, Phase 11 Step 4 |
+| `entitlement_denials_total` | counter | key (the entitlement that refused: `max_contacts`, `api_enabled`, `subscription_active` …) |
 | `billing_reservation_recoveries_total` | counter | outcome (`settled` \| `released`) |
 | `billing_ledger_drift_wallets` | gauge | Wallets with drift at the last daily check |
 | `analytics_events_total` | counter | type, result (`recorded` \| `duplicate` \| `ignored`) |

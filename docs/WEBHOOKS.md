@@ -94,6 +94,10 @@ An endpoint is automatically set `DISABLED` after `WEBHOOK_DISABLE_AFTER_FAILURE
 - No further deliveries are attempted until the endpoint is manually set back to `ACTIVE` (`PATCH /webhook-endpoints/{id}` with `status: 'ACTIVE'`, or the **Re-enable** action in Settings).
 - The UI shows a persistent danger banner on the endpoint's detail page explaining why it was disabled, when the last successful delivery was, and how to recover: fix the receiver, send a test delivery to confirm it's reachable, then re-enable.
 
+## Suspended by plan (Phase 11 Step 4)
+
+When the workspace loses `webhooks_enabled` (plan without webhooks, or subscription EXPIRED/CANCELLED), fan-out stops: no delivery rows are created for new events. Pending retries are closed as `FAILED` with error code `SUSPENDED_BY_PLAN`; these don't count toward auto-disable. Endpoints and their secrets are kept untouched, `GET /webhook-endpoints` returns `meta.entitled: false`, creating an endpoint returns 403 `ENTITLEMENT_REQUIRED`, and the UI shows the suspended state. Delivery resumes for new events once the entitlement returns; events that occurred while suspended are not replayed.
+
 ## Secret rotation
 
 `POST /webhook-endpoints/{id}/rotate-secret` generates a new secret and returns it once, exactly like creation. **There is no overlap/grace window** — the old secret stops verifying the moment rotation completes. If your receiver needs zero-downtime rotation, update it to accept the new secret *before* rotating, or accept a short gap where in-flight retries signed with the old secret fail (they'll retry and eventually succeed once you've updated, within the normal retry window). The UI's rotation confirmation states this plainly; it does not imply a grace period that doesn't exist.

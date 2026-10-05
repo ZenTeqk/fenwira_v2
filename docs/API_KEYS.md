@@ -55,6 +55,10 @@ At request time, `tenant.permissions` for an API-key request *is* the key's scop
 
 **Never exceeds the public allowlist.** `ApiKeyGuard` requires both `@PublicApi()` and `@RequirePermission(...)` on a route; a route with only one, or neither, answers `404 Not Found` to a key — never `403` — so the private surface is never discoverable by probing with a valid key. See *Public route allowlist* below.
 
+## Suspended by plan (Phase 11 Step 4)
+
+Without `api_enabled` (a plan without API access, or a subscription EXPIRED/CANCELLED), every API-key request gets 403 `ENTITLEMENT_REQUIRED`. Keys are never deleted or revoked by this: they stay listed (`GET /api-keys` returns `meta.entitled: false`) and revocable, and work again as soon as the entitlement returns.
+
 ## Expiration
 
 `expiresAt` is optional at creation (`POST /api-keys`); unset means the key never expires. An expired key fails authentication with the same generic `401` as a garbage or revoked token (see *Errors*) — expiry is never distinguishable from "wrong secret" by response shape, by design.
