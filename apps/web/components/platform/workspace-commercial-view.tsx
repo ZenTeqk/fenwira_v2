@@ -30,6 +30,7 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { platformMoney, platformRequest } from '@/lib/platform'
+import { CommercialActions, ReceiptDetails } from './commercial-actions'
 import { usePlatform } from './platform-shell'
 const valueLabel = (v: boolean | number | null) =>
   v === null
@@ -101,6 +102,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
         </>
       }
     >
+      <CommercialActions data={data} />
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
@@ -235,6 +237,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
             id: r.id,
             title: r.operation.replaceAll('_', ' '),
             time: new Date(r.createdAt).toLocaleString(),
+            details: <ReceiptDetails receipt={r} />,
             description: `${r.reason} · ${r.reference}${r.amountMinor ? ` · ${platformMoney(r.amountMinor)}` : ''}`,
           }))}
           empty="No commercial operations recorded."

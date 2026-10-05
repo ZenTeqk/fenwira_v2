@@ -51,3 +51,9 @@ Status: in progress; neither Step 5 acceptance nor Phase 11 closure claimed.
 - Chromium platform browser suite 4/4 passed. WCAG axe checks cover login/MFA, commercial detail at 375/768/1024/1440 and audit; no page horizontal overflow. Tenant-only access redirects and read-only permission makes zero provider-cost requests.
 - Dedicated client never emits a tenant header or refreshes tenant credentials. Absolute/idle expiration clears platform query data. No normal tenant navigation entry added.
 - Docker API/worker/web image build succeeded on retry. Later final rebuild will include remaining increments.
+
+## Increment 8 — consequential workflows
+
+- Full typecheck passed; OpenAPI regenerated. Platform integration 11/11 passed: preview leaves zero ledger/receipt/outbox changes, shows effective override and rejects stale confirmation.
+- Chromium platform suite first four tests passed; focused consequential-action test passed after labelling the operation combobox. Preview, Cancel (zero writes), uncertain-result identical retry, receipt details and accessible drawer verified.
+- HTTP/CLI retain atomic receipt idempotency; reviewed before state is checked before mutation. Preview executes the same domain validation and rolls back. Consequential UI records reason/reference, shows impact, and supports fresh password/MFA verification.

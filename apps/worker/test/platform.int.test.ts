@@ -555,3 +555,59 @@ it('operator subscription and typed overrides use receipts without duplicating t
   )
   expect(outbox).toBe(receipts.length)
 })
+
+it('commercial preview rolls back all financial state and stale confirmation is rejected', async () => {
+  const user = await privileged(),
+    tenantId = uuidv7()
+  await db.withTenant(tenantId, (tx) =>
+    tx.tenant.create({
+      data: { id: tenantId, ownerUserId: user.id, name: 'Preview isolation', slug: tenantId },
+    }),
+  )
+  const url = `/platform/workspaces/${tenantId}`
+  const read = await user.client.get(url)
+  const command = {
+    kind: 'paid_credit',
+    amountMinor: 500,
+    currency: 'INR',
+    reason: 'Reviewed manual funding',
+    reference: 'preview-reference',
+    idempotencyKey: uuidv7(),
+    expectedVersion: read.body.data.version,
+  }
+  const preview = await user.client.post(`${url}/wallet-preview`, command)
+  expect(preview.status, JSON.stringify(preview.body)).toBe(200)
+  expect(preview.body.data.after.wallet.balanceMinor).toBe('500')
+  expect(await db.withTenant(tenantId, (tx) => tx.wallet.count())).toBe(0)
+  expect(await db.withTenant(tenantId, (tx) => tx.walletTransaction.count())).toBe(0)
+  expect(await db.withTenant(tenantId, (tx) => tx.commercialOperation.count())).toBe(0)
+  expect(
+    await db.withTenant(tenantId, (tx) =>
+      tx.outboxEvent.count({ where: { eventType: 'commercial.operation_completed' } }),
+    ),
+  ).toBe(0)
+  const other = await user.client.post(`${url}/wallet-operations`, {
+    ...command,
+    idempotencyKey: uuidv7(),
+    expectedVersion: undefined,
+  })
+  expect(other.status).toBe(200)
+  expect((await user.client.post(`${url}/wallet-operations`, command)).status).toBe(409)
+  const fresh = await user.client.get(url)
+  const override = {
+    kind: 'override_set',
+    key: 'max_contacts',
+    value: 12,
+    reason: 'Preview negotiated limit',
+    reference: 'preview-override',
+    idempotencyKey: uuidv7(),
+    expectedVersion: fresh.body.data.version,
+  }
+  const entitlement = await user.client.post(`${url}/entitlement-preview`, override)
+  expect(entitlement.status).toBe(200)
+  expect(
+    entitlement.body.data.entitlements.find((e: { key: string }) => e.key === 'max_contacts')
+      .configured,
+  ).toBe(12)
+  expect(await db.withTenant(tenantId, (tx) => tx.tenantEntitlementOverride.count())).toBe(0)
+})

@@ -225,3 +225,14 @@ export const platformAuditSchema = z.object({
   createdAt: z.iso.datetime(),
 })
 export type PlatformAuditEvent = z.infer<typeof platformAuditSchema>
+
+export const commercialPreviewSchema = z.object({
+  version: z.string(),
+  before: commercialSnapshotSchema,
+  after: commercialSnapshotSchema,
+  result: z.record(z.string(), z.unknown()),
+  entitlements: z.array(
+    z.object({ key: z.string(), configured: z.union([z.boolean(), z.number(), z.null()]) }),
+  ),
+})
+export type CommercialPreview = z.infer<typeof commercialPreviewSchema>

@@ -77,7 +77,41 @@ async function mock(page: Page, allowed = permissions) {
         costProvenance: 'Missing historical cost',
         taxMetadata: [],
       }
-    else if (path === '/audit')
+    else if (path.endsWith('-preview'))
+      data = {
+        version: detail.version,
+        before: detail.snapshot,
+        after: {
+          ...detail.snapshot,
+          wallet: { ...detail.snapshot.wallet, balanceMinor: '10100', availableMinor: '9100' },
+        },
+        result: {},
+        entitlements: [],
+      }
+    else if (path.endsWith('-operations')) {
+      const body = route.request().postDataJSON() as {
+        idempotencyKey: string
+        reason: string
+        reference: string
+      }
+      data = {
+        id,
+        tenantId: id,
+        operatorId,
+        operation: 'paid_credit',
+        amountMinor: '100',
+        currency: 'INR',
+        reason: body.reason,
+        reference: body.reference,
+        idempotencyKey: body.idempotencyKey,
+        requestHash: 'a'.repeat(64),
+        before: detail.snapshot,
+        after: detail.snapshot,
+        result: {},
+        correlationId: null,
+        createdAt: new Date().toISOString(),
+      }
+    } else if (path === '/audit')
       data = [
         {
           id,
@@ -162,4 +196,72 @@ test('tenant session alone is redirected to platform login', async ({ page }) =>
   )
   await page.goto('/platform/workspaces')
   await expect(page).toHaveURL(/\/platform\/login$/)
+})
+
+test('consequential funding needs preview and impact confirmation; retry retains key', async ({
+  page,
+}) => {
+  const commands: unknown[] = []
+  let first = true
+  await mock(page)
+  await page.route('**/api/v1/platform/workspaces/*/wallet-operations', async (route) => {
+    const body = route.request().postDataJSON() as {
+      reason: string
+      reference: string
+      idempotencyKey: string
+    }
+    commands.push(body)
+    if (first) {
+      first = false
+      await route.abort('failed')
+      return
+    }
+    await route.fulfill({
+      json: {
+        data: {
+          id,
+          tenantId: id,
+          operatorId,
+          operation: 'paid_credit',
+          amountMinor: '100',
+          currency: 'INR',
+          reason: body.reason,
+          reference: body.reference,
+          idempotencyKey: body.idempotencyKey,
+          requestHash: 'a'.repeat(64),
+          before: detail.snapshot,
+          after: detail.snapshot,
+          result: {},
+          correlationId: null,
+          createdAt: new Date().toISOString(),
+        },
+      },
+    })
+  })
+  await page.goto(`/platform/workspaces/${id}`)
+  await page.getByRole('button', { name: 'Start commercial operation' }).click()
+  await page.getByLabel('Amount (INR)').fill('1.00')
+  await page.getByLabel('Reason', { exact: false }).fill('Approved support credit')
+  await page.getByLabel('Support / funding reference').fill('support-123')
+  await expect(page.getByRole('button', { name: 'Review and confirm' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Preview impact' }).click()
+  await expect(page.getByRole('heading', { name: 'Reviewed impact' })).toBeVisible()
+  const drawerAxe = await new AxeBuilder({ page })
+    .include('[role="dialog"]')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
+    .analyze()
+  expect(drawerAxe.violations).toEqual([])
+  await page.getByRole('button', { name: 'Review and confirm' }).click()
+  await expect(page.getByRole('alertdialog', { name: 'Confirm paid credit' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  expect(commands).toHaveLength(0)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.getByRole('button', { name: 'Review and confirm' }).click()
+    await page.getByRole('button', { name: 'Record commercial operation' }).click()
+    if (!attempt) await expect(page.getByText('Result uncertain:', { exact: false })).toBeVisible()
+  }
+  await expect(page.getByRole('dialog', { name: 'Commercial operation recorded' })).toBeVisible()
+  expect(commands).toHaveLength(2)
+  expect(commands[0]).toEqual(commands[1])
+  await page.keyboard.press('Escape')
 })
