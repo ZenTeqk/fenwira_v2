@@ -400,17 +400,13 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
             </Field>
           ) : null}
           {kind === 'refund' ? (
-            <Choice
-              label="Original usage debit"
-              value={debit}
-              onChange={(v) => edit(setDebit, v)}
-              options={data.ledger
-                .filter((l) => l.type === 'DEBIT')
-                .map((l) => ({
-                  value: l.id,
-                  label: `${platformMoney(l.amountMinor)} · ${new Date(l.createdAt).toLocaleString()} · ${l.id}`,
-                }))}
-            />
+            <Field
+              label="Original usage debit ID"
+              required
+              hint="Use an immutable message debit from this workspace's ledger. Older debit references are accepted; cumulative refunds cannot exceed that debit."
+            >
+              <Input required value={debit} onChange={(e) => edit(setDebit, e.target.value)} />
+            </Field>
           ) : null}
           {kind === 'activate' ? (
             <Choice
@@ -469,7 +465,11 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
               />
             </Field>
           ) : null}
-          <Field label="Reason" required>
+          <Field
+            label="Reason"
+            required
+            hint="Commercial context only. Do not include credentials or customer message content."
+          >
             <Input
               required
               minLength={5}

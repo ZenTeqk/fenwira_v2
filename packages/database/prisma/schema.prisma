@@ -59,6 +59,10 @@ model User {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  platformGrant           PlatformGrant?
+  platformChallenges      PlatformChallenge[]
+  platformSessions        PlatformSession[]
+  commercialOperations    CommercialOperation[]
   sessions                Session[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
@@ -186,28 +190,29 @@ model SecurityEvent {
 /// Tenant root ("Workspace" in the UI). Custom RLS: visible when bound or when the current user is
 /// an ACTIVE member (post-migrate.sql → tenant_root).
 model Tenant {
-  id                       String          @id @default(uuid(7)) @db.Uuid
+  commercialOperations     CommercialOperation[]
+  id                       String                @id @default(uuid(7)) @db.Uuid
   name                     String
-  slug                     String          @unique @db.Citext
-  defaultCountry           String          @default("IN") @map("default_country") @db.Char(2)
-  timezone                 String          @default("Asia/Kolkata")
-  currency                 String          @default("INR") @db.Char(3)
-  require2fa               Boolean         @default(false) @map("require_2fa")
+  slug                     String                @unique @db.Citext
+  defaultCountry           String                @default("IN") @map("default_country") @db.Char(2)
+  timezone                 String                @default("Asia/Kolkata")
+  currency                 String                @default("INR") @db.Char(3)
+  require2fa               Boolean               @default(false) @map("require_2fa")
   /// Whole-message keywords that revoke / grant MARKETING consent (case-insensitive).
-  optOutKeywords           String[]        @default(["STOP", "UNSUBSCRIBE", "CANCEL", "STOP ALL", "OPT OUT"]) @map("opt_out_keywords")
-  optInKeywords            String[]        @default(["START", "SUBSCRIBE", "OPT IN"]) @map("opt_in_keywords")
+  optOutKeywords           String[]              @default(["STOP", "UNSUBSCRIBE", "CANCEL", "STOP ALL", "OPT OUT"]) @map("opt_out_keywords")
+  optInKeywords            String[]              @default(["START", "SUBSCRIBE", "OPT IN"]) @map("opt_in_keywords")
   /// Reply after an opt-out (a SERVICE message). Empty = no reply.
-  optOutReply              String?         @default("You're unsubscribed from marketing messages. Reply START to subscribe again.") @map("opt_out_reply")
-  autoAssign               AutoAssignMode  @default(OFF) @map("auto_assign")
-  inboxVisibility          InboxVisibility @default(ALL) @map("inbox_visibility")
+  optOutReply              String?               @default("You're unsubscribed from marketing messages. Reply START to subscribe again.") @map("opt_out_reply")
+  autoAssign               AutoAssignMode        @default(OFF) @map("auto_assign")
+  inboxVisibility          InboxVisibility       @default(ALL) @map("inbox_visibility")
   /// Return AGENT_TAKEOVER to automation after N idle hours on a resolved conversation (null = never).
-  takeoverAutoReleaseHours Int?            @map("takeover_auto_release_hours")
+  takeoverAutoReleaseHours Int?                  @map("takeover_auto_release_hours")
   /// P9-D1: FREE (never enforced), TRIAL (trial credits, enforced), PREPAID (enforced). Set by operators.
-  billingMode              BillingMode     @default(TRIAL) @map("billing_mode")
-  ownerUserId              String          @map("owner_user_id") @db.Uuid
-  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt                DateTime?       @map("deleted_at") @db.Timestamptz(3)
+  billingMode              BillingMode           @default(TRIAL) @map("billing_mode")
+  ownerUserId              String                @map("owner_user_id") @db.Uuid
+  createdAt                DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt                DateTime?             @map("deleted_at") @db.Timestamptz(3)
 
   owner                    User                           @relation("TenantOwner", fields: [ownerUserId], references: [id])
   memberships              Membership[]
@@ -2186,70 +2191,83 @@ model WebhookDelivery {
 
 /// Global authorization; writable only with migration credentials by restricted CLI.
 model PlatformGrant {
-  userId String @id @map("user_id") @db.Uuid
-  role String @default("PLATFORM_OPERATOR")
-  version Int @default(1)
+  user      User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId    String    @id @map("user_id") @db.Uuid
+  role      String    @default("PLATFORM_OPERATOR")
+  version   Int       @default(1)
   revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
-  reason String
-  grantedBy String @map("granted_by")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  reason    String
+  grantedBy String    @map("granted_by")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
   @@map("platform_grants")
 }
 
 /// Immutable platform security/access trail. No customer content or credentials.
 model PlatformAudit {
-  id String @id @default(uuid(7)) @db.Uuid
-  operatorId String? @map("operator_id") @db.Uuid
-  workspaceId String? @map("workspace_id") @db.Uuid
-  action String
-  outcome String
-  correlationId String? @map("correlation_id")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  details       Json?
+  id            String   @id @default(uuid(7)) @db.Uuid
+  operatorId    String?  @map("operator_id") @db.Uuid
+  workspaceId   String?  @map("workspace_id") @db.Uuid
+  action        String
+  outcome       String
+  correlationId String?  @map("correlation_id")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
   @@index([createdAt(sort: Desc), id])
   @@map("platform_audit")
 }
 
 model PlatformChallenge {
-  id String @id @default(uuid(7)) @db.Uuid
-  userId String @map("user_id") @db.Uuid
-  tokenHash Bytes @unique @map("token_hash")
-  grantVersion Int @map("grant_version")
-  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
-  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  user           User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentFamilyId String?   @map("parent_family_id") @db.Uuid
+  id             String    @id @default(uuid(7)) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  tokenHash      Bytes     @unique @map("token_hash")
+  grantVersion   Int       @map("grant_version")
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt     DateTime? @map("consumed_at") @db.Timestamptz(3)
+
   @@map("platform_challenges")
 }
+
 model PlatformSession {
-  id String @id @default(uuid(7)) @db.Uuid
-  userId String @map("user_id") @db.Uuid
-  parentFamilyId String @map("parent_family_id") @db.Uuid
-  tokenHash Bytes @unique @map("token_hash")
-  csrfHash Bytes @map("csrf_hash")
-  grantVersion Int @map("grant_version")
-  mfaAt DateTime @map("mfa_at") @db.Timestamptz(3)
-  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
-  lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz(3)
-  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  user           User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id             String    @id @default(uuid(7)) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  parentFamilyId String    @map("parent_family_id") @db.Uuid
+  tokenHash      Bytes     @unique @map("token_hash")
+  csrfHash       Bytes     @map("csrf_hash")
+  grantVersion   Int       @map("grant_version")
+  mfaAt          DateTime  @map("mfa_at") @db.Timestamptz(3)
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt     DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+
   @@index([userId])
   @@map("platform_sessions")
 }
 
 /// Tenant-owned immutable commercial receipt, created atomically with domain mutations.
 model CommercialOperation {
-  id String @id @default(uuid(7)) @db.Uuid
-  tenantId String @map("tenant_id") @db.Uuid
-  operatorId String @map("operator_id") @db.Uuid
-  operation String
-  amountMinor BigInt? @map("amount_minor")
-  currency String? @db.Char(3)
-  reason String
-  reference String
-  idempotencyKey String @map("idempotency_key")
-  requestHash String @map("request_hash")
-  before Json
-  after Json
-  result Json
-  correlationId String? @map("correlation_id")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  operator       User     @relation(fields: [operatorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id             String   @id @default(uuid(7)) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  operatorId     String   @map("operator_id") @db.Uuid
+  operation      String
+  amountMinor    BigInt?  @map("amount_minor")
+  currency       String?  @db.Char(3)
+  reason         String
+  reference      String
+  idempotencyKey String   @map("idempotency_key")
+  requestHash    String   @map("request_hash")
+  before         Json
+  after          Json
+  result         Json
+  correlationId  String?  @map("correlation_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, createdAt(sort: Desc), id])
   @@map("commercial_operations")

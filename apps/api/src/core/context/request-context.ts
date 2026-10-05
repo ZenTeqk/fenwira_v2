@@ -36,6 +36,7 @@ export type RequestContext = {
   auth?: AuthContext
   tenant?: TenantContext
   platform?: { operatorId: string; sessionId: string; mfaAt: Date }
+  platformFailureAudited?: boolean
   apiKey?: ApiKeyContext
 }
 

@@ -20,6 +20,18 @@ export class MetricsService implements OnApplicationBootstrap, OnApplicationShut
   readonly registry = new Registry()
   private server?: Server
 
+  readonly platformEvents = new Counter({
+    name: 'platform_events_total',
+    help: 'Privileged authentication, access and operation outcomes',
+    labelNames: ['action', 'outcome'] as const,
+    registers: [this.registry],
+  })
+  readonly commercialOperations = new Counter({
+    name: 'commercial_operations_total',
+    help: 'Commercial commits and idempotent replays',
+    labelNames: ['operation', 'result'] as const,
+    registers: [this.registry],
+  })
   readonly webhookReceived = new Counter({
     name: 'webhook_received_total',
     help: 'WhatsApp webhook events by kind and result',

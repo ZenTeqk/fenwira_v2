@@ -13,6 +13,7 @@ import {
 } from '@fenwira/contracts'
 import { Database, Prisma, type TenantTx } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
+import { MetricsService } from '../../core/metrics/metrics.service'
 import { CORE_CONFIG, type CoreConfig } from '../../core/config/core-config'
 import { requestContext } from '../../core/context/request-context'
 import { AppError } from '../../core/http/app-error'
@@ -43,6 +44,7 @@ class PreviewRollback extends Error {
 @Injectable()
 export class CommercialOperationService {
   constructor(
+    private readonly metrics: MetricsService,
     @Inject(Database) private readonly db: Database,
     private readonly auth: PlatformAuthService,
     @Inject(CORE_CONFIG) private readonly config: CoreConfig,
@@ -98,6 +100,9 @@ export class CommercialOperationService {
         await commercialSnapshot(tx, tenantId)
         // Lock an existing wallet without initializing it before the reviewed snapshot.
         await tx.$queryRaw`SELECT id FROM wallets WHERE tenant_id = ${tenantId}::uuid FOR UPDATE`
+        const existed = await tx.commercialOperation.findUnique({
+          where: { tenantId_idempotencyKey: { tenantId, idempotencyKey: input.idempotencyKey } },
+        })
         const receipt = await commercialOperation(
           tx,
           tenantId,
@@ -129,9 +134,13 @@ export class CommercialOperationService {
             ),
           )
         }
-        return receipt
+        return { receipt, replay: !!existed }
       })
-      return commercialReceiptSchema.parse(commercialJson(receipt))
+      this.metrics.commercialOperations.inc({
+        operation: input.kind,
+        result: receipt.replay ? 'replay' : 'committed',
+      })
+      return commercialReceiptSchema.parse(commercialJson(receipt.receipt))
     } catch (err) {
       if (err instanceof PreviewRollback) {
         await this.auth.audit('commercial.preview', 'SUCCESS', actor, tenantId)
@@ -142,6 +151,14 @@ export class CommercialOperationService {
         err instanceof AppError ? err.code : 'FAILED',
         actor,
         tenantId,
+        {
+          operation: input.kind,
+          amountMinor: input.amountMinor,
+          currency: input.currency,
+          reason: input.reason,
+          reference: input.reference,
+          idempotencyKey: input.idempotencyKey,
+        },
       )
       throw err
     }
@@ -241,6 +258,7 @@ export class CommercialOperationService {
               id: input.debitId,
               walletId: wallet.id,
               type: 'DEBIT',
+              referenceType: 'message',
               amountMinor: { lt: 0 },
             },
           })

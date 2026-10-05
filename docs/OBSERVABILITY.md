@@ -118,3 +118,11 @@ Application alerts (Phase 11): jobs raise them through `OpsAlerts` (`apps/api/sr
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Platform Operations (Phase 11 Step 5)
+
+`platform_events_total{action,outcome}` records bounded authentication/access/validation and failed operation outcomes, including MFA/replay, rate limits, CSRF and override activity. `commercial_operations_total{operation,result}` counts committed operations and receipt replays only after commit; preview changes are rolled back and excluded. Metrics never label operator/workspace/key/reference IDs. Structured logs contain action/outcome, operator/workspace IDs and correlation only, never notes, request bodies, passwords, codes or provider/customer message content. Platform 5xx logs exclude raw exceptions to avoid financial payload leakage.
+
+Existing wallet maintenance still raises ledger/hold drift through `OpsAlerts` and configured OPS_ALERT_EMAIL. Platform authentication/failure counters support the following alert rules (monitoring deployment remains Phase 12): >=10 failed logins/MFA in 5m warning; any commercial INTERNAL/FAILED in 5m critical; >=10 IDEMPOTENCY_KEY_REUSED in 5m warning; any failed activation in 5m warning; >20 override commits in 5m review. Replays are tracked separately from changed-payload rejection.
+
+Access to >25 distinct workspace IDs per operator in 5m raises one structured warning, immutable FLAGGED event and existing `ops_alerts_total{kind="platform.unusual_workspace_access"}` per window. Redis counters have bounded TTL, no customer content; investigate authorization/audit before revoking using restricted tooling. Alert on this counter's increase. Authentication rate limiting remains independent.

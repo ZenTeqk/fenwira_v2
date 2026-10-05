@@ -182,8 +182,11 @@ export async function draftCampaign(
 export const launch = (w: CampaignWorld, id: string, key = `launch-${metaId()}`) =>
   w.owner.client.post(`/campaigns/${id}/launch`, {}, { 'Idempotency-Key': key })
 
-export const campaignOf = (w: CampaignWorld, id: string) =>
-  w.owner.client.get(`/campaigns/${id}`).then((r) => r.body.data)
+export const campaignOf = async (w: CampaignWorld, id: string) => {
+  const response = await w.owner.client.get(`/campaigns/${id}`)
+  expect(response.status, JSON.stringify(response.body.error)).toBe(200)
+  return response.body.data
+}
 export const statsOf = (w: CampaignWorld, id: string) =>
   w.owner.client.get(`/campaigns/${id}/stats`).then((r) => r.body.data)
 

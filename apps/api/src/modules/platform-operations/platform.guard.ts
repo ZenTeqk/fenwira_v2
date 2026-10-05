@@ -1,5 +1,9 @@
-import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common'
+import { type CanActivate, type ExecutionContext, Injectable, Inject } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
+import { type Redis } from 'ioredis'
+import { PinoLogger } from 'nestjs-pino'
+import { MetricsService } from '../../core/metrics/metrics.service'
+import { REDIS } from '../../core/redis/redis.provider'
 import { type Request } from 'express'
 import { requestContext } from '../../core/context/request-context'
 import { AppError } from '../../core/http/app-error'
@@ -14,6 +18,9 @@ import {
 @Injectable()
 export class PlatformGuard implements CanActivate {
   constructor(
+    @Inject(REDIS) private readonly redis: Redis,
+    private readonly metrics: MetricsService,
+    private readonly logger: PinoLogger,
     private readonly reflector: Reflector,
     private readonly auth: PlatformAuthService,
   ) {}
@@ -48,6 +55,20 @@ export class PlatformGuard implements CanActivate {
           403,
           'Verify password and a fresh authenticator code before this action.',
         )
+      if (typeof req.params.workspaceId === 'string') {
+        const key = `platform:workspace-access:${me.operatorId}`
+        await this.redis.sadd(key, req.params.workspaceId)
+        await this.redis.expire(key, 300, 'NX')
+        const count = await this.redis.scard(key)
+        if (count > 25 && (await this.redis.set(`${key}:alert`, '1', 'EX', 300, 'NX')) === 'OK') {
+          this.metrics.opsAlerts.inc({ kind: 'platform.unusual_workspace_access' })
+          this.logger.warn(
+            { operatorId: me.operatorId, count },
+            'unusual platform workspace access',
+          )
+          await this.auth.audit('platform.unusual_workspace_access', 'FLAGGED', me.operatorId)
+        }
+      }
       return true
     } catch (err) {
       await this.auth.audit('platform.access', 'DENIED', requestContext.get()?.platform?.operatorId)

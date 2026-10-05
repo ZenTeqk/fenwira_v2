@@ -11,3 +11,5 @@ Reuse withTenant, forced RLS, wallet locks/append-only ledger, subscriptions, En
 Configured entitlements are shown separately from rollout enforcement. Promotional expiry remains metadata; show grants, not fabricated remaining fund buckets. Provider costs are internal, nullable, with coverage. No production subscription pricing, gateway, GST/invoices or postpaid policy. BILLING_SUBSCRIPTIONS_ENFORCED stays unchanged.
 
 Each increment needs focused tests, contracts/API documentation, security implications and concrete validation recorded in STEP5_VALIDATION.md. Final checks: lint/typecheck/unit/integration/build, stack/smoke, platform E2E, WCAG 2.2 AA and Lighthouse >=95. New tenant receipts need RLS matrix tests. Preserve financial history; grants default denied. Stop at Step 5 acceptance preparation; do not execute Phase 11 closure.
+
+Implementation review and runbook: STEP5_ACCEPTANCE.md and ../runbooks/PLATFORM_OPERATIONS.md. Step 5 acceptance preparation is separate from Phase 11 closure.

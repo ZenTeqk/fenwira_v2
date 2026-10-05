@@ -198,6 +198,21 @@ test('tenant session alone is redirected to platform login', async ({ page }) =>
   await expect(page).toHaveURL(/\/platform\/login$/)
 })
 
+test('revoked privilege clears the commercial view after a denied request', async ({ page }) => {
+  await mock(page)
+  await page.goto(`/platform/workspaces/${id}`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Commercial fixture' })).toBeVisible()
+  await page.route('**/api/v1/platform/audit', (route) =>
+    route.fulfill({
+      status: 403,
+      json: { error: { code: 'FORBIDDEN', message: 'Platform authorization ended.' } },
+    }),
+  )
+  await page.getByRole('link', { name: 'Audit', exact: true }).click()
+  await expect(page).toHaveURL(/\/platform\/login$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Commercial fixture' })).toHaveCount(0)
+})
+
 test('consequential funding needs preview and impact confirmation; retry retains key', async ({
   page,
 }) => {
@@ -253,7 +268,8 @@ test('consequential funding needs preview and impact confirmation; retry retains
   expect(drawerAxe.violations).toEqual([])
   await page.getByRole('button', { name: 'Review and confirm' }).click()
   await expect(page.getByRole('alertdialog', { name: 'Confirm paid credit' })).toBeVisible()
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).focus()
+  await page.keyboard.press('Enter')
   expect(commands).toHaveLength(0)
   for (let attempt = 0; attempt < 2; attempt++) {
     await page.getByRole('button', { name: 'Review and confirm' }).click()

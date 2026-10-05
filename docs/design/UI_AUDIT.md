@@ -101,3 +101,9 @@ Missing from the v1 brief: **FilterBar, SearchInput, MetricCard (named), DetailD
 | U8 | Automations | Only the advanced canvas/outline; no simple path for common SMB automations. | ✅ starter recipes (same flow model) |
 | U9 | Command palette | Navigation only; no records or create actions. | ✅ |
 | U10 | Analytics, Billing | Not shipped (Phase 11); only campaign analytics exists. | ⏭ Phase 11 (patterns documented; wallet surfaced in shell/dashboard) |
+
+## Phase 11 Step 5 — Platform Operations (2026-10-05)
+
+Separate protected platform shell follows Design System v1 with search-driven workspace selection, contextual commercial summary, activity timeline and narrowly scoped actions. Shared primitives provide labels, status text, confirmation dialogs, focus handling and read-only details; ordinary tenant navigation has no platform entry.
+
+Quality gate evidence: lint/design tokens and typecheck pass; seven platform browser tests pass, including permission variants, keyboard cancellation, retry/receipt details, real MFA and grant revocation. axe covers login/MFA, workspace detail and audit; real commercial views visually reviewed at 375/768/1024/1440 pixels. No page overflow; wide tables expose labelled focusable scroll regions. Trial is labelled explicitly. Loading/empty/error states and read-only access are covered by platform tests. Lighthouse accessibility is 100 on all five platform routes, with protected final URLs verified ([sanitized results](../plans/STEP5_ACCESSIBILITY.json)). Acceptance remains for review; Phase 11 closure is separate.

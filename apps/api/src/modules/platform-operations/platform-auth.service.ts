@@ -1,7 +1,10 @@
 import { decryptSecret, randomToken, safeEqual, sha256 } from '@fenwira/config'
 import { PLATFORM_PERMISSIONS, type PlatformMe } from '@fenwira/contracts'
-import { Database } from '@fenwira/database'
+import { Database, type Prisma } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
+import { redactAudit } from '../../core/security/redact'
+import { MetricsService } from '../../core/metrics/metrics.service'
+import { PinoLogger } from 'nestjs-pino'
 import { requestContext } from '../../core/context/request-context'
 import { AppError } from '../../core/http/app-error'
 import { RateLimitService } from '../../core/security/rate-limit.service'
@@ -24,6 +27,8 @@ export const FRESH_MFA_MS = 5 * 60_000
 @Injectable()
 export class PlatformAuthService {
   constructor(
+    private readonly metrics: MetricsService,
+    private readonly logger: PinoLogger,
     @Inject(Database) private readonly db: Database,
     private readonly passwords: PasswordService,
     private readonly sessions: SessionService,
@@ -32,7 +37,16 @@ export class PlatformAuthService {
     @Inject(IDENTITY_OPTIONS) private readonly options: IdentityOptions,
   ) {}
 
-  async audit(action: string, outcome: string, operatorId?: string, workspaceId?: string) {
+  async audit(
+    action: string,
+    outcome: string,
+    operatorId?: string,
+    workspaceId?: string,
+    details?: Record<string, unknown>,
+  ) {
+    this.metrics.platformEvents.inc({ action, outcome })
+    if (outcome !== 'SUCCESS') requestContext.patch({ platformFailureAudited: true })
+    this.logger.info({ action, outcome, operatorId, tenantId: workspaceId }, 'platform operation')
     await this.db.withGlobal((tx) =>
       tx.platformAudit.createMany({
         data: {
@@ -41,6 +55,7 @@ export class PlatformAuthService {
           action,
           outcome,
           correlationId: requestContext.correlationId(),
+          ...(details ? { details: redactAudit(details) as Prisma.InputJsonValue } : {}),
         },
       }),
     )
@@ -82,16 +97,25 @@ export class PlatformAuthService {
       )
     }
     const challengeToken = randomToken()
-    await this.db.withGlobal((tx) =>
-      tx.platformChallenge.create({
+    await this.db.withPlatform(user.id, async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${user.id}::uuid FOR SHARE`
+      const current = await tx.user.findUniqueOrThrow({ where: { id: user.id } })
+      const currentGrant = await tx.platformGrant.findUniqueOrThrow({ where: { userId: user.id } })
+      if (current.passwordHash !== user.passwordHash || currentGrant.version !== grant.version)
+        throw new AppError('INVALID_CREDENTIALS', 401, 'Sign in again.')
+      const parent = await this.sessions.issue(user.id, tx)
+      const expiresAt = new Date(Date.now() + 5 * 60_000)
+      await tx.session.updateMany({ where: { familyId: parent.familyId }, data: { expiresAt } })
+      await tx.platformChallenge.create({
         data: {
           userId: user.id,
           tokenHash: sha256(challengeToken),
           grantVersion: grant.version,
-          expiresAt: new Date(Date.now() + 5 * 60_000),
+          parentFamilyId: parent.familyId,
+          expiresAt,
         },
-      }),
-    )
+      })
+    })
     return { challengeToken }
   }
 
@@ -130,8 +154,23 @@ export class PlatformAuthService {
     const challenge = await this.db.withGlobal((tx) =>
       tx.platformChallenge.findUnique({ where: { tokenHash: hash } }),
     )
-    if (!challenge || challenge.consumedAt || challenge.expiresAt <= new Date())
+    if (
+      !challenge ||
+      !challenge.parentFamilyId ||
+      challenge.consumedAt ||
+      challenge.expiresAt <= new Date()
+    )
       throw new AppError('TOKEN_INVALID', 401, 'Sign in again.')
+    const activeParent = await this.db.withGlobal((tx) =>
+      tx.session.findFirst({
+        where: {
+          familyId: challenge.parentFamilyId!,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+      }),
+    )
+    if (!activeParent) throw new AppError('TOKEN_INVALID', 401, 'Sign in again.')
     await this.factor(challenge.userId, code)
     const token = randomToken(),
       csrfToken = randomToken(),
@@ -147,11 +186,18 @@ export class PlatformAuthService {
         data: { consumedAt: now },
       })
       if (!claimed.count) throw new AppError('TOKEN_INVALID', 401, 'Sign in again.')
-      const parent = await this.sessions.issue(challenge.userId, tx)
+      const parents = await tx.$queryRaw<
+        Array<{ id: string }>
+      >`SELECT id FROM sessions WHERE family_id = ${challenge.parentFamilyId}::uuid AND revoked_at IS NULL AND expires_at > now() FOR SHARE`
+      if (!parents.length) throw new AppError('TOKEN_INVALID', 401, 'Sign in again.')
+      await tx.session.updateMany({
+        where: { familyId: challenge.parentFamilyId! },
+        data: { expiresAt: new Date(now.getTime() + PRIVILEGE_MS) },
+      })
       return tx.platformSession.create({
         data: {
           userId: challenge.userId,
-          parentFamilyId: parent.familyId,
+          parentFamilyId: challenge.parentFamilyId!,
           tokenHash: sha256(token),
           csrfHash: sha256(csrfToken),
           grantVersion: grant.version,
@@ -244,6 +290,10 @@ export class PlatformAuthService {
     await this.db.withGlobal((tx) =>
       tx.platformSession.update({ where: { id: ctx.sessionId }, data: { revokedAt: new Date() } }),
     )
+    const session = await this.db.withGlobal((tx) =>
+      tx.platformSession.findUniqueOrThrow({ where: { id: ctx.sessionId } }),
+    )
+    await this.sessions.revokeFamily(ctx.operatorId, session.parentFamilyId, 'PLATFORM_LOGOUT')
     await this.audit('platform.logout', 'SUCCESS', ctx.operatorId)
   }
 }

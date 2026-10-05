@@ -116,6 +116,7 @@ export const platformWorkspaceSchema = z.object({
       amountMinor: z.string(),
       reason: z.string(),
       referenceId: z.string().nullable(),
+      referenceType: z.string().nullable(),
       expiresAt: z.iso.datetime().nullable(),
       createdAt: z.iso.datetime(),
     }),
@@ -143,9 +144,21 @@ export const platformFinancialSchema = z.object({
 })
 export type PlatformFinancial = z.infer<typeof platformFinancialSchema>
 
+const safeNote = (v: string) =>
+  !/Bearer\s+|fw_[a-z\d]+_[a-z\d_-]+|(?:password|secret|access_token)\s*[:=]/i.test(v)
 const operationBase = z.object({
-  reason: z.string().trim().min(5).max(500),
-  reference: z.string().trim().min(1).max(120),
+  reason: z
+    .string()
+    .trim()
+    .min(5)
+    .max(500)
+    .refine(safeNote, 'Credentials must not be included in commercial notes.'),
+  reference: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .refine(safeNote, 'Credentials must not be included in references.'),
   idempotencyKey: z.string().min(8).max(128),
   expectedVersion: z
     .string()
@@ -216,6 +229,7 @@ export const entitlementOperationSchema = z
 export type EntitlementOperation = z.infer<typeof entitlementOperationSchema>
 
 export const platformAuditSchema = z.object({
+  details: z.record(z.string(), z.unknown()).nullable().optional(),
   id: z.uuid(),
   operatorId: z.uuid().nullable(),
   workspaceId: z.uuid().nullable(),
@@ -236,3 +250,9 @@ export const commercialPreviewSchema = z.object({
   ),
 })
 export type CommercialPreview = z.infer<typeof commercialPreviewSchema>
+
+export const platformGrantCommandSchema = z.object({
+  userId: z.uuid(),
+  actor: z.string().trim().min(1).max(120).refine(safeNote),
+  reason: z.string().trim().min(5).max(500).refine(safeNote),
+})

@@ -46,6 +46,7 @@ export default function Page() {
   }
   return (
     <Card className="w-full max-w-md">
+      <h1 className="sr-only">Fenwira Platform sign in</h1>
       <CardHeader>
         <CardTitle as="h2">Platform sign in</CardTitle>
         <p className="text-sm text-secondary">
@@ -53,7 +54,6 @@ export default function Page() {
         </p>
       </CardHeader>
       <CardContent>
-        <h1 className="sr-only">Fenwira Platform sign in</h1>
         <form onSubmit={submit} className="flex flex-col gap-4">
           {!challenge ? (
             <>

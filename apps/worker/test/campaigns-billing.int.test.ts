@@ -369,7 +369,13 @@ describe('Phase 9: wallet reservations (B4) in campaigns', () => {
 
   it('price book entries are labelled development placeholders (P9-D2)', async () => {
     const rows = await db.withTenant(metaIdTenant(), (tx) =>
-      tx.priceBookEntry.findMany({ where: { country: null } }),
+      tx.priceBookEntry.findMany({
+        // Validate seeded launch categories, independently of synthetic reservation fixtures.
+        where: {
+          country: null,
+          category: { in: ['MARKETING', 'UTILITY', 'AUTHENTICATION', 'SERVICE'] },
+        },
+      }),
     )
     expect(rows.length).toBeGreaterThanOrEqual(4)
     expect(rows.every((r) => r.isPlaceholder && /placeholder/i.test(r.note ?? ''))).toBe(true)

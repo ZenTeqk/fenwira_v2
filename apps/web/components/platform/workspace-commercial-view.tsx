@@ -82,6 +82,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
           <SummaryItem label="Subscription">
             {subscription ? (
               <StatusBadge
+                label={subscription.status === 'TRIALING' ? 'Trial' : undefined}
                 status={
                   subscription.status === 'TRIALING'
                     ? 'PENDING'
@@ -127,17 +128,17 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
                 {data.plans.find((p) => p.id === subscription?.requestedPlanId)?.name ?? 'None'}
               </SummaryItem>
               <SummaryItem label="Ledger balance">
-                {wallet ? platformMoney(wallet.balanceMinor) : '—'}
+                {wallet ? platformMoney(wallet.balanceMinor, wallet.currency) : '—'}
               </SummaryItem>
               <SummaryItem label="Active reservations">
-                {wallet ? platformMoney(wallet.reservedMinor) : '—'}
+                {wallet ? platformMoney(wallet.reservedMinor, wallet.currency) : '—'}
               </SummaryItem>
             </dl>
             <p className="mt-4 text-sm text-secondary">
               {data.credits
                 .map(
                   (c) =>
-                    `${c.fundType === 'PAID' ? 'Paid' : 'Promotional'} grants: ${platformMoney(c.grantedMinor)}`,
+                    `${c.fundType === 'PAID' ? 'Paid' : 'Promotional'} grants: ${platformMoney(c.grantedMinor, wallet?.currency ?? 'INR')}`,
                 )
                 .join(' · ') || 'No credit grants'}
               . Grants are historical totals; remaining paid/promotional balances are not allocated.
@@ -166,21 +167,25 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
               ) : (
                 <>
                   <dl className="grid grid-cols-2 gap-4">
-                    <SummaryItem label="Customer usage charges">
-                      {platformMoney(financial.data.customerChargeMinor)}
+                    <SummaryItem label="Gross customer usage charges">
+                      {platformMoney(financial.data.customerChargeMinor, financial.data.currency)}
                     </SummaryItem>
                     <SummaryItem label="Recorded provider cost">
-                      {platformMoney(financial.data.providerCostMinor)}
+                      {platformMoney(financial.data.providerCostMinor, financial.data.currency)}
                     </SummaryItem>
-                    <SummaryItem label="Contribution on known costs">
-                      {platformMoney(financial.data.recordedContributionMinor)}
+                    <SummaryItem label="Recorded gross contribution">
+                      {platformMoney(
+                        financial.data.recordedContributionMinor,
+                        financial.data.currency,
+                      )}
                     </SummaryItem>
                     <SummaryItem label="Cost coverage">
                       {financial.data.costKnownMessages} / {financial.data.messages} usage records
                     </SummaryItem>
                   </dl>
                   <p className="mt-4 text-sm text-secondary">
-                    {financial.data.costProvenance} Missing costs are excluded from contribution.
+                    {financial.data.costProvenance} Missing costs are excluded. Gross contribution
+                    excludes support refunds and adjustments.
                   </p>
                   <p className="mt-2 text-sm text-secondary">
                     Tax metadata:{' '}
@@ -264,7 +269,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
                   <TableCell>{new Date(l.createdAt).toLocaleString()}</TableCell>
                   <TableCell>{l.type}</TableCell>
                   <TableCell>{l.fundType}</TableCell>
-                  <TableCell>{platformMoney(l.amountMinor)}</TableCell>
+                  <TableCell>{platformMoney(l.amountMinor, wallet?.currency ?? 'INR')}</TableCell>
                   <TableCell>
                     {l.reason}
                     {l.expiresAt ? ` · ${new Date(l.expiresAt).toLocaleString()}` : ''}

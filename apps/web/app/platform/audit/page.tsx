@@ -80,7 +80,11 @@ export default function Page() {
             ? Object.entries(selected).map(([key, value]) => (
                 <div key={key}>
                   <dt className="text-sm text-secondary">{key}</dt>
-                  <dd className="break-all font-mono text-sm">{value ?? '—'}</dd>
+                  <dd className="break-all font-mono text-sm">
+                    {typeof value === 'object' && value !== null
+                      ? JSON.stringify(value)
+                      : (value ?? '—')}
+                  </dd>
                 </div>
               ))
             : null}

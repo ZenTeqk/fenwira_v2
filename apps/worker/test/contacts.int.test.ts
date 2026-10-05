@@ -66,7 +66,11 @@ async function runImport(
   const created = await owner.client.post('/imports', { fileId })
   expect(created.status, created.text).toBe(201)
   const id = created.body.data.id as string
-  const get = () => owner.client.get(`/imports/${id}`).then((r) => r.body.data)
+  const get = async () => {
+    const response = await owner.client.get(`/imports/${id}`)
+    expect(response.status, JSON.stringify(response.body.error)).toBe(200)
+    return response.body.data
+  }
   const t = opts.timeoutMs ?? 60_000
   await waitFor(get, (j) => j.status === 'MAPPING', t)
   const configured = await owner.client.patch(`/imports/${id}`, {

@@ -201,7 +201,7 @@ export async function activatePlan(
     !sub?.plan && trialPlanKey
       ? await tx.plan.findUnique({ where: { key: trialPlanKey }, include: { entitlements: true } })
       : null
-  const oldRetention = retentionOf(sub?.plan?.entitlements ?? trialPlan?.entitlements)
+  let oldRetention = retentionOf(sub?.plan?.entitlements ?? trialPlan?.entitlements)
   const newRetention = retentionOf(plan.entitlements)
   await tx.subscription.upsert({
     where: { tenantId },
@@ -231,7 +231,26 @@ export async function activatePlan(
   // A plan transition must not silently replace that agreement with automatic grace.
   const activeOverride =
     existingOverride && (!existingOverride.expiresAt || existingOverride.expiresAt > now)
-  if (!activeOverride && oldRetention !== undefined && shrinks(oldRetention, newRetention))
+  const automaticGrace =
+    activeOverride &&
+    existingOverride.createdBy === null &&
+    existingOverride.reason.startsWith('Retention grace after plan change (')
+  if (
+    automaticGrace &&
+    (existingOverride.value === null || typeof existingOverride.value === 'number')
+  ) {
+    const existingRetention = existingOverride.value as number | null
+    if (
+      oldRetention !== null &&
+      (existingRetention === null || oldRetention === undefined || existingRetention > oldRetention)
+    )
+      oldRetention = existingRetention
+  }
+  if (
+    (!activeOverride || automaticGrace) &&
+    oldRetention !== undefined &&
+    shrinks(oldRetention, newRetention)
+  )
     await tx.tenantEntitlementOverride.upsert({
       where: { tenantId_key: { tenantId, key: 'analytics_retention' } },
       create: {

@@ -90,6 +90,8 @@ export class CommercialReadService {
   async workspace(tenantId: string): Promise<PlatformWorkspace> {
     const operator = this.operator()
     const result = await this.db.withTenant(tenantId, async (tx) => {
+      // Consistent wallet/ledger/hold snapshot while ordinary messaging updates continue outside this transaction.
+      await tx.$queryRaw`SELECT id FROM wallets WHERE tenant_id = ${tenantId}::uuid FOR SHARE`
       let snapshot = await commercialSnapshot(tx, tenantId)
       const configured = await new SubscriptionEntitlementSource({
         enforced: true,
@@ -132,6 +134,7 @@ export class CommercialReadService {
             amountMinor: true,
             reason: true,
             referenceId: true,
+            referenceType: true,
             expiresAt: true,
             createdAt: true,
           },

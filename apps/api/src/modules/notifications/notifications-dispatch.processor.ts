@@ -70,14 +70,16 @@ export class NotificationsDispatchProcessor implements QueueProcessor<DispatchJo
   }
 
   private async commercial(tenantId: string, operationId: string): Promise<string> {
-    await this.db.withTenant(tenantId, async (tx) => {
+    const created = await this.db.withTenant(tenantId, async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:commercial-notification:${operationId}`}))`
+      const created: Array<{ userId: string; notification: Notification }> = []
       const receipt = await tx.commercialOperation.findUniqueOrThrow({ where: { id: operationId } })
       const members = await tx.membership.findMany({
         where: { tenantId, status: 'ACTIVE', role: { in: BILLING_READERS } },
         select: { userId: true },
       })
-      for (const member of members)
-        await createNotificationOnce(tx, {
+      for (const member of members) {
+        const notification = await createNotificationOnce(tx, {
           tenantId,
           userId: member.userId,
           type: 'commercial.operation_completed',
@@ -86,7 +88,12 @@ export class NotificationsDispatchProcessor implements QueueProcessor<DispatchJo
           link: receipt.amountMinor === null ? '/billing/subscription' : '/billing/wallet',
           dedupeKey: `commercial:${receipt.id}`,
         })
+        if (notification) created.push({ userId: member.userId, notification })
+      }
+      return created
     })
+    for (const item of created)
+      this.realtime.toUser(item.userId, 'notification.created', item.notification)
     return 'commercial-notified'
   }
 

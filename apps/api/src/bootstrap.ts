@@ -1,6 +1,7 @@
 import { type DestinationStream } from 'pino'
 import 'reflect-metadata'
 import { type ApiEnv } from '@fenwira/config'
+import { type Request, type Response, type NextFunction } from 'express'
 import { type INestApplication, RequestMethod } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { type NestExpressApplication } from '@nestjs/platform-express'
@@ -29,6 +30,10 @@ export async function createApiApp(
   app.disable('x-powered-by')
   // Must run first so every later middleware and log line carries the correlation id.
   app.use(correlationMiddleware)
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith('/api/v1/platform')) res.setHeader('Cache-Control', 'no-store')
+    next()
+  })
   app.use(helmet())
   app.use(cookieParser())
   app.enableCors({

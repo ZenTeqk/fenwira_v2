@@ -1,4 +1,5 @@
 import { loadEnv, migrateEnvSchema, UUID_RE, uuidv7 } from '@fenwira/config'
+import { platformGrantCommandSchema } from '@fenwira/contracts'
 import { Client } from 'pg'
 
 /** Restricted bootstrap/break-glass tool. Never available via tenant HTTP. */
@@ -20,6 +21,7 @@ async function main() {
     throw new Error(
       'usage: platform:operator --user <uuid> --actor <operator/reference> --reason <text> [--revoke]',
     )
+  platformGrantCommandSchema.parse({ userId, actor, reason })
   const client = new Client({ connectionString: loadEnv(migrateEnvSchema).MIGRATION_DATABASE_URL })
   await client.connect()
   try {
@@ -38,13 +40,14 @@ async function main() {
     await client.query("SELECT set_config('app.platform_operator_id', $1, true)", [userId])
     // Migration role has the same append-only runtime restrictions only when SET ROLE is used.
     await client.query(
-      'INSERT INTO platform_audit(id, operator_id, action, outcome, correlation_id) VALUES ($1,$2,$3,$4,$5)',
+      'INSERT INTO platform_audit(id, operator_id, action, outcome, correlation_id, details) VALUES ($1,$2,$3,$4,$5,$6::jsonb)',
       [
         uuidv7(),
         userId,
         args.includes('--revoke') ? 'operator.revoked' : 'operator.granted',
         'SUCCESS',
         actor,
+        JSON.stringify({ reason: reason.trim(), authorizedBy: actor, subject: userId }),
       ],
     )
     await client.query('COMMIT')

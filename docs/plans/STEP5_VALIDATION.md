@@ -1,6 +1,6 @@
 # Step 5 validation
 
-Status: in progress; neither Step 5 acceptance nor Phase 11 closure claimed.
+Status: ready for Step 5 acceptance review; neither acceptance nor Phase 11 closure claimed.
 
 ## Increment 1 — operator identity
 
@@ -57,3 +57,17 @@ Status: in progress; neither Step 5 acceptance nor Phase 11 closure claimed.
 - Full typecheck passed; OpenAPI regenerated. Platform integration 11/11 passed: preview leaves zero ledger/receipt/outbox changes, shows effective override and rejects stale confirmation.
 - Chromium platform suite first four tests passed; focused consequential-action test passed after labelling the operation combobox. Preview, Cancel (zero writes), uncertain-result identical retry, receipt details and accessible drawer verified.
 - HTTP/CLI retain atomic receipt idempotency; reviewed before state is checked before mutation. Preview executes the same domain validation and rolls back. Consequential UI records reason/reference, shows impact, and supports fresh password/MFA verification.
+
+## Increment 9 — final verification (completed locally)
+
+- Full lint/typecheck passed with bounded observability, additive challenge/session binding migration and global failed-request audit.
+- Platform integration 15/15 passed, including independent financial races, all protected route denial, no-store responses and failure redaction; notification delivery regression added for final standard suite.
+- Full `pnpm test` passed: 291 tests across all packages; API 129/129. Full lint/typecheck and OpenAPI consistency passed.
+- Complete integration command passed in a fresh isolated acceptance database (`fenwira_step5_acceptance`) and Redis DB 2: database 251/251, API 10/10, worker 209/209. Two existing opt-in performance tests remain skipped by the normal suite. Platform 16/16 includes concurrent notification delivery after commit.
+- Initial run against the reused test database, overlapping a heavy image build, failed four regressions (import polling, template pause, bulk campaign completion, placeholder fixture note). Added explicit polling response assertions, labelled the synthetic price fixture, and scoped the existing placeholder assertion to seeded launch categories. Clean sequential rerun passed all four unchanged behavioral assertions; no contact/campaign domain implementation was changed. The clean 50k import took 70.1s and 2,000-recipient campaign 112.0s. Existing histories were preserved; no reset/delete/backfill of financial data.
+- Reproducible isolated command: create an empty database with the same owner/runtime/schema grants as the standard test database; run the existing Compose test runner with DATABASE_URL/MIGRATION_DATABASE_URL database suffix replaced and REDIS_URL set to DB 2, then its normal `db:deploy` and `pnpm turbo run test:integration --concurrency=1`. Keep heavy builds separate from regression execution.
+- Final Docker API/worker/web/migrate image builds passed. The final web rebuild includes the Trial status label correction. Local Compose services are healthy and `pnpm smoke` passed all three checks (dependencies/queues, login rendering, outbox round trip).
+- Final full Chromium suite: 70 passed, one existing optional visual capture test skipped because CAPTURE_DIR is unset (5.7 minutes). Seven platform tests passed, including real global operator provisioning/password/MFA, exact workspace discovery, reviewed paid funding, immutable receipt and grant revocation. Existing billing funding fixture now uses the authenticated shared CLI rather than a database shortcut; subscription confirmation selection is exact; discovery uses a tenant UUID to avoid retained fixture name collisions.
+- Lighthouse accessibility: 100/100 on each of five routes (login, workspaces, billing operations, audit, commercial workspace detail). Protected final URLs were verified; sanitized results are in [STEP5_ACCESSIBILITY.json](STEP5_ACCESSIBILITY.json). axe and keyboard checks cover permission variants, confirmation/cancel and receipt drawers. Actual commercial views captured and visually reviewed at 375/768/1024/1440 pixels; tables use labelled focusable scroll regions.
+- Local running API reports development mode and BILLING_SUBSCRIPTIONS_ENFORCED=false. No production rollout or environment flag modification occurred. Temporary test container and Lighthouse profile/raw reports removed; existing databases and financial history retained.
+- CI and a clean-clone deployment have not been executed in this task. Production deployment, Step 5 acceptance and the separate Phase 11 closure checkpoint require their own review; none is claimed here.

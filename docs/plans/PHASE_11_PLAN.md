@@ -382,3 +382,7 @@ Nothing below is decided by this plan. Where the specs contain values today (the
 | **P11-Q19** | Payment gateway timing | B2: no provider in v2 | Confirm "not in Phase 11" · schedule a provider (which) for a later phase | Confirms `BillingProvider` stays manual |
 
 When a question is answered it moves to `PRODUCT.md` → Decision register (and to an ADR where it changes architecture: P11-Q17, and P11-Q14 if invoicing is built), and this table records the answer.
+
+## Step 5 implementation checkpoint
+
+Internal Billing Operations and global PLATFORM_OPERATOR have been implemented in nine increments; local validation complete and ready for acceptance review; evidence: [STEP5_ACCEPTANCE.md](STEP5_ACCEPTANCE.md), [STEP5_VALIDATION.md](STEP5_VALIDATION.md). This supersedes the historical option discussion in §3 for implementation: global grant outside tenant RBAC, password/TOTP and short privilege, bounded system discovery, withTenant domain writes, immutable receipt/audit/outbox, separate platform UI. Phase 11 remains OPEN and closure is not executed. Negative corrections preserve nonnegative available funds; full/partial message-usage refunds are capped at the original debit. Commercial decisions not approved remain unimplemented.

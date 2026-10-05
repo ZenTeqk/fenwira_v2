@@ -1,31 +1,78 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test } from '@playwright/test'
+import { expect, test, type Browser } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { signInAsNewOwner } from './support'
+import { resolve } from 'node:path'
+import { randomUUID } from 'node:crypto'
+import { API, PASSWORD, signInAsNewOwner, totp } from './support'
+import { provisionOperator } from './support-platform'
 
-/** Manual top-up through the operator CLI (decision B2/P11-D13), inside the worker container. */
-function topUp(tenantId: string, rupees: number, reason: string) {
-  execFileSync('docker', [
-    'compose',
-    'exec',
-    '-T',
-    'fenwira-worker',
-    'node',
-    'apps/worker/dist/cli/wallet-credit.js',
-    '--tenant',
-    tenantId,
-    '--amount',
-    String(rupees),
-    '--reason',
-    reason,
-  ])
+/** Manual funding through the shared MFA-authenticated operator CLI/domain boundary. */
+async function topUp(browser: Browser, tenantId: string, rupees: number, reason: string) {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  let operator: Awaited<ReturnType<typeof provisionOperator>> | undefined
+  try {
+    operator = await provisionOperator(page, 'wallet-operator')
+    const login = await page.request.post(`${API}/platform/auth/login`, {
+      data: { email: operator.email, password: PASSWORD },
+    })
+    expect(login.status()).toBe(200)
+    const challengeToken = (await login.json()).data.challengeToken as string
+    const verify = await page.request.post(`${API}/platform/auth/verify`, {
+      data: { challengeToken, code: totp(operator.secret, 1) },
+    })
+    expect(verify.status()).toBe(200)
+    const csrf = (await verify.json()).data.csrfToken as string
+    const session = (await context.cookies()).find((c) => c.name === 'fw_platform')!.value
+    const root = resolve(__dirname, '../../..')
+    // Build the frozen CLI and dependencies; never restore the former database shortcut.
+    execFileSync('pnpm', ['--filter', '@fenwira/worker...', 'build'], {
+      cwd: root,
+      stdio: 'pipe',
+      timeout: 90000,
+    })
+    const output = execFileSync(
+      process.execPath,
+      [
+        'apps/worker/dist/cli/wallet-credit.js',
+        '--tenant',
+        tenantId,
+        '--amount',
+        String(rupees),
+        '--reason',
+        reason,
+        '--reference',
+        'wallet-browser-fixture',
+        '--idempotency-key',
+        randomUUID(),
+      ],
+      {
+        cwd: root,
+        stdio: 'pipe',
+        timeout: 15000,
+        env: {
+          ...process.env,
+          PLATFORM_API_URL: API,
+          PLATFORM_SESSION_TOKEN: session,
+          PLATFORM_CSRF_TOKEN: csrf,
+        },
+      },
+    )
+    expect(output.toString()).toMatch(/Recorded operation/)
+  } finally {
+    operator?.revoke()
+    await context.close()
+  }
 }
 
-test('Wallet: backend state, ledger, filters, CSV export, accessible', async ({ page }) => {
-  test.setTimeout(60_000)
+test('Wallet: backend state, ledger, filters, CSV export, accessible', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(180_000)
   const owner = await signInAsNewOwner(page, 'e2e-wallet')
-  topUp(owner.tenantId, 250, 'E2E top-up')
+  await topUp(browser, owner.tenantId, 250, 'E2E top-up')
 
   // Billing is reachable from the sidebar; it opens on Subscription (Phase 11 Step 4), and the
   // Wallet is its own tab — subscription and wallet are separate concepts.

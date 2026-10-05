@@ -1,3 +1,4 @@
+import { NotificationsDispatchProcessor } from '@fenwira/api/modules/notifications'
 import { commercialOperation, commercialJson } from '@fenwira/api/modules/platform-operations'
 import {
   activatePlan,
@@ -14,7 +15,7 @@ import {
 } from '@fenwira/api/modules/identity'
 import { Database } from '@fenwira/database'
 import { type INestApplication } from '@nestjs/common'
-import { afterAll, beforeAll, expect, it } from 'vitest'
+import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { bootApi, Client, PASSWORD, uniqueEmail } from './support/harness'
 
 let app: INestApplication, db: Database, owner: Database
@@ -358,6 +359,8 @@ it('wallet HTTP operations preserve fund identity, idempotency, refund caps and 
       type: 'DEBIT',
       amountMinor: -300n,
       reason: 'usage fixture',
+      referenceType: 'message',
+      referenceId: uuidv7(),
       idempotencyKey: uuidv7(),
     }),
   )
@@ -373,7 +376,13 @@ it('wallet HTTP operations preserve fund identity, idempotency, refund caps and 
     messageId = uuidv7()
   await owner.withGlobal((tx) =>
     tx.priceBookEntry.create({
-      data: { category, customerPriceMinor: 900n, currency: 'INR', isPlaceholder: true },
+      data: {
+        category,
+        customerPriceMinor: 900n,
+        currency: 'INR',
+        isPlaceholder: true,
+        note: 'Development placeholder: isolated reservation test fixture',
+      },
     }),
   )
   await db.withTenant(tenantId, (tx) =>
@@ -610,4 +619,218 @@ it('commercial preview rolls back all financial state and stale confirmation is 
       .configured,
   ).toBe(12)
   expect(await db.withTenant(tenantId, (tx) => tx.tenantEntitlementOverride.count())).toBe(0)
+})
+
+it('password revocation invalidates a pending platform challenge before MFA', async () => {
+  const user = await identity()
+  const login = await user.client.post('/platform/auth/login', {
+    email: user.email,
+    password: PASSWORD,
+  })
+  expect(login.status).toBe(200)
+  await db.withGlobal((tx) =>
+    tx.session.updateMany({
+      where: { userId: user.id },
+      data: { revokedAt: new Date(), revokedReason: 'PASSWORD_RESET' },
+    }),
+  )
+  const verify = await user.client.post('/platform/auth/verify', {
+    challengeToken: login.body.data.challengeToken,
+    code: code(),
+  })
+  expect(verify.status).toBe(401)
+  expect(
+    await db.withGlobal((tx) => tx.platformSession.count({ where: { userId: user.id } })),
+  ).toBe(0)
+})
+
+it('independent concurrent negative corrections and refunds cannot overspend', async () => {
+  const user = await privileged(),
+    tenantId = uuidv7()
+  await db.withTenant(tenantId, (tx) =>
+    tx.tenant.create({
+      data: {
+        id: tenantId,
+        ownerUserId: user.id,
+        name: 'Concurrent financial support',
+        slug: tenantId,
+      },
+    }),
+  )
+  const url = `/platform/workspaces/${tenantId}/wallet-operations`
+  const base = { currency: 'INR', reason: 'Approved concurrent support', reference: 'race-support' }
+  expect(
+    (
+      await user.client.post(url, {
+        ...base,
+        kind: 'paid_credit',
+        amountMinor: 1000,
+        idempotencyKey: uuidv7(),
+      })
+    ).status,
+  ).toBe(200)
+  const corrections = await Promise.all(
+    Array.from({ length: 2 }, () =>
+      user.client.post(url, {
+        ...base,
+        kind: 'adjustment',
+        amountMinor: -600,
+        idempotencyKey: uuidv7(),
+      }),
+    ),
+  )
+  expect(corrections.map((r) => r.status).sort()).toEqual([200, 422])
+  const debitId = await db.withTenant(tenantId, (tx) =>
+    postTransaction(tx, tenantId, {
+      type: 'DEBIT',
+      amountMinor: -300n,
+      reason: 'usage debit',
+      referenceType: 'message',
+      referenceId: uuidv7(),
+      idempotencyKey: uuidv7(),
+    }),
+  )
+  const refunds = await Promise.all(
+    Array.from({ length: 4 }, () =>
+      user.client.post(url, {
+        ...base,
+        kind: 'refund',
+        debitId,
+        amountMinor: 100,
+        idempotencyKey: uuidv7(),
+      }),
+    ),
+  )
+  expect(refunds.map((r) => r.status).sort()).toEqual([200, 200, 200, 422])
+  expect(
+    (await db.withTenant(tenantId, (tx) => tx.wallet.findUniqueOrThrow({ where: { tenantId } })))
+      .balanceMinor,
+  ).toBe(400n)
+  const entries = await db.withTenant(tenantId, (tx) => tx.walletTransaction.findMany())
+  expect(
+    entries.filter((e) => e.type === 'REFUND').reduce((sum, e) => sum + e.amountMinor, 0n),
+  ).toBe(300n)
+})
+
+it('every protected platform route rejects tenant-only callers and invalid requests have immutable failure audit', async () => {
+  const tenant = await identity(false, false)
+  expect(
+    (await tenant.client.post('/auth/login', { email: tenant.email, password: PASSWORD })).status,
+  ).toBe(200)
+  const id = uuidv7()
+  for (const path of [
+    '/platform/auth/me',
+    '/platform/workspaces?q=workspace',
+    `/platform/workspaces/${id}`,
+    `/platform/workspaces/${id}/financial`,
+    `/platform/workspaces/${id}/operations`,
+    '/platform/audit',
+  ])
+    expect((await tenant.client.get(path)).status).toBe(401)
+  for (const path of [
+    'wallet-operations',
+    'subscription-operations',
+    'entitlement-operations',
+    'wallet-preview',
+    'subscription-preview',
+    'entitlement-preview',
+  ])
+    expect((await tenant.client.post(`/platform/workspaces/${id}/${path}`, {})).status).toBe(401)
+  const operator = await privileged()
+  const invalid = await operator.client.post(`/platform/workspaces/${id}/wallet-operations`, {
+    password: 'never-record-this-secret',
+    amountMinor: 1,
+  })
+  expect(invalid.status).toBe(400)
+  const audits = await db.withPlatform(operator.id, (tx) =>
+    tx.platformAudit.findMany({ where: { operatorId: operator.id, outcome: 'VALIDATION_FAILED' } }),
+  )
+  expect(audits.length).toBeGreaterThan(0)
+  expect(JSON.stringify(audits)).not.toContain('never-record-this-secret')
+  expect((await operator.client.get('/platform/auth/me')).headers['cache-control']).toBe('no-store')
+})
+
+it('successive downgrades preserve and renew the original automatic retention grace', async () => {
+  const user = await identity(),
+    tenantId = uuidv7(),
+    start = new Date()
+  await db.withTenant(tenantId, async (tx) => {
+    await tx.tenant.create({
+      data: { id: tenantId, ownerUserId: user.id, name: 'Grace correctness', slug: tenantId },
+    })
+    await activatePlan(tx, tenantId, 'BUSINESS', start, { type: 'SYSTEM' }, 'GROWTH')
+    await activatePlan(tx, tenantId, 'GROWTH', start, { type: 'SYSTEM' }, 'GROWTH')
+    await activatePlan(
+      tx,
+      tenantId,
+      'STARTER',
+      new Date(start.getTime() + 86400000),
+      { type: 'SYSTEM' },
+      'GROWTH',
+    )
+  })
+  const override = await db.withTenant(tenantId, (tx) =>
+    tx.tenantEntitlementOverride.findUniqueOrThrow({
+      where: { tenantId_key: { tenantId, key: 'analytics_retention' } },
+    }),
+  )
+  expect(override.value).toBe(365)
+  expect(override.expiresAt?.getTime()).toBe(start.getTime() + 31 * 86400000)
+})
+
+it('commercial notifications reach billing readers once and exclude operator/customer-sensitive payloads', async () => {
+  const operator = await privileged(),
+    customer = await identity(false, false),
+    tenantId = uuidv7()
+  await db.withTenant(tenantId, async (tx) => {
+    await tx.tenant.create({
+      data: {
+        id: tenantId,
+        ownerUserId: customer.id,
+        name: 'Billing recipient fixture',
+        slug: tenantId,
+      },
+    })
+    await tx.membership.create({
+      data: { tenantId, userId: customer.id, role: 'OWNER', status: 'ACTIVE' },
+    })
+  })
+  const result = await operator.client.post(`/platform/workspaces/${tenantId}/wallet-operations`, {
+    kind: 'paid_credit',
+    amountMinor: 100,
+    currency: 'INR',
+    reason: 'Private support reference',
+    reference: 'private-funding-record',
+    idempotencyKey: uuidv7(),
+  })
+  expect(result.status).toBe(200)
+  const toUser = vi.fn()
+  const processor = new NotificationsDispatchProcessor(
+    db,
+    { enforced: false } as never,
+    {} as never,
+    {} as never,
+    { toUser } as never,
+    {} as never,
+    { setContext: vi.fn() } as never,
+    {} as never,
+  )
+  const job = {
+    data: {
+      tenantId,
+      eventType: 'commercial.operation_completed',
+      payload: { operationId: result.body.data.id },
+    },
+  } as never
+  await Promise.all([processor.process(job), processor.process(job)])
+  const notifications = await db.withTenant(tenantId, (tx) =>
+    tx.notification.findMany({ where: { type: 'commercial.operation_completed' } }),
+  )
+  expect(notifications).toHaveLength(1)
+  expect(notifications[0]!.userId).toBe(customer.id)
+  expect(JSON.stringify(notifications)).not.toContain('private-funding-record')
+  expect(toUser).toHaveBeenCalledTimes(1)
+  expect(
+    await db.withTenant(tenantId, (tx) => tx.membership.count({ where: { userId: operator.id } })),
+  ).toBe(0)
 })

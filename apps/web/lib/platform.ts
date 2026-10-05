@@ -23,7 +23,7 @@ export async function platformRequest<T>(path: string, body?: unknown): Promise<
     const payload = (await res.json().catch(() => ({}))) as {
       error?: { code?: string; message?: string; correlationId?: string }
     }
-    if (res.status === 401) {
+    if (res.status === 401 || (res.status === 403 && payload.error?.code === 'FORBIDDEN')) {
       clearPlatformSession()
       window.dispatchEvent(new Event('platform-expired'))
     }

@@ -21,7 +21,7 @@ test('shows the trial, limits and plans; the owner requests a plan', async ({ pa
   await expect(page.getByText('Pricing: contact us')).toHaveCount(3)
 
   await page.getByRole('button', { name: 'Request Growth' }).click()
-  await expect(page.getByText('Growth requested')).toBeVisible()
+  await expect(page.getByText('Growth requested', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Requested' })).toBeDisabled()
 
   // Wallet stays a separate concept.
