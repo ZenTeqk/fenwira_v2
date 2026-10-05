@@ -2208,3 +2208,27 @@ model PlatformAudit {
   @@index([createdAt(sort: Desc), id])
   @@map("platform_audit")
 }
+
+model PlatformChallenge {
+  id String @id @default(uuid(7)) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  tokenHash Bytes @unique @map("token_hash")
+  grantVersion Int @map("grant_version")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  @@map("platform_challenges")
+}
+model PlatformSession {
+  id String @id @default(uuid(7)) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  parentFamilyId String @map("parent_family_id") @db.Uuid
+  tokenHash Bytes @unique @map("token_hash")
+  csrfHash Bytes @map("csrf_hash")
+  grantVersion Int @map("grant_version")
+  mfaAt DateTime @map("mfa_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  @@index([userId])
+  @@map("platform_sessions")
+}

@@ -13,6 +13,7 @@ import {
 import { CsrfGuard } from './core/security/csrf.guard'
 import { AuditApiModule, AuditModule } from './modules/audit'
 import { AuthGuard, IdentityModule } from './modules/identity'
+import { PlatformGuard, PlatformOperationsModule } from './modules/platform-operations'
 import { PlatformApiModule } from './modules/platform/platform-api.module'
 import { RealtimeModule } from './modules/realtime'
 import { PermissionGuard, TenancyModule, TenantGuard } from './modules/tenancy'
@@ -78,6 +79,7 @@ export class ApiModule {
         CoreModule.forRoot(coreConfigFromApiEnv(env, extra)),
         AuditModule,
         identity,
+        PlatformOperationsModule.forApi(identity),
         tenancy,
         AuditApiModule,
         ContactsModule.forApi(),
@@ -125,6 +127,7 @@ export class ApiModule {
         { provide: APP_GUARD, useExisting: ApiKeyGuard },
         { provide: APP_GUARD, useExisting: AuthGuard },
         { provide: APP_GUARD, useClass: CsrfGuard },
+        { provide: APP_GUARD, useExisting: PlatformGuard },
         { provide: APP_GUARD, useExisting: TenantGuard },
         { provide: APP_GUARD, useExisting: PermissionGuard },
       ],

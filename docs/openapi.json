@@ -8595,6 +8595,216 @@
         "x-permission": "workspace.read"
       }
     },
+    "/api/v1/platform/auth/login": {
+      "post": {
+        "operationId": "PlatformAuth_login",
+        "tags": [
+          "PlatformAuth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/platform/auth/logout": {
+      "post": {
+        "operationId": "PlatformAuth_logout",
+        "tags": [
+          "PlatformAuth"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "commercial.read"
+      }
+    },
+    "/api/v1/platform/auth/me": {
+      "get": {
+        "operationId": "PlatformAuth_me",
+        "tags": [
+          "PlatformAuth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "commercial.read"
+      }
+    },
+    "/api/v1/platform/auth/reauth": {
+      "post": {
+        "operationId": "PlatformAuth_reauth",
+        "tags": [
+          "PlatformAuth"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$"
+                  }
+                },
+                "required": [
+                  "password",
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "commercial.read"
+      }
+    },
+    "/api/v1/platform/auth/verify": {
+      "post": {
+        "operationId": "PlatformAuth_verify",
+        "tags": [
+          "PlatformAuth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "challengeToken": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 256
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$"
+                  }
+                },
+                "required": [
+                  "challengeToken",
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/roles": {
       "get": {
         "operationId": "Roles_matrix",
@@ -12885,6 +13095,11 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "fw_at"
+      },
+      "platformSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "fw_platform"
       },
       "apiKey": {
         "type": "http",

@@ -1,4 +1,4 @@
-import { type Permission, type Role } from '@fenwira/contracts'
+import { type Permission, type Role, type PlatformPermission } from '@fenwira/contracts'
 import { SetMetadata } from '@nestjs/common'
 
 export const PUBLIC_KEY = 'fenwira:public'
@@ -30,3 +30,7 @@ export const SkipCsrf = () => SetMetadata(SKIP_CSRF_KEY, true)
  * other route answers 404 to an API key, never 403, so the private surface isn't discoverable.
  */
 export const PublicApi = () => SetMetadata(PUBLIC_API_KEY, true)
+
+export const PLATFORM_PERMISSION_KEY = 'fenwira:platform-permission'
+export const PlatformAccess = (permission: PlatformPermission) =>
+  SetMetadata(PLATFORM_PERMISSION_KEY, permission)

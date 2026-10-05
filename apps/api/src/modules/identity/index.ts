@@ -6,3 +6,5 @@ export { IdentityService, type SessionTokens, toUserDto } from './identity.servi
 export { JwtService } from './jwt.service'
 export { SessionService } from './session.service'
 export { generateBackupCodes, totpAt, verifyTotp } from './totp'
+
+export { PasswordService } from './password.service'

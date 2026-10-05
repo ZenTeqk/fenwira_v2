@@ -12,3 +12,5 @@ export * from './analytics'
 export * from './api-keys'
 export * from './webhooks'
 export * from './subscriptions'
+
+export * from './platform'

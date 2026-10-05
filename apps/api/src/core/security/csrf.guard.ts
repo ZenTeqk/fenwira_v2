@@ -40,10 +40,13 @@ export class CsrfGuard implements CanActivate {
       context.getClass(),
     ])
     const cookies = (req.cookies ?? {}) as Record<string, string | undefined>
-    if (skip || !cookies[ACCESS_COOKIE]) return true
+    const platform = req.path.startsWith('/api/v1/platform/')
+    const accessCookie = platform ? 'fw_platform' : ACCESS_COOKIE
+    const csrfCookie = platform ? 'fw_platform_csrf' : CSRF_COOKIE
+    if (skip || !cookies[accessCookie]) return true
 
     const header = req.header('x-csrf-token')
-    const cookie = cookies[CSRF_COOKIE]
+    const cookie = cookies[csrfCookie]
     if (!header || !cookie || !safeEqual(header, cookie)) {
       throw new AppError(
         'CSRF_FAILED',

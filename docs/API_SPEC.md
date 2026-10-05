@@ -369,3 +369,7 @@ See `ARCHITECTURE.md` → Realtime. Payload schemas are in `packages/contracts/s
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Platform authentication (Step 5)
+
+Never public-API-key routes. `POST /platform/auth/login {email,password}` returns `{challengeToken}`; `POST /platform/auth/verify {challengeToken,code}` sets platform cookies and returns `{csrfToken,expiresAt}`. `GET /platform/auth/me` returns operator ID, separate permission catalog, expiration and platform CSRF token. `POST /platform/auth/reauth {password,code}` refreshes MFA assurance only; `POST /platform/auth/logout` revokes privilege (204). Login/verify enforce origin and rate limits; all other mutations require platform CSRF. No membership/tenant header needed.

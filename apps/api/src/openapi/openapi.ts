@@ -18,6 +18,7 @@ import { ZodValidationPipe } from '../core/http/zod-validation.pipe'
 import { ACCESS_COOKIE, CSRF_COOKIE } from '../core/security/cookies'
 import {
   PERMISSION_KEY,
+  PLATFORM_PERMISSION_KEY,
   PUBLIC_API_KEY,
   PUBLIC_KEY,
   ROLE_KEY,
@@ -143,6 +144,7 @@ export function buildOpenApiDocument(): { document: Json; routes: RouteInfo[] } 
       const isPublic = Boolean(read(PUBLIC_KEY))
       const permission = read<Permission>(PERMISSION_KEY)
       const role = read<Role>(ROLE_KEY)
+      const platformPermission = read<string>(PLATFORM_PERMISSION_KEY)
       const isPublicApi = Boolean(read(PUBLIC_API_KEY))
       const tenantScoped = Boolean(read(TENANT_SCOPED_KEY) || permission || role)
       const interceptors = [
@@ -233,7 +235,12 @@ export function buildOpenApiDocument(): { document: Json; routes: RouteInfo[] } 
             ...(parameters.length ? { parameters } : {}),
             ...(requestBody ? { requestBody } : {}),
             responses,
-            security: isPublic ? [] : [{ session: [] }],
+            security: isPublic
+              ? []
+              : platformPermission
+                ? [{ platformSession: [] }]
+                : [{ session: [] }],
+            ...(platformPermission ? { 'x-platform-permission': platformPermission } : {}),
             ...(permission ? { 'x-permission': permission } : {}),
             ...(role ? { 'x-role': role } : {}),
             ...(idempotent ? { 'x-idempotent': true } : {}),
@@ -313,6 +320,7 @@ export function buildOpenApiDocument(): { document: Json; routes: RouteInfo[] } 
       },
       securitySchemes: {
         session: { type: 'apiKey', in: 'cookie', name: ACCESS_COOKIE },
+        platformSession: { type: 'apiKey', in: 'cookie', name: 'fw_platform' },
         apiKey: {
           type: 'http',
           scheme: 'bearer',

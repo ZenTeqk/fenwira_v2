@@ -320,6 +320,15 @@ export class IdentityService {
   }
 
   async disableTwoFactor(userId: string, password: string, code: string): Promise<void> {
+    const grant = await this.db.withGlobal((tx) =>
+      tx.platformGrant.findUnique({ where: { userId } }),
+    )
+    if (grant && !grant.revokedAt)
+      throw new AppError(
+        'FORBIDDEN',
+        403,
+        'Revoke platform authorization before recovering or disabling two-factor authentication.',
+      )
     const user = await this.db.withGlobal((tx) =>
       tx.user.findUniqueOrThrow({ where: { id: userId } }),
     )

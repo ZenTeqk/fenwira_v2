@@ -1,0 +1,3 @@
+CREATE TABLE platform_challenges (id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES users(id), token_hash bytea UNIQUE NOT NULL, grant_version integer NOT NULL, expires_at timestamptz(3) NOT NULL, consumed_at timestamptz(3));
+CREATE TABLE platform_sessions (id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES users(id), parent_family_id uuid NOT NULL, token_hash bytea UNIQUE NOT NULL, csrf_hash bytea NOT NULL, grant_version integer NOT NULL, mfa_at timestamptz(3) NOT NULL, expires_at timestamptz(3) NOT NULL, last_used_at timestamptz(3) NOT NULL DEFAULT now(), revoked_at timestamptz(3));
+CREATE INDEX platform_sessions_user_id_idx ON platform_sessions(user_id);
