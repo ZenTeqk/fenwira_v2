@@ -588,3 +588,7 @@ The retention categories, and what happens to each at tenant deletion, are in `D
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Phase 11 Step 5 additions
+
+Global read-only `platform_grants`; global credential/session `platform_challenges`/`platform_sessions`; forced-RLS platform-only `platform_audit` (AO); tenant-owned forced-RLS `commercial_operations` (AO), unique `(tenant_id,idempotency_key)`. Receipts contain immutable before/after, request fingerprint, actor, reason/reference and linked results. Existing financial history is not rewritten/backfilled. Runtime cannot update/delete/truncate receipts, ledger or audit.

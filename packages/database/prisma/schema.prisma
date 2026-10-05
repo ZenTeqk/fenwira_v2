@@ -2232,3 +2232,25 @@ model PlatformSession {
   @@index([userId])
   @@map("platform_sessions")
 }
+
+/// Tenant-owned immutable commercial receipt, created atomically with domain mutations.
+model CommercialOperation {
+  id String @id @default(uuid(7)) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  operatorId String @map("operator_id") @db.Uuid
+  operation String
+  amountMinor BigInt? @map("amount_minor")
+  currency String? @db.Char(3)
+  reason String
+  reference String
+  idempotencyKey String @map("idempotency_key")
+  requestHash String @map("request_hash")
+  before Json
+  after Json
+  result Json
+  correlationId String? @map("correlation_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, createdAt(sort: Desc), id])
+  @@map("commercial_operations")
+}

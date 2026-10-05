@@ -213,6 +213,21 @@ const FIXTURES: Record<string, Fixture> = {
         purpose: 'MESSAGE_MEDIA',
       },
     }),
+  commercial_operations: (tx, { tenantId, userId }) =>
+    tx.commercialOperation.create({
+      data: {
+        tenantId,
+        operatorId: userId,
+        operation: 'test',
+        reason: 'test',
+        reference: 'fixture',
+        idempotencyKey: uuidv7(),
+        requestHash: 'fixture',
+        before: {},
+        after: {},
+        result: {},
+      },
+    }),
   idempotency_keys: (tx, { tenantId }) =>
     tx.idempotencyKey.create({
       data: {
@@ -446,6 +461,7 @@ const FIXTURES: Record<string, Fixture> = {
 }
 
 const APPEND_ONLY = new Set([
+  'commercial_operations',
   'audit_logs',
   'contact_activities',
   'wallet_transactions',

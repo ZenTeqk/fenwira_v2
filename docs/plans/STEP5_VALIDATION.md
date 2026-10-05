@@ -17,3 +17,10 @@ Status: in progress; neither Step 5 acceptance nor Phase 11 closure claimed.
 - Real API/PostgreSQL/Redis platform suite: 5/5 passed (OWNER/API-key denial, mandatory MFA, no membership, concurrent replay, CSRF/logout, grant/idle/absolute/parent revocation).
 - Dedicated cookies and MFA age never alter tenant session lifetimes or rollout flags.
 - API unit suite: 125/125 passed after regenerating OpenAPI with distinct platform-session security.
+
+## Increment 3 — receipts/audit/idempotency
+
+- Lint/typecheck passed for receipt infrastructure.
+- Database integration 251/251; new receipt included in forced-RLS/append-only matrix.
+- Platform integration 6/6; ten identical concurrent credit operations yield one receipt/ledger row, changed payload conflicts, injected failure rolls back financial mutation.
+- Platform security unit tests 3/3: recursive secret/content redaction, separate route catalog, exact-money deterministic fingerprints.

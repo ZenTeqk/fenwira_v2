@@ -592,3 +592,5 @@ CREATE POLICY platform_audit_read ON public.platform_audit FOR SELECT USING (EXI
 ));
 DROP POLICY IF EXISTS platform_audit_insert ON public.platform_audit;
 CREATE POLICY platform_audit_insert ON public.platform_audit FOR INSERT WITH CHECK (true);
+
+REVOKE UPDATE, DELETE, TRUNCATE ON public.commercial_operations FROM fenwira_app;

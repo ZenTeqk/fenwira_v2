@@ -1,3 +1,5 @@
+import { commercialOperation, commercialJson } from '@fenwira/api/modules/platform-operations'
+import { postTransaction } from '@fenwira/api/modules/billing'
 import { encryptSecret, uuidv7 } from '@fenwira/config'
 import {
   IDENTITY_OPTIONS,
@@ -169,4 +171,77 @@ it('revocation, idle expiration, backing session revocation and absolute expiry 
       )
     expect([401, 403]).toContain((await user.client.get('/platform/auth/me')).status)
   }
+})
+
+it('immutable financial receipts serialize identical retries and roll back changes when audit fails', async () => {
+  const user = await identity()
+  const tenantId = uuidv7()
+  await db.withTenant(tenantId, async (tx) => {
+    await tx.tenant.create({
+      data: { id: tenantId, ownerUserId: user.id, name: 'Financial receipt', slug: tenantId },
+    })
+    await tx.wallet.create({ data: { tenantId } })
+  })
+  const input = {
+    kind: 'paid_credit',
+    reason: 'Bank transfer',
+    reference: 'test-ref',
+    idempotencyKey: uuidv7(),
+    amountMinor: 100,
+    currency: 'INR',
+  }
+  const execute = (change = input) =>
+    db.withTenant(tenantId, (tx) =>
+      commercialOperation(
+        tx,
+        tenantId,
+        user.id,
+        change,
+        async () => commercialJson(await tx.wallet.findUnique({ where: { tenantId } })),
+        async () => {
+          const ledgerId = await postTransaction(tx, tenantId, {
+            type: 'CREDIT',
+            amountMinor: 100n,
+            reason: change.reason,
+            idempotencyKey: change.idempotencyKey,
+            createdBy: user.id,
+          })
+          return { ledgerId }
+        },
+      ),
+    )
+  const receipts = await Promise.all(Array.from({ length: 10 }, () => execute()))
+  expect(new Set(receipts.map((r) => r.id)).size).toBe(1)
+  expect(await db.withTenant(tenantId, (tx) => tx.walletTransaction.count())).toBe(1)
+  await expect(execute({ ...input, amountMinor: 101 })).rejects.toThrow('different operation')
+  await expect(
+    db.withTenant(tenantId, (tx) => tx.commercialOperation.deleteMany()),
+  ).rejects.toThrow(/permission denied/i)
+  await expect(
+    db.withTenant(tenantId, (tx) =>
+      commercialOperation(
+        tx,
+        tenantId,
+        user.id,
+        { ...input, idempotencyKey: uuidv7() },
+        async () => ({}),
+        async () => {
+          await postTransaction(tx, tenantId, {
+            type: 'CREDIT',
+            amountMinor: 99n,
+            reason: 'rollback',
+            idempotencyKey: uuidv7(),
+          })
+          throw new Error('simulate failure before receipt/audit')
+        },
+      ),
+    ),
+  ).rejects.toThrow('simulate failure')
+  expect(
+    (await db.withTenant(tenantId, (tx) => tx.wallet.findUniqueOrThrow({ where: { tenantId } })))
+      .balanceMinor,
+  ).toBe(100n)
+  const audit = await db.withTenant(tenantId, (tx) => tx.auditLog.findMany())
+  expect(audit).toHaveLength(1)
+  expect(audit[0]!.actorType).toBe('PLATFORM_OPERATOR')
 })

@@ -191,3 +191,7 @@ Always format from minor units with `Intl.NumberFormat(locale, {style:'currency'
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Step 5 immutable commercial operations
+
+Each operator command carries reason, reference, stable idempotency key, optional reviewed state fingerprint. A transaction advisory lock serializes retries before reading the receipt. Identical retries return the original receipt; changed payloads conflict. Domain mutation, receipt and audit commit atomically. Failed attempts are audited separately after rollback. Money uses integer minor units and bigint; receipt JSON serializes bigint as decimal strings. Operator negative adjustments cannot make available funds negative after holds; usage refunds are capped cumulatively at the original debit (founder approval 2026-10-05). No cash repayment/paid-credit withdrawal or promotional clawback.
