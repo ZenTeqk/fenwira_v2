@@ -38,7 +38,7 @@ let api: INestApplication
 let worker: INestApplication
 let db: Database
 let webhookUrl: string
-const ENV = { BILLING_ENFORCED: 'true' }
+const ENV = { BILLING_ENFORCED: 'true', BILLING_SUBSCRIPTIONS_ENFORCED: 'true' }
 /** Operations alerts (O1) for this run only. */
 const OPS = `ops-campaigns-${Date.now()}@fenwira.test`
 

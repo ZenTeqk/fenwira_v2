@@ -34,6 +34,9 @@ export async function stepSubscription(
   tenantId: string,
   now: Date,
 ): Promise<LifecycleResult> {
+  // Multiple scheduler instances/retries may read the same due subscription. Serialize before
+  // reading notices/status so each warning, notification and recipient email is claimed once.
+  await tx.$queryRaw`SELECT id FROM subscriptions WHERE tenant_id = ${tenantId}::uuid FOR UPDATE`
   const sub = await tx.subscription.findUnique({ where: { tenantId } })
   const tenant = await tx.tenant.findUniqueOrThrow({
     where: { id: tenantId },
@@ -266,6 +269,13 @@ export async function activatePlan(
         reason: `Retention grace after plan change (${RETENTION_GRACE_DAYS} days)`,
         expiresAt: new Date(now.getTime() + RETENTION_GRACE_DAYS * DAY),
       },
+    })
+  else if (automaticGrace && !shrinks(existingOverride.value as number | null, newRetention))
+    // Grace protects an older, longer window; it must not cap a subsequent upgrade. Expire only
+    // the system-generated row, retaining its metadata and explicit support-override precedence.
+    await tx.tenantEntitlementOverride.update({
+      where: { tenantId_key: { tenantId, key: 'analytics_retention' } },
+      data: { expiresAt: now },
     })
   const from = sub?.plan?.key ?? null
   await tx.auditLog.create({

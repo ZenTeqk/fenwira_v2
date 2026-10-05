@@ -7,7 +7,10 @@ import { createOwner, type Member, waitForTemplate } from './workspace'
 /** Shared setup for the Phase 9 campaign suites (docs/prompts/PHASE_09_CAMPAIGNS.md). */
 
 export const metaId = () => String(Date.now()).slice(-9) + String(Math.random()).slice(2, 8)
-export const phoneNo = () => `+9193${String(Math.random()).slice(2, 10)}`
+// Each file creates fresh tenants. A sequence guarantees unique synthetic contacts within its
+// worlds; random eight-digit suffixes collided in the 2,000-contact closure regression.
+let phoneSequence = 0
+export const phoneNo = () => `+9193${String(++phoneSequence).padStart(8, '0')}`
 
 export async function waitFor<T>(
   load: () => Promise<T>,

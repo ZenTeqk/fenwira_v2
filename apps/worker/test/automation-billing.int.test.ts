@@ -27,7 +27,7 @@ import { bootApi, bootWorker } from './support/harness'
  * INSUFFICIENT_FUNDS, follows the error branch when there is one, otherwise fails. Never retried.
  */
 const SECRET = 'automation-billing-secret'
-const ENV = { BILLING_ENFORCED: 'true' }
+const ENV = { BILLING_ENFORCED: 'true', BILLING_SUBSCRIPTIONS_ENFORCED: 'true' }
 let mock: { server: Server; url: string; state: MetaMockState }
 let api: INestApplication
 let worker: INestApplication
