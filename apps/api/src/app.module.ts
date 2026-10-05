@@ -79,7 +79,10 @@ export class ApiModule {
         CoreModule.forRoot(coreConfigFromApiEnv(env, extra)),
         AuditModule,
         identity,
-        PlatformOperationsModule.forApi(identity),
+        PlatformOperationsModule.forApi(identity, {
+          ...billingPlatformFromEnv(env),
+          support: billingSupportFromEnv(env),
+        }),
         tenancy,
         AuditApiModule,
         ContactsModule.forApi(),

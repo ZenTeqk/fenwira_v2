@@ -19,6 +19,7 @@ export const systemPingRequestedSchema = z.object({
 })
 
 export const EVENT_PAYLOAD_SCHEMAS = {
+  'commercial.operation_completed': z.object({ operationId: z.uuid() }),
   'system.ping.requested': systemPingRequestedSchema,
   // Identity (platform events: tenant_id NULL). The worker creates the token and sends the
   // email, so raw tokens never touch the database or the outbox.

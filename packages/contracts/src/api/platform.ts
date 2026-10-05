@@ -142,3 +142,36 @@ export const platformFinancialSchema = z.object({
 })
 export type PlatformFinancial = z.infer<typeof platformFinancialSchema>
 
+const operationBase = z.object({
+  reason: z.string().trim().min(5).max(500),
+  reference: z.string().trim().min(1).max(120),
+  idempotencyKey: z.string().min(8).max(128),
+  expectedVersion: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
+})
+const moneyFields = { amountMinor: z.number().int().safe().positive(), currency: z.literal('INR') }
+export const walletOperationSchema = z.discriminatedUnion('kind', [
+  operationBase.extend({ kind: z.literal('paid_credit'), ...moneyFields }).strict(),
+  operationBase
+    .extend({
+      kind: z.literal('promotional_credit'),
+      ...moneyFields,
+      expiresAt: z.iso.datetime().optional(),
+    })
+    .strict(),
+  operationBase
+    .extend({
+      kind: z.literal('adjustment'),
+      currency: z.literal('INR'),
+      amountMinor: z
+        .number()
+        .int()
+        .safe()
+        .refine((v) => v !== 0, 'Amount cannot be zero'),
+    })
+    .strict(),
+  operationBase.extend({ kind: z.literal('refund'), ...moneyFields, debitId: z.uuid() }).strict(),
+])
+export type WalletOperation = z.infer<typeof walletOperationSchema>

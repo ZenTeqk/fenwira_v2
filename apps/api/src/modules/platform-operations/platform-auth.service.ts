@@ -114,7 +114,12 @@ export class PlatformAuthService {
   async verify(challengeToken: string, code: string) {
     const hash = sha256(challengeToken)
     await this.limits.consume([
-      { bucket: 'platform:mfa:challenge', key: Buffer.from(hash).toString('hex'), limit: 5, windowSeconds: 300 },
+      {
+        bucket: 'platform:mfa:challenge',
+        key: Buffer.from(hash).toString('hex'),
+        limit: 5,
+        windowSeconds: 300,
+      },
       {
         bucket: 'platform:mfa:ip',
         key: requestContext.get()?.ip ?? 'unknown',

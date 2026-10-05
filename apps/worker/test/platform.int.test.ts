@@ -1,5 +1,9 @@
 import { commercialOperation, commercialJson } from '@fenwira/api/modules/platform-operations'
-import { postTransaction } from '@fenwira/api/modules/billing'
+import {
+  reserveForMessage,
+  releaseReservation,
+  postTransaction,
+} from '@fenwira/api/modules/billing'
 import { encryptSecret, uuidv7 } from '@fenwira/config'
 import {
   IDENTITY_OPTIONS,
@@ -300,4 +304,121 @@ it('commercial discovery/detail is bounded, excludes customer content and isolat
   ).toBe(404)
   expect((await user.client.get('/conversations', { 'X-Tenant-Id': tenantId })).status).toBe(401)
   expect((await user.client.get('/platform/workspaces?q=a')).status).toBe(400)
+})
+
+it('wallet HTTP operations preserve fund identity, idempotency, refund caps and reservation boundaries', async () => {
+  const user = await privileged(),
+    tenantId = uuidv7()
+  await db.withTenant(tenantId, (tx) =>
+    tx.tenant.create({
+      data: {
+        id: tenantId,
+        ownerUserId: user.id,
+        name: 'Wallet operations',
+        slug: tenantId,
+        billingMode: 'PREPAID',
+      },
+    }),
+  )
+  const command = {
+    kind: 'paid_credit',
+    amountMinor: 1000,
+    currency: 'INR',
+    reason: 'Verified manual funding',
+    reference: 'bank-ref',
+    idempotencyKey: uuidv7(),
+  }
+  const url = `/platform/workspaces/${tenantId}/wallet-operations`
+  const results = await Promise.all(Array.from({ length: 8 }, () => user.client.post(url, command)))
+  expect(results.map((r) => r.status)).toEqual(Array(8).fill(200))
+  expect(new Set(results.map((r) => r.body.data.id)).size).toBe(1)
+  expect(results[0]!.body.data).toMatchObject({
+    operatorId: user.id,
+    tenantId,
+    amountMinor: '1000',
+    currency: 'INR',
+    reason: command.reason,
+    reference: command.reference,
+  })
+  expect((await user.client.post(url, { ...command, amountMinor: 1001 })).status).toBe(409)
+  expect(
+    (
+      await user.client.post(url, {
+        ...command,
+        kind: 'promotional_credit',
+        amountMinor: 200,
+        idempotencyKey: uuidv7(),
+        expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+      })
+    ).status,
+  ).toBe(200)
+  const debitId = await db.withTenant(tenantId, (tx) =>
+    postTransaction(tx, tenantId, {
+      type: 'DEBIT',
+      amountMinor: -300n,
+      reason: 'usage fixture',
+      idempotencyKey: uuidv7(),
+    }),
+  )
+  const refund = { ...command, kind: 'refund', debitId, amountMinor: 200, idempotencyKey: uuidv7() }
+  expect((await user.client.post(url, refund)).status).toBe(200)
+  expect((await user.client.post(url, { ...refund, idempotencyKey: uuidv7() })).status).toBe(422)
+  expect(
+    (await user.client.post(url, { ...refund, debitId: uuidv7(), idempotencyKey: uuidv7() }))
+      .status,
+  ).toBe(404)
+  // A hold consumes available funds; adjustment must not take them twice.
+  const category = `TEST_${uuidv7()}`.toUpperCase(),
+    messageId = uuidv7()
+  await owner.withGlobal((tx) =>
+    tx.priceBookEntry.create({
+      data: { category, customerPriceMinor: 900n, currency: 'INR', isPlaceholder: true },
+    }),
+  )
+  await db.withTenant(tenantId, (tx) =>
+    reserveForMessage(tx, tenantId, { messageId, category, country: null }),
+  )
+  expect(
+    (
+      await user.client.post(url, {
+        ...command,
+        kind: 'adjustment',
+        amountMinor: -201,
+        idempotencyKey: uuidv7(),
+      })
+    ).status,
+  ).toBe(422)
+  expect(
+    (
+      await user.client.post(url, {
+        ...command,
+        kind: 'adjustment',
+        amountMinor: -200,
+        idempotencyKey: uuidv7(),
+      })
+    ).status,
+  ).toBe(200)
+  const wallet = await db.withTenant(tenantId, (tx) =>
+    tx.wallet.findUniqueOrThrow({ where: { tenantId } }),
+  )
+  expect(wallet.balanceMinor).toBe(900n)
+  await db.withTenant(tenantId, (tx) =>
+    releaseReservation(tx, tenantId, messageId, 'test complete'),
+  )
+  expect(
+    await db.withTenant(tenantId, (tx) =>
+      tx.walletTransaction.count({ where: { fundType: 'PROMOTIONAL' } }),
+    ),
+  ).toBe(1)
+  const audit = await db.withPlatform(user.id, (tx) =>
+    tx.platformAudit.findMany({ where: { workspaceId: tenantId } }),
+  )
+  expect(audit.some((a) => a.outcome === 'INSUFFICIENT_BALANCE')).toBe(true)
+  await db.withGlobal((tx) =>
+    tx.platformSession.updateMany({
+      where: { userId: user.id },
+      data: { mfaAt: new Date(Date.now() - 6 * 60_000) },
+    }),
+  )
+  expect((await user.client.post(url, { ...command, idempotencyKey: uuidv7() })).status).toBe(403)
 })

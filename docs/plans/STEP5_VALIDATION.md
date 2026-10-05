@@ -30,3 +30,10 @@ Status: in progress; neither Step 5 acceptance nor Phase 11 closure claimed.
 - Full lint/typecheck passed; OpenAPI/security catalog unit tests 8/8.
 - Platform integration 7/7: commercial search/detail works without membership; unknown cost is excluded from contribution; configured/enforced state separated; conflicting workspace header denied; customer content APIs remain inaccessible.
 - No historic provider cost or placeholder provenance fabricated. Current tax metadata is not a tax calculation.
+
+## Increment 5 — funding/corrections/refunds
+
+- Full lint/typecheck passed; generated OpenAPI/security catalog 8/8 and exact-decimal CLI unit test 1/1 passed.
+- Platform integration 8/8 passed: concurrent identical HTTP credits, changed-key payload conflicts, promotional expiry metadata, partial/refund cap, cross-workspace debit denial, reservation-safe negative adjustments, fresh-MFA enforcement and failure audit.
+- Founder-approved scope recorded: no negative available funds; usage refunds only, cumulative cap at original debit.
+- CLI funding uses the same MFA-authenticated HTTP/domain service. Outbox and deduplicated billing-reader notifications share receipt IDs.

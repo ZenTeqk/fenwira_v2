@@ -106,5 +106,15 @@ export async function commercialOperation(
       correlationId: requestContext.correlationId(),
     },
   })
+  await tx.outboxEvent.create({
+    data: {
+      tenantId,
+      eventType: 'commercial.operation_completed',
+      aggregateType: 'commercial_operation',
+      aggregateId: receipt.id,
+      payload: { operationId: receipt.id },
+      correlationId: requestContext.correlationId(),
+    },
+  })
   return receipt
 }

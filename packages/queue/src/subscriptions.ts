@@ -6,6 +6,7 @@ import { QUEUES, type QueueName } from './names'
  * subscriber. Every DomainEventType must appear here, even with no subscribers yet.
  */
 export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> = {
+  'commercial.operation_completed': [QUEUES.notificationsDispatch],
   'system.ping.requested': [QUEUES.systemPing],
   'identity.email_verification.requested': [QUEUES.identityEvents],
   'identity.password_reset.requested': [QUEUES.identityEvents],

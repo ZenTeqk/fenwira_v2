@@ -14,7 +14,8 @@ import { NOTIFICATIONS_OPTIONS, type NotificationsOptions } from './notification
 
 type WalletJob =
   EventJob<'wallet.low_balance'> | EventJob<'wallet.recovered'> | EventJob<'wallet.funded'>
-type DispatchJob = WalletJob | EventJob<'subscription.plan_requested'>
+type DispatchJob =
+  WalletJob | EventJob<'subscription.plan_requested'> | EventJob<'commercial.operation_completed'>
 
 /** Roles that can view billing (ROLE_PERMISSIONS is the single source, never a hard-coded list). */
 const BILLING_READERS = (Object.keys(ROLE_PERMISSIONS) as Role[]).filter((r) =>
@@ -56,6 +57,8 @@ export class NotificationsDispatchProcessor implements QueueProcessor<DispatchJo
   async process(job: Job<DispatchJob>): Promise<string> {
     const e = job.data
     if (!e.tenantId) return 'ignored'
+    if (e.eventType === 'commercial.operation_completed')
+      return this.commercial(e.tenantId, e.payload.operationId)
     // P11-D21: first funding is not a recovery; it notifies only when it is already low.
     if (e.eventType === 'wallet.funded')
       return e.payload.to === 'LOW_BALANCE' ? this.wallet(e.tenantId, e) : 'funded'
@@ -64,6 +67,27 @@ export class NotificationsDispatchProcessor implements QueueProcessor<DispatchJo
     if (e.eventType === 'subscription.plan_requested')
       return this.planRequested(e.tenantId, e.payload)
     return 'ignored'
+  }
+
+  private async commercial(tenantId: string, operationId: string): Promise<string> {
+    await this.db.withTenant(tenantId, async (tx) => {
+      const receipt = await tx.commercialOperation.findUniqueOrThrow({ where: { id: operationId } })
+      const members = await tx.membership.findMany({
+        where: { tenantId, status: 'ACTIVE', role: { in: BILLING_READERS } },
+        select: { userId: true },
+      })
+      for (const member of members)
+        await createNotificationOnce(tx, {
+          tenantId,
+          userId: member.userId,
+          type: 'commercial.operation_completed',
+          title: 'Commercial support update',
+          body: `The Fenwira team recorded ${receipt.operation.replaceAll('_', ' ')}. View billing for the updated state.`,
+          link: receipt.amountMinor === null ? '/billing/subscription' : '/billing/wallet',
+          dedupeKey: `commercial:${receipt.id}`,
+        })
+    })
+    return 'commercial-notified'
   }
 
   /** P11-D24: plans are activated by the Fenwira team — they hear about every request. */
