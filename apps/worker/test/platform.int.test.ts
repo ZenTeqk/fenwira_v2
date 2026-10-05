@@ -1,5 +1,6 @@
 import { commercialOperation, commercialJson } from '@fenwira/api/modules/platform-operations'
 import {
+  activatePlan,
   reserveForMessage,
   releaseReservation,
   postTransaction,
@@ -421,4 +422,136 @@ it('wallet HTTP operations preserve fund identity, idempotency, refund caps and 
     }),
   )
   expect((await user.client.post(url, { ...command, idempotencyKey: uuidv7() })).status).toBe(403)
+})
+
+it('a plan downgrade must preserve an unexpired negotiated retention override', async () => {
+  const user = await identity(),
+    tenantId = uuidv7()
+  await db.withTenant(tenantId, async (tx) => {
+    await tx.tenant.create({
+      data: { id: tenantId, ownerUserId: user.id, name: 'Retention correctness', slug: tenantId },
+    })
+    await activatePlan(tx, tenantId, 'BUSINESS', new Date(), { type: 'SYSTEM' }, 'GROWTH')
+    await tx.tenantEntitlementOverride.create({
+      data: {
+        tenantId,
+        key: 'analytics_retention',
+        value: 500,
+        reason: 'Negotiated support retention',
+        createdBy: user.id,
+      },
+    })
+  })
+  await db.withTenant(tenantId, (tx) =>
+    activatePlan(tx, tenantId, 'STARTER', new Date(), { type: 'SYSTEM' }, 'GROWTH'),
+  )
+  const override = await db.withTenant(tenantId, (tx) =>
+    tx.tenantEntitlementOverride.findUniqueOrThrow({
+      where: { tenantId_key: { tenantId, key: 'analytics_retention' } },
+    }),
+  )
+  expect(override.value).toBe(500)
+  expect(override.expiresAt).toBeNull()
+  expect(override.reason).toBe('Negotiated support retention')
+})
+
+it('operator subscription and typed overrides use receipts without duplicating transitions', async () => {
+  const user = await privileged(),
+    tenantId = uuidv7()
+  await db.withTenant(tenantId, (tx) =>
+    tx.tenant.create({
+      data: { id: tenantId, ownerUserId: user.id, name: 'Subscription operations', slug: tenantId },
+    }),
+  )
+  const read = await user.client.get(`/platform/workspaces/${tenantId}`)
+  const planId = read.body.data.plans.find((p: { key: string }) => p.key === 'GROWTH').id
+  const base = {
+    reason: 'Founder support approval',
+    reference: 'support-6',
+    idempotencyKey: uuidv7(),
+  }
+  const url = `/platform/workspaces/${tenantId}`
+  const command = { ...base, kind: 'activate', planId, expectedVersion: read.body.data.version }
+  const first = await user.client.post(`${url}/subscription-operations`, command)
+  expect(first.status, JSON.stringify(first.body)).toBe(200)
+  const second = await user.client.post(`${url}/subscription-operations`, command)
+  expect(second.body.data.id).toBe(first.body.data.id)
+  expect(first.body.data.after.subscription.currentPeriodStart).toBe(
+    second.body.data.after.subscription.currentPeriodStart,
+  )
+  const override = {
+    ...base,
+    idempotencyKey: uuidv7(),
+    kind: 'override_set',
+    key: 'max_contacts',
+    value: null,
+  }
+  expect((await user.client.post(`${url}/entitlement-operations`, override)).status).toBe(200)
+  expect(
+    (await user.client.post(`${url}/entitlement-operations`, { ...override, value: true })).status,
+  ).toBe(400)
+  expect(
+    (
+      await user.client.post(`${url}/entitlement-operations`, {
+        ...override,
+        idempotencyKey: uuidv7(),
+        key: 'api_enabled',
+        value: true,
+      })
+    ).status,
+  ).toBe(200)
+  const effective = await user.client.get(url)
+  expect(
+    effective.body.data.entitlements.find((e: { key: string }) => e.key === 'max_contacts')
+      .configured,
+  ).toBeNull()
+  expect(
+    (
+      await user.client.post(`${url}/entitlement-operations`, {
+        ...base,
+        idempotencyKey: uuidv7(),
+        kind: 'override_remove',
+        key: 'max_contacts',
+      })
+    ).status,
+  ).toBe(200)
+  expect(
+    (
+      await user.client.post(`${url}/subscription-operations`, {
+        ...base,
+        idempotencyKey: uuidv7(),
+        kind: 'billing_mode',
+        mode: 'PREPAID',
+      })
+    ).status,
+  ).toBe(200)
+  expect(
+    (
+      await user.client.post(`${url}/subscription-operations`, {
+        ...base,
+        idempotencyKey: uuidv7(),
+        kind: 'billing_mode',
+        mode: 'POSTPAID',
+      })
+    ).status,
+  ).toBe(400)
+  expect(
+    (
+      await user.client.post(`${url}/subscription-operations`, {
+        ...base,
+        idempotencyKey: uuidv7(),
+        kind: 'cancel',
+      })
+    ).status,
+  ).toBe(200)
+  const final = await user.client.get(url)
+  expect(final.body.data.snapshot.subscription.status).toBe('ACTIVE')
+  expect(final.body.data.snapshot.subscription.cancelAtPeriodEnd).toBe(true)
+  expect(final.body.data.snapshot.workspace.billingMode).toBe('PREPAID')
+  const receipts = await db.withTenant(tenantId, (tx) => tx.commercialOperation.findMany())
+  expect(receipts).toHaveLength(6)
+  const outbox = await db.withTenant(tenantId, (tx) =>
+    tx.outboxEvent.count({ where: { eventType: 'commercial.operation_completed' } }),
+  )
+  expect(outbox).toBe(receipts.length)
 })

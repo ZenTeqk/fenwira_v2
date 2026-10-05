@@ -184,7 +184,7 @@ export async function activatePlan(
   tenantId: string,
   planKey: string,
   now: Date,
-  actor: { type: 'SYSTEM' | 'USER'; id?: string | null; note?: string },
+  actor: { type: 'SYSTEM' | 'USER' | 'PLATFORM_OPERATOR'; id?: string | null; note?: string },
   /** Whose entitlements a trial (or an expired trial) had — for the retention grace. */
   trialPlanKey?: string,
 ): Promise<{ from: string | null; to: string }> {
@@ -224,7 +224,14 @@ export async function activatePlan(
       currentPeriodEnd: addMonth(now),
     },
   })
-  if (oldRetention !== undefined && shrinks(oldRetention, newRetention))
+  const existingOverride = await tx.tenantEntitlementOverride.findUnique({
+    where: { tenantId_key: { tenantId, key: 'analytics_retention' } },
+  })
+  // Explicit, unexpired support overrides have highest precedence (P11-D25).
+  // A plan transition must not silently replace that agreement with automatic grace.
+  const activeOverride =
+    existingOverride && (!existingOverride.expiresAt || existingOverride.expiresAt > now)
+  if (!activeOverride && oldRetention !== undefined && shrinks(oldRetention, newRetention))
     await tx.tenantEntitlementOverride.upsert({
       where: { tenantId_key: { tenantId, key: 'analytics_retention' } },
       create: {
@@ -236,6 +243,8 @@ export async function activatePlan(
       },
       update: {
         value: oldRetention as never,
+        createdBy: null,
+        reason: `Retention grace after plan change (${RETENTION_GRACE_DAYS} days)`,
         expiresAt: new Date(now.getTime() + RETENTION_GRACE_DAYS * DAY),
       },
     })

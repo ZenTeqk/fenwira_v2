@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CAPABILITY_KEYS, ENTITLEMENT_KEYS } from './subscriptions'
 export const PLATFORM_PERMISSIONS = [
   'commercial.read',
   'financial.read',
@@ -175,3 +176,41 @@ export const walletOperationSchema = z.discriminatedUnion('kind', [
   operationBase.extend({ kind: z.literal('refund'), ...moneyFields, debitId: z.uuid() }).strict(),
 ])
 export type WalletOperation = z.infer<typeof walletOperationSchema>
+
+export const subscriptionOperationSchema = z.discriminatedUnion('kind', [
+  operationBase.extend({ kind: z.literal('activate'), planId: z.uuid() }).strict(),
+  operationBase.extend({ kind: z.literal('cancel') }).strict(),
+  operationBase
+    .extend({ kind: z.literal('billing_mode'), mode: z.enum(['FREE', 'TRIAL', 'PREPAID']) })
+    .strict(),
+])
+export type SubscriptionOperation = z.infer<typeof subscriptionOperationSchema>
+export const entitlementOperationSchema = z
+  .discriminatedUnion('kind', [
+    operationBase
+      .extend({
+        kind: z.literal('override_set'),
+        key: z.enum(ENTITLEMENT_KEYS),
+        value: z.union([z.boolean(), z.number().int().safe().nonnegative(), z.null()]),
+        expiresAt: z.iso.datetime().optional(),
+      })
+      .strict(),
+    operationBase
+      .extend({ kind: z.literal('override_remove'), key: z.enum(ENTITLEMENT_KEYS) })
+      .strict(),
+  ])
+  .superRefine((input, ctx) => {
+    if (
+      input.kind === 'override_set' &&
+      ((CAPABILITY_KEYS as readonly string[]).includes(input.key)
+        ? typeof input.value !== 'boolean'
+        : typeof input.value === 'boolean')
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['value'],
+        message:
+          'Capabilities require boolean; limits require a nonnegative integer or null (unlimited).',
+      })
+  })
+export type EntitlementOperation = z.infer<typeof entitlementOperationSchema>

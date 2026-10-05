@@ -11,7 +11,7 @@ export function operationMetadata() {
     throw new Error('Required: --reason, --reference, --idempotency-key')
   return { reason, reference, idempotencyKey }
 }
-export async function operatorCommand(endpoint: string, body: unknown) {
+export async function operatorRequest(endpoint: string, body?: unknown) {
   const token = process.env.PLATFORM_SESSION_TOKEN
   const csrf = process.env.PLATFORM_CSRF_TOKEN
   const url = process.env.PLATFORM_API_URL
@@ -24,24 +24,23 @@ export async function operatorCommand(endpoint: string, body: unknown) {
   if (parsed.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(parsed.hostname))
     throw new Error('Platform API must use HTTPS')
   const response = await fetch(
-    `${url.replace(/\/$/, '')}/platform/workspaces/${encodeURIComponent(tenantId)}/${endpoint}`,
+    `${url.replace(/\/$/, '')}/platform/workspaces/${encodeURIComponent(tenantId)}${endpoint ? `/${endpoint}` : ''}`,
     {
-      method: 'POST',
+      method: body === undefined ? 'GET' : 'POST',
       redirect: 'error',
       headers: {
         'Content-Type': 'application/json',
         Cookie: `fw_platform=${token}; fw_platform_csrf=${csrf}`,
         'X-CSRF-Token': csrf,
       },
-      body: JSON.stringify(body),
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     },
   )
   if (!response.ok)
     throw new Error(
       `Operator request denied/failed (${response.status}); inspect platform audit with the correlation reference.`,
     )
-  const data = (await response.json()) as { data: { id: string } }
-  process.stdout.write(`Recorded operation ${data.data.id}\n`)
+  return (await response.json()) as { data: unknown }
 }
 /** Exact decimal parsing: no floating-point rounding in financial commands. */
 export function majorToMinor(raw: string | undefined): number {
@@ -52,4 +51,9 @@ export function majorToMinor(raw: string | undefined): number {
   if (minor <= 0n || minor > BigInt(Number.MAX_SAFE_INTEGER))
     throw new Error('Amount outside supported range')
   return Number(minor)
+}
+
+export async function operatorCommand(endpoint: string, body: unknown) {
+  const response = await operatorRequest(endpoint, body)
+  process.stdout.write(`Recorded operation ${(response.data as { id: string }).id}\n`)
 }

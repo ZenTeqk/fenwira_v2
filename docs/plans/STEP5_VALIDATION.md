@@ -37,3 +37,10 @@ Status: in progress; neither Step 5 acceptance nor Phase 11 closure claimed.
 - Platform integration 8/8 passed: concurrent identical HTTP credits, changed-key payload conflicts, promotional expiry metadata, partial/refund cap, cross-workspace debit denial, reservation-safe negative adjustments, fresh-MFA enforcement and failure audit.
 - Founder-approved scope recorded: no negative available funds; usage refunds only, cumulative cap at original debit.
 - CLI funding uses the same MFA-authenticated HTTP/domain service. Outbox and deduplicated billing-reader notifications share receipt IDs.
+
+## Increment 6 — subscription/mode/override services
+
+- Full lint/typecheck passed; OpenAPI regenerated.
+- Real platform integration 10/10 passed, including replay without new subscription period, typed/unlimited overrides, removal, PREPAID mode, rejection of POSTPAID and period-end cancellation. One outbox event per receipt.
+- Step 4 regression reproduced before fix (500-day negotiated override became 365); passes after preserving active override. Explanation in BILLING.md.
+- Reviewed state remains valid for initially unfunded workspaces: wallet creation happens inside mutation, after version check.

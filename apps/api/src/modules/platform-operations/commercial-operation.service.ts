@@ -1,13 +1,19 @@
 import {
+  subscriptionOperationSchema,
+  entitlementOperationSchema,
+  type SubscriptionOperation,
+  type EntitlementOperation,
   walletOperationSchema,
   commercialReceiptSchema,
   type WalletOperation,
 } from '@fenwira/contracts'
-import { Database, type TenantTx } from '@fenwira/database'
+import { Database, Prisma, type TenantTx } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
+import { CORE_CONFIG, type CoreConfig } from '../../core/config/core-config'
 import { requestContext } from '../../core/context/request-context'
 import { AppError } from '../../core/http/app-error'
 import {
+  activatePlan,
   availableOf,
   BILLING_OPTIONS,
   type BillingOptions,
@@ -23,6 +29,7 @@ export class CommercialOperationService {
   constructor(
     @Inject(Database) private readonly db: Database,
     private readonly auth: PlatformAuthService,
+    @Inject(CORE_CONFIG) private readonly config: CoreConfig,
     @Inject(BILLING_OPTIONS) private readonly billing: BillingOptions,
   ) {}
   /** Recheck current privilege inside the operation transaction, including retry requests. */
@@ -72,7 +79,8 @@ export class CommercialOperationService {
         // Serialize operator state changes; wallet lock also serializes with messaging reservations.
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:commercial-state`}))`
         await commercialSnapshot(tx, tenantId)
-        await lockWallet(tx, tenantId, this.billing)
+        // Lock an existing wallet without initializing it before the reviewed snapshot.
+        await tx.$queryRaw`SELECT id FROM wallets WHERE tenant_id = ${tenantId}::uuid FOR UPDATE`
         return commercialOperation(
           tx,
           tenantId,
@@ -92,6 +100,62 @@ export class CommercialOperationService {
       )
       throw err
     }
+  }
+  async subscription(tenantId: string, raw: SubscriptionOperation) {
+    const input = subscriptionOperationSchema.parse(raw)
+    return this.run(tenantId, input, async (tx, operatorId) => {
+      await tx.$queryRaw`SELECT id FROM subscriptions WHERE tenant_id = ${tenantId}::uuid FOR UPDATE`
+      if (input.kind === 'activate') {
+        const plan = await tx.plan.findUnique({ where: { id: input.planId } })
+        if (!plan) throw AppError.notFound('Plan not found.')
+        return activatePlan(
+          tx,
+          tenantId,
+          plan.key,
+          new Date(),
+          { type: 'PLATFORM_OPERATOR', id: operatorId, note: input.reason },
+          this.config.entitlements?.trialPlanKey ?? 'GROWTH',
+        )
+      }
+      if (input.kind === 'billing_mode') {
+        await tx.tenant.update({ where: { id: tenantId }, data: { billingMode: input.mode } })
+        return { billingMode: input.mode }
+      }
+      const moved = await tx.subscription.updateMany({
+        where: { tenantId, status: 'ACTIVE' },
+        data: { cancelAtPeriodEnd: true },
+      })
+      if (!moved.count)
+        throw new AppError('CONFLICT', 409, 'Only an active subscription can be cancelled.')
+      return { cancelAtPeriodEnd: true }
+    })
+  }
+  async entitlement(tenantId: string, raw: EntitlementOperation) {
+    const input = entitlementOperationSchema.parse(raw)
+    return this.run(tenantId, input, async (tx, operatorId) => {
+      if (input.kind === 'override_remove') {
+        await tx.tenantEntitlementOverride.deleteMany({ where: { tenantId, key: input.key } })
+        return { key: input.key, removed: true }
+      }
+      if (input.expiresAt && new Date(input.expiresAt) <= new Date())
+        throw AppError.validation([
+          { path: 'expiresAt', code: 'future', message: 'Expiry must be in the future.' },
+        ])
+      const value = input.value === null ? Prisma.JsonNull : input.value
+      // Prisma represents JSON null through its explicit sentinel, not SQL NULL.
+      const data = {
+        value: value as never,
+        reason: input.reason,
+        createdBy: operatorId,
+        expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+      }
+      await tx.tenantEntitlementOverride.upsert({
+        where: { tenantId_key: { tenantId, key: input.key } },
+        create: { tenantId, key: input.key, ...data },
+        update: data,
+      })
+      return { key: input.key, value: input.value, expiresAt: data.expiresAt }
+    })
   }
   async wallet(tenantId: string, raw: WalletOperation) {
     const input = walletOperationSchema.parse(raw)
