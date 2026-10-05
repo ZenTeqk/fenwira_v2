@@ -30,6 +30,19 @@ type ClaimedRow = {
 export class SystemGateway {
   constructor(private readonly prisma: PrismaClient) {}
 
+  /** X21: bounded workspace discovery after explicit platform authorization; no customer content. */
+  async platformWorkspaces(operatorId: string, query: string, limit: number) {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ id: string; name: string; slug: string; created_at: Date }>
+    >`SELECT * FROM system.platform_workspaces(${operatorId}::uuid, ${query}, ${limit}::int)`
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      slug: r.slug,
+      createdAt: r.created_at.toISOString(),
+    }))
+  }
+
   /** X12 — platform (tenant-less) event into the outbox. Returns the event id. */
   async emitPlatformEvent(
     eventType: string,

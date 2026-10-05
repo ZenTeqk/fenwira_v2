@@ -245,3 +245,59 @@ it('immutable financial receipts serialize identical retries and roll back chang
   expect(audit).toHaveLength(1)
   expect(audit[0]!.actorType).toBe('PLATFORM_OPERATOR')
 })
+
+it('commercial discovery/detail is bounded, excludes customer content and isolates internal provider cost', async () => {
+  const user = await privileged(),
+    tenantId = uuidv7(),
+    marker = `Workspace-${uuidv7()}`
+  await db.withTenant(tenantId, async (tx) => {
+    await tx.tenant.create({
+      data: { id: tenantId, ownerUserId: user.id, name: marker, slug: tenantId },
+    })
+    await tx.wallet.create({ data: { tenantId } })
+    await tx.usageEvent.create({
+      data: {
+        tenantId,
+        type: 'test',
+        category: 'UTILITY',
+        currency: 'INR',
+        unitPriceMinor: 100n,
+        amountMinor: 100n,
+      },
+    })
+    await tx.usageEvent.create({
+      data: {
+        tenantId,
+        type: 'test',
+        category: 'UTILITY',
+        currency: 'INR',
+        unitPriceMinor: 100n,
+        amountMinor: 100n,
+        providerCostMinor: 40n,
+      },
+    })
+  })
+  const found = await user.client.get(`/platform/workspaces?q=${encodeURIComponent(marker)}`)
+  expect(found.status).toBe(200)
+  expect(found.body.data.map((r: { id: string }) => r.id)).toContain(tenantId)
+  const detail = await user.client.get(`/platform/workspaces/${tenantId}`)
+  expect(detail.status, JSON.stringify(detail.body)).toBe(200)
+  expect(detail.body.data.subscriptionsEnforced).toBe(false)
+  expect(JSON.stringify(detail.body)).not.toContain('providerCost')
+  expect(JSON.stringify(detail.body)).not.toContain('phoneE164')
+  const finance = await user.client.get(`/platform/workspaces/${tenantId}/financial`)
+  expect(finance.status).toBe(200)
+  expect(finance.body.data).toMatchObject({
+    customerChargeMinor: '200',
+    providerCostMinor: '40',
+    knownCostCustomerChargeMinor: '100',
+    recordedContributionMinor: '60',
+    messages: 2,
+    costKnownMessages: 1,
+  })
+  expect(
+    (await user.client.get(`/platform/workspaces/${tenantId}`, { 'X-Tenant-Id': uuidv7() })).status,
+  ).toBe(404)
+  expect((await user.client.get('/conversations', { 'X-Tenant-Id': tenantId })).status).toBe(401)
+  expect((await user.client.get('/platform/workspaces?q=a')).status).toBe(400)
+})

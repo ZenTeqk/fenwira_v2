@@ -594,3 +594,19 @@ DROP POLICY IF EXISTS platform_audit_insert ON public.platform_audit;
 CREATE POLICY platform_audit_insert ON public.platform_audit FOR INSERT WITH CHECK (true);
 
 REVOKE UPDATE, DELETE, TRUNCATE ON public.commercial_operations FROM fenwira_app;
+
+-- X21: bounded commercial identity discovery. Caller must be an active platform operator.
+GRANT SELECT (id, name, slug, created_at, deleted_at) ON public.tenants TO fenwira_system;
+GRANT SELECT ON public.platform_grants TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.platform_workspaces(p_operator uuid, p_query text, p_limit integer)
+RETURNS TABLE(id uuid, name text, slug text, created_at timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+ SELECT t.id,t.name,t.slug,t.created_at FROM public.tenants t
+ WHERE t.deleted_at IS NULL AND length(p_query) BETWEEN 2 AND 120
+ AND EXISTS(SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL)
+ AND (strpos(lower(t.name),lower(p_query)) > 0 OR t.id::text = p_query OR t.slug = p_query)
+ ORDER BY t.name,t.id LIMIT least(greatest(p_limit,1),50);
+$$;
+ALTER FUNCTION system.platform_workspaces(uuid,text,integer) OWNER TO fenwira_system;
+REVOKE ALL ON FUNCTION system.platform_workspaces(uuid,text,integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION system.platform_workspaces(uuid,text,integer) TO fenwira_app;

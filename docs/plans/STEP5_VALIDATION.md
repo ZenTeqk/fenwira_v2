@@ -24,3 +24,9 @@ Status: in progress; neither Step 5 acceptance nor Phase 11 closure claimed.
 - Database integration 251/251; new receipt included in forced-RLS/append-only matrix.
 - Platform integration 6/6; ten identical concurrent credit operations yield one receipt/ledger row, changed payload conflicts, injected failure rolls back financial mutation.
 - Platform security unit tests 3/3: recursive secret/content redaction, separate route catalog, exact-money deterministic fingerprints.
+
+## Increment 4 — commercial reads
+
+- Full lint/typecheck passed; OpenAPI/security catalog unit tests 8/8.
+- Platform integration 7/7: commercial search/detail works without membership; unknown cost is excluded from contribution; configured/enforced state separated; conflicting workspace header denied; customer content APIs remain inaccessible.
+- No historic provider cost or placeholder provenance fabricated. Current tax metadata is not a tax calculation.

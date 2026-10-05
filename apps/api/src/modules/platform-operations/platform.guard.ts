@@ -28,6 +28,9 @@ export class PlatformGuard implements CanActivate {
     )
       throw new AppError('FORBIDDEN', 403, 'Platform access requires an operator session.')
     const req = context.switchToHttp().getRequest<Request>()
+    const selected = req.header('x-tenant-id')
+    if (selected && req.params.workspaceId && selected !== req.params.workspaceId)
+      throw new AppError('TENANT_NOT_FOUND', 404, 'Conflicting workspace selection.')
     try {
       const cookies = req.cookies as Record<string, string | undefined>
       const me = await this.auth.authenticate(
