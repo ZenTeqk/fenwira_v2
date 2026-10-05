@@ -6,8 +6,10 @@ import { createRootLogger } from './logger'
 
 type CorrelatedRequest = IncomingMessage & { correlationId?: string }
 
-function pathOnly(url: string | undefined): string {
-  return (url ?? '').split('?')[0] ?? ''
+export function pathOnly(url: string | undefined): string {
+  const path = (url ?? '').split('?')[0] ?? ''
+  // Public invitation paths contain bearer credentials, including preview requests.
+  return path.replace(/^(\/api\/v1\/invitations\/)[^/]+/i, '$1[REDACTED]')
 }
 
 @Module({})

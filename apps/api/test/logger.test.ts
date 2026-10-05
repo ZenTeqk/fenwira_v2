@@ -2,6 +2,7 @@ import { Writable } from 'node:stream'
 import { describe, expect, it } from 'vitest'
 import { requestContext } from '../src/core/context/request-context'
 import { createRootLogger } from '../src/core/logging/logger'
+import { pathOnly } from '../src/core/logging/logging.module'
 
 function capture() {
   const lines: Array<Record<string, unknown>> = []
@@ -19,6 +20,18 @@ function capture() {
 }
 
 describe('root logger', () => {
+  it('excludes invitation path credentials and query credentials from access logs', () => {
+    expect(
+      pathOnly('/api/v1/invitations/live-invitation-credential/accept?token=query-secret'),
+    ).toBe('/api/v1/invitations/[REDACTED]/accept')
+    expect(pathOnly('/api/v1/invitations/live-invitation-credential')).toBe(
+      '/api/v1/invitations/[REDACTED]',
+    )
+    expect(pathOnly('/API/V1/INVITATIONS/live-invitation-credential/accept')).toBe(
+      '/API/V1/INVITATIONS/[REDACTED]/accept',
+    )
+    expect(pathOnly('/api/v1/platform/auth/me?token=query-secret')).toBe('/api/v1/platform/auth/me')
+  })
   it('emits base fields and the level label', () => {
     const { lines, logger } = capture()
     logger.info('hello')
