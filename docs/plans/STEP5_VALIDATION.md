@@ -44,3 +44,10 @@ Status: in progress; neither Step 5 acceptance nor Phase 11 closure claimed.
 - Real platform integration 10/10 passed, including replay without new subscription period, typed/unlimited overrides, removal, PREPAID mode, rejection of POSTPAID and period-end cancellation. One outbox event per receipt.
 - Step 4 regression reproduced before fix (500-day negotiated override became 365); passes after preserving active override. Explanation in BILLING.md.
 - Reviewed state remains valid for initially unfunded workspaces: wallet creation happens inside mutation, after version check.
+
+## Increment 7 — separate platform UI
+
+- Web lint/typecheck and UI typecheck/design-token checks passed.
+- Chromium platform browser suite 4/4 passed. WCAG axe checks cover login/MFA, commercial detail at 375/768/1024/1440 and audit; no page horizontal overflow. Tenant-only access redirects and read-only permission makes zero provider-cost requests.
+- Dedicated client never emits a tenant header or refreshes tenant credentials. Absolute/idle expiration clears platform query data. No normal tenant navigation entry added.
+- Docker API/worker/web image build succeeded on retry. Later final rebuild will include remaining increments.

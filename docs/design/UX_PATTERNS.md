@@ -123,7 +123,7 @@ A `DetailDrawer` (right side, 480px) is for lightweight inspection and quick edi
 
 **Analytics (Phase 11).** Views: Overview, Messaging, Campaigns, Inbox, Automations, Usage (Usage needs `billing.read`). Each: date range (presets resolved in the workspace timezone, or custom workspace-local dates; kept for the browser session) → freshness/retention notices → KPIs (`MetricCard` with change vs the previous period) → one primary chart (`TrendChart`, with "Show as table") → breakdowns and detail tables (`DataTable`). "Not processed yet" (`NOT_STARTED`, "Analytics are being prepared"), "processing" and "couldn't be updated" are distinct from zero; a rate with nothing to divide by shows "—" and says why. Metric definitions: `docs/ANALYTICS.md`.
 
-**Billing (Phase 11).** Wallet: available balance, reserved, usage, promotional credits, adjustments, transaction history from the ledger (never from analytics aggregates). Usage shows provider cost and the Fenwira charge side by side where the price book supports it. Today the wallet balance appears in the shell and on the dashboard.
+**Billing (Phase 11).** Wallet: available balance, reserved, usage, promotional credits, adjustments, transaction history from the ledger (never from analytics aggregates). Tenant Usage shows customer charges only (P11-D23). Provider cost is visible solely in explicitly authorized Platform Operations. Today the wallet balance appears in the shell and on the dashboard.
 
 **Integrations and Settings.** `SettingsPage` cards; each card saves on its own; destructive settings (disconnect, delete workspace) sit in a separate "Danger zone" card with confirmation.
 
@@ -145,3 +145,5 @@ A feature is done when every applicable item holds. Reviewers check the list in 
 - [ ] axe (WCAG 2.2 A/AA) passes on the new screens (`e2e/a11y.spec.ts` or the feature spec)
 - [ ] Lighthouse accessibility ≥ 95 checked on new top-level pages
 - [ ] Critical browser e2e passes
+
+**Platform Operations (Phase 11 Step 5).** Separate `/platform` shell and privileged sign-in, search-driven workspace selection, contextual commercial summary and activity. Internal cost coverage is separate from customer charges. No customer conversations or general database editor. Financial actions require fresh MFA, review/confirmation and immutable receipts.

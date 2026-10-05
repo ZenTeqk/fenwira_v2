@@ -2,10 +2,17 @@ import { type ComponentProps } from 'react'
 import { cn } from '../lib/cn'
 
 /** Semantic table in a horizontally scrollable container, so wide tables never scroll the page. */
-export function Table({ className, ...props }: ComponentProps<'table'>) {
+export function Table({
+  className,
+  containerLabel,
+  ...props
+}: ComponentProps<'table'> & { containerLabel?: string }) {
   return (
     <div
       data-slot="table-container"
+      role={containerLabel ? 'region' : undefined}
+      aria-label={containerLabel}
+      tabIndex={containerLabel ? 0 : undefined}
       className="relative w-full overflow-x-auto rounded-lg border border-border bg-surface"
     >
       <table

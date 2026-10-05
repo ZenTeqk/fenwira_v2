@@ -214,3 +214,14 @@ export const entitlementOperationSchema = z
       })
   })
 export type EntitlementOperation = z.infer<typeof entitlementOperationSchema>
+
+export const platformAuditSchema = z.object({
+  id: z.uuid(),
+  operatorId: z.uuid().nullable(),
+  workspaceId: z.uuid().nullable(),
+  action: z.string(),
+  outcome: z.string(),
+  correlationId: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+})
+export type PlatformAuditEvent = z.infer<typeof platformAuditSchema>
