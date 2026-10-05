@@ -34,6 +34,11 @@ CMD ["pnpm", "--filter", "@fenwira/web", "dev"]
 
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
+# Patch the base image's PCRE library and omit unused npm from the standalone runtime.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libpcre2-8-0 \
+ && rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm \
+ && rm -f /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /repo/apps/web/.next/static ./apps/web/.next/static
