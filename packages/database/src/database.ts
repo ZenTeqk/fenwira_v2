@@ -82,6 +82,19 @@ export class Database {
     })
   }
 
+  /** X21: verified platform context, global operator tables only; never binds tenant membership. */
+  async withPlatform<T>(operatorId: string, fn: (tx: TenantTx) => Promise<T>): Promise<T> {
+    assertUuid('user', operatorId)
+    return this.prisma.$transaction(async (tx) => {
+      const grant = await tx.platformGrant.findUnique({ where: { userId: operatorId } })
+      const user = await tx.user.findUnique({ where: { id: operatorId } })
+      if (!grant || grant.revokedAt || !user || user.disabledAt)
+        throw new Error('Platform access denied')
+      await tx.$queryRaw`SELECT set_config('app.platform_operator_id', ${operatorId}, true)`
+      return fn(tx)
+    })
+  }
+
   /** Readiness probe: `SELECT 1` bounded by `timeoutMs`. */
   async ping(timeoutMs = 1000): Promise<void> {
     let timer: NodeJS.Timeout | undefined

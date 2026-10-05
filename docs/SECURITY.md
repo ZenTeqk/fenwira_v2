@@ -205,3 +205,7 @@ These describe what shipped where it refines the decisions above.
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Platform operator (Phase 11 Step 5)
+
+`PLATFORM_OPERATOR` is a separate global grant, never OWNER/ADMIN/membership/API scope. Grant/revoke only via restricted `platform:operator --user UUID --actor REFERENCE --reason TEXT [--revoke]` with migration credentials. Grant requires a verified enabled user with enrolled 2FA; runtime cannot change grants. Revocation/version change invalidates privilege. No customer conversation access is implied.

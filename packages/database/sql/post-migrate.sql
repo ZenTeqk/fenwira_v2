@@ -580,3 +580,15 @@ BEGIN
 END $$;
 
 GRANT USAGE ON SCHEMA system TO fenwira_app;
+
+-- Step 5: authorization is read-only at runtime; bootstrap uses migration credentials.
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.platform_grants FROM fenwira_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON public.platform_audit FROM fenwira_app;
+ALTER TABLE public.platform_audit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.platform_audit FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS platform_audit_read ON public.platform_audit;
+CREATE POLICY platform_audit_read ON public.platform_audit FOR SELECT USING (EXISTS(
+ SELECT 1 FROM public.platform_grants g WHERE g.user_id = nullif(current_setting('app.platform_operator_id', true), '')::uuid AND g.revoked_at IS NULL
+));
+DROP POLICY IF EXISTS platform_audit_insert ON public.platform_audit;
+CREATE POLICY platform_audit_insert ON public.platform_audit FOR INSERT WITH CHECK (true);

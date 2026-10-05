@@ -370,6 +370,7 @@ model Invitation {
 }
 
 enum ActorType {
+  PLATFORM_OPERATOR
   USER
   API_KEY
   SYSTEM
@@ -2181,4 +2182,29 @@ model WebhookDelivery {
   @@unique([endpointId, eventId])
   @@index([tenantId, endpointId, createdAt(sort: Desc)])
   @@map("webhook_deliveries")
+}
+
+/// Global authorization; writable only with migration credentials by restricted CLI.
+model PlatformGrant {
+  userId String @id @map("user_id") @db.Uuid
+  role String @default("PLATFORM_OPERATOR")
+  version Int @default(1)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  reason String
+  grantedBy String @map("granted_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@map("platform_grants")
+}
+
+/// Immutable platform security/access trail. No customer content or credentials.
+model PlatformAudit {
+  id String @id @default(uuid(7)) @db.Uuid
+  operatorId String? @map("operator_id") @db.Uuid
+  workspaceId String? @map("workspace_id") @db.Uuid
+  action String
+  outcome String
+  correlationId String? @map("correlation_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@index([createdAt(sort: Desc), id])
+  @@map("platform_audit")
 }

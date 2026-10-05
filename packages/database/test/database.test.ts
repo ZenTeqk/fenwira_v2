@@ -5,6 +5,11 @@ import { Database, InvalidContextIdError } from '../src'
 const db = Database.connect({ url: 'postgresql://nobody:nothing@127.0.0.1:1/none' })
 
 describe('Database context guards', () => {
+  it('rejects malformed platform operator ids before querying', async () => {
+    await expect(db.withPlatform('nope', async () => 1)).rejects.toBeInstanceOf(
+      InvalidContextIdError,
+    )
+  })
   it('rejects a non-UUID tenant id before touching the database', async () => {
     await expect(db.withTenant("x'; DROP TABLE users; --", async () => 1)).rejects.toBeInstanceOf(
       InvalidContextIdError,

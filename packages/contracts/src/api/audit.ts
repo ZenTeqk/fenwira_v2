@@ -3,7 +3,7 @@ import { idSchema, listQuerySchema } from './common'
 
 export const auditLogSchema = z.object({
   id: idSchema,
-  actorType: z.enum(['USER', 'API_KEY', 'SYSTEM']),
+  actorType: z.enum(['USER', 'API_KEY', 'SYSTEM', 'PLATFORM_OPERATOR']),
   actorId: z.string().nullable(),
   actorName: z.string().nullable(),
   action: z.string(),

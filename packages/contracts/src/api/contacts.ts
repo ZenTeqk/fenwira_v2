@@ -161,7 +161,7 @@ export const createNoteRequestSchema = z.object({ body: z.string().trim().min(1)
 export const contactActivitySchema = z.object({
   id: idSchema,
   type: z.string(),
-  actorType: z.enum(['USER', 'API_KEY', 'SYSTEM']),
+  actorType: z.enum(['USER', 'API_KEY', 'SYSTEM', 'PLATFORM_OPERATOR']),
   actorId: z.string().nullable(),
   actorName: z.string().nullable(),
   data: z.record(z.string(), z.unknown()),

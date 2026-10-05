@@ -156,3 +156,7 @@ Adding a row to this table requires an ADR amendment and a security review.
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+### X21 — Platform commercial operations (Step 5)
+
+Platform grants are global identities, runtime read-only. `withPlatform` rechecks the active grant/identity and binds `app.platform_operator_id` only for platform audit reads. It never binds a tenant or membership. Tenant commercial queries/mutations require a separate authorized `withTenant(target)` transaction; ordinary tenant services and sockets still require membership. Platform audit has forced RLS for SELECT and append-only runtime grants; sanitized failed attempts may INSERT without an operator. Provisioning uses restricted migration credentials and records reason/actor in the grant and an immutable event.
