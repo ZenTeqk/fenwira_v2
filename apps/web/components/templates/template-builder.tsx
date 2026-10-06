@@ -37,11 +37,11 @@ import {
   SelectValue,
   toast,
 } from '@fenwira/ui'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { type ReactNode, useId, useMemo, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
-import { ApiError, get, patch, post } from '@/lib/api/client'
+import { ApiError, patch, post } from '@/lib/api/client'
 import {
   CATEGORY_HINT,
   CATEGORY_LABEL,
@@ -49,6 +49,7 @@ import {
   TEMPLATE_LANGUAGES,
   templatesKey,
   useTemplateAccounts,
+  useTemplateSampleUrl,
 } from '@/lib/templates'
 import { TemplatePreview } from './template-preview'
 
@@ -193,13 +194,7 @@ export function TemplateBuilder({
 
   // Header sample upload (presigned PUT, then the server checks the bytes).
   const sampleId = c.header && c.header.format !== 'TEXT' ? c.header.sampleFileId : null
-  const sampleUrl = useQuery({
-    queryKey: templatesKey(tenantId, 'sample', sampleId),
-    queryFn: () =>
-      get<{ data: { url: string } }>(`/templates/samples/${sampleId}/url`).then((r) => r.data.url),
-    enabled: !!sampleId,
-    staleTime: 240_000,
-  })
+  const sampleUrl = useTemplateSampleUrl(sampleId)
   const upload = useMutation({
     mutationFn: async (file: File) => {
       const up = await post<{
@@ -241,10 +236,22 @@ export function TemplateBuilder({
           )
         : await post<{ data: Template }>('/templates', { ...draft, wabaId: account })
       if (then === 'save') return saved.data
-      const res = await post<{ data: Template }>(`/templates/${saved.data.id}/submit`, undefined, {
-        headers: { 'Idempotency-Key': crypto.randomUUID() },
-      })
-      return res.data
+      try {
+        const res = await post<{ data: Template }>(
+          `/templates/${saved.data.id}/submit`,
+          undefined,
+          {
+            headers: { 'Idempotency-Key': crypto.randomUUID() },
+          },
+        )
+        return res.data
+      } catch (error) {
+        // Creation already succeeded. Keep the saved identity on failure so retry edits the
+        // existing draft instead of attempting another create with the same name/language.
+        void queryClient.invalidateQueries({ queryKey: templatesKey(tenantId) })
+        onSaved(saved.data)
+        throw error
+      }
     },
     onSuccess: (t, then) => {
       void queryClient.invalidateQueries({ queryKey: templatesKey(tenantId) })
@@ -688,7 +695,7 @@ export function TemplateBuilder({
             type="submit"
             variant="secondary"
             loading={save.isPending && save.variables === 'save'}
-            disabled={!draft.name || (!template && !account)}
+            disabled={save.isPending || !draft.name || (!template && !account)}
           >
             Save draft
           </Button>
@@ -696,7 +703,7 @@ export function TemplateBuilder({
             <Button
               type="button"
               loading={save.isPending && save.variables === 'submit'}
-              disabled={errors.length > 0 || (!template && !account)}
+              disabled={save.isPending || errors.length > 0 || (!template && !account)}
               onClick={() => save.mutate('submit')}
             >
               Submit for review

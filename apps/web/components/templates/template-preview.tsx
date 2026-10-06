@@ -16,11 +16,13 @@ export function TemplatePreview({
   samples,
   headerImageUrl,
   className,
+  compact = false,
 }: {
   components: TemplateComponents
   samples: VariableSamples
   headerImageUrl?: string | null
   className?: string
+  compact?: boolean
 }) {
   const header = c.header
   const MediaIcon = header && header.format !== 'TEXT' ? MEDIA_ICON[header.format] : null
@@ -30,6 +32,7 @@ export function TemplatePreview({
       className={cn(
         'mx-auto flex w-full max-w-sm flex-col gap-1 rounded-xl bg-neutral-soft p-3',
         className,
+        (compact = false),
       )}
     >
       <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-2 text-base text-slate shadow-raised">
@@ -44,16 +47,21 @@ export function TemplatePreview({
             <img
               src={headerImageUrl}
               alt="Header sample"
-              className="aspect-video w-full rounded-md object-cover"
+              className={cn('aspect-video w-full rounded-md object-cover', compact && 'max-h-24')}
             />
           ) : (
-            <div className="flex aspect-video w-full items-center justify-center rounded-md bg-neutral-soft text-slate">
+            <div
+              className={cn(
+                'flex aspect-video w-full items-center justify-center rounded-md bg-neutral-soft text-slate',
+                compact && 'max-h-24',
+              )}
+            >
               <MediaIcon aria-hidden="true" className="size-8" />
               <span className="sr-only">{header?.format.toLowerCase()} header</span>
             </div>
           )
         ) : null}
-        <p>
+        <p className={compact ? 'line-clamp-4' : undefined}>
           {c.body.text ? (
             <VariableText text={c.body.text} values={samples.body} />
           ) : (

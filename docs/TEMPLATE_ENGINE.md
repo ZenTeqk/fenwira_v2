@@ -108,3 +108,7 @@ Two panes: the editor (category, language, name, header, body with a "+ Variable
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Experience V2 message library
+
+Templates are presented as reusable WhatsApp message objects with current stored content, status/quality, category/language and updated information. Quick preview reuses the existing message renderer and signed media sample service; the authoritative approved-version picker determines sending availability. Existing editor, version history, review, resubmission, sync and delete routes remain the lifecycle authority. If draft creation succeeds but submission fails, the editor opens the saved draft so retry updates that identity. See [Batch 2 evidence](design/EXPERIENCE_V2_BATCH_2.md) for the reproduced regression and responsive/accessibility validation.

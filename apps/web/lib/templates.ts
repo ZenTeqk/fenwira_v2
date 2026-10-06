@@ -84,8 +84,9 @@ export const draftOf = (t: Template, v: TemplateVersion = t.currentVersion): Tem
 })
 
 export function useTemplates(params: URLSearchParams) {
-  const { tenantId } = useSession()
+  const { tenantId, can } = useSession()
   return useQuery({
+    enabled: can('templates.read'),
     queryKey: templatesKey(tenantId, 'list', params.toString()),
     queryFn: () => get<{ data: Template[] }>(`/templates?${params}`).then((r) => r.data),
   })
@@ -129,5 +130,17 @@ export function useApprovedTemplates(phoneNumberId?: string, enabled = true) {
       ).then((r) => r.data),
     enabled: enabled && can('templates.read'),
     staleTime: 30_000,
+  })
+}
+
+/** Existing tenant-scoped, short-lived sample URL shared by editor and message library. */
+export function useTemplateSampleUrl(sampleId?: string | null) {
+  const { tenantId, can } = useSession()
+  return useQuery({
+    queryKey: templatesKey(tenantId, 'sample', sampleId),
+    queryFn: () =>
+      get<{ data: { url: string } }>(`/templates/samples/${sampleId}/url`).then((r) => r.data.url),
+    enabled: !!sampleId && can('templates.read'),
+    staleTime: 240_000,
   })
 }

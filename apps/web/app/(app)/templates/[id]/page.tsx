@@ -4,6 +4,8 @@ import { type Template, type TemplateVersion } from '@fenwira/contracts'
 import {
   Alert,
   Button,
+  Card,
+  CardContent,
   type ColumnDef,
   DataTable,
   ErrorState,
@@ -23,7 +25,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from '@/components/session/session-provider'
 import { TemplateBuilder } from '@/components/templates/template-builder'
-import { TemplatePreview } from '@/components/templates/template-preview'
+import { TemplateMessage } from '@/components/templates/template-message'
 import { ApiError, del, post } from '@/lib/api/client'
 import { relativeTime } from '@/lib/relative-time'
 import {
@@ -227,8 +229,14 @@ export default function TemplatePage() {
           {editable ? (
             <TemplateBuilder key={v.id} template={t} initial={draftOf(t)} onSaved={refresh} />
           ) : (
-            <div className="grid gap-6 lg:grid-cols-5">
-              <dl className="flex flex-col gap-3 text-base lg:col-span-3">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardContent className="flex flex-col gap-4 p-5">
+                  <h2 className="text-md font-semibold">WhatsApp message</h2>
+                  <TemplateMessage version={v} />
+                </CardContent>
+              </Card>
+              <dl className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 text-base">
                 {[
                   ['Version', `v${v.version}`],
                   ['Submitted', when(v.submittedAt)],
@@ -237,14 +245,11 @@ export default function TemplatePage() {
                   ['Meta template ID', v.metaTemplateId ?? '—'],
                 ].map(([k, val]) => (
                   <div key={k} className="flex gap-2">
-                    <dt className="w-40 text-muted">{k}</dt>
-                    <dd className="text-slate">{val}</dd>
+                    <dt className="w-32 shrink-0 text-muted">{k}</dt>
+                    <dd className="min-w-0 break-words text-slate">{val}</dd>
                   </div>
                 ))}
               </dl>
-              <div className="lg:col-span-2">
-                <TemplatePreview components={v.components} samples={v.samples} />
-              </div>
             </div>
           )}
         </TabsContent>
