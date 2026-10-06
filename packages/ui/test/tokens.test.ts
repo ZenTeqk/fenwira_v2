@@ -6,20 +6,20 @@ describe('color tokens', () => {
     expect(colorTokens).toMatchObject({
       primary: '#00A884',
       'primary-hover': '#008F70',
-      success: '#25D366',
-      slate: '#0F172A',
-      background: '#F8FAFC',
+      success: '#16A34A',
+      slate: '#18201D',
+      background: '#F7F7F4',
       surface: '#FFFFFF',
-      border: '#E2E8F0',
-      'border-strong': '#CBD5E1',
-      secondary: '#475569',
-      muted: '#64748B',
+      border: '#E5E7E3',
+      'border-strong': '#D6D9D4',
+      secondary: '#4B5550',
+      muted: '#66716B',
       whatsapp: '#25D366',
       warning: '#F59E0B',
       danger: '#DC2626',
       info: '#2563EB',
     })
-    expect(Object.keys(colorTokens)).toHaveLength(29)
+    expect(Object.keys(colorTokens)).toHaveLength(32)
   })
 
   it('uses uppercase 6-digit hex only', () => {
@@ -54,6 +54,10 @@ describe('color tokens', () => {
       [t.slate, t['primary-soft']],
       [t.muted, t.surface],
       [t.muted, t.background],
+      [t.muted, t['neutral-soft']],
+      [t.muted, t['primary-soft']],
+      [t.secondary, t.sidebar],
+      [t['primary-strong'], t.sidebar],
       [t['slate-400'], t.slate],
       [t['slate-800'], t['neutral-soft']],
       // Design System v1 additions
@@ -75,9 +79,9 @@ describe('color tokens', () => {
     for (const [fg, bg] of pairs)
       expect(ratio(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5)
     // Documented exclusion: muted on neutral-soft is below AA and must not be used.
-    expect(ratio(t.muted, t['neutral-soft'])).toBeLessThan(4.5)
+    expect(ratio(t['muted-decorative'], t.surface)).toBeLessThan(4.5)
     // Non-text UI (focus ring, strong borders on inputs) needs 3:1 against the surface (1.4.11).
-    expect(ratio(t.primary, t.surface)).toBeGreaterThanOrEqual(3)
+    expect(ratio(t['primary-strong'], t.background)).toBeGreaterThanOrEqual(3)
     // Status colors are never text: success/warning fills fail AA as text by design.
     expect(ratio(t.success, t.surface)).toBeLessThan(4.5)
     expect(ratio(t.warning, t.surface)).toBeLessThan(4.5)

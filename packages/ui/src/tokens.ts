@@ -7,13 +7,13 @@ export const colorTokens = {
   // Fenwira brand / action (non-text: indicators, focus, selection). Text and filled buttons use -strong.
   primary: '#00A884',
   'primary-hover': '#008F70',
-  'primary-soft': '#E7FCE8',
+  'primary-soft': '#EAF7F2',
   'primary-strong': '#007F64',
   'primary-strong-hover': '#006B54',
   // WhatsApp context (channel identity: WhatsApp previews, the "on WhatsApp" mark). Not an action color.
   whatsapp: '#25D366',
   // Status: success (active, connected, approved, delivered, healthy)
-  success: '#25D366',
+  success: '#16A34A',
   'success-soft': '#D1FAE5',
   'success-strong': '#166534',
   // Status: warning (paused, attention required, low balance)
@@ -30,17 +30,20 @@ export const colorTokens = {
   'info-soft': '#EFF6FF',
   'info-strong': '#1D4ED8',
   // Text and chrome
-  slate: '#0F172A',
+  slate: '#18201D',
   'slate-800': '#1E293B',
   'slate-400': '#94A3B8',
-  secondary: '#475569',
-  muted: '#64748B',
+  secondary: '#4B5550',
+  muted: '#66716B',
   // Surfaces
-  background: '#F8FAFC',
+  background: '#F7F7F4',
   surface: '#FFFFFF',
-  border: '#E2E8F0',
-  'border-strong': '#CBD5E1',
-  'neutral-soft': '#F1F5F9',
+  sidebar: '#FAFAF8',
+  'sidebar-border': '#E7E7E2',
+  'muted-decorative': '#737C77',
+  border: '#E5E7E3',
+  'border-strong': '#D6D9D4',
+  'neutral-soft': '#F5F5F1',
 } as const
 
 export type ColorToken = keyof typeof colorTokens

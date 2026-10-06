@@ -10,11 +10,11 @@
   --color-*: initial;
   --color-primary: #00a884;
   --color-primary-hover: #008f70;
-  --color-primary-soft: #e7fce8;
+  --color-primary-soft: #eaf7f2;
   --color-primary-strong: #007f64;
   --color-primary-strong-hover: #006b54;
   --color-whatsapp: #25d366;
-  --color-success: #25d366;
+  --color-success: #16a34a;
   --color-success-soft: #d1fae5;
   --color-success-strong: #166534;
   --color-warning: #f59e0b;
@@ -27,16 +27,19 @@
   --color-info: #2563eb;
   --color-info-soft: #eff6ff;
   --color-info-strong: #1d4ed8;
-  --color-slate: #0f172a;
+  --color-slate: #18201d;
   --color-slate-800: #1e293b;
   --color-slate-400: #94a3b8;
-  --color-secondary: #475569;
-  --color-muted: #64748b;
-  --color-background: #f8fafc;
+  --color-secondary: #4b5550;
+  --color-muted: #66716b;
+  --color-background: #f7f7f4;
   --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-  --color-border-strong: #cbd5e1;
-  --color-neutral-soft: #f1f5f9;
+  --color-sidebar: #fafaf8;
+  --color-sidebar-border: #e7e7e2;
+  --color-muted-decorative: #737c77;
+  --color-border: #e5e7e3;
+  --color-border-strong: #d6d9d4;
+  --color-neutral-soft: #f5f5f1;
 
   --font-*: initial;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -64,7 +67,7 @@
 
   /* Radius: 6 buttons/controls · 8 inputs/badges/panels · 12 cards · 16 dialogs */
   --radius-*: initial;
-  --radius-sm: 6px;
+  --radius-sm: 8px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;

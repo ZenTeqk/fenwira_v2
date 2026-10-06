@@ -66,21 +66,23 @@ docs/             Specs, ADRs, prompts
 
 ## Fenwira design system (mandatory)
 
-The contract is **Design System v1**: [docs/design/FENWIRA_DESIGN_SYSTEM.md](docs/design/FENWIRA_DESIGN_SYSTEM.md) (tokens, contrast, type, spacing, shape), [docs/design/UX_PATTERNS.md](docs/design/UX_PATTERNS.md) (shell, page patterns, states, confirmation, module UX, quality gate) and [docs/design/UI_AUDIT.md](docs/design/UI_AUDIT.md).
+The contract is **Design System v1 evolved by the approved [Experience V2](docs/design/FENWIRA_EXPERIENCE_V2.md)**: [docs/design/FENWIRA_DESIGN_SYSTEM.md](docs/design/FENWIRA_DESIGN_SYSTEM.md) (tokens, contrast, type, spacing, shape), [docs/design/UX_PATTERNS.md](docs/design/UX_PATTERNS.md) (shell, page patterns, states, confirmation, module UX, quality gate) and [docs/design/UI_AUDIT.md](docs/design/UI_AUDIT.md).
 
 ```text
 Primary action (non-text)      #00A884   --color-primary          text/filled buttons: primary-strong #007F64
-WhatsApp channel identity      #25D366   --color-whatsapp         (as --color-success: healthy state)
-Sidebar / primary text         #0F172A   --color-slate
-Secondary text                 #475569   --color-secondary
-Muted text                     #64748B   --color-muted
-Canvas                         #F8FAFC   --color-background
+WhatsApp channel identity      #25D366   --color-whatsapp         (success is separately #16A34A)
+Primary text         #18201D   --color-slate
+Secondary text                 #4B5550   --color-secondary
+Muted text                     #66716B   --color-muted
+Canvas                         #F7F7F4   --color-background
 Surface                        #FFFFFF   --color-surface
-Border / strong border         #E2E8F0 / #CBD5E1   --color-border / --color-border-strong
+Border / strong border         #E5E7E3 / #D6D9D4   --color-border / --color-border-strong
 Warning                        #F59E0B   --color-warning          text: warning-strong #B45309
 Danger                         #DC2626   --color-danger           filled/text: danger-strong #B91C1C
 Info (scheduled, takeover)     #2563EB   --color-info             text: info-strong #1D4ED8
 ```
+
+Customer navigation is light (`sidebar` #FAFAF8), with a warm canvas and white communication surfaces. Home remains at `/dashboard`. Never revert to dark customer navigation, introduce fake screenshot capabilities, or expose `/platform` through tenant navigation. Follow the Experience V2 plan and stop at its visual checkpoints.
 
 Rules:
 

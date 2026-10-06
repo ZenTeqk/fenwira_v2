@@ -24,7 +24,7 @@ How Fenwira screens are put together. Visual tokens are in [FENWIRA_DESIGN_SYSTE
 └──────────┴──────────────────────────────────────────────────────────────┘
 ```
 
-- **Sidebar** 248px expanded, 64px collapsed (remembered per browser), a drawer below 1024px. It lists **modules only**: Dashboard, Inbox, Contacts, Campaigns, Templates, Automations, Analytics, then Integrations, Billing, Settings. A module appears once its phase has shipped (Analytics and Billing arrive in Phase 11) and only if the member may see it.
+- **Sidebar** 232px expanded, 64px collapsed (remembered per browser), a drawer below 1024px. It lists **modules only**: Home (route `/dashboard`), Inbox, Contacts, Campaigns, Templates, Automations, Analytics, then Integrations, Billing, Settings. A module appears once its phase has shipped (Analytics and Billing arrive in Phase 11) and only if the member may see it.
 - **Module tabs** (`ModuleTabs`) under the top bar carry a module's sub-pages (Contacts → All contacts · Segments · Tags · Imports). They are links with `aria-current="page"`, not ARIA tabs.
 - **Status footer**: the WhatsApp connection (`ConnectionState`, compact) and, when billing is enforced and the member can read billing, the available wallet balance. Both link to their settings; both turn into warnings (disconnected, low balance) without shouting.
 - **Top bar**: workspace switcher, breadcrumb (section pages only; record pages such as a contact carry their own, more specific breadcrumb in the page header, so there is never a second trail), command/search (`⌘K` / `Ctrl K`), help menu (keyboard shortcuts; the component gallery in development), notifications, account menu.
@@ -102,14 +102,14 @@ A `DetailDrawer` (right side, 480px) is for lightweight inspection and quick edi
 
 | Width | Behavior |
 | --- | --- |
-| ≥ 1280 | Full layouts: three-pane inbox, builder palette + canvas + inspector |
+| ≥ 1280 | Full layouts: view rail + list + thread + context inbox, builder palette + canvas + inspector |
 | 1024–1279 | Sidebar collapsible; inbox customer pane becomes a toggle; builder inspector narrower |
 | 768–1023 | Sidebar in a drawer; tables scroll horizontally inside their card; two-pane inbox |
 | < 768 | Single column. Priorities: Inbox (one pane at a time), contact lookup, notifications, campaign status, dashboard summary. The flow builder shows the Outline view and history; the canvas asks for a larger screen. |
 
 ## 11. Module UX
 
-**Inbox.** Three panes: conversation list, conversation, customer context (toggle below 1280). The 24-hour service window is always visible in the conversation header (open with time left; closed). Before it closes (< 1 hour) the composer warns; once closed the free-text box is replaced by "Send a template", so an invalid send is impossible. The composer shows attachments, canned replies (`/`), templates and send. Customer context (consent, eligibility, tags, notes) stays beside the conversation.
+**Inbox.** Desktop views rail plus conversation list, conversation, customer context (toggle below 1280). The 24-hour service window is always visible in the conversation header (open with time left; closed). Before it closes (< 1 hour) the composer warns; once closed the free-text box is replaced by "Send a template", so an invalid send is impossible. The composer shows attachments, canned replies (`/`), templates and send. Customer context (consent, eligibility, tags, notes) stays beside the conversation.
 
 **Contacts.** Dense table with search, saved segments, filters, bulk tag/delete and a preview drawer. The contact page has tabs: Overview, Conversations, Campaigns, Activity, Consent, Notes. **Eligibility** (can we send marketing/utility/service now, and why not) is shown at the top of the profile and in the drawer.
 
@@ -119,7 +119,7 @@ A `DetailDrawer` (right side, 480px) is for lightweight inspection and quick edi
 
 **Automations.** Two ways into the same flow model: **starter recipes** (common SMB automations such as "Reply to a keyword", "Welcome new contacts", "Tag and assign") that create a ready draft, and the **advanced builder** (palette · canvas · inspector) with the keyboard **Outline**. There is one flow format and one runtime; recipes only produce a draft graph. Validation, version, draft/published state and history stay visible in the builder header.
 
-**Dashboard.** Answers "what is happening, what needs me, what do I do next". *Needs attention* first (disconnected number, low wallet, unassigned conversations, failed messages, paused campaigns, rejected templates, failing automations), then four metrics (conversations, unassigned, delivery health, wallet), then shortcuts. No decorative charts.
+**Dashboard.** Answers "what is happening, what needs me, what do I do next". *Needs attention* first (disconnected number, low wallet, unassigned conversations, failed messages, paused campaigns, rejected templates, failing automations), then recent conversations and campaign/automation activity, then compact secondary metrics. No decorative charts.
 
 **Analytics (Phase 11).** Views: Overview, Messaging, Campaigns, Inbox, Automations, Usage (Usage needs `billing.read`). Each: date range (presets resolved in the workspace timezone, or custom workspace-local dates; kept for the browser session) → freshness/retention notices → KPIs (`MetricCard` with change vs the previous period) → one primary chart (`TrendChart`, with "Show as table") → breakdowns and detail tables (`DataTable`). "Not processed yet" (`NOT_STARTED`, "Analytics are being prepared"), "processing" and "couldn't be updated" are distinct from zero; a rate with nothing to divide by shows "—" and says why. Metric definitions: `docs/ANALYTICS.md`.
 

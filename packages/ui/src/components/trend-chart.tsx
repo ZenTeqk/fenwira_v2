@@ -117,7 +117,7 @@ export function TrendChart({
         </ul>
         <button
           type="button"
-          className="text-sm font-medium text-primary-strong underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="text-sm font-medium text-primary-strong underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-strong"
           aria-expanded={table}
           aria-controls={`${id}-table`}
           onClick={() => setTable((t) => !t)}

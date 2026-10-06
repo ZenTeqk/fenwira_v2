@@ -1,6 +1,6 @@
 # Fenwira Design System v1
 
-**Status:** adopted 2026-09-27. Supersedes the Phase 2 contract in `docs/DESIGN_SYSTEM.md` (now a pointer here). Companion docs: [UX_PATTERNS.md](UX_PATTERNS.md) (page patterns, module UX, quality gate) and [UI_AUDIT.md](UI_AUDIT.md) (the baseline this version fixes).
+**Status:** adopted 2026-09-27; visual foundation evolved by approved [Experience V2](FENWIRA_EXPERIENCE_V2.md), 2026-10-06. Supersedes the Phase 2 contract in `docs/DESIGN_SYSTEM.md` (now a pointer here). Companion docs: [UX_PATTERNS.md](UX_PATTERNS.md) (page patterns, module UX, quality gate) and [UI_AUDIT.md](UI_AUDIT.md) (the baseline this version fixes).
 
 Fenwira is a WhatsApp operations workspace that people keep open all day. The interface is **calm, dense, fast and trustworthy**: restrained surfaces, strong hierarchy, obvious system status, and no decoration that competes with the work. No gradients, glassmorphism, oversized cards, heavy shadows or marketing-sized headings inside the app.
 
@@ -14,27 +14,27 @@ This is a contract. Tokens live in `packages/ui` and are the only source of colo
 | --- | --- | --- |
 | `primary` | `#00A884` | Fenwira action accent: active-nav indicator, focus ring, selection, checkbox/switch fill. **Non-text.** |
 | `primary-hover` | `#008F70` | Hover of `primary` fills |
-| `primary-soft` | `#E7FCE8` | Selected rows, outbound bubbles, variable chips |
+| `primary-soft` | `#EAF7F2` | Selected rows, outbound bubbles, variable chips |
 | `primary-strong` / `-hover` | `#007F64` / `#006B54` | **Filled primary buttons** (white text) and primary-colored text/links |
 | `whatsapp` | `#25D366` | WhatsApp channel identity only (the WhatsApp preview frame, "on WhatsApp" marks). Never an action color. |
-| `slate` | `#0F172A` | Primary text, sidebar background |
-| `slate-800` | `#1E293B` | Sidebar hover/active fill; text on `neutral-soft` table headers |
-| `secondary` | `#475569` | Secondary text: descriptions, labels in dense rows, metadata that must stay readable |
-| `muted` | `#64748B` | De-emphasized text: timestamps, hints, placeholders. **Never on `neutral-soft`** (4.34:1). |
+| `slate` | `#18201D` | Primary text (compatibility token name) |
+| `slate-800` | `#1E293B` | Dark surface compatibility; text on `neutral-soft` table headers |
+| `secondary` | `#4B5550` | Secondary text: descriptions, labels in dense rows, metadata that must stay readable |
+| `muted` | `#66716B` | De-emphasized text: timestamps, hints, placeholders. AA-safe on all warm neutrals. |
 | `slate-400` | `#94A3B8` | Idle icons, disabled glyphs, sidebar text on `slate`, idle flow edges |
-| `background` | `#F8FAFC` | Application canvas |
+| `background` | `#F7F7F4` | Application canvas |
 | `surface` | `#FFFFFF` | Cards, panels, tables, dialogs |
-| `border` | `#E2E8F0` | Dividers, card and table borders |
-| `border-strong` | `#CBD5E1` | Form-control borders, emphasized dividers |
-| `neutral-soft` | `#F1F5F9` | Table headers, neutral badges, system events |
+| `border` | `#E5E7E3` | Dividers, card and table borders |
+| `border-strong` | `#D6D9D4` | Form-control borders, emphasized dividers |
+| `neutral-soft` | `#F5F5F1` | Table headers, neutral badges, system events |
 
-**Fenwira primary ≠ WhatsApp green.** `#00A884` means "Fenwira action or selection". `#25D366` means "this is WhatsApp" (and, as `success`, a healthy state). They are different tokens so the two meanings can never be confused in code.
+**Fenwira primary ≠ WhatsApp green.** `#00A884` means "Fenwira action or selection". `#25D366` means "this is WhatsApp"; healthy states use the separate `success` token. They are different tokens so the two meanings can never be confused in code.
 
 ### Status
 
 | Category | Meaning (examples) | Tokens | Text shade |
 | --- | --- | --- | --- |
-| Success | active, connected, approved, delivered, read, healthy, granted, window open | `success` `#25D366`, `success-soft` `#D1FAE5` | `success-strong` `#166534` |
+| Success | active, connected, approved, delivered, read, healthy, granted, window open | `success` `#16A34A`, `success-soft` `#D1FAE5` | `success-strong` `#166534` |
 | Warning | paused, attention required, low balance, opted out, window closed | `warning` `#F59E0B`, `warning-soft` `#FEF3C7` | `warning-strong` `#B45309` |
 | Danger | failed, rejected, disconnected, destructive | `danger` `#DC2626`, `danger-soft` `#FEE2E2` | `danger-strong` `#B91C1C` (hover `#991B1B`) |
 | Info | scheduled, processing, syncing, sent, running, open, human takeover | `info` `#2563EB`, `info-soft` `#EFF6FF` | `info-strong` `#1D4ED8` |
@@ -44,25 +44,21 @@ This is a contract. Tokens live in `packages/ui` and are the only source of colo
 
 Every text pairing below clears WCAG AA 4.5:1; the test fails if a token change breaks one.
 
-| Pair | Ratio |
+| Pair | Requirement |
 | --- | --- |
-| White on `primary-strong` | 4.98 |
-| White on `danger` / `danger-strong` | 4.83 / 6.47 |
-| White on `info` / `info-strong` | 5.17 / 6.70 |
-| `success-strong` on white / on `success-soft` | 7.13 / 6.29 |
-| `warning-strong` on white / on `warning-soft` | 5.02 / 4.51 |
-| `info-strong` on `info-soft` | 6.16 |
-| `danger-strong` on `danger-soft` | 5.30 |
-| `secondary` on white / `background` / `neutral-soft` | 7.58 / 7.24 / 6.92 |
-| `muted` on white / `background` | 4.76 / 4.55 |
-| `slate` on every soft tint | ≥ 13 |
+| White on primary/danger/info strong fills | ≥ 4.5 |
+| Strong status text on its soft tint | ≥ 4.5 |
+| Primary/secondary/muted text on white and warm neutrals | ≥ 4.5 |
+| Primary-strong focus outline on warm canvas | ≥ 3 |
+
+`tokens.test.ts` verifies the current actual values. New sidebar tokens: `sidebar` #FAFAF8, `sidebar-border` #E7E7E2. Muted text #66716B clears AA; screenshot decorative muted #737C77 does not.
 
 Rules that follow from the numbers:
 
-1. `primary`, `success` and `warning` are **never text colors** (3.03, 1.98, 2.15 on white). Use them for indicators, icons beside text, dots, borders and fills behind dark text. Colored text uses the `-strong` shade.
+1. `primary`, `success` and `warning` are **never text colors** (each fails 4.5:1 on white). Use them for indicators, icons beside text, dots, borders and fills behind dark text. Colored text uses the `-strong` shade.
 2. Filled buttons use `primary-strong` or `danger-strong` with white text.
-3. `muted` is not allowed on `neutral-soft` (4.34). Use `secondary` or `slate-800` there.
-4. Focus rings use `primary` (3.03:1 on white meets the 3:1 non-text minimum).
+3. `muted` is AA-safe on warm neutrals. Screenshot muted `#737C77` is `muted-decorative` only (4.30:1 on white); do not use it for small text.
+4. Focus rings use `primary-strong` to meet 3:1 against warm surfaces.
 5. Form controls use `border-strong`. Their boundary alone is below 3:1 (1.48), so every control also has a visible label; the focus state is the 3:1 indicator (WCAG 1.4.11 exception for components identified by their label).
 
 ### Status is never color alone
@@ -111,7 +107,7 @@ Tailwind's 4px scale, used from this set: **4, 8, 12, 16, 20, 24, 32, 40, 48, 64
 
 | Element | Radius |
 | --- | --- |
-| Buttons, small controls | 6 (`rounded-sm`) |
+| Buttons, small controls | 8 (`rounded-sm`) |
 | Inputs, selects, badges, panels | 8 (`rounded-md`) |
 | Cards, tables | 12 (`rounded-lg`) |
 | Dialogs, drawers' inner sheets, command palette | 16 (`rounded-xl`) |
@@ -142,7 +138,7 @@ Every component: built on Radix primitives via `@fenwira/ui` (feature code may n
 
 | Context | Treatment |
 | --- | --- |
-| Sidebar | `slate` background; `slate-400` items; active item `slate-800` fill, white text, 3px `primary` indicator |
+| Sidebar | `sidebar` background, `sidebar-border` divider, `secondary` items; active `primary-soft` fill and `primary-strong` text |
 | Inbox outbound / inbound bubble | `primary-soft` / `surface` + `border` |
 | Inbox selected conversation | `primary-soft` + 3px `primary` left border |
 | Inbox system event / internal note | `neutral-soft` pill / `warning-soft` with an "Internal" label |

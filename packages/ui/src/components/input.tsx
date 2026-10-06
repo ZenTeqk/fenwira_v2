@@ -4,7 +4,7 @@ import { cn } from '../lib/cn'
 export const controlBase = [
   'w-full rounded-md border border-border-strong bg-surface px-3 text-base text-slate',
   'placeholder:text-slate-400 transition-colors',
-  'outline-none focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-primary',
+  'outline-none focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-primary-strong',
   'disabled:cursor-not-allowed disabled:bg-neutral-soft disabled:opacity-70',
   'aria-invalid:border-danger aria-invalid:focus-visible:outline-danger',
 ].join(' ')
