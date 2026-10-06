@@ -65,7 +65,7 @@
   --text-3xl: 1.875rem;
   --text-3xl--line-height: 2.25rem;
 
-  /* Radius: 6 buttons/controls · 8 inputs/badges/panels · 12 cards · 16 dialogs */
+  /* Radius: 8 buttons/controls · 8 inputs/badges/panels · 12 cards · 16 dialogs */
   --radius-*: initial;
   --radius-sm: 8px;
   --radius-md: 8px;

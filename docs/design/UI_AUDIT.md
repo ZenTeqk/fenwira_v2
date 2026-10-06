@@ -111,3 +111,11 @@ Quality gate evidence: lint/design tokens and typecheck pass; seven platform bro
 ## Phase 11 closure verification
 
 Closure verification adds responsive WCAG 2.2 AA checks for Wallet, Subscription, six Analytics views, API keys and Webhooks. Reproduced defects are fixed in shared components: commercial table scroll regions are keyboard-focusable with visible focus, and Analytics loading uses named status semantics. The controlled-response loading regression audits the pending state. The final full browser suite passes 72 tests (one existing optional visual-capture skip); all 15 authenticated Lighthouse routes score 100. Trial-warning/expired/cancelled banner fixtures pass keyboard and WCAG checks at mobile/laptop widths. Final counts and Lighthouse evidence are recorded in [closure evidence](../plans/PHASE_11_CLOSURE.md).
+
+## Experience V2 — App Shell / Home / Inbox checkpoint (2026-10-06)
+
+Audited all eleven approved references and current routes, contracts and permissions before implementation. The shared foundation now has light customer navigation, warm surfaces and accessible emerald/text/focus tokens. Home is attention first with actual communication/campaign/flow activity and secondary metrics. Inbox adds supported views, avatar rows, grouped messages, real actions and responsive context. Historical U10 above is superseded by the shipped Phase 11 commercial routes; their behavior and platform isolation are preserved.
+
+Four-width axe and no-overflow checks pass; Home and populated Inbox score 100 in Lighthouse with protected final URLs verified. Explicit regression coverage checks real sends/notes, pending-response draft protection, messages missed offline, read-only membership and drawer focus restoration. Full checkpoint results, deliberate reference differences and remaining modules are in the [checkpoint report](EXPERIENCE_V2_CHECKPOINT.md); eight inspected screenshots and sanitized accessibility results are in [visual evidence](experience-v2/evidence/README.md).
+
+**Visual acceptance is pending user review.** This checkpoint stops before Contacts/Templates/Campaigns compositions and does not declare all Experience V2 or Phase 11 complete.

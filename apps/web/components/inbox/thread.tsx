@@ -1,7 +1,7 @@
 'use client'
 
 import { type ConversationNote, type Message, type MessageStatus } from '@fenwira/contracts'
-import { Button, cn, Skeleton, StatusBadge } from '@fenwira/ui'
+import { Button, cn, ErrorState, focusRing, Skeleton, StatusBadge } from '@fenwira/ui'
 import {
   type InfiniteData,
   useInfiniteQuery,
@@ -9,6 +9,8 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import Image from 'next/image'
+import { followsSameSender } from '@/lib/message-grouping'
 import { Paperclip } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { useSession } from '@/components/session/session-provider'
@@ -66,6 +68,7 @@ function MessageBody({ m }: { m: Message }) {
     case 'STICKER':
       return (
         <MediaBody
+          kind={c.type}
           fileId={c.fileId}
           label={c.filename ?? c.type.toLowerCase()}
           caption={c.caption}
@@ -77,10 +80,12 @@ function MessageBody({ m }: { m: Message }) {
 }
 
 function MediaBody({
+  kind,
   fileId,
   label,
   caption,
 }: {
+  kind: 'IMAGE' | 'DOCUMENT' | 'AUDIO' | 'VIDEO' | 'STICKER'
   fileId?: string
   label: string
   caption?: string
@@ -95,6 +100,16 @@ function MediaBody({
   })
   return (
     <div className="flex flex-col gap-1">
+      {link.data && (kind === 'IMAGE' || kind === 'STICKER') ? (
+        <Image
+          src={link.data}
+          unoptimized
+          width={320}
+          height={240}
+          alt={label}
+          className="h-auto max-w-full rounded-md"
+        />
+      ) : null}
       {link.data ? (
         <a
           href={link.data}
@@ -110,19 +125,20 @@ function MediaBody({
           {fileId ? label : `${label} (downloading…)`}
         </span>
       )}
-      {caption ? <p className="whitespace-pre-wrap">{caption}</p> : null}
+      {caption ? <p className="whitespace-pre-wrap break-words">{caption}</p> : null}
     </div>
   )
 }
 
-function Row({ item }: { item: Item }) {
+function Row({ item, grouped }: { item: Item; grouped: boolean }) {
+  const { me } = useSession()
   if (item.kind === 'note')
     return (
-      <div className="mx-auto w-full max-w-xl rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-slate">
+      <div className="mx-auto w-full max-w-xl rounded-md border border-border bg-neutral-soft px-3 py-2 text-slate">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate">
           Internal · {item.note.authorName}
         </p>
-        <p className="whitespace-pre-wrap">{item.note.body}</p>
+        <p className="whitespace-pre-wrap break-words">{item.note.body}</p>
         <p className="text-xs text-muted">{clockTime(item.note.createdAt)}</p>
       </div>
     )
@@ -140,10 +156,21 @@ function Row({ item }: { item: Item }) {
     <div className={cn('flex', outbound ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'flex max-w-prose flex-col gap-1 rounded-lg px-3 py-2 text-base text-slate',
+          'flex min-w-0 max-w-prose flex-col gap-1 rounded-lg px-3 py-2 text-base text-slate',
           outbound ? 'bg-primary-soft' : 'border border-border bg-surface',
         )}
       >
+        {!grouped && outbound ? (
+          <span className="text-xs font-medium text-secondary">
+            {m.sentByUserId === me.user.id
+              ? 'You'
+              : m.source === 'AUTOMATION'
+                ? 'Automation'
+                : m.source === 'CAMPAIGN'
+                  ? 'Campaign'
+                  : 'Workspace reply'}
+          </span>
+        ) : null}
         <MessageBody m={m} />
         <span
           className={cn(
@@ -264,10 +291,19 @@ export function Thread({ conversationId }: { conversationId: string }) {
         ))}
       </div>
     )
+  if (messages.isError)
+    return (
+      <ErrorState title="Messages couldn’t be loaded" onRetry={() => void messages.refetch()} />
+    )
   return (
     <div
       ref={scroller}
-      className="min-h-0 flex-1 overflow-y-auto bg-neutral-soft px-4 py-3"
+      tabIndex={0}
+      className={cn(
+        'min-h-0 flex-1 overflow-y-auto bg-neutral-soft px-4 py-3',
+        focusRing,
+        'focus-visible:-outline-offset-2',
+      )}
       role="log"
       aria-live="polite"
       aria-label="Messages"
@@ -276,6 +312,12 @@ export function Thread({ conversationId }: { conversationId: string }) {
         nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
       }}
     >
+      {notes.isError ? (
+        <ErrorState
+          title="Internal notes couldn’t be loaded"
+          onRetry={() => void notes.refetch()}
+        />
+      ) : null}
       {messages.hasNextPage ? (
         <div className="flex justify-center pb-2">
           <Button
@@ -291,6 +333,18 @@ export function Thread({ conversationId }: { conversationId: string }) {
       <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((v) => {
           const item = items[v.index]!
+          const previous = items[v.index - 1]
+          const grouped =
+            item.kind === 'message' &&
+            previous?.kind === 'message' &&
+            followsSameSender(item.message, previous.message)
+          const date = new Date(item.at).toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          })
+          const newDay =
+            !previous || new Date(item.at).toDateString() !== new Date(previous.at).toDateString()
           return (
             <div
               key={item.kind === 'note' ? `n-${item.note.id}` : item.message.id}
@@ -299,7 +353,12 @@ export function Thread({ conversationId }: { conversationId: string }) {
               className="absolute left-0 top-0 w-full py-1"
               style={{ transform: `translateY(${v.start}px)` }}
             >
-              <Row item={item} />
+              {newDay ? (
+                <p className="mx-auto mb-3 w-fit rounded-md bg-surface px-3 py-1 text-xs text-secondary">
+                  {date}
+                </p>
+              ) : null}
+              <Row item={item} grouped={grouped} />
             </div>
           )
         })}

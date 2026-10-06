@@ -3,7 +3,7 @@
 import { type Contact, type ContactNote } from '@fenwira/contracts'
 import { ConsentBadge } from '@/components/contacts/consent-badge'
 import { EligibilitySummary } from '@/components/contacts/eligibility-summary'
-import { Skeleton } from '@fenwira/ui'
+import { Avatar, ErrorState, Skeleton } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { TagBadges } from '@/components/contacts/tag-badges'
@@ -50,11 +50,19 @@ export function ContactPane({
   if (!enabled)
     return <p className="p-4 text-sm text-muted">Your role can&apos;t view contact details.</p>
   if (contact.isPending) return <Skeleton className="m-4 h-40" />
+  if (contact.isError)
+    return (
+      <ErrorState
+        title="Contact details couldn’t be loaded"
+        onRetry={() => void contact.refetch()}
+      />
+    )
   if (!contact.data) return <p className="p-4 text-sm text-muted">Contact not found.</p>
   const c = contact.data
   const others = (past.data ?? []).filter((p) => p.id !== conversationId)
   return (
     <div className="flex flex-col gap-5 p-4">
+      <Avatar name={c.name ?? c.waProfileName ?? c.phoneE164} size="lg" />
       <div className="flex flex-col gap-1">
         <h2 className="text-md font-semibold text-slate">
           {c.name ?? c.waProfileName ?? c.phoneE164}
@@ -95,11 +103,15 @@ export function ContactPane({
       </section>
       <section className="flex flex-col gap-2" aria-label="Contact notes">
         <h3 className="text-sm font-semibold text-slate">Notes</h3>
-        {notes.data?.length ? (
+        {notes.isPending ? (
+          <Skeleton className="h-20" />
+        ) : notes.isError ? (
+          <ErrorState title="Notes couldn’t be loaded" onRetry={() => void notes.refetch()} />
+        ) : notes.data?.length ? (
           <ul className="flex flex-col gap-2">
             {notes.data.slice(0, 5).map((n) => (
               <li key={n.id} className="rounded-md border border-border p-2 text-sm text-slate">
-                <p className="whitespace-pre-wrap">{n.body}</p>
+                <p className="whitespace-pre-wrap break-words">{n.body}</p>
                 <p className="text-xs text-muted">
                   {n.authorName} · {relativeTime(n.createdAt)}
                 </p>
@@ -112,7 +124,14 @@ export function ContactPane({
       </section>
       <section className="flex flex-col gap-2" aria-label="Other conversations">
         <h3 className="text-sm font-semibold text-slate">Other conversations</h3>
-        {others.length ? (
+        {past.isPending ? (
+          <Skeleton className="h-20" />
+        ) : past.isError ? (
+          <ErrorState
+            title="Conversation history couldn’t be loaded"
+            onRetry={() => void past.refetch()}
+          />
+        ) : others.length ? (
           <ul className="flex flex-col gap-2">
             {others.map((p) => (
               <li key={p.id}>

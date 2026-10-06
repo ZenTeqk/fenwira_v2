@@ -3,6 +3,7 @@
 import { type AutomationState, type Conversation, type Presence } from '@fenwira/contracts'
 import {
   Alert,
+  Avatar,
   Badge,
   Button,
   Dropdown,
@@ -15,6 +16,7 @@ import {
   toast,
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { type Ref } from 'react'
 import { ArrowLeft, PanelRight, UserPlus } from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, post, put } from '@/lib/api/client'
@@ -43,10 +45,12 @@ export function ConversationHeader({
   conversation: c,
   onBack,
   onToggleContact,
+  contactButtonRef,
 }: {
   conversation: Conversation
   onBack: () => void
   onToggleContact: () => void
+  contactButtonRef?: Ref<HTMLButtonElement>
 }) {
   const { tenantId, can, me } = useSession()
   const queryClient = useQueryClient()
@@ -77,7 +81,7 @@ export function ConversationHeader({
     )
   const automation = (state: AutomationState) =>
     act.mutate(() => post(`${base}/automation-state`, { state }))
-  const left = windowLeft(c.serviceWindow.expiresAt, now)
+  const left = c.serviceWindow.isOpen ? windowLeft(c.serviceWindow.expiresAt, now) : null
   const canReply = can('inbox.reply')
 
   return (
@@ -92,7 +96,8 @@ export function ConversationHeader({
         >
           <ArrowLeft aria-hidden="true" />
         </Button>
-        <div className="flex min-w-0 flex-col">
+        <Avatar name={displayName(c)} size="md" />
+        <div className="flex min-w-40 flex-1 flex-col">
           <h2 className="truncate text-md font-semibold text-slate">{displayName(c)}</h2>
           <span className="font-mono text-sm text-muted">{c.contact.phoneE164}</span>
         </div>
@@ -206,6 +211,7 @@ export function ConversationHeader({
             variant="ghost"
             size="icon"
             className="xl:hidden"
+            ref={contactButtonRef}
             aria-label="Contact details"
             onClick={onToggleContact}
           >

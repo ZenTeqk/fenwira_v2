@@ -41,7 +41,7 @@ test('register → verify email → create workspace → dashboard', async ({ pa
 test('sign out, sign back in, and wrong passwords get one generic error', async ({ page }) => {
   const owner = await signInAsNewOwner(page, 'ui-login')
   await page.goto('/dashboard')
-  await page.getByRole('button', { name: 'Account menu' }).click()
+  await page.getByRole('button', { name: 'Account menu', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Sign out' }).click()
   await expect(page).toHaveURL(/\/login/)
 
@@ -110,7 +110,7 @@ test('two-factor: enrol with an authenticator, then sign in with a code', async 
     10,
   )
 
-  await page.getByRole('button', { name: 'Account menu' }).click()
+  await page.getByRole('button', { name: /Workspace account menu/ }).click()
   await page.getByRole('menuitem', { name: 'Sign out' }).click()
   await page.getByLabel('Email').fill(owner.email)
   await page.getByLabel('Password').fill(PASSWORD)

@@ -15,7 +15,7 @@ import Link from 'next/link'
 import { SubscriptionBanner } from '@/components/billing/subscription-banner'
 import { Menu, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   breadcrumbsFor,
   flattenLeaves,
@@ -87,6 +87,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   )
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const mobileTrigger = useRef<HTMLButtonElement>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   useEffect(() => setCollapsed(readCollapsed()), [])
@@ -162,7 +163,16 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
 
       {/* Mobile / tablet navigation */}
       <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
-        <DrawerContent title="Navigation" side="left" width="sm" tone="light">
+        <DrawerContent
+          title="Navigation"
+          side="left"
+          width="sm"
+          tone="light"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            mobileTrigger.current?.focus()
+          }}
+        >
           <div className="flex flex-col gap-4">
             <TenantSwitcher />
             <SidebarStatus />
@@ -183,6 +193,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             variant="ghost"
             size="icon"
             className="lg:hidden"
+            ref={mobileTrigger}
             aria-label="Open navigation"
             onClick={() => setMobileOpen(true)}
           >

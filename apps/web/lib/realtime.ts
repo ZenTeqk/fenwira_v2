@@ -88,3 +88,17 @@ export function useRealtimeEvent<T>(event: string, handler: (payload: T) => void
     }
   }, [event, tenantId])
 }
+
+/** Re-read authorized HTTP state after reconnect; websocket hints cannot replay missed events. */
+export function useRealtimeReconnect(handler: () => void): void {
+  const socket = useSocket()
+  const latest = useRef(handler)
+  latest.current = handler
+  useEffect(() => {
+    const listener = () => latest.current()
+    socket.on('connect', listener)
+    return () => {
+      socket.off('connect', listener)
+    }
+  }, [socket])
+}

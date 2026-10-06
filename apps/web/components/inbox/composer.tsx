@@ -15,6 +15,7 @@ import {
   DropdownItem,
   DropdownTrigger,
   toast,
+  Textarea,
 } from '@fenwira/ui'
 import { type InfiniteData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileText, MessageSquareText, Paperclip, Send } from 'lucide-react'
@@ -28,6 +29,8 @@ import {
   useState,
 } from 'react'
 import { useSession } from '@/components/session/session-provider'
+import { useEligibility } from '@/components/contacts/eligibility-summary'
+import { useConnections } from '@/lib/workspace-status'
 import { ApiError, del, get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { matchCanned, useCannedReplies } from '@/lib/canned-replies'
@@ -59,6 +62,9 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const queryClient = useQueryClient()
   const now = useNow(15_000)
   const id = conversation.id
+  const eligibility = useEligibility(conversation.contact.id, id)
+  const connections = useConnections()
+  const connection = connections.data?.find((c) => c.id === conversation.phoneNumber.id)
   const [mode, setMode] = useState<'reply' | 'note'>('reply')
   const [text, setText] = useState('')
   const [picking, setPicking] = useState(false)
@@ -66,6 +72,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const holding = lock?.holder?.id === me.user.id
   const lockedByOther = !!lock?.holder && !holding
   const windowOpen =
+    conversation.serviceWindow.isOpen &&
     !!conversation.serviceWindow.expiresAt &&
     new Date(conversation.serviceWindow.expiresAt).getTime() > now
   const minutesLeft = conversation.serviceWindow.expiresAt
@@ -244,13 +251,17 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     onError: (err) => toast.error(err instanceof Error ? err.message : 'The upload failed.'),
   })
 
+  const busy = send.isPending || note.isPending || attach.isPending
   const submit = () => {
+    if (busy || (mode === 'reply' && lockedByOther)) return
     if (mode === 'note') return text.trim() && note.mutate()
+    if (windowOpen && eligibility.data?.freeform.allowed === false) return
     if (!windowOpen) return setPicking(true)
     if (text.trim()) send.mutate({ content: { type: 'TEXT', text: text.trim() } })
   }
   /** Inserts a canned reply for editing; it never sends by itself. */
   const insert = (body: string) => {
+    if (busy) return
     onType(body)
     setDismissed(true)
   }
@@ -279,11 +290,14 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     }
   }
   const disabled = mode === 'reply' && lockedByOther
+  const freeformRestricted =
+    mode === 'reply' && windowOpen && eligibility.data?.freeform.allowed === false
 
   return (
     <div className="flex flex-col gap-2 border-t border-border bg-surface p-3">
       <Segmented
         label="Compose"
+        disabled={busy}
         value={mode}
         options={[
           { value: 'reply', label: 'Reply' },
@@ -291,6 +305,20 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         ]}
         onChange={setMode}
       />
+      {mode === 'reply' &&
+      connection &&
+      ['DISCONNECTED', 'RESTRICTED', 'ERROR', 'PENDING'].includes(connection.status) ? (
+        <Alert tone="warning" title="WhatsApp connection needs attention">
+          This number is {connection.status.toLowerCase()}. Check the WhatsApp connection before
+          sending.
+        </Alert>
+      ) : null}
+      {freeformRestricted ? (
+        <Alert tone="warning" title="Free-form replies are unavailable">
+          {eligibility.data?.freeform.reason ??
+            'Review messaging eligibility in the contact details.'}
+        </Alert>
+      ) : null}
       {mode === 'reply' && lockedByOther ? (
         <Alert
           tone="info"
@@ -324,7 +352,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           </Button>
         </div>
       ) : (
-        <div className="relative flex items-end gap-2">
+        <div className="relative flex flex-wrap items-end gap-2">
           {matches.length ? (
             <ul
               id={listId}
@@ -356,7 +384,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
               ))}
             </ul>
           ) : null}
-          <textarea
+          <Textarea
             aria-label={mode === 'note' ? 'Internal note' : 'Reply'}
             aria-autocomplete={mode === 'reply' ? 'list' : undefined}
             aria-controls={matches.length ? listId : undefined}
@@ -369,13 +397,13 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                   : 'Type a reply… (Enter to send)'
             }
             className={cn(
-              'min-h-11 flex-1 resize-none rounded-md border border-border px-3 py-2 text-base text-slate',
+              'min-h-16 w-full min-w-0 basis-full resize-none rounded-md border border-border-strong px-3 py-2 text-base text-slate',
               mode === 'note' ? 'bg-warning-soft' : 'bg-surface',
               disabled && 'cursor-not-allowed opacity-60',
             )}
-            rows={2}
+            rows={3}
             value={text}
-            disabled={disabled}
+            disabled={disabled || busy}
             onChange={(e) => onType(e.target.value)}
             onKeyDown={onKeyDown}
             onBlur={() => !text.trim() && release()}
@@ -385,7 +413,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
               variant="ghost"
               size="icon"
               aria-label="Send a template"
-              disabled={disabled}
+              disabled={disabled || busy}
               onClick={() => setPicking(true)}
             >
               <FileText aria-hidden="true" />
@@ -394,7 +422,12 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           {mode === 'reply' && canned.length ? (
             <Dropdown>
               <DropdownTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Canned replies" disabled={disabled}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Canned replies"
+                  disabled={disabled || busy}
+                >
                   <MessageSquareText aria-hidden="true" />
                 </Button>
               </DropdownTrigger>
@@ -412,6 +445,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
               className={cn(
                 'inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-slate hover:bg-neutral-soft',
                 disabled && 'pointer-events-none opacity-60',
+                'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong',
               )}
             >
               <Paperclip aria-hidden="true" className="size-4" />
@@ -419,7 +453,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
               <input
                 type="file"
                 className="sr-only"
-                disabled={disabled || attach.isPending}
+                disabled={disabled || busy}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => {
                   const f = e.target.files?.[0]
                   if (f) attach.mutate(f)
@@ -429,9 +463,10 @@ export function Composer({ conversation }: { conversation: Conversation }) {
             </label>
           ) : null}
           <Button
+            className="ml-auto"
             aria-label={mode === 'note' ? 'Save note' : 'Send'}
-            loading={send.isPending || note.isPending || attach.isPending}
-            disabled={disabled || !text.trim()}
+            loading={busy}
+            disabled={disabled || freeformRestricted || !text.trim()}
             onClick={submit}
           >
             <Send aria-hidden="true" />

@@ -78,9 +78,9 @@ describe('color tokens', () => {
     ]
     for (const [fg, bg] of pairs)
       expect(ratio(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5)
-    // Documented exclusion: muted on neutral-soft is below AA and must not be used.
+    // Screenshot decorative muted fails AA, so text must use the accessible muted token.
     expect(ratio(t['muted-decorative'], t.surface)).toBeLessThan(4.5)
-    // Non-text UI (focus ring, strong borders on inputs) needs 3:1 against the surface (1.4.11).
+    // Focus outlines need 3:1 against warm surfaces (1.4.11).
     expect(ratio(t['primary-strong'], t.background)).toBeGreaterThanOrEqual(3)
     // Status colors are never text: success/warning fills fail AA as text by design.
     expect(ratio(t.success, t.surface)).toBeLessThan(4.5)

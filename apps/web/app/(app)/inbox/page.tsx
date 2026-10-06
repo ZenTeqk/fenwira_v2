@@ -13,7 +13,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessagesSquare } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Composer } from '@/components/inbox/composer'
 import { ContactPane } from '@/components/inbox/contact-pane'
 import { ConversationHeader } from '@/components/inbox/conversation-header'
@@ -25,9 +25,10 @@ import { keys } from '@/lib/api/keys'
 import { useConversationRoom, useRealtimeEvent } from '@/lib/realtime'
 
 function Chat({ id, onBack }: { id: string; onBack: () => void }) {
-  const { tenantId } = useSession()
+  const { tenantId, can } = useSession()
   const queryClient = useQueryClient()
   const [contactOpen, setContactOpen] = useState(false)
+  const contactTrigger = useRef<HTMLButtonElement>(null)
   const key = keys.tenant(tenantId, 'inbox', 'conversation', id)
   const conversation = useQuery({
     queryKey: key,
@@ -60,24 +61,42 @@ function Chat({ id, onBack }: { id: string; onBack: () => void }) {
     )
   const c = conversation.data
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
-      <section aria-label="Chat" className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 gap-2">
+      <section
+        aria-label="Chat"
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface"
+      >
         <ConversationHeader
           conversation={c}
+          contactButtonRef={contactTrigger}
           onBack={onBack}
           onToggleContact={() => setContactOpen(true)}
         />
         <Thread conversationId={id} />
-        <Composer key={id} conversation={c} />
+        {can('inbox.reply') ? (
+          <Composer key={id} conversation={c} />
+        ) : (
+          <p role="status" className="border-t border-border p-4 text-sm text-secondary">
+            Your role can read conversations but cannot reply or add internal notes.
+          </p>
+        )}
       </section>
       <aside
         aria-label="Contact"
-        className="hidden w-85 shrink-0 overflow-y-auto border-l border-border bg-surface xl:block"
+        className="hidden w-64 shrink-0 overflow-y-auto rounded-lg border border-border bg-surface xl:block"
       >
         <ContactPane contactId={c.contact.id} conversationId={id} />
       </aside>
       <Drawer open={contactOpen} onOpenChange={setContactOpen}>
-        <DrawerContent title="Contact" side="right" width="sm">
+        <DrawerContent
+          title="Contact"
+          side="right"
+          width="sm"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            contactTrigger.current?.focus()
+          }}
+        >
           <ContactPane contactId={c.contact.id} conversationId={id} />
         </DrawerContent>
       </Drawer>
@@ -94,9 +113,11 @@ function Inbox() {
   const select = (id: string | null) => router.replace(id ? `${pathname}?c=${id}` : pathname)
   if (!can('inbox.read')) return <PermissionState what="the inbox" />
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 min-w-0 gap-2 p-2">
       <h1 className="sr-only">Inbox</h1>
-      <div className={cn('min-h-0 w-full shrink-0 md:w-80', selected && 'hidden md:block')}>
+      <div
+        className={cn('min-h-0 w-full shrink-0 md:w-70 lg:w-110', selected && 'hidden md:block')}
+      >
         <ConversationList selectedId={selected} onSelect={(id) => select(id)} />
       </div>
       <div className={cn('min-h-0 min-w-0 flex-1', selected ? 'flex' : 'hidden md:flex')}>

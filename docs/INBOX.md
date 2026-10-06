@@ -109,7 +109,7 @@ Upload through `POST /files/upload-url` (purpose `MESSAGE_MEDIA`) → PUT to Min
 
 ### Layout and colors (from `DESIGN_SYSTEM.md`)
 
-`Conversations | Chat | Contact` at 320 px / flex / 340 px. Below 1280 px the Contact pane becomes a drawer. Below 768 px there is a single pane with back navigation. Outbound bubbles are `primary-soft`, inbound are `surface` with a border, system events are a `neutral-soft` pill, the selected conversation is `primary-soft` with a `primary` left border, takeover is `info`, and internal notes are `warning`-tinted with an "Internal" label.
+Experience V2: `Views | Conversations | Chat | Contact` at 160px / 280px / flex / 256px on desktop. Views move into list controls below 1024px. Below 1280 px the Contact pane becomes a drawer. Below 768 px there is a single pane with back navigation. Outbound bubbles are `primary-soft`, inbound are `surface` with a border, system events are a `neutral-soft` pill, the selected conversation is `primary-soft` with a `primary` left border, takeover is `info`, and internal notes are neutral/warm-tinted with an "Internal" label.
 
 ### SLA fields (display only in v2)
 
@@ -130,3 +130,7 @@ Upload through `POST /files/upload-url` (purpose `MESSAGE_MEDIA`) → PUT to Min
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Experience V2 presentation (2026-10-06)
+
+The separate view rail uses existing Mine/Unassigned/All/Takeover/Resolved queries; Unread maps to the existing server unread filter. Status filtering uses the existing status parameter. No team queues. Avatar-led rows show real assignment, unread and window state. Consecutive same-sender messages within five minutes group visually, with day separators; notes and system messages interrupt grouping. Read-only roles have no composer. The composer reuses shared Textarea/focus and displays server eligibility/connection explanations. Reconnect refreshes authorized Inbox HTTP queries after rejoining rooms. No backend/schema/lifecycle changes. See `design/FENWIRA_EXPERIENCE_V2.md`.

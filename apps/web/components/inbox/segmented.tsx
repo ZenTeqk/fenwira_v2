@@ -6,11 +6,13 @@ export function Segmented<T extends string>({
   value,
   options,
   onChange,
+  disabled = false,
 }: {
   label: string
   value: T
   options: Array<{ value: T; label: string }>
   onChange: (v: T) => void
+  disabled?: boolean
 }) {
   return (
     <div
@@ -22,10 +24,11 @@ export function Segmented<T extends string>({
         <button
           key={o.value}
           type="button"
+          disabled={disabled}
           aria-pressed={o.value === value}
           onClick={() => onChange(o.value)}
           className={cn(
-            'shrink-0 rounded-sm px-2.5 py-1 text-sm font-medium text-slate transition-colors',
+            'shrink-0 rounded-sm px-2.5 py-1 text-sm font-medium text-slate transition-colors disabled:cursor-not-allowed disabled:opacity-60',
             o.value === value ? 'bg-surface shadow-raised' : 'hover:bg-surface/60',
           )}
         >

@@ -42,6 +42,8 @@ test('sidebar is persistent at 1024px and a drawer at 375px', async ({ page }) =
   await page.getByRole('button', { name: 'Open navigation' }).click()
   const drawer = page.getByRole('dialog', { name: 'Navigation' })
   await expect(drawer.getByRole('link', { name: 'Home', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Open navigation' })).toBeFocused()
 })
 
 test('sidebar collapses to an icon rail and remembers it', async ({ page }) => {

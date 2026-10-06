@@ -8,7 +8,7 @@ How Fenwira screens are put together. Visual tokens are in [FENWIRA_DESIGN_SYSTE
 ┌──────────┬──────────────────────────────────────────────────────────────┐
 │ Fenwira  │ Workspace ▾ · breadcrumb        [Search ⌘K]  ?  🔔  (Avatar) │ ← top bar 56px
 │          ├──────────────────────────────────────────────────────────────┤
-│ Dashboard│ Module tabs (only when the module has sub-pages)             │
+│ Home     │ Module tabs (only when the module has sub-pages)             │
 │ Inbox  3 ├──────────────────────────────────────────────────────────────┤
 │ Contacts │                                                              │
 │ Campaigns│                    page (max 1280, gutter 16/24)             │
@@ -39,7 +39,7 @@ How Fenwira screens are put together. Visual tokens are in [FENWIRA_DESIGN_SYSTE
 | `DetailPage` | Breadcrumb + `PageHeader` (name, status badge, actions) → optional status banner → summary strip → `Tabs` of sections | Contact, Template, Campaign, Automation history |
 | `BuilderPage` | `PageHeader` with state (draft/published/saving) and the commit action → left palette · centre work area · right inspector → validation panel | Template editor, Campaign wizard, Flow builder |
 | `SettingsPage` | `PageHeader` → stacked cards, each one setting group with its own save | Workspace, Security, Roles, WhatsApp |
-| `DashboardLayout` | `PageHeader` → Needs attention → up to four `MetricCard`s → two-column activity and shortcuts | Dashboard |
+| `DashboardLayout` | `PageHeader` → attention/current activity → recent conversations/automations → compact secondary metrics | Home |
 
 The flow builder, template editor and campaign wizard keep their own layouts (they predate the pattern and embed tabs or steps around the work area) but follow the BuilderPage structure: header with state and commit action, palette · work area · inspector, validation beside the work.
 
