@@ -15,3 +15,11 @@ Completed light 232px navigation, warm canvas, restrained active state, light mo
 Validation: frontend lint/typecheck and **13 unit tests passed**; production web Docker build passed and local web restarted against existing mock services. Shell/navigation/keyboard/design/responsive/smoke browser run: **34 passed**, one renamed-link selector was ambiguous with the brand home link; corrected to exact Home navigation matching, focused rerun **1 passed**. Four widths (375/768/1024/1440) have no page overflow, icon rail persists at 64px, all visible navigation is reachable by command palette; shell/Home axe checks pass. No functionality was weakened to fix the selector. Final aggregate rerun follows Inbox.
 
 Visual alignment: light sidebar/emerald selection/white topbar/warm surfaces follow all reference shells. Existing brand and icon rail remain intentionally preserved. Existing NOT_ENFORCED wallet visibility is preserved; no fictitious amount. Next: EV2-03 attention-first Home.
+
+## EV2-03 — Home
+
+Completed attention-first white rows, recent conversation links/avatars/assignment/unread, campaign state/update timeline, real flow status/run counts, compact secondary metrics and readable health status. Reused DashboardLayout, MetricCard (compact variant), Timeline, server-owned wallet/analytics state, permissions and existing queries. Refactored permission-aware loading and explicit activity-load errors; no backend changes.
+
+Validation: frontend lint/typecheck, **13 frontend unit tests**, **49 UI unit tests**, UI lint and design check pass. Production web Docker build passes. **9 browser tests pass**, including real mock customer/campaign/flow records, Home deep links, API failure/retry, four-width no-overflow and WCAG 2.2 AA checks. Desktop and mobile screenshots visually inspected against reference 01; all four screenshots captured in ignored test-results for final checkpoint evidence.
+
+Deliberate deviations: campaign state/update timeline replaces the unsupported unified event feed; seven-day figures stay labelled seven days and unprocessed analytics are explained; real run counts come from the existing flow contract, not screenshot values. Existing brand, status meanings and NOT_ENFORCED presentation preserved. No false “all clear” during failed activity loading. Next: EV2-04 Inbox.

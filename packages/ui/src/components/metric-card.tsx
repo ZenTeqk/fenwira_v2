@@ -21,6 +21,8 @@ export type MetricCardProps = {
   icon?: ReactNode
   hint?: ReactNode
   loading?: boolean
+  /** Compact secondary summary for Home; analytics keeps the standard presentation. */
+  compact?: boolean
   className?: string
 }
 
@@ -39,11 +41,15 @@ export function MetricCard({
   icon,
   hint,
   loading,
+  compact,
   className,
 }: MetricCardProps) {
   const DeltaIcon = delta ? deltaIcon[delta.direction] : null
   return (
-    <Card data-slot="metric-card" className={cn('flex flex-col gap-3 p-5', className)}>
+    <Card
+      data-slot="metric-card"
+      className={cn('flex flex-col gap-3 p-5', compact && 'gap-1 border-0 p-3', className)}
+    >
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-secondary">{label}</p>
         {icon ? (
@@ -55,7 +61,9 @@ export function MetricCard({
       {loading ? (
         <Skeleton className="h-8 w-24" />
       ) : (
-        <p className="text-2xl font-semibold text-slate tabular-nums">{value}</p>
+        <p className={cn('text-2xl font-semibold text-slate tabular-nums', compact && 'text-xl')}>
+          {value}
+        </p>
       )}
       {delta && DeltaIcon && !loading ? (
         <p className="flex items-center gap-1 text-sm text-muted">

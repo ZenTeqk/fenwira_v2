@@ -52,7 +52,7 @@ test('shell: modules in the sidebar, sub-pages as module tabs, status footer and
   )
 })
 
-test('dashboard: needs attention, four metrics, and shortcuts', async ({ page }) => {
+test('Home: needs attention, real activity and secondary metrics', async ({ page }) => {
   const owner = await signInAsNewOwner(page, 'ui-dash')
   await page.goto('/dashboard')
   const attention = page.getByRole('region', { name: 'Needs attention' })

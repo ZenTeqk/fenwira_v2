@@ -130,7 +130,7 @@ export function SettingsPage({
   )
 }
 
-/** Dashboard: header → needs attention → up to four metrics → activity and shortcuts. */
+/** Home: attention/current activity → conversations/automations → compact secondary metrics. */
 export function DashboardLayout({
   header,
   attention,
@@ -149,15 +149,20 @@ export function DashboardLayout({
   return (
     <div data-pattern="dashboard" className={cn('flex flex-col gap-6', className)}>
       <PageHeader {...header} />
-      {attention}
-      {metrics ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{metrics}</div>
-      ) : null}
-      {children || aside ? (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="flex min-w-0 flex-col gap-6 xl:col-span-2">{children}</div>
-          {aside ? <div className="flex min-w-0 flex-col gap-6">{aside}</div> : null}
+      {attention || aside ? (
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
+          <div className="min-w-0 xl:col-span-2">{attention}</div>
+          {aside ? <div className="flex min-w-0 flex-col gap-4">{aside}</div> : null}
         </div>
+      ) : null}
+      {children}
+      {metrics ? (
+        <section
+          aria-label="Workspace summary"
+          className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-surface p-2 sm:grid-cols-2 xl:grid-cols-4"
+        >
+          {metrics}
+        </section>
       ) : null}
     </div>
   )

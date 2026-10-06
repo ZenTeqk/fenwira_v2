@@ -17,7 +17,7 @@ import {
   ConnectionState,
   DashboardLayout,
   MetricCard,
-  SectionHeader,
+  ErrorState,
   Skeleton,
   StatusBadge,
   type StatusKey,
@@ -26,17 +26,14 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
   CircleCheck,
-  FileText,
+  CircleAlert,
   HeartPulse,
-  Megaphone,
   MessageSquare,
-  Plus,
   Send,
   Wallet,
-  Workflow,
 } from 'lucide-react'
 import Link from 'next/link'
-import { type ReactNode } from 'react'
+import { AutomationActivity, CampaignActivity, RecentConversations } from './home-activity'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
@@ -76,7 +73,7 @@ const QUALITY: Record<QualityRating, { status: StatusKey; label: string }> = {
  * owning endpoints. It stays an operational summary, not a second Analytics page.
  */
 export function Dashboard({ health }: { health: ApiHealthView }) {
-  const { tenantId, can } = useSession()
+  const { tenantId, can, me } = useSession()
   const connections = useConnections()
   const wallet = useWallet()
   const status = useWorkspaceStatus()
@@ -215,50 +212,105 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
     })
 
   const loadingAttention =
-    connections.isPending || unassigned.isPending || campaigns.isPending || rejected.isPending
+    (can('whatsapp.read') && connections.isPending) ||
+    (can('inbox.read') && unassigned.isPending) ||
+    (can('campaigns.read') && campaigns.isPending) ||
+    (can('templates.read') && rejected.isPending) ||
+    status.isPending
+  const failedAttention =
+    connections.isError ||
+    unassigned.isError ||
+    campaigns.isError ||
+    rejected.isError ||
+    status.isError ||
+    analytics.isError
+  const retryAttention = () => {
+    void status.refetch()
+    if (can('whatsapp.read')) void connections.refetch()
+    if (can('inbox.read')) void unassigned.refetch()
+    if (can('campaigns.read')) void campaigns.refetch()
+    if (can('templates.read')) void rejected.refetch()
+    if (can('analytics.read')) void analytics.refetch()
+  }
 
   return (
     <DashboardLayout
       header={{
         title: 'Home',
-        description: 'What’s happening in your WhatsApp workspace, and what needs you.',
+        description: `Welcome back, ${me.user.name}. Here’s what needs you in your WhatsApp workspace.`,
+        actions: can('campaigns.write') ? (
+          <Button asChild>
+            <Link href="/campaigns/new">Create campaign</Link>
+          </Button>
+        ) : undefined,
       }}
       attention={
-        <section aria-labelledby="attention" className="flex flex-col gap-3">
-          <SectionHeader id="attention" title="Needs attention" />
-          {loadingAttention && !attention.length ? (
-            <Skeleton className="h-16 w-full" />
-          ) : attention.length ? (
-            <ul className="flex flex-col gap-2">
-              {attention.map((a) => (
-                <li key={a.id}>
-                  <Alert
-                    tone={a.tone}
-                    title={a.title}
-                    action={
-                      a.href ? (
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2" id="attention">
+              Needs attention
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <section aria-labelledby="attention" className="flex flex-col gap-3">
+              {loadingAttention && !attention.length ? (
+                <Skeleton className="h-32 w-full" />
+              ) : attention.length ? (
+                <ul className="divide-y divide-border">
+                  {attention.map((a) => (
+                    <li key={a.id} className="flex flex-wrap items-start gap-3 py-3">
+                      <CircleAlert
+                        className={
+                          a.tone === 'danger'
+                            ? 'mt-0.5 size-5 shrink-0 text-danger-strong'
+                            : a.tone === 'warning'
+                              ? 'mt-0.5 size-5 shrink-0 text-warning-strong'
+                              : 'mt-0.5 size-5 shrink-0 text-info-strong'
+                        }
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-slate">{a.title}</p>
+                        <p className="mt-1 text-sm text-secondary">{a.body}</p>
+                      </div>
+                      {a.href ? (
                         <Button variant="secondary" size="sm" asChild>
                           <Link href={a.href}>{a.action}</Link>
                         </Button>
-                      ) : undefined
-                    }
-                  >
-                    {a.body}
-                  </Alert>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="flex items-center gap-2 rounded-lg border border-border bg-surface p-4 text-base text-slate">
-              <CircleCheck className="size-5 text-success-strong" aria-hidden="true" />
-              All clear. Nothing needs your attention right now.
-            </p>
-          )}
-        </section>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : !failedAttention ? (
+                <p className="flex items-center gap-2 py-4 text-sm text-secondary">
+                  <CircleCheck className="size-5 text-success-strong" aria-hidden="true" />
+                  All clear. Nothing needs your attention right now.
+                </p>
+              ) : null}
+              {failedAttention ? (
+                <ErrorState
+                  title="Some workspace activity couldn’t be loaded"
+                  description="This summary may be incomplete. Retry to check what needs attention."
+                  onRetry={retryAttention}
+                />
+              ) : null}
+            </section>
+          </CardContent>
+        </Card>
+      }
+      aside={
+        can('campaigns.read') ? (
+          <CampaignActivity
+            campaigns={campaigns.data}
+            error={campaigns.isError}
+            retry={() => void campaigns.refetch()}
+          />
+        ) : undefined
       }
       metrics={
         <>
           <MetricCard
+            compact
             label="Messages sent (7 days)"
             icon={<Send />}
             loading={can('analytics.read') && analytics.isPending}
@@ -275,6 +327,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
             }
           />
           <MetricCard
+            compact
             label="Open conversations"
             icon={<MessageSquare />}
             loading={can('inbox.read') && open.isPending}
@@ -286,6 +339,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
             }
           />
           <MetricCard
+            compact
             label="Delivery rate (7 days)"
             icon={<HeartPulse />}
             loading={can('analytics.read') && analytics.isPending}
@@ -303,6 +357,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
             }
           />
           <MetricCard
+            compact
             label="Wallet"
             icon={<Wallet />}
             loading={can('billing.read') && wallet.isPending}
@@ -315,7 +370,11 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
             }
             hint={
               !wallet.data ? (
-                'Your role can’t view billing'
+                can('billing.read') ? (
+                  'Wallet balance is unavailable'
+                ) : (
+                  'Your role can’t view billing'
+                )
               ) : (
                 <span className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={wallet.data.state} />
@@ -328,143 +387,33 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
           />
         </>
       }
-      aside={
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2">WhatsApp</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {connections.isPending ? (
-                <Skeleton className="h-10" />
-              ) : (
-                <ConnectionState
-                  status={conn.status}
-                  name={conn.name}
-                  action={
-                    <Button variant="secondary" size="sm" asChild>
-                      <Link href="/integrations/whatsapp">Manage</Link>
-                    </Button>
-                  }
-                />
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2">System status</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2" data-testid="api-overall">
-              {health.reachable && health.overall === 'ok' ? (
-                <p className="flex items-center gap-2 text-base text-slate">
-                  <Activity className="size-4 text-success-strong" aria-hidden="true" />
-                  All systems operational · API {health.version}
-                </p>
-              ) : (
-                <Alert tone="danger" title="Some services are degraded">
-                  {health.reachable
-                    ? 'One or more dependencies are not responding.'
-                    : `The API is unreachable (${health.reason}).`}
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      }
     >
-      <section aria-labelledby="shortcuts" className="flex flex-col gap-3">
-        <SectionHeader id="shortcuts" title="Get things done" />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {(
-            [
-              [
-                'inbox.read',
-                '/inbox',
-                'Reply to customers',
-                'Open the shared inbox',
-                MessageSquare,
-              ],
-              [
-                'campaigns.write',
-                '/campaigns/new',
-                'Send a campaign',
-                'Reach a tag, segment or import',
-                Megaphone,
-              ],
-              [
-                'templates.write',
-                '/templates/new',
-                'Create a template',
-                'Get a message approved by Meta',
-                FileText,
-              ],
-              [
-                'automations.write',
-                '/automations/new',
-                'Automate a reply',
-                'Start from a recipe',
-                Workflow,
-              ],
-            ] as const
-          )
-            .filter(([perm]) => can(perm))
-            .map(([, href, title, sub, Icon]) => (
-              <Link
-                key={href}
-                href={href}
-                className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4 hover:border-border-strong"
-              >
-                <span className="flex size-9 items-center justify-center rounded-md bg-primary-soft text-primary-strong">
-                  <Icon className="size-4" aria-hidden="true" />
-                </span>
-                <span className="flex flex-col">
-                  <span className="font-medium text-slate">{title}</span>
-                  <span className="text-sm text-secondary">{sub}</span>
-                </span>
-                <Plus className="ml-auto size-4 text-muted" aria-hidden="true" />
-              </Link>
-            ))}
-        </div>
-      </section>
-      {can('campaigns.read') ? <RecentCampaigns campaigns={campaigns.data} /> : null}
-    </DashboardLayout>
-  )
-}
-
-function RecentCampaigns({ campaigns }: { campaigns: Campaign[] | undefined }): ReactNode {
-  const recent = (campaigns ?? []).slice(0, 5)
-  return (
-    <section aria-labelledby="recent-campaigns" className="flex flex-col gap-3">
-      <SectionHeader
-        id="recent-campaigns"
-        title="Recent campaigns"
-        actions={
-          <Button variant="link" asChild>
-            <Link href="/campaigns">All campaigns</Link>
-          </Button>
-        }
-      />
-      {!campaigns ? (
-        <Skeleton className="h-24 w-full" />
-      ) : recent.length ? (
-        <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-          {recent.map((c) => (
-            <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <Link
-                href={`/campaigns/${c.id}`}
-                className="truncate font-medium text-slate underline-offset-4 hover:underline"
-              >
-                {c.name}
-              </Link>
-              <StatusBadge status={c.status} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="rounded-lg border border-border bg-surface p-4 text-base text-secondary">
-          No campaigns yet. When you send one, its progress shows here.
+      {can('analytics.read') && analytics.data?.meta.freshness.status === 'NOT_STARTED' ? (
+        <p role="status" className="text-sm text-secondary">
+          Analytics are being prepared. Seven-day figures will appear after processing.
         </p>
-      )}
-    </section>
+      ) : null}
+      {can('inbox.read') ? <RecentConversations /> : null}
+      {can('automations.read') ? <AutomationActivity /> : null}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-secondary">
+        {can('whatsapp.read') && connections.data ? (
+          <ConnectionState status={conn.status} name="WhatsApp" variant="compact" />
+        ) : null}
+        <div data-testid="api-overall">
+          {health.reachable && health.overall === 'ok' ? (
+            <span className="flex items-center gap-2">
+              <Activity className="size-4 text-success-strong" aria-hidden="true" />
+              All systems operational · API {health.version}
+            </span>
+          ) : (
+            <Alert tone="danger" title="Some services are degraded">
+              {health.reachable
+                ? 'One or more dependencies are not responding.'
+                : `The API is unreachable (${health.reason}).`}
+            </Alert>
+          )}
+        </div>
+      </div>
+    </DashboardLayout>
   )
 }
