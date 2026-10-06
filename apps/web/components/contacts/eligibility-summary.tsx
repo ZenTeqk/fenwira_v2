@@ -1,7 +1,7 @@
 'use client'
 
 import { type ContactEligibility, type EligibilityVerdict } from '@fenwira/contracts'
-import { cn, Skeleton, StatusBadge } from '@fenwira/ui'
+import { cn, ErrorState, Skeleton, StatusBadge } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
@@ -45,6 +45,26 @@ function windowText(expiresAt: string | null, now: number): string {
   return `24-hour window open for ${h ? `${h}h ` : ''}${m}m.`
 }
 
+/** Purpose-specific server verdicts; never infer a blanket eligible state from consent. */
+export function EligibilityIndicator({ contactId }: { contactId: string }) {
+  const q = useEligibility(contactId)
+  if (q.isPending) return <Skeleton className="h-8 w-32" />
+  if (q.isError)
+    return <span className="text-xs text-secondary">Open details to retry eligibility</span>
+  return (
+    <span className="flex flex-col items-start gap-1">
+      <StatusBadge
+        status={q.data.freeform.allowed ? 'CAN_SEND' : 'CANNOT_SEND'}
+        label={q.data.freeform.allowed ? 'Service replies' : 'Service unavailable'}
+      />
+      <StatusBadge
+        status={q.data.marketingTemplate.allowed ? 'CAN_SEND' : 'CANNOT_SEND'}
+        label={q.data.marketingTemplate.allowed ? 'Marketing allowed' : 'Marketing restricted'}
+      />
+    </span>
+  )
+}
+
 /**
  * What can be sent to this contact now, as decided by MessageEligibilityService (the API computes
  * it; the browser never re-implements consent rules). Explains every restriction in words.
@@ -61,6 +81,8 @@ export function EligibilitySummary({
   const q = useEligibility(contactId, conversationId)
   const now = useNow(30_000)
   if (q.isPending) return <Skeleton className="h-24 w-full" />
+  if (q.isError)
+    return <ErrorState title="Eligibility couldn’t be loaded" onRetry={() => void q.refetch()} />
   if (!q.data) return null
   const e = q.data
   return (

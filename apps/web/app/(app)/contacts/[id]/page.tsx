@@ -10,6 +10,7 @@ import { ConsentBadge } from '@/components/contacts/consent-badge'
 import { EligibilitySummary } from '@/components/contacts/eligibility-summary'
 import {
   Alert,
+  Avatar,
   Button,
   Card,
   CardContent,
@@ -200,8 +201,8 @@ function ConsentModal({
             <span className="text-sm text-muted">Currently: {CONSENT_LABEL[current]}</span>
           </div>
           <Field label="Note" hint="How and when the contact told you.">
-            <textarea
-              className="min-h-20 rounded-md border border-border bg-surface px-3 py-2 text-base text-slate"
+            <Textarea
+              className="min-h-20"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               required
@@ -337,8 +338,9 @@ export default function ContactPage() {
         breadcrumbs: [{ label: 'Contacts', href: '/contacts' }, { label: title }],
         linkAs: Link,
         description: (
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="font-mono">{c.phoneE164}</span>
+          <span className="flex flex-wrap items-center gap-3">
+            <Avatar name={title} size="md" />
+            <span>{c.phoneE164}</span>
             {c.status === 'BLOCKED' ? <StatusBadge status="RESTRICTED" label="Blocked" /> : null}
             {c.tags.length ? <TagBadges tags={c.tags} max={8} /> : null}
           </span>
@@ -411,7 +413,7 @@ export default function ContactPage() {
           <TabsTrigger value="notes">Notes</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="flex flex-col gap-4">
+        <TabsContent value="overview" className="grid items-start gap-4 lg:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle as="h2">What you can send</CardTitle>
@@ -420,7 +422,7 @@ export default function ContactPage() {
               <EligibilitySummary contactId={c.id} />
             </CardContent>
           </Card>
-          <Card>
+          <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle as="h2">Details</CardTitle>
             </CardHeader>
@@ -456,9 +458,18 @@ export default function ContactPage() {
               {conversations.data.map((cv) => (
                 <li key={cv.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
                   <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-slate">
-                      {cv.lastMessagePreview ?? 'No messages yet'}
-                    </span>
+                    {can('inbox.read') ? (
+                      <Link
+                        href={`/inbox?c=${cv.id}`}
+                        className="truncate text-primary-strong hover:underline"
+                      >
+                        {cv.lastMessagePreview ?? 'Open conversation'}
+                      </Link>
+                    ) : (
+                      <span className="truncate text-slate">
+                        {cv.lastMessagePreview ?? 'No messages yet'}
+                      </span>
+                    )}
                     <span className="text-sm text-muted">
                       Via {cv.phoneNumber}
                       {cv.lastMessageAt ? ` · ${relativeTime(cv.lastMessageAt)}` : ''}

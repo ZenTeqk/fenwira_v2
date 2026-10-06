@@ -1,9 +1,10 @@
 'use client'
 
 import { type Contact, type ContactFilter, EMPTY_FILTER, type ExportJob } from '@fenwira/contracts'
-import { ConsentBadge } from '@/components/contacts/consent-badge'
+import { EligibilityIndicator } from '@/components/contacts/eligibility-summary'
 import {
   Button,
+  Avatar,
   type ColumnDef,
   DataTable,
   Dropdown,
@@ -26,10 +27,10 @@ import {
   useConfirm,
 } from '@fenwira/ui'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, ExternalLink, Eye, Filter, Plus, Tags } from 'lucide-react'
+import { Download, ExternalLink, Eye, Filter, Plus, Tags, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { type FormEvent, Suspense, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ContactFormModal } from '@/components/contacts/contact-form-modal'
 import { ContactPreview } from '@/components/contacts/contact-preview'
 import { completeFilter, countRules, FilterBuilder } from '@/components/contacts/filter-builder'
@@ -37,7 +38,7 @@ import { TagBadges } from '@/components/contacts/tag-badges'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
-import { SOURCE_LABEL, useTags } from '@/lib/contacts'
+import { useTags } from '@/lib/contacts'
 import { relativeTime } from '@/lib/relative-time'
 
 const PAGE = 50
@@ -106,7 +107,7 @@ function SaveSegmentModal({
 }
 
 function Contacts() {
-  const { tenantId, can } = useSession()
+  const { tenantId, can, me } = useSession()
   const router = useRouter()
   const queryClient = useQueryClient()
   const confirm = useConfirm()
@@ -119,6 +120,14 @@ function Contacts() {
   const [creating, setCreating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
+  const previewTrigger = useRef<HTMLElement | null>(null)
+  const openPreview = useCallback((id: string) => {
+    const active = document.activeElement as HTMLElement
+    previewTrigger.current = active.closest('[role="menu"]')
+      ? document.querySelector<HTMLElement>(`[data-contact-actions="${id}"] button`)
+      : active
+    setPreview(id)
+  }, [])
   const params = useSearchParams()
   // The command palette's "New contact" opens the form here (/contacts?new=1).
   useEffect(() => {
@@ -187,64 +196,93 @@ function Contacts() {
 
   if (!can('contacts.read')) return <PermissionState what="contacts" />
 
-  const columns: ColumnDef<Contact, unknown>[] = [
-    {
-      id: 'name',
-      header: 'Contact',
-      cell: ({ row }) => (
-        <div className="flex min-w-0 flex-col">
-          <Link
-            href={`/contacts/${row.original.id}`}
-            className="font-medium text-slate underline-offset-4 hover:underline"
-          >
-            {row.original.name ?? row.original.waProfileName ?? 'Unnamed'}
-          </Link>
-          <span className="font-mono text-sm text-muted">{row.original.phoneE164}</span>
-        </div>
-      ),
-    },
-    {
-      id: 'tags',
-      header: 'Tags',
-      meta: { label: 'Tags' },
-      cell: ({ row }) => <TagBadges tags={row.original.tags} />,
-    },
-    {
-      id: 'consent',
-      header: 'Marketing',
-      cell: ({ row }) => <ConsentBadge state={row.original.marketingConsent} />,
-    },
-    { id: 'source', header: 'Source', cell: ({ row }) => SOURCE_LABEL[row.original.source] },
-    {
-      id: 'lastInbound',
-      header: 'Last message',
-      cell: ({ row }) =>
-        row.original.lastInboundAt ? relativeTime(row.original.lastInboundAt) : '—',
-    },
-    {
-      id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
-      enableHiding: false,
-      enableSorting: false,
-      cell: ({ row }) => (
-        <RowActions
-          label={`Actions for ${row.original.name ?? row.original.phoneE164}`}
-          actions={[
-            {
-              label: 'Quick view',
-              icon: <Eye aria-hidden="true" />,
-              onSelect: () => setPreview(row.original.id),
-            },
-            {
-              label: 'Open contact',
-              icon: <ExternalLink aria-hidden="true" />,
-              onSelect: () => router.push(`/contacts/${row.original.id}`),
-            },
-          ]}
-        />
-      ),
-    },
-  ]
+  const columns = useMemo<ColumnDef<Contact, unknown>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Contact',
+        cell: ({ row }) => (
+          <div className="flex min-w-0 items-center gap-3">
+            <Avatar
+              name={row.original.name ?? row.original.waProfileName ?? row.original.phoneE164}
+              size="md"
+            />
+            <Button
+              variant="ghost"
+              className="h-auto min-h-9 justify-start px-0 font-medium"
+              onClick={() => openPreview(row.original.id)}
+            >
+              {row.original.name ?? row.original.waProfileName ?? 'Unnamed contact'}
+            </Button>
+          </div>
+        ),
+      },
+      {
+        id: 'phone',
+        header: 'Phone',
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap text-sm text-secondary">{row.original.phoneE164}</span>
+        ),
+      },
+      {
+        id: 'tags',
+        header: 'Tags',
+        meta: { label: 'Tags' },
+        cell: ({ row }) => <TagBadges tags={row.original.tags} />,
+      },
+      {
+        id: 'eligibility',
+        header: 'WhatsApp eligibility',
+        cell: ({ row }) => <EligibilityIndicator contactId={row.original.id} />,
+      },
+      {
+        id: 'lastInbound',
+        header: 'Last incoming message',
+        cell: ({ row }) =>
+          row.original.lastInboundAt ? relativeTime(row.original.lastInboundAt) : '—',
+      },
+      {
+        id: 'assigned',
+        header: 'Assigned',
+        cell: ({ row }) =>
+          row.original.ownerId ? (
+            row.original.ownerId === me.user.id ? (
+              'You'
+            ) : (
+              'Assigned teammate'
+            )
+          ) : (
+            <span className="text-muted">Unassigned</span>
+          ),
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        enableHiding: false,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span data-contact-actions={row.original.id}>
+            <RowActions
+              label={`Actions for ${row.original.name ?? row.original.phoneE164}`}
+              actions={[
+                {
+                  label: 'Quick view',
+                  icon: <Eye aria-hidden="true" />,
+                  onSelect: () => openPreview(row.original.id),
+                },
+                {
+                  label: 'Open contact',
+                  icon: <ExternalLink aria-hidden="true" />,
+                  onSelect: () => router.push(`/contacts/${row.original.id}`),
+                },
+              ]}
+            />
+          </span>
+        ),
+      },
+    ],
+    [me.user.id, openPreview, router],
+  )
   const rules = countRules(filter)
   const filtered = !!(rules || q.trim())
 
@@ -252,12 +290,17 @@ function Contacts() {
     <ListPage
       header={{
         title: 'Contacts',
-        description:
-          count.data !== undefined
-            ? `${count.data.toLocaleString('en-IN')} contacts${filtered ? ' match' : ''}`
-            : 'Everyone you message on WhatsApp.',
+        description: 'People your team communicates with on WhatsApp.',
         actions: (
           <>
+            {can('contacts.import') ? (
+              <Button variant="secondary" asChild>
+                <Link href="/contacts/imports">
+                  <Upload aria-hidden="true" />
+                  Import
+                </Link>
+              </Button>
+            ) : null}
             {can('contacts.export') ? (
               <Button
                 variant="secondary"
@@ -271,13 +314,20 @@ function Contacts() {
             {can('contacts.write') ? (
               <Button onClick={() => setCreating(true)}>
                 <Plus aria-hidden="true" />
-                New contact
+                Add contact
               </Button>
             ) : null}
           </>
         ),
       }}
     >
+      <p role="status" className="text-sm text-secondary">
+        {count.data !== undefined
+          ? `${count.data.toLocaleString('en-IN')} contacts${filtered ? ' match' : ''}`
+          : count.isError
+            ? 'Contact count unavailable'
+            : 'Loading contact count…'}
+      </p>
       <DataTable
         label="Contacts"
         columns={columns}
@@ -444,7 +494,11 @@ function Contacts() {
         }}
       />
       <SaveSegmentModal filter={filter} open={saving} onOpenChange={setSaving} />
-      <ContactPreview id={preview} onClose={() => setPreview(null)} />
+      <ContactPreview
+        id={preview}
+        onClose={() => setPreview(null)}
+        restoreFocus={() => previewTrigger.current?.focus()}
+      />
     </ListPage>
   )
 }

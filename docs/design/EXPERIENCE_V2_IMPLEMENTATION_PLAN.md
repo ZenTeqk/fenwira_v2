@@ -60,6 +60,8 @@ The specified muted `#737C77` does not clear 4.5:1 on warm tinted surfaces. Use 
 
 Later sequence: EV2-05 contacts; 06 templates; 07 campaigns/list and wizard; 08 automations; 09 all analytics; 10 integrations/billing/settings and children; 11 systematic responsive/non-happy state review; 12 complete regression/visual acceptance. No later composition work in this checkpoint.
 
+2026-10-06: the user approved the foundation checkpoint and authorized [Batch 2](EXPERIENCE_V2_BATCH_2.md), limited to EV2-05/06/07A/07B. The established shell, Home, Inbox and semantic tokens are preserved. Stop again for visual review after Contacts/Templates/Campaigns/Studio.
+
 ## Capability gaps and deliberate deviations
 
 - No tenant team queues, starred conversations, phone calls, AI replies or product/order cards. Retain individual assignment and real supported views, including takeover/resolved; Unread maps to the existing unread filter.

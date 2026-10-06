@@ -17,6 +17,8 @@ export type DetailDrawerProps = {
   fullLabel?: string
   linkAs?: LinkLike
   footer?: ReactNode
+  onCloseAutoFocus?: (event: Event) => void
+  width?: 'sm' | 'md' | 'lg'
   children: ReactNode
 }
 
@@ -30,6 +32,8 @@ export function DetailDrawer({
   fullLabel = 'Open full page',
   linkAs: LinkComp,
   footer,
+  onCloseAutoFocus,
+  width = 'lg',
   children,
 }: DetailDrawerProps) {
   const link = fullHref ? (
@@ -52,7 +56,8 @@ export function DetailDrawer({
       <DrawerContent
         title={title}
         description={description}
-        width="lg"
+        width={width}
+        onCloseAutoFocus={onCloseAutoFocus}
         footer={
           footer || link ? (
             <>

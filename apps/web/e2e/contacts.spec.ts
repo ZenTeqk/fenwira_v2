@@ -13,7 +13,7 @@ test('create a contact, record consent with a note, and add a note', async ({ pa
   await signInAsNewOwner(page, 'ui-contacts')
   await page.goto('/contacts')
   await expect(page.getByText('No contacts yet')).toBeVisible()
-  await page.getByRole('button', { name: 'New contact' }).click()
+  await page.getByRole('button', { name: 'Add contact', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'New contact' })
   await dialog.getByLabel('Phone').fill('98111 22233')
   await dialog.getByLabel('Name').fill('Kavya Iyer')

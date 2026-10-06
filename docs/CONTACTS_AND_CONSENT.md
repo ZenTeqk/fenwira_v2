@@ -163,3 +163,7 @@ A header with name, phone (monospace), status, owner, tags and quick actions (me
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Experience V2 contact presentation
+
+The contact list emphasizes identity, phone, tags, purpose-specific server eligibility, last incoming message and actual assignment. Quick context reuses existing conversation/activity/campaign reads; the full profile retains consent, notes and lifecycle operations. Owner IDs without display names are shown as assigned/unassigned, with “You” for the current user. The UI never derives messaging eligibility from consent alone. See [Batch 2 evidence](design/EXPERIENCE_V2_BATCH_2.md) for responsive, keyboard and accessibility validation.
