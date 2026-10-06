@@ -4,6 +4,8 @@ import { type CampaignRecipient, RECIPIENT_STATUSES } from '@fenwira/contracts'
 import {
   Alert,
   Button,
+  Card,
+  CardContent,
   type ColumnDef,
   DataTable,
   ErrorState,
@@ -24,6 +26,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useId, useState } from 'react'
+import { TemplatePreview } from '@/components/templates/template-preview'
 import { CampaignWizard } from '@/components/campaigns/campaign-wizard'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, post } from '@/lib/api/client'
@@ -253,7 +256,17 @@ export default function CampaignPage() {
         }
       />
       {c.status === 'PAUSED_INSUFFICIENT_FUNDS' ? (
-        <Alert tone="danger" title="Paused: not enough credits">
+        <Alert
+          tone="danger"
+          title="Paused: not enough credits"
+          action={
+            can('billing.read') ? (
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/billing/wallet">Open wallet</Link>
+              </Button>
+            ) : undefined
+          }
+        >
           Add credits, then resume. Recipients already sent keep their results; the rest are
           waiting.
         </Alert>
@@ -282,19 +295,42 @@ export default function CampaignPage() {
         </Alert>
       ) : null}
 
+      {c.template ? (
+        <Card>
+          <CardContent className="grid gap-5 p-5 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <h2 className="text-md font-semibold">Campaign message</h2>
+              <p className="text-sm text-secondary">
+                {c.template.name} · {c.template.language}
+              </p>
+              <p className="text-sm text-muted">
+                The version frozen at launch. Recipient values appear in the recipient report.
+              </p>
+            </div>
+            <TemplatePreview components={c.template.components} samples={{ body: [] }} compact />
+          </CardContent>
+        </Card>
+      ) : null}
       {s ? (
         <>
           <section aria-label="Campaign results" className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <MetricCard label="Total recipients" value={s.total.toLocaleString('en-IN')} />
-            <MetricCard label="Eligible" value={s.eligible.toLocaleString('en-IN')} />
-            <MetricCard label="Skipped" value={s.skipped.toLocaleString('en-IN')} />
-            <MetricCard label="Queued" value={(s.pending + s.queued).toLocaleString('en-IN')} />
             <MetricCard label="Sent" value={s.sent.toLocaleString('en-IN')} />
             <MetricCard label="Delivered" value={s.delivered.toLocaleString('en-IN')} />
             <MetricCard label="Read" value={s.read.toLocaleString('en-IN')} />
             <MetricCard label="Failed" value={s.failed.toLocaleString('en-IN')} />
           </section>
-          <dl className="flex flex-wrap gap-6 text-base text-slate">
+          <dl className="flex flex-wrap gap-6 rounded-lg border border-border bg-surface p-4 text-base text-slate">
+            {[
+              ['Total recipients', s.total],
+              ['Eligible', s.eligible],
+              ['Skipped', s.skipped],
+              ['Waiting', s.pending + s.queued],
+            ].map(([label, count]) => (
+              <div key={label}>
+                <dt className="text-sm text-muted">{label}</dt>
+                <dd className="font-semibold">{Number(count).toLocaleString('en-IN')}</dd>
+              </div>
+            ))}
             <div>
               <dt className="text-sm text-muted">Delivery rate</dt>
               <dd className="font-semibold">{percent(s.deliveryRate)}</dd>
@@ -349,6 +385,11 @@ export default function CampaignPage() {
             </div>
           ) : null}
         </>
+      ) : stats.isError ? (
+        <ErrorState
+          title="Campaign results couldn’t be loaded"
+          onRetry={() => void stats.refetch()}
+        />
       ) : (
         <Skeleton className="h-32" />
       )}

@@ -38,3 +38,5 @@ export * from './components/module-tabs'
 export * from './components/detail-drawer'
 export * from './components/patterns'
 export * from './components/trend-chart'
+
+export * from './components/progress'

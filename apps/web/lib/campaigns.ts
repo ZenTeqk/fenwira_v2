@@ -47,8 +47,9 @@ export const FIELD_LABEL = {
 } as const
 
 export function useCampaigns() {
-  const { tenantId } = useSession()
+  const { tenantId, can } = useSession()
   return useQuery({
+    enabled: can('campaigns.read'),
     queryKey: campaignsKey(tenantId, 'list'),
     queryFn: () => get<{ data: Campaign[] }>('/campaigns').then((r) => r.data),
     refetchInterval: (q) =>
@@ -66,9 +67,10 @@ export function useCampaign(id: string) {
   })
 }
 
-export function useCampaignStats(id: string, live: boolean) {
-  const { tenantId } = useSession()
+export function useCampaignStats(id: string, live: boolean, enabled = true) {
+  const { tenantId, can } = useSession()
   return useQuery({
+    enabled: enabled && can('campaigns.read'),
     queryKey: campaignsKey(tenantId, 'stats', id),
     queryFn: () => get<{ data: CampaignStats }>(`/campaigns/${id}/stats`).then((r) => r.data),
     refetchInterval: live ? 3000 : false,
@@ -144,3 +146,29 @@ export function utcToZoned(iso: string, timeZone: string): { date: string; time:
   const s = local.toISOString()
   return { date: s.slice(0, 10), time: s.slice(11, 16) }
 }
+
+/** Presentation of existing audience sources; never invent a segment/tag name from its ID. */
+export function campaignAudienceLabel(c: Campaign) {
+  if (!c.audience.include.length) return 'Audience not chosen'
+  return c.audience.include
+    .map((source) => {
+      switch (source.kind) {
+        case 'TAGS':
+          return `${source.tagIds.length} tag${source.tagIds.length === 1 ? '' : 's'} (${source.match === 'ALL' ? 'all' : 'any'})`
+        case 'SEGMENT':
+          return 'Saved segment'
+        case 'FILTER':
+          return 'Contact filter'
+        case 'IMPORT':
+          return 'Contact import'
+        case 'CONTACTS':
+          return `${source.contactIds.length.toLocaleString('en-IN')} selected contacts`
+      }
+    })
+    .join(' · ')
+}
+
+/** Same late-receipt refresh window as the existing campaign detail. */
+export const campaignResultsLive = (c: Campaign) =>
+  ACTIVE_STATUSES.includes(c.status) ||
+  Boolean(c.completedAt && Date.now() - new Date(c.completedAt).getTime() < 3600_000)

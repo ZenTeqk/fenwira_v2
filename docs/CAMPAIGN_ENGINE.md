@@ -160,3 +160,7 @@ type VariableSource =
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Experience V2 campaign operations
+
+Campaigns prioritize active/scheduled/paused communications and then focused history/drafts. Cards and rows use existing inclusive counts and server-defined rates; unknown denominators remain “—”. Audience-source summaries do not invent names from stored IDs. Snapshot-free campaigns explain that the audience is prepared at launch. Funding and template pauses link to existing recovery workflows without changing remaining recipients or the frozen template. The detail route retains controls, recipient results and export. See [Batch 2 evidence](design/EXPERIENCE_V2_BATCH_2.md) for responsive, keyboard, accessibility and operational regression results.

@@ -316,3 +316,195 @@ test('Templates preserve drafts through submission failures and provide honest e
   await page.getByRole('button', { name: 'Submit for review' }).click()
   await expect(page.locator('[data-status="APPROVED"]').first()).toBeVisible({ timeout: 30_000 })
 })
+
+async function campaignEnvironment(page: Page, label: string) {
+  const owner = await signInAsNewOwner(page, label, 'Acme Retail')
+  const headers = ownerHeaders(owner)
+  const wabaId = metaId(),
+    phoneNumberId = metaId()
+  await fetch(`${MOCK}/__mock/seed`, {
+    method: 'POST',
+    body: JSON.stringify({ wabaId, phones: [{ id: phoneNumberId }] }),
+  })
+  await fetch(`${MOCK}/__mock/templates`, {
+    method: 'POST',
+    body: JSON.stringify({
+      wabaId,
+      add: [
+        {
+          name: 'delivery_update',
+          language: 'en',
+          category: 'UTILITY',
+          status: 'APPROVED',
+          components: [
+            {
+              type: 'BODY',
+              text: 'Hi {{1}}, your delivery is on its way today.',
+              example: { body_text: [['Priya']] },
+            },
+          ],
+        },
+      ],
+    }),
+  })
+  const connection = await page.request.post(`${API}/whatsapp/connections/dev`, {
+    headers,
+    data: { wabaId, phoneNumberId, accessToken: `mock-dev:${wabaId}` },
+  })
+  expect(connection.status(), await connection.text()).toBe(201)
+  const phoneId = (await connection.json()).data.id
+  expect((await page.request.post(`${API}/templates/sync`, { headers, data: {} })).status()).toBe(
+    200,
+  )
+  const templates = (
+    await (
+      await page.request.get(`${API}/templates/approved?phoneNumberId=${phoneId}`, { headers })
+    ).json()
+  ).data
+  const template = templates.find((t: { name: string }) => t.name === 'delivery_update')
+  const tag = await page.request.post(`${API}/tags`, {
+    headers,
+    data: { name: 'Delivery customers', color: 'PRIMARY' },
+  })
+  expect(tag.status(), await tag.text()).toBe(201)
+  const tagId = (await tag.json()).data.id
+  for (const [i, name] of ['Priya Shah', 'Farah Ali', 'Ravi Kumar'].entries()) {
+    const contact = await page.request.post(`${API}/contacts`, {
+      headers,
+      data: { name, phone: `+91942221100${i}`, tagIds: [tagId] },
+    })
+    expect(contact.status(), await contact.text()).toBe(201)
+  }
+  const create = async (name: string, extra: Record<string, unknown> = {}) => {
+    const response = await page.request.post(`${API}/campaigns`, {
+      headers,
+      data: {
+        name,
+        phoneNumberId: phoneId,
+        templateVersionId: template.versionId,
+        audience: { include: [{ kind: 'TAGS', tagIds: [tagId], match: 'ANY' }], exclude: [] },
+        variableMapping: { body: [{ kind: 'FIELD', field: 'firstName' }] },
+        ...extra,
+      },
+    })
+    expect(response.status(), await response.text()).toBe(201)
+    return (await response.json()).data
+  }
+  const launch = async (id: string) => {
+    const response = await page.request.post(`${API}/campaigns/${id}/launch`, {
+      headers: { ...headers, 'Idempotency-Key': crypto.randomUUID() },
+    })
+    expect(response.status(), await response.text()).toBe(200)
+    return (await response.json()).data
+  }
+  return { owner, headers, create, launch, template, phoneId, tagId }
+}
+
+test('Campaigns prioritize actual scheduled and paused communications over history at four widths', async ({
+  page,
+}, info) => {
+  test.setTimeout(120_000)
+  const env = await campaignEnvironment(page, 'batch2-campaigns')
+  const { headers, create, launch } = env
+  const scheduled = await create('Tomorrow’s delivery update', {
+    scheduleAt: new Date(Date.now() + 86_400_000).toISOString(),
+  })
+  expect((await launch(scheduled.id)).status).toBe('SCHEDULED')
+  const completed = await create('Morning delivery update')
+  await launch(completed.id)
+  await expect
+    .poll(
+      async () =>
+        (await (await page.request.get(`${API}/campaigns/${completed.id}`, { headers })).json())
+          .data.status,
+      { timeout: 60_000 },
+    )
+    .toBe('COMPLETED')
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await page.request.get(`${API}/campaigns/${completed.id}/stats`, { headers })
+          ).json()
+        ).data.read,
+      { timeout: 30_000 },
+    )
+    .toBe(3)
+  const paused = await create('Afternoon delivery update', { rateLimitPerMinute: 1 })
+  await launch(paused.id)
+  await expect
+    .poll(
+      async () =>
+        (await (await page.request.get(`${API}/campaigns/${paused.id}`, { headers })).json()).data
+          .status,
+      { timeout: 30_000 },
+    )
+    .toBe('RUNNING')
+  const beforePause = (
+    await (await page.request.get(`${API}/campaigns/${paused.id}/recipients`, { headers })).json()
+  ).data
+  const pause = await page.request.post(`${API}/campaigns/${paused.id}/pause`, { headers })
+  expect(pause.status(), await pause.text()).toBe(200)
+  await create('Weekend delivery draft')
+  await page.goto('/campaigns')
+  const active = page.getByRole('region', { name: 'Active campaigns' })
+  const history = page.getByRole('table', { name: 'Campaigns', exact: true })
+  await expect(active.getByText('Tomorrow’s delivery update', { exact: true })).toBeVisible()
+  await expect(active.getByText('Paused by your team.')).toBeVisible()
+  await expect(
+    history.getByRole('row').filter({ hasText: 'Morning delivery update' }),
+  ).toContainText('100%')
+  await expect(history).toContainText('Weekend delivery draft')
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await accessible(page)
+    await page.screenshot({ path: info.outputPath(`campaigns-${width}.png`), fullPage: true })
+  }
+  await page.getByRole('tab', { name: 'Drafts', exact: true }).click()
+  await expect(history).toContainText('Weekend delivery draft')
+  await expect(active).toHaveCount(0)
+  await page.getByRole('searchbox', { name: 'Search campaigns' }).fill('no_matching_campaign')
+  await expect(page.getByText('No matching campaigns')).toBeVisible()
+  // All snapshotted recipients survive pause; already queued messages may finish normally.
+  const afterPause = (
+    await (await page.request.get(`${API}/campaigns/${paused.id}/recipients`, { headers })).json()
+  ).data
+  expect(afterPause.map((r: { id: string }) => r.id).sort()).toEqual(
+    beforePause.map((r: { id: string }) => r.id).sort(),
+  )
+  expect(afterPause).toHaveLength(3)
+})
+
+test('Campaign funding/template pause views explain recovery without switching frozen content', async ({
+  page,
+}) => {
+  const env = await campaignEnvironment(page, 'batch2-campaign-pause-views')
+  const scheduled = await env.create('Synthetic pause-state review', {
+    scheduleAt: new Date(Date.now() + 86_400_000).toISOString(),
+  })
+  const actual = await env.launch(scheduled.id)
+  // Read-only presentation fixtures exercise rare operational states without enabling real billing enforcement.
+  for (const status of ['PAUSED_INSUFFICIENT_FUNDS', 'PAUSED_TEMPLATE_UNAVAILABLE']) {
+    await page.route(/\/api\/v1\/campaigns$/, (route) =>
+      route.fulfill({ json: { data: [{ ...actual, status }] } }),
+    )
+    await page.goto('/campaigns')
+    const active = page.getByRole('region', { name: 'Active campaigns' })
+    if (status === 'PAUSED_INSUFFICIENT_FUNDS') {
+      await expect(active).toContainText(
+        'Unsent recipients are waiting; sent results are preserved.',
+      )
+      await expect(active.getByRole('link', { name: 'Open wallet' })).toHaveAttribute(
+        'href',
+        '/billing/wallet',
+      )
+    } else {
+      await expect(active).toContainText('same version is sendable')
+      await expect(active.getByRole('button', { name: /switch.*template/i })).toHaveCount(0)
+    }
+    await accessible(page)
+    await page.unroute(/\/api\/v1\/campaigns$/)
+  }
+})
