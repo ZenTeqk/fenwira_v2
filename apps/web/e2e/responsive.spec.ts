@@ -3,6 +3,7 @@ import { signInAsNewOwner } from './support'
 
 const VIEWPORTS = [
   { name: 'desktop', width: 1440, height: 900 },
+  { name: 'tablet', width: 768, height: 1024 },
   { name: 'laptop', width: 1024, height: 768 },
   { name: 'phone', width: 375, height: 812 },
 ]
@@ -40,7 +41,7 @@ test('sidebar is persistent at 1024px and a drawer at 375px', async ({ page }) =
   await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden()
   await page.getByRole('button', { name: 'Open navigation' }).click()
   const drawer = page.getByRole('dialog', { name: 'Navigation' })
-  await expect(drawer.getByRole('link', { name: 'Dashboard' })).toBeVisible()
+  await expect(drawer.getByRole('link', { name: 'Home', exact: true })).toBeVisible()
 })
 
 test('sidebar collapses to an icon rail and remembers it', async ({ page }) => {
@@ -49,12 +50,12 @@ test('sidebar collapses to an icon rail and remembers it', async ({ page }) => {
   await page.goto('/dashboard')
   const sidebar = page.locator('aside')
   const wide = await sidebar.evaluate((el) => el.getBoundingClientRect().width)
-  expect(wide).toBe(248)
+  expect(wide).toBe(232)
   await page.getByRole('button', { name: 'Collapse sidebar' }).click()
   await expect.poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width)).toBe(64)
   await page.reload()
   await expect.poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width)).toBe(64)
   // Icon-only links keep an accessible name.
-  await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Home', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Expand sidebar' }).click()
 })

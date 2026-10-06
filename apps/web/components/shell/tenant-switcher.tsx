@@ -35,7 +35,7 @@ export function TenantSwitcher({
           'flex items-center gap-2 rounded-md text-left',
           variant === 'topbar'
             ? 'h-9 max-w-56 px-2 text-slate hover:bg-neutral-soft'
-            : 'h-11 w-full px-2 text-surface hover:bg-slate-800',
+            : 'h-11 w-full px-2 text-slate hover:bg-neutral-soft',
           collapsed && 'justify-center px-0',
           focusRing,
         )}
@@ -48,13 +48,13 @@ export function TenantSwitcher({
                 {membership.tenantName}
               </span>
               {variant === 'sidebar' ? (
-                <span className="block truncate text-xs text-slate-400">
+                <span className="block truncate text-xs text-muted">
                   {ROLE_LABELS[membership.role]}
                 </span>
               ) : null}
             </span>
             <ChevronsUpDown
-              className={cn('size-4', variant === 'topbar' ? 'text-muted' : 'text-slate-400')}
+              className={cn('size-4', variant === 'topbar' ? 'text-muted' : 'text-muted')}
               aria-hidden="true"
             />
           </>

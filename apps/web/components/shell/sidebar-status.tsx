@@ -12,7 +12,7 @@ import {
 } from '@/lib/workspace-status'
 
 const row = cn(
-  'flex h-9 w-full items-center gap-2 rounded-sm px-3 text-sm text-slate-400 hover:bg-slate-800 hover:text-surface',
+  'flex h-9 w-full items-center gap-2 rounded-sm px-3 text-sm text-secondary hover:bg-neutral-soft hover:text-slate',
   focusRing,
   'focus-visible:outline-offset-0',
 )
@@ -68,7 +68,7 @@ export function SidebarStatus({ collapsed = false }: { collapsed?: boolean }) {
             aria-hidden="true"
             className={cn(
               'size-4 shrink-0',
-              wallet.state === 'NORMAL' ? 'text-slate-400' : 'text-warning',
+              wallet.state === 'NORMAL' ? 'text-secondary' : 'text-warning',
             )}
           />
           {collapsed ? (
@@ -84,7 +84,7 @@ export function SidebarStatus({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <ul
       aria-label="Workspace status"
-      className="flex flex-col gap-0.5 border-t border-slate-800 pt-3"
+      className="flex flex-col gap-0.5 border-t border-sidebar-border pt-3"
     >
       {items.map((i) => (
         <li key={i.key}>

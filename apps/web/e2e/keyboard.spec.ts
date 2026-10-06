@@ -64,7 +64,7 @@ test('ConfirmDialog: focus starts on Cancel, Escape cancels', async ({ page }) =
 test('CommandPalette: Control+K opens, type to filter, Enter runs', async ({ page }) => {
   await signInAsNewOwner(page, 'ui-palette')
   await page.goto('/dashboard')
-  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
   await page.keyboard.press('Control+k')
   const input = page.getByPlaceholder(
     'Search contacts, conversations, campaigns… or jump to a page',
@@ -78,7 +78,7 @@ test('CommandPalette navigates to every visible nav item', async ({ page }) => {
   test.setTimeout(90_000)
   await signInAsNewOwner(page, 'ui-palette-nav')
   await page.goto('/dashboard')
-  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
   const hrefs = await page
     .getByRole('navigation', { name: 'Main' })
     .locator('a[href]')

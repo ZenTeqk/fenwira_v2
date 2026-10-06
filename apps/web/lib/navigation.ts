@@ -39,7 +39,7 @@ export type NavLeaf = {
 export type NavItem = NavLeaf & { icon: LucideIcon; children?: NavLeaf[] }
 
 export const NAVIGATION: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', href: '/dashboard', phase: 2, icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Home', href: '/dashboard', phase: 2, icon: LayoutDashboard },
   {
     id: 'inbox',
     label: 'Inbox',

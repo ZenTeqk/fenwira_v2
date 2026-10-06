@@ -14,7 +14,7 @@ import {
 describe('navigation', () => {
   it('matches the frozen information architecture', () => {
     expect(NAVIGATION.map((i) => i.label)).toEqual([
-      'Dashboard',
+      'Home',
       'Inbox',
       'Contacts',
       'Campaigns',
@@ -108,7 +108,7 @@ describe('navigation', () => {
       { label: 'Settings', href: '/settings/workspace' },
       { label: 'Team' },
     ])
-    expect(breadcrumbsFor('/dashboard', nav)).toEqual([{ label: 'Dashboard' }])
+    expect(breadcrumbsFor('/dashboard', nav)).toEqual([{ label: 'Home' }])
     expect(breadcrumbsFor('/nowhere', nav)).toEqual([])
   })
   it('hides leaves the member lacks permission for', () => {

@@ -4,7 +4,7 @@ import { serverEnv } from '@/lib/env'
 import { fetchApiHealth } from '@/lib/health'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Dashboard' }
+export const metadata: Metadata = { title: 'Home' }
 
 /** Platform health is fetched on the server; workspace data loads in the client (permission-aware). */
 export default async function DashboardPage() {

@@ -1,27 +1,20 @@
 'use client'
 
 import {
-  Avatar,
   Breadcrumb,
   Button,
   CommandPalette,
   cn,
   Drawer,
   DrawerContent,
-  Dropdown,
-  DropdownContent,
-  DropdownItem,
-  DropdownLabel,
-  DropdownSeparator,
-  DropdownTrigger,
   focusRing,
   ModuleTabs,
   useCommandPaletteShortcut,
 } from '@fenwira/ui'
 import Link from 'next/link'
 import { SubscriptionBanner } from '@/components/billing/subscription-banner'
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Shield } from 'lucide-react'
-import { usePathname, useRouter } from 'next/navigation'
+import { Menu, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   breadcrumbsFor,
@@ -37,6 +30,7 @@ import { keys } from '@/lib/api/keys'
 import { usePresenceHeartbeat, useRealtimeEvent } from '@/lib/realtime'
 import { useSession } from '../session/session-provider'
 import { useCommandGroups } from '@/lib/command-search'
+import { AccountMenu } from './account-menu'
 import { BrandMark } from './brand-mark'
 import { HelpMenu } from './help-menu'
 import { NotificationsBell } from './notifications-bell'
@@ -65,16 +59,15 @@ function writeCollapsed(value: boolean): void {
 type AppShellProps = { children: ReactNode; navPreview: boolean; galleryEnabled: boolean }
 
 /**
- * Application shell (docs/design/UX_PATTERNS.md → Application shell): slate sidebar of modules
- * (248px, 64px collapsed, a drawer below 1024px) with workspace status at its foot; a top bar with
+ * Application shell (docs/design/UX_PATTERNS.md → Application shell): light sidebar of modules
+ * (232px, 64px collapsed, a drawer below 1024px) with workspace status at its foot; a top bar with
  * workspace, breadcrumb, search, help, notifications and account; module tabs; the page.
  */
 export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps) {
   const pathname = usePathname()
   // The inbox fills the viewport under the header with its own panes (docs/INBOX.md → Layout).
   const fullBleed = pathname === '/inbox' || pathname.startsWith('/inbox/')
-  const router = useRouter()
-  const { me, membership, signOut, tenantId, can } = useSession()
+  const { membership, tenantId, can } = useSession()
   const unread = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox-unread'),
     queryFn: () =>
@@ -127,8 +120,8 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          'sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 bg-slate p-3 transition-all lg:flex',
-          collapsed ? 'w-16' : 'w-62',
+          'sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 border-r border-sidebar-border bg-sidebar p-3 transition-all lg:flex',
+          collapsed ? 'w-16' : 'w-58',
         )}
       >
         <Link
@@ -139,20 +132,21 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             focusRing,
           )}
         >
-          <BrandMark tone="dark" compact={collapsed} />
+          <BrandMark tone="light" compact={collapsed} />
           <span className="sr-only">Fenwira home</span>
         </Link>
         <div className="flex-1 overflow-y-auto">
           <SidebarNav items={nav} pathname={pathname} collapsed={collapsed} badges={badges} />
         </div>
         <SidebarStatus collapsed={collapsed} />
+        <AccountMenu footer collapsed={collapsed} />
         <button
           type="button"
           onClick={toggleCollapsed}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           aria-pressed={collapsed}
           className={cn(
-            'flex h-9 items-center gap-3 rounded-sm px-3 text-base text-slate-400 hover:bg-slate-800 hover:text-surface',
+            'flex h-9 items-center gap-3 rounded-sm px-3 text-base text-secondary hover:bg-neutral-soft hover:text-slate',
             collapsed && 'justify-center px-0',
             focusRing,
           )}
@@ -168,10 +162,11 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
 
       {/* Mobile / tablet navigation */}
       <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
-        <DrawerContent title="Navigation" side="left" width="sm" tone="dark">
+        <DrawerContent title="Navigation" side="left" width="sm" tone="light">
           <div className="flex flex-col gap-4">
             <TenantSwitcher />
             <SidebarStatus />
+            <AccountMenu footer />
             <SidebarNav
               items={nav}
               pathname={pathname}
@@ -205,41 +200,17 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             size="sm"
             onClick={() => setPaletteOpen(true)}
             aria-label="Search and jump to (Control K)"
-            className="gap-2 text-muted"
+            className="min-w-0 gap-2 text-secondary lg:w-72 lg:justify-start"
           >
             <Search aria-hidden="true" />
-            <span className="hidden sm:inline">Search</span>
-            <kbd className="hidden rounded-sm border border-border px-1.5 font-mono text-xs sm:inline">
+            <span className="hidden sm:inline">Search Fenwira…</span>
+            <kbd className="ml-auto hidden rounded-sm border border-border px-1.5 font-mono text-xs sm:inline">
               ⌘K
             </kbd>
           </Button>
           <HelpMenu galleryEnabled={galleryEnabled} />
           <NotificationsBell />
-          <Dropdown>
-            <DropdownTrigger className={cn('rounded-full', focusRing)}>
-              {/* Initials are decorative; naming via text (not aria-label) avoids a label/content mismatch. */}
-              <span aria-hidden="true">
-                <Avatar name={me.user.name} size="md" />
-              </span>
-              <span className="sr-only">Account menu</span>
-            </DropdownTrigger>
-            <DropdownContent className="w-64">
-              <DropdownLabel className="flex flex-col gap-0.5 text-slate">
-                <span className="truncate text-base font-medium">{me.user.name}</span>
-                <span className="truncate text-xs font-normal text-muted">{me.user.email}</span>
-              </DropdownLabel>
-              <DropdownSeparator />
-              <DropdownItem onSelect={() => router.push('/settings/security')}>
-                <Shield aria-hidden="true" />
-                Security
-              </DropdownItem>
-              <DropdownSeparator />
-              <DropdownItem onSelect={() => void signOut()}>
-                <LogOut aria-hidden="true" />
-                Sign out
-              </DropdownItem>
-            </DropdownContent>
-          </Dropdown>
+          <AccountMenu />
         </header>
 
         {tabs.length && !fullBleed ? (

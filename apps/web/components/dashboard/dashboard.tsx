@@ -220,7 +220,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
   return (
     <DashboardLayout
       header={{
-        title: 'Dashboard',
+        title: 'Home',
         description: 'What’s happening in your WhatsApp workspace, and what needs you.',
       }}
       attention={

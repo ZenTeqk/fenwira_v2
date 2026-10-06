@@ -32,7 +32,7 @@ test('register → verify email → create workspace → dashboard', async ({ pa
   await page.getByRole('button', { name: 'Create workspace' }).click()
 
   await expect(page).toHaveURL(/\/dashboard$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
   await expect(
     page.getByRole('button', { name: /Current workspace: Urban Leaf Home/ }),
   ).toBeVisible()
