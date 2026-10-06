@@ -172,3 +172,19 @@ export function campaignAudienceLabel(c: Campaign) {
 export const campaignResultsLive = (c: Campaign) =>
   ACTIVE_STATUSES.includes(c.status) ||
   Boolean(c.completedAt && Date.now() - new Date(c.completedAt).getTime() < 3600_000)
+
+/** JSONB may reorder object keys. Compare editor state by values, preserving array order. */
+export function campaignConfigSignature(value: unknown): string {
+  const ordered = (input: unknown): unknown => {
+    if (Array.isArray(input)) return input.map(ordered)
+    if (input && typeof input === 'object')
+      return Object.fromEntries(
+        Object.entries(input)
+          .filter(([, item]) => item !== undefined)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, item]) => [key, ordered(item)]),
+      )
+    return input
+  }
+  return JSON.stringify(ordered(value))
+}

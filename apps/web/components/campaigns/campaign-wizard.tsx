@@ -9,7 +9,7 @@ import {
   EMPTY_FILTER,
   type ImportJob,
   requiredVariables,
-  type TemplateComponents,
+  type VariableSamples,
   type VariableMapping,
   type VariableSource,
   type WhatsAppConnection,
@@ -25,7 +25,8 @@ import {
   cn,
   Field,
   Input,
-  MetricCard,
+  EmptyState,
+  ErrorState,
   RadioGroup,
   RadioGroupItem,
   Select,
@@ -38,8 +39,10 @@ import {
   useConfirm,
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { type ReactNode, useId, useMemo, useState } from 'react'
+import { type ReactNode, useId, useMemo, useRef, useState } from 'react'
 import { completeFilter, FilterBuilder } from '@/components/contacts/filter-builder'
 import { useSession } from '@/components/session/session-provider'
 import { TemplatePreview } from '@/components/templates/template-preview'
@@ -47,6 +50,7 @@ import { ApiError, get, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import {
   campaignsKey,
+  campaignConfigSignature,
   FIELD_LABEL,
   formatInZone,
   money,
@@ -55,7 +59,13 @@ import {
   zonedToUtc,
 } from '@/lib/campaigns'
 import { useProperties, useSegments, useTags } from '@/lib/contacts'
-import { CATEGORY_LABEL, languageLabel, useApprovedTemplates } from '@/lib/templates'
+import { useDraftProtection } from './use-draft-protection'
+import {
+  CATEGORY_LABEL,
+  languageLabel,
+  useApprovedTemplates,
+  useTemplateSampleUrl,
+} from '@/lib/templates'
 
 const STEPS = ['Audience', 'Template', 'Personalize', 'Schedule', 'Review'] as const
 type Kind = AudienceSource['kind']
@@ -167,7 +177,13 @@ function VariablePicker({
  * Create Campaign wizard (docs/CAMPAIGN_ENGINE.md): Audience → Template → Personalize → Schedule →
  * Review → Launch, with a persistent summary on wide screens (UX_PATTERNS → Campaigns). The draft is saved at every step; Review runs the server estimate.
  */
-export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
+export function CampaignWizard({
+  campaign,
+  initialTemplateVersionId,
+}: {
+  campaign?: Campaign
+  initialTemplateVersionId?: string
+}) {
   const { tenantId, can } = useSession()
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -189,7 +205,9 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
     exclusion?.kind === 'TAGS' ? exclusion.tagIds : [],
   )
   const [phoneId, setPhoneId] = useState(campaign?.phoneNumberId ?? '')
-  const [versionId, setVersionId] = useState(campaign?.templateVersionId ?? '')
+  const [versionId, setVersionId] = useState(
+    campaign?.templateVersionId ?? initialTemplateVersionId ?? '',
+  )
   const [mapping, setMapping] = useState<VariableMapping>(campaign?.variableMapping ?? { body: [] })
   const [later, setLater] = useState(Boolean(campaign?.scheduleAt))
   const zone = saved?.timezone ?? 'Asia/Kolkata'
@@ -239,36 +257,74 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
     name: name.trim(),
     audience,
     ...(phone ? { phoneNumberId: phone } : {}),
-    ...(versionId ? { templateVersionId: versionId } : {}),
+    ...(template ? { templateVersionId: template.versionId } : {}),
     variableMapping: mapping,
     scheduleAt: later && date && time ? zonedToUtc(date, time, zone) : null,
     rateLimitPerMinute: rate ? Number(rate) : null,
   })
+  // Compare form configuration, excluding the virtual automatically selected number.
+  const signature = campaignConfigSignature({
+    ...body(),
+    phoneNumberId: phoneId,
+    templateVersionId: versionId,
+  })
+  const [savedSignature, setSavedSignature] = useState(signature)
+  const meaningful = Boolean(name.trim() || audience.include.length || versionId || rate || later)
+  const dirty = signature !== savedSignature && (Boolean(saved) || meaningful)
+  const operationLock = useRef(false)
+  const launchKey = useRef<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [sampleIndex, setSampleIndex] = useState('0')
   const save = useMutation({
-    mutationFn: async () =>
+    mutationFn: async ({
+      payload,
+    }: {
+      payload: ReturnType<typeof body>
+      signature: string
+      advance: boolean
+    }) =>
       saved
-        ? (await patch<{ data: Campaign }>(`/campaigns/${saved.id}`, body())).data
-        : (await post<{ data: Campaign }>('/campaigns', body())).data,
-    onSuccess: (c) => {
+        ? (await patch<{ data: Campaign }>(`/campaigns/${saved.id}`, payload)).data
+        : (await post<{ data: Campaign }>('/campaigns', payload)).data,
+    onSuccess: (c, submitted) => {
       setSaved(c)
+      setSavedSignature(submitted.signature)
+      launchKey.current = null
       void queryClient.invalidateQueries({ queryKey: campaignsKey(tenantId) })
       if (!campaign) window.history.replaceState(null, '', `/campaigns/${c.id}`)
-      setStep((s) => Math.min(s + 1, STEPS.length - 1))
+      if (submitted.advance) setStep((s) => Math.min(s + 1, STEPS.length - 1))
+      else toast.success('Draft saved')
     },
     onError: (err) =>
       toast.error(err instanceof ApiError ? err.message : 'The draft was not saved.'),
+    onSettled: () => {
+      operationLock.current = false
+    },
   })
+  const previewMatchesSaved = Boolean(
+    saved &&
+    template &&
+    campaignConfigSignature([audience, phone, versionId, mapping]) ===
+      campaignConfigSignature([
+        saved.audience,
+        saved.phoneNumberId,
+        saved.templateVersionId,
+        saved.variableMapping,
+      ]),
+  )
   const estimate = useQuery({
     queryKey: campaignsKey(tenantId, 'estimate', saved?.id ?? 'none', String(saved?.updatedAt)),
     queryFn: () =>
       post<{ data: CampaignEstimate }>(`/campaigns/${saved!.id}/estimate`).then((r) => r.data),
-    enabled: step === 4 && Boolean(saved),
+    enabled: Boolean(saved && saved.templateVersionId && saved.phoneNumberId) && step >= 2,
   })
   const launch = useMutation({
-    mutationFn: () =>
-      post<{ data: Campaign }>(`/campaigns/${saved!.id}/launch`, undefined, {
-        headers: { 'Idempotency-Key': crypto.randomUUID() },
-      }),
+    mutationFn: () => {
+      launchKey.current ??= crypto.randomUUID()
+      return post<{ data: Campaign }>(`/campaigns/${saved!.id}/launch`, undefined, {
+        headers: { 'Idempotency-Key': launchKey.current },
+      })
+    },
     onSuccess: (r) => {
       toast.success(r.data.status === 'SCHEDULED' ? 'Campaign scheduled' : 'Campaign launched')
       void queryClient.invalidateQueries({ queryKey: campaignsKey(tenantId) })
@@ -276,11 +332,24 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
     },
     onError: (err) =>
       toast.error(err instanceof ApiError ? err.message : 'The campaign did not launch.'),
+    onSettled: () => {
+      operationLock.current = false
+    },
   })
-
+  const busy = save.isPending || launch.isPending || confirming
+  useDraftProtection(dirty, busy, saved?.id)
+  const beginSave = (advance: boolean) => {
+    if (operationLock.current) return
+    operationLock.current = true
+    save.mutate({ payload: body(), signature, advance })
+  }
+  const header = template?.components.header
+  const sampleUrl = useTemplateSampleUrl(
+    header && header.format !== 'TEXT' ? header.sampleFileId : null,
+  )
   const canContinue = [
     name.trim().length > 0 && audience.include.length > 0,
-    Boolean(phone && versionId),
+    Boolean(phone && template),
     Boolean(
       need &&
       Array.from({ length: need.body }, (_, i) => mapping.body[i]).every(Boolean) &&
@@ -302,33 +371,65 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <nav aria-label="Campaign steps">
-        <ol className="flex flex-wrap gap-2">
-          {STEPS.map((s, i) => (
-            <li key={s}>
-              <button
-                type="button"
-                aria-current={i === step ? 'step' : undefined}
-                disabled={i > step}
-                onClick={() => setStep(i)}
-                className={cn(
-                  'rounded-full border px-3 py-1 text-sm',
-                  i === step
-                    ? 'border-primary bg-primary-soft font-semibold text-slate'
-                    : i < step
-                      ? 'border-border bg-surface text-slate'
-                      : 'border-border bg-surface text-muted',
-                )}
-              >
-                {i + 1}. {s}
-              </button>
-            </li>
-          ))}
-        </ol>
-      </nav>
-
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-6 xl:col-span-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav aria-label="Campaign steps">
+          <ol className="flex flex-wrap gap-1">
+            {STEPS.map((label, i) => (
+              <li key={label}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-current={i === step ? 'step' : undefined}
+                  disabled={i > step || busy}
+                  onClick={() => setStep(i)}
+                  className={cn(i === step && 'bg-primary-soft text-primary-strong')}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'flex size-6 items-center justify-center rounded-full border text-sm',
+                      i <= step
+                        ? 'border-primary-strong text-primary-strong'
+                        : 'border-border text-muted',
+                    )}
+                  >
+                    {i < step ? <Check aria-hidden="true" className="size-3" /> : i + 1}
+                  </span>
+                  {label}
+                </Button>
+              </li>
+            ))}
+          </ol>
+        </nav>
+        <p role="status" className="text-sm text-muted">
+          {save.isPending
+            ? 'Saving draft…'
+            : dirty
+              ? 'Unsaved changes'
+              : saved
+                ? 'Draft saved'
+                : 'Not saved yet'}
+        </p>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <fieldset disabled={busy} className="flex min-w-0 flex-col gap-5 lg:col-span-3">
+          <legend className="sr-only">Campaign configuration</legend>
+          {save.isError ? (
+            <Alert tone="danger" title="Draft couldn’t be saved">
+              {save.error instanceof ApiError
+                ? save.error.message
+                : 'Your changes are still here. Try saving again.'}
+            </Alert>
+          ) : null}
+          {launch.isError ? (
+            <Alert tone="danger" title="Launch couldn’t be confirmed">
+              {launch.error instanceof ApiError
+                ? launch.error.message
+                : 'Try again to confirm the launch.'}{' '}
+              Retry uses the same launch reference.
+            </Alert>
+          ) : null}
           {step === 0 ? (
             <Step title="Who receives it">
               <Field label="Campaign name" hint="Only your team sees it.">
@@ -460,6 +561,7 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
                     onValueChange={(v) => {
                       setPhoneId(v)
                       setVersionId('')
+                      setMapping({ body: [] })
                     }}
                   >
                     <SelectTrigger aria-labelledby={id}>
@@ -506,8 +608,36 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
                   Marketing templates go only to contacts who agreed to marketing messages.
                 </Alert>
               ) : null}
-              {template ? (
-                <TemplatePreview components={template.components} samples={template.samples} />
+              {numbers.isError ? (
+                <ErrorState
+                  title="WhatsApp numbers couldn’t be loaded"
+                  onRetry={() => void numbers.refetch()}
+                />
+              ) : null}
+              {phone && templates.isError ? (
+                <ErrorState
+                  title="Approved templates couldn’t be loaded"
+                  onRetry={() => void templates.refetch()}
+                />
+              ) : null}
+              {phone && !templates.isPending && !templates.isError && !templates.data?.length ? (
+                <EmptyState
+                  title="No approved messages for this number"
+                  description="Create or sync a template, then wait for Meta’s approval."
+                  action={
+                    can('templates.read') ? (
+                      <Button variant="secondary" asChild>
+                        <Link href="/templates">Open templates</Link>
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : null}
+              {versionId && phone && !templates.isPending && !templates.isError && !template ? (
+                <Alert tone="warning" title="Selected template unavailable">
+                  Choose an approved version for this WhatsApp number. The saved draft remains
+                  available.
+                </Alert>
               ) : null}
             </Step>
           ) : null}
@@ -600,21 +730,29 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
 
           {step === 4 ? (
             <Step title="Review">
-              {estimate.isPending || !e ? (
+              {estimate.isError ? (
+                <ErrorState
+                  title="Recipient estimate couldn’t be loaded"
+                  onRetry={() => void estimate.refetch()}
+                />
+              ) : estimate.isPending || !e ? (
                 <Skeleton className="h-40" />
               ) : (
                 <>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <MetricCard label="Audience" value={e.total.toLocaleString('en-IN')} />
-                    <MetricCard
-                      label="Will receive it"
-                      value={e.sendable.toLocaleString('en-IN')}
-                    />
-                    <MetricCard
-                      label="Left out"
-                      value={(e.total - e.sendable).toLocaleString('en-IN')}
-                    />
-                  </div>
+                  <dl className="grid grid-cols-3 gap-3 rounded-md border border-border bg-neutral-soft p-4">
+                    {[
+                      ['Audience', e.total],
+                      ['Will receive it', e.sendable],
+                      ['Left out', e.total - e.sendable],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <dt className="text-sm text-muted">{label}</dt>
+                        <dd className="text-lg font-semibold">
+                          {Number(value).toLocaleString('en-IN')}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
                   {Object.keys(e.skipped).length ? (
                     <section aria-label="Why contacts are left out" className="flex flex-col gap-1">
                       <h3 className="text-sm font-semibold text-slate">
@@ -638,7 +776,7 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
                     </Alert>
                   ) : null}
                   <p className="text-base text-slate">
-                    Estimated cost:{' '}
+                    Estimated customer charge:{' '}
                     <strong>
                       {e.estimatedCostMinor === null
                         ? 'not available'
@@ -647,7 +785,7 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
                     {e.availableFundsMinor !== null ? (
                       <>
                         {' '}
-                        · Available credits:{' '}
+                        · Wallet available:{' '}
                         <strong>{money(e.availableFundsMinor, e.currency)}</strong>
                       </>
                     ) : null}
@@ -657,20 +795,7 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
                       {w.message}
                     </Alert>
                   ))}
-                  {template && e.samples.length ? (
-                    <section aria-label="Sample messages" className="grid gap-4 md:grid-cols-2">
-                      {e.samples.slice(0, 2).map((s) => (
-                        <div key={s.phoneE164} className="flex flex-col gap-1">
-                          <p className="text-sm text-muted">To {s.contactName ?? s.phoneE164}</p>
-                          <TemplatePreview
-                            components={template.components as TemplateComponents}
-                            samples={s.variables as { body: string[]; header?: string[] }}
-                          />
-                        </div>
-                      ))}
-                    </section>
-                  ) : null}
-                  {later && date ? (
+                  {later && date && time ? (
                     <p className="text-base text-slate">
                       Sends on {formatInZone(zonedToUtc(date, time, zone), zone)} ({zone}).
                     </p>
@@ -680,7 +805,15 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
             </Step>
           ) : null}
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+            <Button
+              variant="secondary"
+              loading={save.isPending && !save.variables?.advance}
+              disabled={!name.trim() || busy}
+              onClick={() => beginSave(false)}
+            >
+              Save draft
+            </Button>
             {step > 0 ? (
               <Button variant="secondary" onClick={() => setStep((s) => s - 1)}>
                 Back
@@ -688,18 +821,22 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
             ) : null}
             {step < 4 ? (
               <Button
-                loading={save.isPending}
-                disabled={!canContinue}
-                onClick={() => save.mutate()}
+                loading={save.isPending && save.variables?.advance}
+                disabled={!canContinue || busy}
+                onClick={() => beginSave(true)}
               >
                 Save and continue
               </Button>
             ) : can('campaigns.launch') ? (
               <Button
                 loading={launch.isPending}
-                disabled={!e || e.sendable === 0}
+                disabled={
+                  !e || estimate.isError || estimate.isFetching || e.sendable === 0 || dirty || busy
+                }
                 onClick={async () => {
-                  if (!e) return
+                  if (!e || operationLock.current) return
+                  operationLock.current = true
+                  setConfirming(true)
                   const when =
                     later && date ? formatInZone(zonedToUtc(date, time, zone), zone) : 'right away'
                   const ok = await confirm({
@@ -709,12 +846,14 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
                       `${e.sendable.toLocaleString('en-IN')} contacts receive “${template?.name ?? 'the template'}” ${later ? `on ${when}` : 'right away'}.`,
                       `${(e.total - e.sendable).toLocaleString('en-IN')} contacts are left out (consent, blocked or missing values).`,
                       e.estimatedCostMinor === null
-                        ? 'Estimated cost: not available.'
-                        : `Estimated cost ${money(e.estimatedCostMinor, e.currency)}${e.availableFundsMinor !== null ? ` of ${money(e.availableFundsMinor, e.currency)} available` : ''}.`,
+                        ? 'Estimated customer charge: not available.'
+                        : `Estimated customer charge ${money(e.estimatedCostMinor, e.currency)}${e.availableFundsMinor !== null ? ` of ${money(e.availableFundsMinor, e.currency)} available` : ''}.`,
                     ],
                     confirmLabel: later ? 'Schedule campaign' : 'Launch campaign',
                   })
+                  setConfirming(false)
                   if (ok) launch.mutate()
+                  else operationLock.current = false
                 }}
               >
                 {later ? 'Schedule campaign' : 'Launch campaign'}
@@ -724,12 +863,83 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
                 Someone with permission to launch campaigns can send it.
               </p>
             )}
+            <Button variant="ghost" asChild>
+              <Link href="/campaigns">Exit</Link>
+            </Button>
           </div>
-        </div>
-        <aside aria-labelledby="campaign-summary" className="hidden xl:block">
-          <div className="sticky top-20 flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
-            <h2 id="campaign-summary" className="text-md font-semibold text-slate">
-              Summary
+        </fieldset>
+        <aside aria-labelledby="campaign-summary" className="min-w-0 lg:col-span-2">
+          <div className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5 lg:sticky lg:top-20">
+            <div className="flex flex-col gap-3">
+              <h2 className="text-md font-semibold text-slate">WhatsApp preview</h2>
+              {template ? (
+                <>
+                  <p className="text-sm text-secondary">
+                    {template.name} · {languageLabel(template.language)}
+                  </p>
+                  {previewMatchesSaved && e?.samples.length ? (
+                    <>
+                      {e.samples.length > 1 ? (
+                        <Labeled label="Preview recipient">
+                          {(id) => (
+                            <Select value={sampleIndex} onValueChange={setSampleIndex}>
+                              <SelectTrigger aria-labelledby={id}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {e.samples.map((sample, i) => (
+                                  <SelectItem key={sample.phoneE164} value={String(i)}>
+                                    {sample.contactName ?? sample.phoneE164}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </Labeled>
+                      ) : (
+                        <p className="text-sm text-muted">
+                          To {e.samples[0]?.contactName ?? e.samples[0]?.phoneE164}
+                        </p>
+                      )}
+                      <TemplatePreview
+                        components={template.components}
+                        samples={
+                          (e.samples[Number(sampleIndex)] ?? e.samples[0])!
+                            .variables as VariableSamples
+                        }
+                        headerImageUrl={sampleUrl.data}
+                      />
+                      <p className="text-sm text-muted">
+                        Recipient values from the saved server estimate. Eligibility is checked
+                        again when sending.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <TemplatePreview
+                        components={template.components}
+                        samples={template.samples}
+                        headerImageUrl={sampleUrl.data}
+                      />
+                      <p className="text-sm text-muted">
+                        Template example values. Save your audience and personalization to preview
+                        recipient values.
+                      </p>
+                    </>
+                  )}
+                </>
+              ) : (
+                <EmptyState
+                  title="Choose a message to preview"
+                  description="An approved WhatsApp template appears here as you prepare the campaign."
+                />
+              )}
+            </div>
+            <h2
+              id="campaign-summary"
+              className="border-t border-border pt-4 text-md font-semibold text-slate"
+            >
+              Campaign summary
             </h2>
             <dl className="flex flex-col gap-3 text-sm">
               {[
@@ -765,19 +975,19 @@ export function CampaignWizard({ campaign }: { campaign?: Campaign }) {
                 [
                   'When',
                   later
-                    ? date
+                    ? date && time
                       ? formatInZone(zonedToUtc(date, time, zone), zone)
                       : 'Scheduled (pick a date)'
                     : 'Right after launch',
                 ],
-                ...(e
+                ...(e && previewMatchesSaved
                   ? [
                       [
                         'Will receive',
                         `${e.sendable.toLocaleString('en-IN')} of ${e.total.toLocaleString('en-IN')}`,
                       ],
                       [
-                        'Estimated cost',
+                        'Estimated customer charge',
                         e.estimatedCostMinor === null
                           ? 'Not available'
                           : money(e.estimatedCostMinor, e.currency),

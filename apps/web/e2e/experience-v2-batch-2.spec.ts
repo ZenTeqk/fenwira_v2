@@ -1,5 +1,9 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test, type Page } from '@playwright/test'
+import { chromium, expect, test, type Page } from '@playwright/test'
+import { execFile } from 'node:child_process'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { promisify } from 'node:util'
 import { API, customerWritesIn, metaId, MOCK, ownerHeaders, signInAsNewOwner } from './support'
 
 const WIDTHS = [1440, 1024, 768, 375]
@@ -506,5 +510,284 @@ test('Campaign funding/template pause views explain recovery without switching f
     }
     await accessible(page)
     await page.unroute(/\/api\/v1\/campaigns$/)
+  }
+})
+
+test('Campaign Studio keeps guided steps beside recipient previews at four widths', async ({
+  page,
+}, info) => {
+  test.setTimeout(120_000)
+  const env = await campaignEnvironment(page, 'batch2-studio')
+  await page.goto('/templates')
+  await page.getByRole('button', { name: 'Preview delivery_update', exact: true }).click()
+  await page
+    .getByRole('dialog', { name: 'delivery_update' })
+    .getByRole('link', { name: 'Use in campaign' })
+    .click()
+  await page.getByLabel('Campaign name').fill('Tomorrow’s deliveries')
+  await page.getByRole('checkbox', { name: 'Delivery customers', exact: true }).first().click()
+  await page.getByRole('button', { name: 'Save and continue' }).click()
+  await expect(page.getByRole('combobox', { name: 'Approved template' })).toContainText(
+    'delivery_update',
+  )
+  await page.getByRole('button', { name: 'Save and continue' }).click()
+  await page.getByRole('combobox', { name: 'Message {{1}}: value' }).click()
+  await page.getByRole('option', { name: 'First name', exact: true }).click()
+  const draftId = new URL(page.url()).pathname.split('/').at(-1)!
+  await page.route(`**/api/v1/campaigns/${draftId}`, (route) =>
+    route.request().method() === 'PATCH'
+      ? route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: { code: 'UNAVAILABLE', message: 'Draft save temporarily unavailable' },
+          }),
+        })
+      : route.continue(),
+  )
+  await page.getByRole('button', { name: 'Save and continue' }).click()
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Draft couldn’t be saved' }),
+  ).toContainText('Draft save temporarily unavailable')
+  await expect(page.getByRole('combobox', { name: 'Message {{1}}: value' })).toContainText(
+    'First name',
+  )
+  await page.unroute(`**/api/v1/campaigns/${draftId}`)
+  await page.getByRole('button', { name: 'Save and continue' }).click()
+  await expect(page.getByRole('radio', { name: /Send now/ })).toBeChecked()
+  const preview = page.getByRole('figure', { name: 'Message preview' })
+  await expect(preview).toContainText(/Hi (Priya|Farah|Ravi), your delivery/)
+  await page.getByRole('combobox', { name: 'Preview recipient' }).click()
+  await page.getByRole('option', { name: 'Farah Ali', exact: true }).click()
+  await expect(preview).toContainText('Hi Farah, your delivery')
+  await page.getByRole('radio', { name: 'Schedule for later' }).click()
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
+  await page.getByLabel('Date', { exact: true }).fill(tomorrow)
+  await page.getByLabel('Time', { exact: true }).fill('')
+  await expect(page.getByRole('button', { name: 'Save and continue' })).toBeDisabled()
+  await expect(page.getByRole('heading', { name: 'When to send', exact: true })).toBeVisible()
+  await page.getByLabel('Time', { exact: true }).fill('09:30')
+  await page.getByRole('button', { name: 'Save and continue' }).click()
+  await expect(page.getByText('Will receive it', { exact: true })).toBeVisible()
+  await expect(page.getByText('Estimated customer charge:', { exact: false }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Schedule campaign', exact: true })).toBeEnabled()
+  const estimateRoute = `**/api/v1/campaigns/${draftId}/estimate`
+  await page.route(estimateRoute, (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: { code: 'UNAVAILABLE', message: 'Estimate temporarily unavailable' },
+      }),
+    }),
+  )
+  await page.getByRole('button', { name: 'Schedule', exact: true }).click()
+  await page.getByLabel('Time', { exact: true }).fill('09:45')
+  await page.getByRole('button', { name: 'Save and continue' }).click()
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Recipient estimate couldn’t be loaded' }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Schedule campaign', exact: true })).toBeDisabled()
+  await page.unroute(estimateRoute)
+  await page.getByRole('button', { name: 'Try again', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Schedule campaign', exact: true })).toBeEnabled()
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await accessible(page)
+    await page.screenshot({ path: info.outputPath(`campaign-studio-${width}.png`), fullPage: true })
+  }
+  await page.getByRole('button', { name: 'Schedule campaign', exact: true }).click()
+  const confirmation = page.getByRole('alertdialog', { name: 'Schedule this campaign?' })
+  await expect(confirmation).toContainText('3 contacts receive')
+  await accessible(page)
+  await confirmation.getByRole('button', { name: 'Schedule campaign', exact: true }).click()
+  await expect(page.locator('[data-status="SCHEDULED"]').first()).toBeVisible()
+  const stored = (
+    await (await page.request.get(`${API}/campaigns/${draftId}`, { headers: env.headers })).json()
+  ).data
+  expect(stored.timezone).toBe('Asia/Kolkata')
+  expect(new Date(stored.scheduleAt).toISOString()).toBe(`${tomorrow}T04:15:00.000Z`)
+})
+
+test('Campaign Studio protects unsaved links, browser Back and reload, but saved drafts exit freely', async ({
+  page,
+}) => {
+  test.setTimeout(90_000)
+  const env = await campaignEnvironment(page, 'batch2-studio-drafts')
+  await page.goto('/campaigns')
+  await page.getByRole('link', { name: 'New campaign', exact: true }).click()
+  await expect(page.getByText('Not saved yet', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Exit', exact: true }).click()
+  await expect(page).toHaveURL(/\/campaigns$/)
+  await page.getByRole('link', { name: 'New campaign', exact: true }).click()
+  await page.getByLabel('Campaign name').fill('Retain this draft')
+  await page.getByRole('link', { name: 'Exit', exact: true }).click()
+  const dialog = page.getByRole('alertdialog', { name: 'Leave with unsaved changes?' })
+  await expect(dialog).toBeVisible()
+  await accessible(page)
+  await dialog.getByRole('button', { name: 'Keep editing' }).click()
+  await expect(page.getByRole('link', { name: 'Exit', exact: true })).toBeFocused()
+  await expect(page.getByLabel('Campaign name')).toHaveValue('Retain this draft')
+  const back = page.goBack({ waitUntil: 'commit', timeout: 5000 }).catch(() => null)
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Keep editing' }).click()
+  await back
+  await expect(page).toHaveURL(/\/campaigns\/new$/)
+  await expect(page.getByLabel('Campaign name')).toHaveValue('Retain this draft')
+  let reloadProtected = false
+  page.once('dialog', async (native) => {
+    reloadProtected = native.type() === 'beforeunload'
+    await native.dismiss()
+  })
+  await page.reload({ timeout: 5000 }).catch(() => undefined)
+  expect(reloadProtected).toBe(true)
+  await expect(page.getByLabel('Campaign name')).toHaveValue('Retain this draft')
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  await expect(page.getByText('Draft saved', { exact: true }).first()).toBeVisible()
+  const id = new URL(page.url()).pathname.split('/').at(-1)!
+  await expect(page.getByLabel('Campaign name')).toHaveValue('Retain this draft')
+  await expect(page.getByRole('button', { name: 'Audience', exact: true })).toHaveAttribute(
+    'aria-current',
+    'step',
+  )
+  await page.getByRole('link', { name: 'Exit', exact: true }).click()
+  await expect(page).toHaveURL(/\/campaigns$/)
+  await expect(dialog).toHaveCount(0)
+  const stored = (
+    await (await page.request.get(`${API}/campaigns/${id}`, { headers: env.headers })).json()
+  ).data
+  expect(stored.name).toBe('Retain this draft')
+  expect(stored.status).toBe('DRAFT')
+  await page.goto(`/campaigns/${id}`)
+  await page.getByLabel('Campaign name').fill('Discard this unsaved rename')
+  await page.getByRole('link', { name: 'Exit', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Discard changes' }).click()
+  await expect(page).toHaveURL(/\/campaigns$/)
+  const afterDiscard = (
+    await (await page.request.get(`${API}/campaigns/${id}`, { headers: env.headers })).json()
+  ).data
+  expect(afterDiscard.name).toBe('Retain this draft')
+})
+
+test('Campaign Studio retries a lost launch response with the same idempotency key', async ({
+  page,
+}) => {
+  test.setTimeout(90_000)
+  const env = await campaignEnvironment(page, 'batch2-studio-launch-retry')
+  const draft = await env.create('Safe launch retry', {
+    scheduleAt: new Date(Date.now() + 86_400_000).toISOString(),
+  })
+  await page.goto(`/campaigns/${draft.id}`)
+  for (let step = 0; step < 4; step++)
+    await page.getByRole('button', { name: 'Save and continue' }).click()
+  await expect(page.getByRole('button', { name: 'Schedule campaign', exact: true })).toBeEnabled()
+  const keys: string[] = []
+  await page.route(`**/api/v1/campaigns/${draft.id}/launch`, async (route) => {
+    keys.push(route.request().headers()['idempotency-key']!)
+    const response = await route.fetch()
+    expect(response.status()).toBe(200)
+    if (keys.length === 1)
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'UNAVAILABLE', message: 'Launch response unavailable' },
+        }),
+      })
+    else await route.fulfill({ response })
+  })
+  const launch = async () => {
+    await page.getByRole('button', { name: 'Schedule campaign', exact: true }).click()
+    await page
+      .getByRole('alertdialog', { name: 'Schedule this campaign?' })
+      .getByRole('button', { name: 'Schedule campaign', exact: true })
+      .click()
+  }
+  await launch()
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Launch couldn’t be confirmed' }),
+  ).toContainText('Retry uses the same launch reference.')
+  expect(
+    (
+      await (
+        await page.request.get(`${API}/campaigns/${draft.id}`, { headers: env.headers })
+      ).json()
+    ).data.status,
+  ).toBe('SCHEDULED')
+  await launch()
+  await expect(page.locator('[data-status="SCHEDULED"]').first()).toBeVisible()
+  expect(keys).toHaveLength(2)
+  expect(keys[0]).toBe(keys[1])
+  expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/)
+})
+
+test('Batch 2 primary routes meet the Lighthouse accessibility gate', async ({ page }) => {
+  test.skip(
+    process.env.EV2_BATCH2_LIGHTHOUSE !== 'true',
+    'Set EV2_BATCH2_LIGHTHOUSE=true for the explicit checkpoint audit',
+  )
+  test.setTimeout(300_000)
+  const env = await campaignEnvironment(page, 'batch2-lighthouse')
+  const draft = await env.create('Accessibility campaign draft')
+  const scheduled = await env.create('Accessibility scheduled campaign', {
+    scheduleAt: new Date(Date.now() + 86_400_000).toISOString(),
+  })
+  await env.launch(scheduled.id)
+  const directory = resolve(__dirname, '../test-results/experience-v2-batch-2-lighthouse')
+  mkdirSync(directory, { recursive: true })
+  const profile = resolve(directory, 'chrome-profile')
+  const context = await chromium.launchPersistentContext(profile, {
+    headless: true,
+    args: ['--remote-debugging-port=9336', '--remote-debugging-address=127.0.0.1'],
+  })
+  const scores: Array<{ path: string; score: number; failing: string[] }> = []
+  try {
+    await context.addCookies(await page.context().cookies())
+    for (const path of [
+      '/contacts',
+      '/templates',
+      '/campaigns',
+      '/campaigns/new',
+      `/campaigns/${draft.id}`,
+    ]) {
+      const output = resolve(directory, 'result.json')
+      const base = test.info().project.use.baseURL ?? 'http://localhost:3000'
+      await promisify(execFile)(
+        'pnpm',
+        [
+          'dlx',
+          'lighthouse@12.8.2',
+          `${base}${path}`,
+          '--port=9336',
+          '--only-categories=accessibility',
+          '--output=json',
+          `--output-path=${output}`,
+          '--quiet',
+          '--disable-storage-reset',
+        ],
+        { cwd: resolve(__dirname, '../../..'), timeout: 60_000 },
+      )
+      const report = JSON.parse(readFileSync(output, 'utf8'))
+      expect(new URL(report.finalDisplayedUrl).pathname).toBe(new URL(`${base}${path}`).pathname)
+      const score = report.categories.accessibility.score * 100
+      const failing = Object.entries(report.audits)
+        .filter(([, audit]) => (audit as { score: number | null }).score === 0)
+        .map(([id]) => id)
+      scores.push({
+        path: path === `/campaigns/${draft.id}` ? '/campaigns/:id (draft)' : path,
+        score,
+        failing,
+      })
+      expect(score, path).toBeGreaterThanOrEqual(95)
+    }
+    writeFileSync(
+      resolve(directory, 'scores.json'),
+      `${JSON.stringify({ capturedAt: new Date().toISOString(), lighthouse: '12.8.2', category: 'accessibility', finalUrlsVerified: true, scores }, null, 2)}\n`,
+    )
+  } finally {
+    await context.close()
+    rmSync(profile, { recursive: true, force: true })
+    rmSync(resolve(directory, 'result.json'), { force: true })
   }
 })

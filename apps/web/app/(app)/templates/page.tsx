@@ -350,14 +350,26 @@ export default function TemplatesPage() {
                 {selected.currentVersion.lastError}. The draft is preserved; open it to retry.
               </Alert>
             ) : null}
-            {approved.data?.some((t) => t.templateId === selected.id) && can('inbox.read') ? (
+            {approved.data?.some((t) => t.templateId === selected.id) &&
+            (can('inbox.read') || can('campaigns.write')) ? (
               <div className="flex flex-col gap-2 border-t border-border pt-4">
                 <p className="text-sm text-secondary">
                   Choose the approved version in an existing Inbox conversation.
                 </p>
-                <Button variant="secondary" asChild>
-                  <Link href="/inbox">Open Inbox</Link>
-                </Button>
+                {can('inbox.read') ? (
+                  <Button variant="secondary" asChild>
+                    <Link href="/inbox">Open Inbox</Link>
+                  </Button>
+                ) : null}
+                {can('campaigns.write') ? (
+                  <Button variant="secondary" asChild>
+                    <Link
+                      href={`/campaigns/new?templateVersionId=${approved.data?.find((t) => t.templateId === selected.id)?.versionId}`}
+                    >
+                      Use in campaign
+                    </Link>
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </>
