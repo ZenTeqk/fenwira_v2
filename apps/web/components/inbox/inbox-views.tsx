@@ -23,18 +23,19 @@ export function InboxViews({
   return (
     <nav
       aria-label="Inbox views"
-      className="hidden h-full w-40 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-sidebar p-3 lg:flex"
+      className="hidden h-full w-44 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-sidebar p-2 lg:flex"
     >
-      <h2 className="px-2 pt-1 text-md font-semibold text-slate">Inbox</h2>
+      <h2 className="px-2 py-2 text-md font-semibold text-slate">Inbox</h2>
       <div className="flex flex-col gap-1" role="group" aria-label="Views">
-        {INBOX_CHOICES.map(({ id, label, icon: Icon }) => (
+        {INBOX_CHOICES.map(({ id, label, icon: Icon }, index) => (
           <Button
             key={id}
             variant="ghost"
             aria-pressed={value === id}
             onClick={() => onChange(id)}
             className={cn(
-              'justify-start gap-2 px-2 font-normal',
+              'h-9 justify-start gap-2 px-2 font-normal',
+              index === 4 && 'mt-4',
               value === id && 'bg-primary-soft text-primary-strong',
             )}
           >
@@ -43,7 +44,7 @@ export function InboxViews({
           </Button>
         ))}
       </div>
-      <p className="border-t border-border px-2 pt-3 text-xs text-secondary">
+      <p className="mt-2 border-t border-border px-2 pt-3 text-xs text-secondary">
         Shared conversations, assigned to people in your workspace.
       </p>
     </nav>

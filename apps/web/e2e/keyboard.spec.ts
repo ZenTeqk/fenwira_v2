@@ -107,6 +107,11 @@ test('CommandPalette navigates to every visible nav item', async ({ page }) => {
     if (leaf === 'Home') {
       await expect(page).toHaveURL(/\/dashboard$/)
       await expect(page.getByRole('heading', { level: 1, name: /Welcome back,/ })).toBeVisible()
+    } else if (label === 'Inbox') {
+      await expect(page).toHaveURL(/\/inbox$/)
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Inbox', exact: true }),
+      ).toBeAttached()
     } else {
       await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).first()).toContainText(leaf)
     }

@@ -68,6 +68,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   const home = pathname === '/dashboard'
   // The inbox fills the viewport under the header with its own panes (docs/INBOX.md → Layout).
   const fullBleed = pathname === '/inbox' || pathname.startsWith('/inbox/')
+  const communicationShell = home || fullBleed
   const { membership, tenantId, can } = useSession()
   const unread = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox-unread'),
@@ -123,7 +124,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       <aside
         className={cn(
           'sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 border-r border-sidebar-border bg-sidebar p-3 transition-all lg:flex',
-          collapsed ? 'w-16' : home ? 'w-56' : 'w-58',
+          collapsed ? 'w-16' : communicationShell ? 'w-56' : 'w-58',
         )}
       >
         <Link
@@ -138,7 +139,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             tone="light"
             compact={collapsed}
             size="md"
-            className={home ? 'text-xl' : undefined}
+            className={communicationShell ? 'text-xl' : undefined}
           />
           <span className="sr-only">Fenwira home</span>
         </Link>
@@ -214,8 +215,12 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             <TenantSwitcher variant="topbar" />
           </div>
           <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
-          <div className={cn('min-w-0 flex-1', home && 'lg:w-0 lg:flex-none xl:w-24')}>
-            {!home && crumbs.length > 0 ? <Breadcrumb items={crumbs} linkAs={Link} /> : null}
+          <div
+            className={cn('min-w-0 flex-1', communicationShell && 'lg:w-0 lg:flex-none xl:w-24')}
+          >
+            {!communicationShell && crumbs.length > 0 ? (
+              <Breadcrumb items={crumbs} linkAs={Link} />
+            ) : null}
           </div>
           <Button
             variant="secondary"
@@ -224,7 +229,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             aria-label="Search and jump to (Control K)"
             className={cn(
               'min-w-0 gap-2 bg-sidebar text-secondary shadow-raised lg:justify-start',
-              home ? 'lg:mr-auto lg:w-72 xl:w-96' : 'lg:w-72',
+              communicationShell ? 'lg:mr-auto lg:w-72 xl:w-96' : 'lg:w-72',
             )}
           >
             <Search aria-hidden="true" />

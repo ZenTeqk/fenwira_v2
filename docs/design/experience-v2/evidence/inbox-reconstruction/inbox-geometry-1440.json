@@ -1,0 +1,62 @@
+{
+  "sidebar": {
+    "x": 0,
+    "y": 0,
+    "width": 224,
+    "height": 1000
+  },
+  "topbar": {
+    "x": 224,
+    "y": 0,
+    "width": 1216,
+    "height": 56
+  },
+  "views": {
+    "x": 232,
+    "y": 64,
+    "width": 176,
+    "height": 928
+  },
+  "list": {
+    "x": 416,
+    "y": 64,
+    "width": 320,
+    "height": 928
+  },
+  "firstRow": {
+    "x": 417,
+    "y": 206,
+    "width": 318,
+    "height": 117
+  },
+  "ordinaryRow": {
+    "x": 417,
+    "y": 323,
+    "width": 318,
+    "height": 89
+  },
+  "threadHeader": {
+    "x": 745,
+    "y": 65,
+    "width": 422,
+    "height": 209
+  },
+  "thread": {
+    "x": 744,
+    "y": 64,
+    "width": 424,
+    "height": 928
+  },
+  "context": {
+    "x": 1176,
+    "y": 64,
+    "width": 256,
+    "height": 928
+  },
+  "composer": {
+    "x": 745,
+    "y": 826,
+    "width": 422,
+    "height": 165
+  }
+}

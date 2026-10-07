@@ -1,0 +1,22 @@
+{
+  "sidebar": {
+    "x": 0,
+    "y": 0,
+    "width": 224,
+    "height": 1000
+  },
+  "topbar": {
+    "x": 224,
+    "y": 0,
+    "width": 1216,
+    "height": 56
+  },
+  "views": null,
+  "list": null,
+  "firstRow": null,
+  "ordinaryRow": null,
+  "threadHeader": null,
+  "thread": null,
+  "context": null,
+  "composer": null
+}

@@ -10,6 +10,7 @@ import {
   ErrorState,
   Label,
   SearchInput,
+  focusRing,
   Skeleton,
   StatusBadge,
   Select,
@@ -84,10 +85,14 @@ export function ConversationList({
         aria-label="Conversations"
         className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface"
       >
-        <div className="flex flex-col gap-2 border-b border-border bg-sidebar p-3">
+        <div className="flex flex-col gap-3 border-b border-border bg-surface p-3">
+          <h2 className="text-md font-semibold text-slate">
+            {view === 'all' ? 'All conversations' : INBOX_CHOICES.find((v) => v.id === view)?.label}
+          </h2>
           <SearchInput
             label="Search conversations"
-            placeholder="Search messages, names, numbers"
+            placeholder="Search conversations…"
+            title="Search messages, customer names or phone numbers"
             value={search}
             onValueChange={setSearch}
             className="sm:w-full"
@@ -105,7 +110,10 @@ export function ConversationList({
               value={status}
               onValueChange={(v: Conversation['status'] | 'ALL') => setStatus(v)}
             >
-              <SelectTrigger aria-label="Conversation status" className="w-full">
+              <SelectTrigger
+                aria-label="Conversation status"
+                className="h-8 min-w-0 flex-1 text-sm"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -130,7 +138,7 @@ export function ConversationList({
             </Label>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto contain-paint">
           {list.isPending ? (
             <div className="flex flex-col gap-2 p-3">
               {Array.from({ length: 6 }, (_, i) => (
@@ -163,11 +171,13 @@ export function ConversationList({
                       onClick={() => onSelect(c.id)}
                       aria-current={selected ? 'true' : undefined}
                       className={cn(
-                        'flex w-full gap-3 border-b border-b-border/60 border-l-4 px-3 py-4 text-left transition-colors hover:bg-neutral-soft',
+                        'flex w-full gap-3 border-b border-b-border/60 border-l-4 px-3 py-3 text-left transition-colors hover:bg-neutral-soft',
+                        focusRing,
+                        'focus-visible:-outline-offset-2',
                         selected ? 'border-l-primary bg-primary-soft' : 'border-l-transparent',
                       )}
                     >
-                      <Avatar appearance="varied" name={name} size="lg" />
+                      <Avatar appearance="varied" name={name} size="md" />
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <span
@@ -190,22 +200,34 @@ export function ConversationList({
                         {/* muted text fails AA on primary-soft, so the selected row uses slate */}
                         <span
                           className={cn(
-                            'truncate text-sm',
+                            'truncate text-base',
+                            c.unreadCount && 'font-medium',
                             selected ? 'text-slate' : 'text-secondary',
                           )}
                         >
                           {c.snippet ?? c.lastMessagePreview ?? 'No messages yet'}
                         </span>
-                        <span className="flex min-w-0 items-center gap-1.5 text-xs text-secondary">
-                          {c.assignee ? (
-                            <Avatar appearance="varied" name={c.assignee.name} size="sm" />
-                          ) : null}
-                          <span className="truncate">
-                            {c.assignee ? `Assigned to ${c.assignee.name}` : 'Unassigned'}
+                        <div className="flex min-w-0 flex-wrap items-center justify-between gap-1 text-xs text-secondary">
+                          <span
+                            className="flex min-w-0 max-w-28 items-center gap-1"
+                            title={c.assignee ? `Assigned to ${c.assignee.name}` : 'Unassigned'}
+                          >
+                            {c.assignee ? (
+                              <Avatar
+                                appearance="varied"
+                                name={c.assignee.name}
+                                size="sm"
+                                className="size-5 text-xs"
+                              />
+                            ) : null}
+                            <span className="truncate">
+                              {c.assignee ? c.assignee.name : 'Unassigned'}
+                            </span>
                           </span>
-                        </span>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <StatusBadge status={open ? 'WINDOW_OPEN' : 'WINDOW_CLOSED'} />
+                          <StatusBadge
+                            appearance="inline"
+                            status={open ? 'WINDOW_OPEN' : 'WINDOW_CLOSED'}
+                          />
                           {c.automationState === 'AGENT_TAKEOVER' ? (
                             <Badge tone="info" icon={<Bot />}>
                               Takeover

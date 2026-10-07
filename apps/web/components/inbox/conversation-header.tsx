@@ -2,7 +2,7 @@
 
 import { type AutomationState, type Conversation, type Presence } from '@fenwira/contracts'
 import {
-  Alert,
+  cn,
   Avatar,
   Badge,
   Button,
@@ -17,7 +17,7 @@ import {
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type Ref } from 'react'
-import { ArrowLeft, PanelRight, UserPlus } from 'lucide-react'
+import { ArrowLeft, Bot, PanelRight, UserPlus } from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, post, put } from '@/lib/api/client'
 import { del } from '@/lib/api/client'
@@ -82,11 +82,16 @@ export function ConversationHeader({
   const automation = (state: AutomationState) =>
     act.mutate(() => post(`${base}/automation-state`, { state }))
   const left = c.serviceWindow.isOpen ? windowLeft(c.serviceWindow.expiresAt, now) : null
+  const windowStatus = left
+    ? c.serviceWindow.expiresAt && new Date(c.serviceWindow.expiresAt).getTime() - now <= 3600_000
+      ? 'EXPIRING'
+      : 'WINDOW_OPEN'
+    : 'WINDOW_CLOSED'
   const canReply = can('inbox.reply')
 
   return (
     <div className="flex flex-col border-b border-border bg-surface">
-      <div className="flex flex-wrap items-center gap-3 px-3 py-3">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-3">
         <Button
           variant="ghost"
           size="icon"
@@ -97,56 +102,11 @@ export function ConversationHeader({
           <ArrowLeft aria-hidden="true" />
         </Button>
         <Avatar appearance="varied" name={displayName(c)} size="md" />
-        <div className="flex min-w-40 flex-1 flex-col">
+        <div className="flex min-w-24 flex-1 flex-col">
           <h2 className="truncate text-md font-semibold text-slate">{displayName(c)}</h2>
-          <span className="font-mono text-sm text-muted">{c.contact.phoneE164}</span>
+          <span className="font-mono text-sm text-muted">{`•••• ${c.contact.phoneE164.slice(-4)}`}</span>
         </div>
-        <span className="ml-1" title="WhatsApp 24-hour service window">
-          <StatusBadge
-            status={
-              left
-                ? c.serviceWindow.expiresAt &&
-                  new Date(c.serviceWindow.expiresAt).getTime() - now <= 3600_000
-                  ? 'EXPIRING'
-                  : 'WINDOW_OPEN'
-                : 'WINDOW_CLOSED'
-            }
-            label={left ? `Window open · ${left}` : 'Window closed'}
-          />
-        </span>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {can('inbox.assign_self') ? (
-            <Dropdown>
-              <DropdownTrigger asChild>
-                <Button variant="secondary" size="sm">
-                  <UserPlus aria-hidden="true" />
-                  {c.assignee ? c.assignee.name : 'Assign'}
-                </Button>
-              </DropdownTrigger>
-              <DropdownContent>
-                {c.assignee?.id !== me.user.id ? (
-                  <DropdownItem onSelect={() => assign(me.user.id)}>Assign to me</DropdownItem>
-                ) : null}
-                {c.assignee && (c.assignee.id === me.user.id || can('inbox.reassign')) ? (
-                  <DropdownItem onSelect={() => assign(null)}>Unassign</DropdownItem>
-                ) : null}
-                {can('inbox.reassign') ? (
-                  <>
-                    <DropdownSeparator />
-                    <DropdownLabel>Team</DropdownLabel>
-                    {(members.data ?? [])
-                      .filter((m) => m.userId !== me.user.id)
-                      .map((m) => (
-                        <DropdownItem key={m.userId} onSelect={() => assign(m.userId)}>
-                          {m.name}{' '}
-                          <span className="text-xs text-muted">({PRESENCE_TEXT[m.status]})</span>
-                        </DropdownItem>
-                      ))}
-                  </>
-                ) : null}
-              </DropdownContent>
-            </Dropdown>
-          ) : null}
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
           {canReply ? (
             c.status === 'RESOLVED' || c.status === 'SNOOZED' ? (
               <Button size="sm" variant="secondary" onClick={() => status('OPEN')}>
@@ -226,34 +186,90 @@ export function ConversationHeader({
           </Button>
         </div>
       </div>
-      {c.tags.length ? (
-        <div className="flex flex-wrap gap-1 px-3 pb-2">
-          {c.tags.map((t) => (
-            <Badge key={t.id} tone={TAG_TONE[t.color as keyof typeof TAG_TONE] ?? 'neutral'}>
-              {t.name}
-            </Badge>
-          ))}
-        </div>
-      ) : null}
-      {c.automationState !== 'AUTOMATION_ACTIVE' ? (
-        <Alert
-          tone="info"
-          className="mx-3 mb-2"
-          title={
-            c.automationState === 'AGENT_TAKEOVER'
-              ? 'An agent has taken over'
-              : 'Automation is paused'
-          }
-          action={
-            canReply ? (
-              <Button size="sm" variant="secondary" onClick={() => automation('AUTOMATION_ACTIVE')}>
-                Return to automation
+      <div
+        className={cn(
+          'flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-3 py-2',
+          windowStatus === 'WINDOW_OPEN' ? 'bg-primary-soft/40' : 'bg-warning-soft/40',
+        )}
+      >
+        <span className="min-w-0" title="WhatsApp 24-hour service window">
+          <StatusBadge
+            status={windowStatus}
+            label={left ? `Window open · ${left}` : 'Window closed'}
+          />
+        </span>
+        {can('inbox.assign_self') ? (
+          <Dropdown>
+            <DropdownTrigger asChild>
+              <Button variant="secondary" size="sm">
+                <UserPlus aria-hidden="true" />
+                <span className="max-w-20 truncate" title={c.assignee?.name}>
+                  {c.assignee ? c.assignee.name : 'Assign'}
+                </span>
               </Button>
-            ) : null
-          }
+            </DropdownTrigger>
+            <DropdownContent>
+              {c.assignee?.id !== me.user.id ? (
+                <DropdownItem onSelect={() => assign(me.user.id)}>Assign to me</DropdownItem>
+              ) : null}
+              {c.assignee && (c.assignee.id === me.user.id || can('inbox.reassign')) ? (
+                <DropdownItem onSelect={() => assign(null)}>Unassign</DropdownItem>
+              ) : null}
+              {can('inbox.reassign') ? (
+                <>
+                  <DropdownSeparator />
+                  <DropdownLabel>Workspace members</DropdownLabel>
+                  {(members.data ?? [])
+                    .filter((m) => m.userId !== me.user.id)
+                    .map((m) => (
+                      <DropdownItem key={m.userId} onSelect={() => assign(m.userId)}>
+                        {m.name}{' '}
+                        <span className="text-xs text-muted">({PRESENCE_TEXT[m.status]})</span>
+                      </DropdownItem>
+                    ))}
+                </>
+              ) : null}
+            </DropdownContent>
+          </Dropdown>
+        ) : null}
+        <StatusBadge status={c.status} />
+        {c.tags.length ? (
+          <div className="flex min-w-0 flex-wrap gap-1">
+            {c.tags.map((t) => (
+              <Badge key={t.id} tone={TAG_TONE[t.color as keyof typeof TAG_TONE] ?? 'neutral'}>
+                {t.name}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {c.automationState !== 'AUTOMATION_ACTIVE' ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-info-soft px-3 py-2 text-xs text-secondary"
         >
-          Automated messages won&apos;t be sent in this conversation.
-        </Alert>
+          <Bot className="size-4 shrink-0 text-info-strong" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className="font-medium text-info-strong">
+              {c.automationState === 'AGENT_TAKEOVER'
+                ? 'An agent has taken over'
+                : 'Automation is paused'}
+            </span>
+            <span className="block text-xs text-secondary">
+              Automated messages won’t be sent in this conversation.
+            </span>
+          </span>
+          {canReply ? (
+            <Button
+              size="sm"
+              variant="link"
+              className="min-h-6"
+              onClick={() => automation('AUTOMATION_ACTIVE')}
+            >
+              Return to automation
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   )

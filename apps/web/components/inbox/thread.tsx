@@ -134,7 +134,7 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
   const { me } = useSession()
   if (item.kind === 'note')
     return (
-      <div className="mx-auto w-full max-w-xl rounded-lg border border-warning/20 bg-note-soft px-3 py-3 text-slate">
+      <div className="mx-auto w-full max-w-5/6 rounded-lg border border-warning/20 bg-note-soft px-3 py-2.5 text-slate">
         <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-warning-strong">
           <StickyNote className="size-3.5" aria-hidden="true" />
           Internal note · {item.note.authorName}
@@ -157,7 +157,7 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
     <div className={cn('flex', outbound ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'flex min-w-0 max-w-prose flex-col gap-1 rounded-lg px-3 py-2.5 text-base text-slate shadow-raised',
+          'flex min-w-0 max-w-5/6 flex-col gap-1 rounded-lg px-3 py-2.5 text-base text-slate shadow-raised',
           outbound
             ? 'rounded-tr-sm bg-message-outbound'
             : 'rounded-tl-sm border border-border/60 bg-surface',
@@ -354,7 +354,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
               key={item.kind === 'note' ? `n-${item.note.id}` : item.message.id}
               data-index={v.index}
               ref={virtualizer.measureElement}
-              className="absolute left-0 top-0 w-full py-1"
+              className={cn('absolute left-0 top-0 w-full pb-1', grouped ? 'pt-0.5' : 'pt-3')}
               style={{ transform: `translateY(${v.start}px)` }}
             >
               {newDay ? (

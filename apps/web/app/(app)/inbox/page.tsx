@@ -85,7 +85,7 @@ function Chat({ id, onBack }: { id: string; onBack: () => void }) {
         aria-label="Contact"
         className="hidden w-64 shrink-0 overflow-y-auto rounded-lg border border-border bg-surface xl:block"
       >
-        <ContactPane contactId={c.contact.id} conversationId={id} />
+        <ContactPane contactId={c.contact.id} conversationId={id} assignee={c.assignee} />
       </aside>
       <Drawer open={contactOpen} onOpenChange={setContactOpen}>
         <DrawerContent
@@ -97,7 +97,7 @@ function Chat({ id, onBack }: { id: string; onBack: () => void }) {
             contactTrigger.current?.focus()
           }}
         >
-          <ContactPane contactId={c.contact.id} conversationId={id} />
+          <ContactPane contactId={c.contact.id} conversationId={id} assignee={c.assignee} />
         </DrawerContent>
       </Drawer>
     </div>
@@ -116,7 +116,10 @@ function Inbox() {
     <div className="flex h-full min-h-0 min-w-0 gap-2 p-2">
       <h1 className="sr-only">Inbox</h1>
       <div
-        className={cn('min-h-0 w-full shrink-0 md:w-70 lg:w-110', selected && 'hidden md:block')}
+        className={cn(
+          'min-h-0 w-full shrink-0 md:w-70 lg:w-112 xl:w-126',
+          selected && 'hidden md:block',
+        )}
       >
         <ConversationList selectedId={selected} onSelect={(id) => select(id)} />
       </div>

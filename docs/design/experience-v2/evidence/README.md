@@ -28,3 +28,5 @@ These original implementation captures remain unchanged as before evidence. The 
 Historical checkpoint: [Home reconstruction](home-reconstruction/README.md). The user has now approved that Home direction. This does not approve the other modules or authorize propagation.
 
 Latest checkpoint: [Home scale and density refinement](home-density/README.md). It preserves the approved composition and palette, tightens Home and its visible shell, retains every historical capture and stops for a separate visual review.
+
+The user subsequently approved that final Home density; it is now the canonical global language. The current [Inbox reconstruction](inbox-reconstruction/README.md) follows the Inbox reference composition and approved Home scale, preserving Home and all historical captures. Inbox has its own visual review checkpoint; later modules remain outside scope.

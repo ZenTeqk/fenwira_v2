@@ -296,7 +296,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   return (
     <div
       className={cn(
-        'relative z-10 flex flex-col gap-2 border-t border-border-strong p-3 shadow-raised',
+        'relative z-10 flex flex-col gap-2 border-t border-border p-3',
         mode === 'note' ? 'bg-note-soft' : 'bg-surface',
       )}
     >
@@ -357,7 +357,12 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           </Button>
         </div>
       ) : (
-        <div className="relative flex flex-wrap items-end gap-2">
+        <div
+          className={cn(
+            'relative flex flex-wrap items-end gap-1 rounded-lg border border-border-strong p-1 shadow-raised',
+            mode === 'note' ? 'bg-note-soft' : 'bg-surface',
+          )}
+        >
           {matches.length ? (
             <ul
               id={listId}
@@ -402,11 +407,11 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                   : 'Type a reply… (Enter to send)'
             }
             className={cn(
-              'min-h-16 w-full min-w-0 basis-full resize-none rounded-lg border border-border-strong px-3 py-3 text-base text-slate shadow-raised',
+              'min-h-12 w-full min-w-0 basis-full resize-none rounded-md border-0 px-2 py-1 text-base text-slate',
               mode === 'note' ? 'bg-note-soft' : 'bg-surface',
               disabled && 'cursor-not-allowed opacity-60',
             )}
-            rows={3}
+            rows={2}
             value={text}
             disabled={disabled || busy}
             onChange={(e) => onType(e.target.value)}
@@ -417,6 +422,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
             <Button
               variant="ghost"
               size="icon"
+              className="size-10 sm:size-9"
               aria-label="Send a template"
               disabled={disabled || busy}
               onClick={() => setPicking(true)}
@@ -430,6 +436,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="size-10 sm:size-9"
                   aria-label="Canned replies"
                   disabled={disabled || busy}
                 >
@@ -448,7 +455,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           {mode === 'reply' ? (
             <label
               className={cn(
-                'inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-slate hover:bg-neutral-soft',
+                'inline-flex size-10 cursor-pointer sm:size-9 items-center justify-center rounded-md text-slate hover:bg-neutral-soft',
                 disabled && 'pointer-events-none opacity-60',
                 'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong',
               )}
@@ -468,7 +475,8 @@ export function Composer({ conversation }: { conversation: Conversation }) {
             </label>
           ) : null}
           <Button
-            className="ml-auto rounded-full shadow-raised"
+            size="icon"
+            className="ml-auto size-10 rounded-full shadow-raised sm:size-9"
             aria-label={mode === 'note' ? 'Save note' : 'Send'}
             loading={busy}
             disabled={disabled || freeformRestricted || !text.trim()}

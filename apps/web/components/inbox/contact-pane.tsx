@@ -1,6 +1,6 @@
 'use client'
 
-import { type Contact, type ContactNote } from '@fenwira/contracts'
+import { type Contact, type ContactNote, type Conversation } from '@fenwira/contracts'
 import { ConsentBadge } from '@/components/contacts/consent-badge'
 import { EligibilitySummary } from '@/components/contacts/eligibility-summary'
 import { Avatar, ErrorState, Skeleton } from '@fenwira/ui'
@@ -24,9 +24,11 @@ type PastConversation = {
 export function ContactPane({
   contactId,
   conversationId,
+  assignee,
 }: {
   contactId: string
   conversationId: string
+  assignee?: Conversation['assignee']
 }) {
   const { tenantId, can } = useSession()
   const enabled = can('contacts.read')
@@ -61,16 +63,11 @@ export function ContactPane({
   const c = contact.data
   const others = (past.data ?? []).filter((p) => p.id !== conversationId)
   return (
-    <div className="flex flex-col gap-5 p-4">
-      <div className="flex flex-col gap-3 rounded-lg bg-sidebar p-3">
-        <Avatar
-          appearance="varied"
-          name={c.name ?? c.waProfileName ?? c.phoneE164}
-          size="lg"
-          className="size-16 ring-4 ring-surface"
-        />
-        <div className="flex flex-col gap-1">
-          <h2 className="text-md font-semibold text-slate">
+    <div className="flex flex-col gap-4 p-4">
+      <div className="flex items-center gap-3 pb-1">
+        <Avatar appearance="varied" name={c.name ?? c.waProfileName ?? c.phoneE164} size="lg" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h2 className="truncate text-base font-semibold text-slate">
             {c.name ?? c.waProfileName ?? c.phoneE164}
           </h2>
           <span className="font-mono text-sm text-muted">{c.phoneE164}</span>
@@ -83,8 +80,24 @@ export function ContactPane({
           </Link>
         </div>
       </div>
+      <section className="flex flex-col gap-2 border-t border-border/70 pt-3" aria-label="Tags">
+        <h3 className="text-sm font-semibold text-slate">Tags</h3>
+        <TagBadges tags={c.tags} max={10} />
+      </section>
+      {assignee !== undefined ? (
+        <section
+          className="flex flex-col gap-2 border-t border-border/70 pt-3"
+          aria-label="Assignment"
+        >
+          <h3 className="text-sm font-semibold text-slate">Assigned to</h3>
+          <div className="flex items-center gap-2 text-sm text-secondary">
+            {assignee ? <Avatar name={assignee.name} appearance="varied" size="sm" /> : null}
+            <span>{assignee?.name ?? 'Unassigned'}</span>
+          </div>
+        </section>
+      ) : null}
       <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-4"
+        className="flex flex-col gap-2 border-t border-border/70 pt-3"
         aria-labelledby="pane-messaging"
       >
         <h3 id="pane-messaging" className="text-sm font-semibold text-slate">
@@ -93,7 +106,7 @@ export function ContactPane({
         <EligibilitySummary contactId={c.id} conversationId={conversationId} />
       </section>
       <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-4"
+        className="flex flex-col gap-2 border-t border-border/70 pt-3"
         aria-labelledby="pane-consent"
       >
         <h3 id="pane-consent" className="text-sm font-semibold text-slate">
@@ -110,12 +123,8 @@ export function ContactPane({
           </dd>
         </dl>
       </section>
-      <section className="flex flex-col gap-2 border-t border-border/70 pt-4" aria-label="Tags">
-        <h3 className="text-sm font-semibold text-slate">Tags</h3>
-        <TagBadges tags={c.tags} max={10} />
-      </section>
       <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-4"
+        className="flex flex-col gap-2 border-t border-border/70 pt-3"
         aria-label="Contact notes"
       >
         <h3 className="text-sm font-semibold text-slate">Notes</h3>
@@ -142,7 +151,7 @@ export function ContactPane({
         )}
       </section>
       <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-4"
+        className="flex flex-col gap-2 border-t border-border/70 pt-3"
         aria-label="Other conversations"
       >
         <h3 className="text-sm font-semibold text-slate">Other conversations</h3>

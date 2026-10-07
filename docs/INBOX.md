@@ -109,7 +109,7 @@ Upload through `POST /files/upload-url` (purpose `MESSAGE_MEDIA`) → PUT to Min
 
 ### Layout and colors (from `DESIGN_SYSTEM.md`)
 
-Experience V2: `Views | Conversations | Chat | Contact` at 160px / 280px / flex / 256px on desktop. Views move into list controls below 1024px. Below 1280 px the Contact pane becomes a drawer. Below 768 px there is a single pane with back navigation. Outbound bubbles are `primary-soft`, inbound are `surface` with a border, system events are a `neutral-soft` pill, the selected conversation is `primary-soft` with a `primary` left border, takeover is `info`, and internal notes are neutral/warm-tinted with an "Internal" label.
+Experience V2 Inbox reconstruction: the global shell shares the approved Home geometry (224px expanded sidebar, 56px topbar). `Views | Conversations | Chat | Contact` at 176px / 320px / flex / 256px at 1440; the thread receives the largest flexible region. At 1024 the rail stays and the list narrows to 264px; views move into list controls below 1024px. Below 1280 px the Contact pane becomes a drawer. Below 768 px there is a single pane with back navigation. Outbound bubbles are `message-outbound`, inbound are `surface` with a fine border, system events are a `neutral-soft` pill, the selected conversation is `primary-soft` with a `primary` left border, takeover is `info`, and internal notes are `note-soft` with an "Internal note" label. Message/note surfaces occupy at most five-sixths of the usable thread width. These are presentation dimensions, not changes to Inbox lifecycle or authorization.
 
 ### SLA fields (display only in v2)
 
