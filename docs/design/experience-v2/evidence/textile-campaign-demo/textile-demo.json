@@ -1,0 +1,74 @@
+{
+  "workspace": "Fenwira Textiles — Local Demo",
+  "email": "textile-demo-muyfp4colkx8@fenwira.test",
+  "tenantId": "01a11799-7b38-701b-a762-364a6f99acaf",
+  "simulatedOnly": true,
+  "capturedAt": "2026-10-07T18:22:44.611Z",
+  "campaigns": [
+    {
+      "id": "01a1179a-5b5d-7a33-843c-d106caf03f01",
+      "name": "Winter Shawl Collection",
+      "status": "FAILED",
+      "fixtureState": true
+    },
+    {
+      "id": "01a1179a-49c9-7e83-9971-2542244ff24e",
+      "name": "Denim Weekend Collection",
+      "status": "CANCELLED",
+      "fixtureState": false
+    },
+    {
+      "id": "01a1179a-3847-7373-8caa-8109f1c97fa3",
+      "name": "Handloom Bedsheet Collection",
+      "status": "COMPLETED",
+      "fixtureState": false
+    },
+    {
+      "id": "01a1179a-270b-72a2-bd65-656e062fc7d2",
+      "name": "Designer Kurti New Arrivals",
+      "status": "PAUSED_TEMPLATE_UNAVAILABLE",
+      "fixtureState": true
+    },
+    {
+      "id": "01a1179a-122e-7852-9145-5ac5dc5f1aa8",
+      "name": "Bridal Kanjivaram Collection",
+      "status": "PAUSED_INSUFFICIENT_FUNDS",
+      "fixtureState": true
+    },
+    {
+      "id": "01a1179a-0093-7580-9d56-29b04587a619",
+      "name": "Kids Ethnic Wear Launch",
+      "status": "PAUSED",
+      "fixtureState": false
+    },
+    {
+      "id": "01a11799-efc9-7b10-a414-96fa95079f1e",
+      "name": "Festive Cotton Saree Offers",
+      "status": "RUNNING",
+      "fixtureState": false
+    },
+    {
+      "id": "01a11799-dae6-7bd1-a7b4-2b91a0adaf47",
+      "name": "Summer Linen Collection",
+      "status": "PREPARING",
+      "fixtureState": true
+    },
+    {
+      "id": "01a11799-c5e5-7c51-a9ce-0f24c345ac24",
+      "name": "Pongal Silk Saree Festival",
+      "status": "SCHEDULED",
+      "fixtureState": false
+    },
+    {
+      "id": "01a11799-ae45-7083-bac8-d47969830c8c",
+      "name": "Organic Cotton Collection",
+      "status": "DRAFT",
+      "fixtureState": false
+    }
+  ],
+  "transientStates": [
+    "PREPARING",
+    "RUNNING"
+  ],
+  "note": "Four rare lifecycle states use audited, tenant-scoped fixture initialization. No wallet operations or enforcement changes."
+}
