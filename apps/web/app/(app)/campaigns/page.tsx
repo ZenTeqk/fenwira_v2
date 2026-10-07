@@ -15,6 +15,8 @@ import {
   focusRing,
   ListPage,
   PermissionState,
+  Pagination,
+  RowActions,
   SearchInput,
   Skeleton,
   StatusBadge,
@@ -32,6 +34,9 @@ import {
 import { ArrowRight, CalendarDays, FileText, Megaphone, Plus, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useTags, useSegments } from '@/lib/contacts'
+import { useTemplateSampleUrl } from '@/lib/templates'
 import { CampaignResults } from '@/components/campaigns/campaign-results'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError } from '@/lib/api/client'
@@ -83,6 +88,45 @@ function ResultsCell({
     </span>
   )
 }
+/** Artwork comes only from the frozen template's existing tenant-scoped image sample. */
+function CampaignArtwork({ campaign, small = false }: { campaign: Campaign; small?: boolean }) {
+  const header = campaign.template?.components.header
+  const sample = useTemplateSampleUrl(header?.format === 'IMAGE' ? header.sampleFileId : null)
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary-soft text-primary-strong',
+        small ? 'h-9 w-14' : 'h-16 w-24 sm:h-20 sm:w-32',
+      )}
+    >
+      {sample.data && sample.data !== failedUrl ? (
+        // Existing short-lived sample URL; there is no public artwork or decorative campaign image.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={sample.data}
+          alt=""
+          className="size-full object-cover"
+          onError={() => setFailedUrl(sample.data!)}
+        />
+      ) : (
+        <Megaphone className={small ? 'size-5' : 'size-8'} />
+      )}
+    </span>
+  )
+}
+function CampaignActions({ campaign }: { campaign: Campaign }) {
+  const router = useRouter()
+  return (
+    <RowActions
+      label={`Actions for ${campaign.name}`}
+      actions={[
+        { label: 'View campaign', onSelect: () => router.push(`/campaigns/${campaign.id}`) },
+      ]}
+    />
+  )
+}
 function CampaignFilter({
   label,
   value,
@@ -96,7 +140,7 @@ function CampaignFilter({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger aria-label={label} className="h-9 w-40">
+      <SelectTrigger aria-label={label} className="h-9 w-32">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -109,9 +153,14 @@ function CampaignFilter({
     </Select>
   )
 }
-function CampaignCard({ campaign: c }: { campaign: Campaign }) {
+function CampaignCard({
+  campaign: c,
+  audienceLabel,
+}: {
+  campaign: Campaign
+  audienceLabel: string
+}) {
   const { can } = useSession()
-  const at = c.status === 'SCHEDULED' ? c.scheduleAt : (c.startedAt ?? c.launchedAt)
   const pause =
     c.status === 'PAUSED_INSUFFICIENT_FUNDS'
       ? 'Add credits, then resume. Unsent recipients are waiting; sent results are preserved.'
@@ -125,31 +174,35 @@ function CampaignCard({ campaign: c }: { campaign: Campaign }) {
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-start gap-3">
-            <span
-              aria-hidden="true"
-              className={cn(
-                'flex size-12 shrink-0 items-center justify-center rounded-lg',
-                c.status === 'SCHEDULED'
-                  ? 'bg-info-soft text-info-strong'
-                  : 'bg-primary-soft text-primary-strong',
-              )}
-            >
-              <Megaphone className="size-6" />
-            </span>
+            <CampaignArtwork campaign={c} />
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <Link
-                href={`/campaigns/${c.id}`}
-                className={cn(
-                  'break-words text-md font-semibold text-slate hover:underline',
-                  focusRing,
-                )}
-              >
-                {c.name}
-              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/campaigns/${c.id}`}
+                  className={cn(
+                    'break-words text-md font-semibold text-slate hover:underline',
+                    focusRing,
+                  )}
+                >
+                  {c.name}
+                </Link>
+                <StatusBadge status={c.status} />
+              </div>
+              {c.template ? (
+                <p
+                  className="line-clamp-1 text-sm text-secondary"
+                  title={c.template.components.body.text}
+                >
+                  {c.template.components.body.text}
+                </p>
+              ) : null}
               <p className="flex flex-wrap items-center gap-1.5 text-xs text-secondary">
                 <Users aria-hidden="true" className="size-3.5" />
-                {campaignAudienceLabel(c)}
+                {audienceLabel}
                 {c.audience.exclude.length ? ' · exclusions applied' : ''}
+                {c.audienceSnapshotAt
+                  ? ` · ${c.totalRecipients.toLocaleString('en-IN')} recipients`
+                  : ''}
               </p>
               {c.template ? (
                 <p className="text-xs text-secondary">
@@ -163,7 +216,7 @@ function CampaignCard({ campaign: c }: { campaign: Campaign }) {
               ) : null}
             </div>
           </div>
-          <StatusBadge status={c.status} />
+          <CampaignActions campaign={c} />
         </div>
         {c.status === 'SCHEDULED' && c.scheduleAt ? (
           <div className="flex items-start gap-2 rounded-md bg-info-soft p-3 text-info-strong">
@@ -197,10 +250,9 @@ function CampaignCard({ campaign: c }: { campaign: Campaign }) {
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
           <span className="flex min-w-0 items-center gap-1.5 text-xs text-secondary">
             <FileText aria-hidden="true" className="size-4 shrink-0" />
-            {c.template?.name ?? 'Message frozen at launch'}
-            {c.status !== 'SCHEDULED' && at ? ` · Started ${formatInZone(at, c.timezone)}` : ''}
+            Sent via {c.template?.name ?? 'the frozen message'} template
           </span>
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="link" size="sm" asChild>
             <Link href={`/campaigns/${c.id}`}>
               View campaign
               <ArrowRight aria-hidden="true" />
@@ -216,20 +268,39 @@ function CampaignCard({ campaign: c }: { campaign: Campaign }) {
 export default function CampaignsPage() {
   const { can } = useSession()
   const campaigns = useCampaigns()
+  const tags = useTags()
+  const segments = useSegments()
+  const audienceLabel = (c: Campaign) =>
+    c.audience.include
+      .map((source) => {
+        if (source.kind === 'TAGS') {
+          const names = source.tagIds.map((id) => tags.data?.find((tag) => tag.id === id)?.name)
+          if (names.every(Boolean)) return names.join(source.match === 'ALL' ? ' + ' : ', ')
+        }
+        if (source.kind === 'SEGMENT')
+          return (
+            segments.data?.find((segment) => segment.id === source.segmentId)?.name ??
+            'Saved segment'
+          )
+        return campaignAudienceLabel({ ...c, audience: { ...c.audience, include: [source] } })
+      })
+      .join(' · ') || 'Audience not chosen'
+  const [historyPage, setHistoryPage] = useState(0)
   const [search, setSearch] = useState('')
   const [view, setView] = useState(VIEWS[0]!)
-  const [limit, setLimit] = useState(4)
+  const [limit, setLimit] = useState(2)
   const [status, setStatus] = useState('ALL')
   const [period, setPeriod] = useState('ALL')
   const [source, setSource] = useState('ALL')
   const [sort, setSort] = useState('NEWEST')
   const resetFilters = () => {
+    setHistoryPage(0)
     setSearch('')
     setView(VIEWS[0]!)
     setStatus('ALL')
     setPeriod('ALL')
     setSource('ALL')
-    setLimit(4)
+    setLimit(2)
   }
   const columns = useMemo<Array<ColumnDef<Campaign>>>(
     () => [
@@ -237,16 +308,39 @@ export default function CampaignsPage() {
         accessorKey: 'name',
         header: 'Campaign',
         cell: ({ row }) => (
-          <div className="flex flex-col gap-1">
-            <Link
-              href={`/campaigns/${row.original.id}`}
-              className={cn('font-medium text-slate hover:underline', focusRing)}
-            >
-              {row.original.name}
-            </Link>
-            <span className="text-xs text-secondary">
-              {row.original.template?.name ?? 'Draft · message chosen in Studio'}
-            </span>
+          <div className="flex items-center gap-3">
+            <CampaignArtwork campaign={row.original} small />
+            <div className="flex min-w-0 flex-col gap-1">
+              <Link
+                href={`/campaigns/${row.original.id}`}
+                className={cn('font-medium text-slate hover:underline', focusRing)}
+              >
+                {row.original.name}
+              </Link>
+              <span className="text-xs text-secondary">
+                {row.original.template?.name ??
+                  (row.original.status === 'DRAFT'
+                    ? 'Draft · message chosen in Studio'
+                    : 'Message not frozen')}
+              </span>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: 'audience',
+        header: 'Audience',
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2 text-sm text-secondary">
+            <Users aria-hidden="true" className="size-5 shrink-0 text-muted" />
+            <div>
+              <p>{audienceLabel(row.original)}</p>
+              {row.original.audienceSnapshotAt ? (
+                <p className="text-xs">
+                  {row.original.totalRecipients.toLocaleString('en-IN')} recipients
+                </p>
+              ) : null}
+            </div>
           </div>
         ),
       },
@@ -254,13 +348,6 @@ export default function CampaignsPage() {
         id: 'status',
         header: 'Status',
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
-      },
-      {
-        id: 'audience',
-        header: 'Audience',
-        cell: ({ row }) => (
-          <span className="text-sm text-secondary">{campaignAudienceLabel(row.original)}</span>
-        ),
       },
       {
         id: 'sent',
@@ -285,13 +372,22 @@ export default function CampaignsPage() {
           const at = c.status === 'SCHEDULED' ? c.scheduleAt : (c.startedAt ?? c.launchedAt)
           return (
             <span className="text-xs text-secondary">
-              {formatInZone(at ?? c.createdAt, c.timezone)}
+              {new Intl.DateTimeFormat('en-IN', {
+                dateStyle: 'medium',
+                timeZone: c.timezone,
+              }).format(new Date(at ?? c.createdAt))}
             </span>
           )
         },
       },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => <CampaignActions campaign={row.original} />,
+      },
     ],
-    [],
+    // Catalog names are display-only; their absence never changes the saved audience.
+    [tags.data, segments.data],
   )
   if (!can('campaigns.read')) return <PermissionState what="campaigns" />
   const visible = (campaigns.data ?? [])
@@ -310,8 +406,14 @@ export default function CampaignsPage() {
           ? Date.parse(a.createdAt) - Date.parse(b.createdAt)
           : Date.parse(b.createdAt) - Date.parse(a.createdAt),
     )
-  const active = visible.filter(isActive)
+  const active = visible.filter(isActive).sort((a, b) => {
+    const priority = (c: Campaign) =>
+      c.status === 'RUNNING' ? 0 : c.status === 'PREPARING' ? 1 : c.status === 'SCHEDULED' ? 2 : 3
+    return priority(a) - priority(b)
+  })
   const history = visible.filter((c) => !isActive(c))
+  const currentHistoryPage = Math.min(historyPage, Math.max(0, Math.ceil(history.length / 5) - 1))
+  const historyStart = currentHistoryPage * 5
   const filtered =
     !!search.trim() || view !== 'All' || status !== 'ALL' || period !== 'ALL' || source !== 'ALL'
   const create = (
@@ -341,8 +443,9 @@ export default function CampaignsPage() {
       <Tabs
         value={viewId(view)}
         onValueChange={(v) => {
+          setHistoryPage(0)
           setView(VIEWS.find((label) => viewId(label) === v) ?? VIEWS[0]!)
-          setLimit(4)
+          setLimit(2)
         }}
       >
         <TabsList aria-label="Campaign views" className="mb-0 border-b-0">
@@ -376,15 +479,19 @@ export default function CampaignsPage() {
             value={search}
             onValueChange={(v) => {
               setSearch(v)
-              setLimit(4)
+              setHistoryPage(0)
+              setLimit(2)
             }}
           />
           <CampaignFilter
             label="Status"
             value={status}
-            onChange={setStatus}
+            onChange={(value) => {
+              setStatus(value)
+              setHistoryPage(0)
+            }}
             options={[
-              ['ALL', 'Any status'],
+              ['ALL', 'Status'],
               ...CAMPAIGN_STATUSES.map((s): [string, string] => [
                 s,
                 s.toLowerCase().replaceAll('_', ' '),
@@ -394,9 +501,12 @@ export default function CampaignsPage() {
           <CampaignFilter
             label="Created date"
             value={period}
-            onChange={setPeriod}
+            onChange={(value) => {
+              setPeriod(value)
+              setHistoryPage(0)
+            }}
             options={[
-              ['ALL', 'Any date'],
+              ['ALL', 'Date'],
               ['7', 'Created last 7 days'],
               ['30', 'Created last 30 days'],
             ]}
@@ -404,9 +514,12 @@ export default function CampaignsPage() {
           <CampaignFilter
             label="Audience"
             value={source}
-            onChange={setSource}
+            onChange={(value) => {
+              setSource(value)
+              setHistoryPage(0)
+            }}
             options={[
-              ['ALL', 'Any audience'],
+              ['ALL', 'Audience'],
               ['TAGS', 'Tagged contacts'],
               ['SEGMENT', 'Saved segment'],
               ['FILTER', 'Contact filter'],
@@ -418,7 +531,10 @@ export default function CampaignsPage() {
             <CampaignFilter
               label="Sort campaigns"
               value={sort}
-              onChange={setSort}
+              onChange={(value) => {
+                setSort(value)
+                setHistoryPage(0)
+              }}
               options={[
                 ['NEWEST', 'Newest first'],
                 ['OLDEST', 'Oldest first'],
@@ -473,17 +589,17 @@ export default function CampaignsPage() {
             <>
               {active.length ? (
                 <section aria-label="Active campaigns" className="flex flex-col gap-3">
-                  <h2 className="text-md font-semibold text-slate">Active & scheduled</h2>
+                  <h2 className="text-md font-semibold text-slate">Active</h2>
                   <div className="grid gap-3 xl:grid-cols-2">
                     {active.slice(0, limit).map((c) => (
-                      <CampaignCard key={c.id} campaign={c} />
+                      <CampaignCard key={c.id} campaign={c} audienceLabel={audienceLabel(c)} />
                     ))}
                   </div>
                   {active.length > limit ? (
                     <Button
                       variant="secondary"
                       className="self-start"
-                      onClick={() => setLimit((n) => n + 4)}
+                      onClick={() => setLimit((n) => n + 2)}
                     >
                       Show more campaigns
                     </Button>
@@ -498,15 +614,23 @@ export default function CampaignsPage() {
                   <h2 className="border-b border-border px-4 py-3 text-md font-semibold text-slate">
                     {view === 'Drafts' ? 'Drafts' : 'Campaign history'}
                   </h2>
-                  <div className="[&_td]:py-3 [&_th]:py-2">
+                  <div className="[&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0 [&_thead]:bg-surface [&_td]:py-2.5 [&_th]:py-2">
                     <DataTable
                       label="Campaigns"
                       columns={columns}
-                      data={history}
+                      data={history.slice(historyStart, historyStart + 5)}
                       getRowId={(c) => c.id}
                       empty={{ title: 'No history yet' }}
                     />
                   </div>
+                  <Pagination
+                    className="border-t border-border px-4 py-3"
+                    hasPrevious={currentHistoryPage > 0}
+                    hasNext={historyStart + 5 < history.length}
+                    onPrevious={() => setHistoryPage(currentHistoryPage - 1)}
+                    onNext={() => setHistoryPage(currentHistoryPage + 1)}
+                    summary={`${historyStart + 1}–${Math.min(historyStart + 5, history.length)} of ${history.length} loaded campaigns`}
+                  />
                 </section>
               ) : null}
             </>

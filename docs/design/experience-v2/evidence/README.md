@@ -50,3 +50,7 @@ Home, Inbox and Contacts are now visually approved. The [Templates checkpoint](t
 ## Campaigns and Studio reconstruction checkpoint
 
 Templates and its mobile recipient preview are now visually approved. The next [Campaigns and Studio checkpoint](campaigns-reconstruction/README.md) retains before/first-pass/final captures and validates operations, Personalize and Review separately at four widths. Ready for visual review; stop before Automations.
+
+## Campaigns populated fidelity correction
+
+The latest [Campaigns populated fidelity review](campaigns-final-fidelity/README.md) responds to the user's reference comparison and ten-additional-demo request. It retains the prior checkpoint, adds original uploaded template sample artwork, real demo results, five-row history pages and four-width captures, with a side-by-side reference comparison. Ready for visual review; Create Campaign and earlier approved screens stay unchanged.

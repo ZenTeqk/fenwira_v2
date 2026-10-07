@@ -34,6 +34,15 @@ export function CampaignResults({
     <div className="flex flex-col gap-2" aria-label={`${c.name} delivery results`}>
       {!compact ? (
         <>
+          <div className="flex items-center justify-between gap-2 text-sm text-secondary">
+            <p>
+              <span className="font-semibold text-slate">{s.sent.toLocaleString('en-IN')}</span> /{' '}
+              {s.eligible.toLocaleString('en-IN')} sent
+            </p>
+            <span className="tabular-nums">
+              {s.eligible > 0 ? percent(s.sent / s.eligible) : '—'}
+            </span>
+          </div>
           {s.eligible > 0 ? (
             <Progress
               label={`${c.name}: sent out of eligible recipients`}
@@ -41,33 +50,31 @@ export function CampaignResults({
               max={s.eligible}
             />
           ) : null}
-          <p className="text-xs text-secondary">
-            {s.sent.toLocaleString('en-IN')} of {s.eligible.toLocaleString('en-IN')} eligible sent ·{' '}
-            {(s.pending + s.queued).toLocaleString('en-IN')} waiting
-            {s.failed ? ` · ${s.failed.toLocaleString('en-IN')} failed` : ''}
-            {s.skipped ? ` · ${s.skipped.toLocaleString('en-IN')} skipped` : ''}
-          </p>
+          {s.failed || s.skipped ? (
+            <p className="text-xs text-secondary">
+              {s.failed.toLocaleString('en-IN')} failed · {s.skipped.toLocaleString('en-IN')}{' '}
+              skipped
+            </p>
+          ) : null}
         </>
       ) : null}
-      <dl className="grid grid-cols-3 gap-3 border-t border-border pt-3 text-sm">
+      <dl className="grid grid-cols-3 gap-3 pt-2 text-sm [&>div+div]:border-l [&>div+div]:border-border [&>div+div]:pl-3">
         {[
-          ['Sent', s.sent.toLocaleString('en-IN')],
+          ['Delivered', percent(s.deliveryRate)],
+          ['Read', percent(s.readRate)],
           [
-            'Delivered',
-            compact
-              ? percent(s.deliveryRate)
-              : `${s.delivered.toLocaleString('en-IN')} · ${percent(s.deliveryRate)}`,
-          ],
-          [
-            'Read',
-            compact
-              ? percent(s.readRate)
-              : `${s.read.toLocaleString('en-IN')} · ${percent(s.readRate)}`,
+            'Started',
+            c.startedAt
+              ? new Intl.DateTimeFormat('en-IN', {
+                  timeStyle: 'short',
+                  timeZone: c.timezone,
+                }).format(new Date(c.startedAt))
+              : 'Not started',
           ],
         ].map(([label, value]) => (
           <div key={label}>
             <dt className="text-muted">{label}</dt>
-            <dd className="font-medium text-slate">{value}</dd>
+            <dd className="text-md font-semibold text-slate">{value}</dd>
           </div>
         ))}
       </dl>
