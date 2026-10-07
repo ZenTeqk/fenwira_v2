@@ -167,3 +167,7 @@ Use compact tinted attention icons, fine section dividers, stronger identity/typ
 ## Inbox final fidelity refinement
 
 The outbound-only `message-outbound` surface is refined from #DDF4E8 to **#D2F2DF**, with all actual message/status foregrounds checked by the existing AA contrast matrix. No Home or other module consumes this token. The Inbox thread overlays an original 64px-repeat SVG of tiny message curves, crosses and dots in `secondary` at 5% opacity; this decorative texture is hidden from assistive technology and does not intercept events. No external/WhatsApp wallpaper or imagery. White incoming messages and labelled warm notes retain their readable surfaces. Composer writing starts at 40px and grows to 160px before internal scrolling; mobile controls stay 40px. Shared default primitive sizes and the approved Home shell remain unchanged.
+
+### Campaign operations running state
+
+`StatusBadge context="campaign"` renders the actual RUNNING status using the existing success-soft/success-strong tokens and a labelled circle icon. This narrowly scoped semantic context follows the Campaigns reference; the default RUNNING preset stays informational for other execution surfaces. Scheduled remains informational, paused warning, and failed danger. Feature code must not substitute ACTIVE for RUNNING or override status colors locally.

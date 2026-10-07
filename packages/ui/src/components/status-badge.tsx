@@ -123,6 +123,8 @@ export type StatusKey = keyof typeof STATUS_PRESETS
 
 export type StatusBadgeProps = {
   status: StatusKey
+  /** Campaign operations distinguish a running campaign from informational execution state. */
+  context?: 'campaign'
   /** Override the default label (e.g. "Delivered 2m ago"); the icon and tone stay. */
   label?: string
   className?: string
@@ -144,8 +146,12 @@ export function StatusBadge({
   label,
   className,
   appearance = 'default',
+  context,
 }: StatusBadgeProps) {
-  const preset: StatusPreset = STATUS_PRESETS[status]
+  const preset: StatusPreset =
+    context === 'campaign' && status === 'RUNNING'
+      ? { tone: 'success', label: 'Running', icon: Circle }
+      : STATUS_PRESETS[status]
   const Icon = preset.icon
   if (appearance === 'inline')
     return (

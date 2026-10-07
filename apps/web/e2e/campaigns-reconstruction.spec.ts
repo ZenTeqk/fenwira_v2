@@ -99,7 +99,7 @@ test('Campaigns loading, first-use, error retry and filtered empty remain action
       status: 503,
       contentType: 'application/json',
       body: JSON.stringify({
-        error: { code: 'UNAVAILABLE', message: 'Campaign operations unavailable' },
+        error: { code: 'UNAVAILABLE', message: 'Internal failure: private database hostname' },
       }),
     }),
   )
@@ -107,14 +107,67 @@ test('Campaigns loading, first-use, error retry and filtered empty remain action
   await expect(
     page.getByRole('alert').filter({ hasText: 'Campaigns couldn’t be loaded' }),
   ).toBeVisible()
+  await expect(page.getByText('Internal failure: private database hostname')).toHaveCount(0)
   await page.unroute('**/api/v1/campaigns')
   await page.getByRole('button', { name: 'Try again', exact: true }).click()
   await expect(page.getByRole('link', { name: 'Recovery fixture', exact: true })).toBeVisible()
   await page.getByRole('searchbox', { name: 'Search campaigns' }).fill('No such operation')
-  await expect(page.getByText('No matching campaigns', { exact: true })).toBeVisible()
+  await expect(page.getByText('No campaigns match these filters.', { exact: true })).toBeVisible()
   await page
     .getByRole('button', { name: /^Clear filters/ })
     .first()
     .click()
   await expect(page.getByRole('link', { name: 'Recovery fixture', exact: true })).toBeVisible()
+})
+
+test('Campaigns adapt to 200 loaded records, long identities and missing snapshots', async ({
+  page,
+}) => {
+  const owner = await signInAsNewOwner(page, 'campaigns-density')
+  const created = await page.request.post(`${API}/campaigns`, {
+    headers: ownerHeaders(owner),
+    data: { name: 'Customer-created base campaign' },
+  })
+  expect(created.status()).toBe(201)
+  const draft = (await created.json()).data
+  // Controlled response fixture tests the existing API collection limit; never seeds fake sends/results.
+  const rows = Array.from({ length: 200 }, (_, index) => ({
+    ...draft,
+    id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    name: `Customer ${String(index).padStart(3, '0')} — ${'A long campaign name '.repeat(4)}`,
+  }))
+  const audience = 'Customers interested in home appliances and seasonal electronics offers'
+  rows[0] = {
+    ...rows[0]!,
+    status: 'SCHEDULED',
+    scheduleAt: new Date(Date.now() + 86400000).toISOString(),
+    audience: { include: [{ kind: 'SEGMENT', segmentId: draft.id }], exclude: [] },
+  }
+  await page.route('**/api/v1/segments*', (route) =>
+    route.fulfill({ json: { data: [{ id: draft.id, name: audience }] } }),
+  )
+  await page.route('**/api/v1/campaigns', (route) => route.fulfill({ json: { data: rows } }))
+  await page.goto('/campaigns')
+  await expect(page.getByText('1–5 of 199 loaded campaigns')).toBeVisible()
+  await expect(page.getByText(audience, { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'View schedule', exact: true })).toBeVisible()
+  for (const width of [1440, 1024, 768, 375]) {
+    await page.setViewportSize({ width, height: 1000 })
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBeLessThanOrEqual(0)
+    expect((await new AxeBuilder({ page }).withTags(tags).analyze()).violations).toEqual([])
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await expect(page.getByText('6–10 of 199 loaded campaigns')).toBeVisible()
+  await page.getByRole('searchbox', { name: 'Search campaigns' }).fill('Customer 123')
+  await expect(page.getByRole('region', { name: 'Active campaigns', exact: true })).toHaveCount(0)
+  const table = page.getByRole('table', { name: 'Campaigns', exact: true })
+  await expect(table.getByRole('row')).toHaveCount(2)
+  await expect(table.getByRole('link', { name: /Customer 123/ })).toBeVisible()
+  // No audience snapshot means unavailable metrics, rather than fabricated zeros.
+  expect(await table.locator('tbody').innerText()).toContain('—')
 })

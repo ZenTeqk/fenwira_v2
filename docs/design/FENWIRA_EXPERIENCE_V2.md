@@ -73,3 +73,7 @@ The user approved Templates and its recipient mobile preview, then authorized th
 ## Campaigns operations — populated fidelity review
 
 The user rejected the Campaigns list's visual fidelity and requested ten more demo campaigns against `06-Campaign-studio.png`. The new [populated fidelity checkpoint](experience-v2/evidence/campaigns-final-fidelity/README.md) brings image-led cards, inline status, message/audience hierarchy, progress/results, schedule band, five-row thumbnail history and working detail menus closer to that reference. Images come from existing frozen template samples, and audience labels from authorized catalogs. The demo uses actual persisted records and simulated WhatsApp. Preserve Create Campaign, all approved earlier screens and their shared shell; no unsupported reply metrics or bulk actions. Ready for visual review; stop before Automations.
+
+## Campaigns API-driven reconstruction review
+
+The latest instruction narrows the follow-up to Campaigns operations and reinforces actual customer data over reference sample values. Focused card/history/artwork/filter components, wrapping metadata, campaign-specific RUNNING semantics, safe loading errors and explicit scheduled navigation refine the existing implementation. All domain queries/actions, permissions and earlier approved screens remain authoritative. [Assessment and implementation](EXPERIENCE_V2_CAMPAIGNS_RECONSTRUCTION.md), [current validation evidence](experience-v2/evidence/campaigns-data-driven/README.md). Stop at Campaigns visual review.

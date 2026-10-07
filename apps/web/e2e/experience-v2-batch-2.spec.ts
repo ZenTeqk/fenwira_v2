@@ -544,7 +544,7 @@ test('Campaigns prioritize actual scheduled and paused communications over histo
   await page.getByRole('button', { name: /^Clear filters/ }).click()
   await page.getByRole('combobox', { name: 'Audience', exact: true }).click()
   await page.getByRole('option', { name: 'Saved segment', exact: true }).click()
-  await expect(page.getByText('No matching campaigns')).toBeVisible()
+  await expect(page.getByText('No campaigns match these filters.')).toBeVisible()
   await page
     .getByRole('button', { name: /^Clear filters/ })
     .first()
@@ -556,7 +556,7 @@ test('Campaigns prioritize actual scheduled and paused communications over histo
   await expect(history).toContainText('Weekend delivery draft')
   await expect(active).toHaveCount(0)
   await page.getByRole('searchbox', { name: 'Search campaigns' }).fill('no_matching_campaign')
-  await expect(page.getByText('No matching campaigns')).toBeVisible()
+  await expect(page.getByText('No campaigns match these filters.')).toBeVisible()
   // All snapshotted recipients survive pause; already queued messages may finish normally.
   const afterPause = (
     await (await page.request.get(`${API}/campaigns/${paused.id}/recipients`, { headers })).json()
