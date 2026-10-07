@@ -55,3 +55,7 @@ User review accepts the broad composition and necessary product differences, but
 ## Inbox views moved into list heading
 
 The user subsequently requested removal of the separate 176px contextual Inbox rail. Its existing six filters now use an icon menu beside the current list heading at all widths, preserving queries and selected-state/keyboard semantics. List/context widths are unchanged; the 1440 thread grows from 424px to 608px using the reclaimed rail/gutter space. This focused refinement supersedes the earlier four-pane recommendation; Home and its shell stay unchanged. [Review evidence and verification](experience-v2/evidence/inbox-view-menu/README.md). Stop for visual review.
+
+## Home and Inbox approved — Contacts reconstruction checkpoint
+
+The latest user instructions visually approve Home and Inbox, including the compact Inbox view menu and customer-details toggle. They are the canonical workspace/communication implementations and remain unchanged. Contacts alone is reconstructed against `03-Contacts.png`: coherent directory surface, compact human rows, real filter shortcuts, inline desktop context and mobile cards/drawer. Reuse the existing approved shell variant for Contacts; retain actual fields, permissions, centralized eligibility and domain operations. [Decomposition, corrections and validation](EXPERIENCE_V2_CONTACTS_RECONSTRUCTION.md) have a separate visual review checkpoint. Stop after Contacts; no Templates/Campaigns reconstruction is authorized by this task.

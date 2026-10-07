@@ -47,7 +47,7 @@ test('Contacts use server eligibility and lightweight context at four widths', a
     expect(res.status(), await res.text()).toBe(201)
   }
   await page.goto('/contacts')
-  await expect(page.getByText('2 contacts', { exact: true })).toBeVisible()
+  await expect(page.getByText('2 contacts · Page 1', { exact: true })).toBeVisible()
   const table = page.getByRole('table', { name: 'Contacts', exact: true })
   await expect(table.getByText('Marketing allowed')).toBeVisible()
   await expect(table.getByText('Marketing restricted')).toBeVisible()
@@ -55,10 +55,14 @@ test('Contacts use server eligibility and lightweight context at four widths', a
     await page.setViewportSize({ width, height: 900 })
     await accessible(page)
     await page.screenshot({ path: info.outputPath(`contacts-${width}.png`), fullPage: true })
-    const trigger = table.getByRole('button', { name: 'Priya Shah', exact: true })
+    const trigger = page.getByRole('button', { name: /^Priya Shah(?: \+\d+)?$/ })
     await trigger.focus()
     await page.keyboard.press('Enter')
-    const drawer = page.getByRole('dialog', { name: 'Priya Shah', exact: true })
+    const drawer = page.getByRole(width >= 1280 ? 'complementary' : 'dialog', {
+      name: 'Priya Shah',
+      exact: true,
+    })
+    await drawer.getByText('Eligibility and consent details', { exact: true }).click()
     await expect(drawer.getByRole('region', { name: 'Messaging eligibility' })).toContainText(
       'Free-form replies',
     )
@@ -73,7 +77,7 @@ test('Contacts use server eligibility and lightweight context at four widths', a
   const actions = page.getByRole('button', { name: 'Actions for Priya Shah' })
   await actions.click()
   await page.getByRole('menuitem', { name: 'Quick view' }).click()
-  await expect(page.getByRole('dialog', { name: 'Priya Shah', exact: true })).toBeVisible()
+  await expect(page.getByRole('complementary', { name: 'Priya Shah', exact: true })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(actions).toBeFocused()
 })
@@ -108,11 +112,14 @@ test('Contacts search errors and eligibility errors stay explicit and retryable'
       body: JSON.stringify({ error: { code: 'UNAVAILABLE', message: 'Eligibility unavailable' } }),
     }),
   )
+  // The directory/context intentionally share the eligibility cache; force a fresh read for this failure fixture.
+  await page.reload()
   await page.getByRole('button', { name: 'Farah Ali', exact: true }).click()
-  const drawer = page.getByRole('dialog', { name: 'Farah Ali' })
+  const drawer = page.getByRole('complementary', { name: 'Farah Ali' })
   await expect(drawer.getByRole('alert')).toContainText('Eligibility couldn’t be loaded')
   await page.unroute('**/api/v1/contacts/*/eligibility')
   await drawer.getByRole('button', { name: 'Try again' }).click()
+  await drawer.getByText('Eligibility and consent details', { exact: true }).click()
   await expect(drawer.getByRole('region', { name: 'Messaging eligibility' })).toBeVisible()
 })
 

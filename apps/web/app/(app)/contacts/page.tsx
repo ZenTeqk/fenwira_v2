@@ -1,12 +1,16 @@
 'use client'
 
-import { type Contact, type ContactFilter, EMPTY_FILTER, type ExportJob } from '@fenwira/contracts'
-import { EligibilityIndicator } from '@/components/contacts/eligibility-summary'
+import {
+  type Contact,
+  type ContactFilter,
+  type FilterRule,
+  isFilterGroup,
+  EMPTY_FILTER,
+  type ExportJob,
+} from '@fenwira/contracts'
+import { ContactDirectory } from '@/components/contacts/contact-directory'
 import {
   Button,
-  Avatar,
-  type ColumnDef,
-  DataTable,
   Dropdown,
   DropdownContent,
   DropdownItem,
@@ -17,29 +21,32 @@ import {
   FilterBar,
   Input,
   ListPage,
+  ModuleTabs,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Modal,
   ModalClose,
   ModalContent,
   PermissionState,
-  RowActions,
   SearchInput,
   toast,
   useConfirm,
 } from '@fenwira/ui'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, ExternalLink, Eye, Filter, Plus, Tags, Upload } from 'lucide-react'
+import { Filter, Plus, Tags, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { type FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ContactFormModal } from '@/components/contacts/contact-form-modal'
 import { ContactPreview } from '@/components/contacts/contact-preview'
 import { completeFilter, countRules, FilterBuilder } from '@/components/contacts/filter-builder'
-import { TagBadges } from '@/components/contacts/tag-badges'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { useTags } from '@/lib/contacts'
-import { relativeTime } from '@/lib/relative-time'
 
 const PAGE = 50
 const message = (err: unknown) => (err instanceof ApiError ? err.message : 'Something went wrong.')
@@ -121,10 +128,14 @@ function Contacts() {
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
   const previewTrigger = useRef<HTMLElement | null>(null)
+  const previewTriggerId = useRef<string | null>(null)
   const openPreview = useCallback((id: string) => {
+    previewTriggerId.current = id
     const active = document.activeElement as HTMLElement
     previewTrigger.current = active.closest('[role="menu"]')
-      ? document.querySelector<HTMLElement>(`[data-contact-actions="${id}"] button`)
+      ? ([...document.querySelectorAll<HTMLElement>(`[data-contact-actions="${id}"] button`)].find(
+          (button) => button.getClientRects().length > 0,
+        ) ?? null)
       : active
     setPreview(id)
   }, [])
@@ -137,6 +148,38 @@ function Contacts() {
     }
   }, [params, can, router])
   const filter = useMemo(() => completeFilter(draft), [draft])
+  // Quick controls edit the same root DSL rules as the advanced builder, preserving its op/depth.
+  const tagRule = draft.rules.find(
+    (r): r is FilterRule =>
+      !isFilterGroup(r) &&
+      r.field === 'tags' &&
+      r.operator === 'HAS_ANY' &&
+      Array.isArray(r.value) &&
+      r.value.length === 1,
+  )
+  const ownerRule = draft.rules.find(
+    (r): r is FilterRule => !isFilterGroup(r) && r.field === 'ownerId',
+  )
+  const tagFilter = tagRule ? (tagRule.value as string[])[0]! : '__all'
+  const ownerFilter =
+    ownerRule?.operator === 'NOT_EXISTS'
+      ? 'unassigned'
+      : ownerRule?.operator === 'IN' &&
+          Array.isArray(ownerRule.value) &&
+          ownerRule.value.length === 1 &&
+          ownerRule.value[0] === me.user.id
+        ? 'mine'
+        : '__all'
+  const quickRule = (field: string, rule: FilterRule | null) => {
+    setDraft((current) => ({
+      ...current,
+      rules: [
+        ...current.rules.filter((r) => isFilterGroup(r) || r.field !== field),
+        ...(rule ? [rule] : []),
+      ],
+    }))
+    setCursors([])
+  }
   const cursor = cursors[cursors.length - 1]
   const body = { filter, q: q.trim() || undefined }
 
@@ -196,310 +239,290 @@ function Contacts() {
 
   if (!can('contacts.read')) return <PermissionState what="contacts" />
 
-  const columns = useMemo<ColumnDef<Contact, unknown>[]>(
-    () => [
-      {
-        id: 'name',
-        header: 'Contact',
-        cell: ({ row }) => (
-          <div className="flex min-w-0 items-center gap-3">
-            <Avatar
-              name={row.original.name ?? row.original.waProfileName ?? row.original.phoneE164}
-              size="md"
-            />
-            <Button
-              variant="ghost"
-              className="h-auto min-h-9 justify-start px-0 font-medium"
-              onClick={() => openPreview(row.original.id)}
-            >
-              {row.original.name ?? row.original.waProfileName ?? 'Unnamed contact'}
-            </Button>
-          </div>
-        ),
-      },
-      {
-        id: 'phone',
-        header: 'Phone',
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap text-sm text-secondary">{row.original.phoneE164}</span>
-        ),
-      },
-      {
-        id: 'tags',
-        header: 'Tags',
-        meta: { label: 'Tags' },
-        cell: ({ row }) => <TagBadges tags={row.original.tags} />,
-      },
-      {
-        id: 'eligibility',
-        header: 'WhatsApp eligibility',
-        cell: ({ row }) => <EligibilityIndicator contactId={row.original.id} />,
-      },
-      {
-        id: 'lastInbound',
-        header: 'Last incoming message',
-        cell: ({ row }) =>
-          row.original.lastInboundAt ? relativeTime(row.original.lastInboundAt) : '—',
-      },
-      {
-        id: 'assigned',
-        header: 'Assigned',
-        cell: ({ row }) =>
-          row.original.ownerId ? (
-            row.original.ownerId === me.user.id ? (
-              'You'
-            ) : (
-              'Assigned teammate'
-            )
-          ) : (
-            <span className="text-muted">Unassigned</span>
-          ),
-      },
-      {
-        id: 'actions',
-        header: () => <span className="sr-only">Actions</span>,
-        enableHiding: false,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <span data-contact-actions={row.original.id}>
-            <RowActions
-              label={`Actions for ${row.original.name ?? row.original.phoneE164}`}
-              actions={[
-                {
-                  label: 'Quick view',
-                  icon: <Eye aria-hidden="true" />,
-                  onSelect: () => openPreview(row.original.id),
-                },
-                {
-                  label: 'Open contact',
-                  icon: <ExternalLink aria-hidden="true" />,
-                  onSelect: () => router.push(`/contacts/${row.original.id}`),
-                },
-              ]}
-            />
-          </span>
-        ),
-      },
-    ],
-    [me.user.id, openPreview, router],
-  )
   const rules = countRules(filter)
   const filtered = !!(rules || q.trim())
 
   return (
-    <ListPage
-      header={{
-        title: 'Contacts',
-        description: 'People your team communicates with on WhatsApp.',
-        actions: (
-          <>
-            {can('contacts.import') ? (
-              <Button variant="secondary" asChild>
-                <Link href="/contacts/imports">
-                  <Upload aria-hidden="true" />
-                  Import
-                </Link>
-              </Button>
-            ) : null}
-            {can('contacts.export') ? (
-              <Button
-                variant="secondary"
-                loading={exportCsv.isPending}
-                onClick={() => exportCsv.mutate()}
-              >
-                <Download aria-hidden="true" />
-                Export
-              </Button>
-            ) : null}
-            {can('contacts.write') ? (
-              <Button onClick={() => setCreating(true)}>
-                <Plus aria-hidden="true" />
-                Add contact
-              </Button>
-            ) : null}
-          </>
-        ),
-      }}
-    >
-      <p role="status" className="text-sm text-secondary">
-        {count.data !== undefined
-          ? `${count.data.toLocaleString('en-IN')} contacts${filtered ? ' match' : ''}`
-          : count.isError
-            ? 'Contact count unavailable'
-            : 'Loading contact count…'}
-      </p>
-      <DataTable
-        label="Contacts"
-        columns={columns}
-        data={list.data?.data ?? []}
-        getRowId={(c) => c.id}
-        selectable={can('contacts.write')}
-        onSelectionChange={setSelected}
-        columnVisibility
-        toolbar={
-          <FilterBar
-            activeCount={rules + (q.trim() ? 1 : 0)}
-            onClear={() => {
-              setQ('')
-              setDraft(EMPTY_FILTER)
-              setCursors([])
-            }}
-          >
-            <SearchInput
-              label="Search contacts"
-              placeholder="Search name, phone or email"
-              value={q}
-              onValueChange={(v) => {
-                setQ(v)
+    <div className="flex min-w-0 items-start gap-4">
+      <ListPage
+        className="min-w-0 flex-1 gap-4"
+        header={{
+          title: 'Contacts',
+          description: 'People your team communicates with on WhatsApp.',
+          actions: (
+            <>
+              {can('contacts.import') ? (
+                <Button variant="secondary" asChild>
+                  <Link href="/contacts/imports">
+                    <Upload aria-hidden="true" />
+                    Import
+                  </Link>
+                </Button>
+              ) : null}
+              {can('contacts.write') ? (
+                <Button onClick={() => setCreating(true)}>
+                  <Plus aria-hidden="true" />
+                  Add contact
+                </Button>
+              ) : null}
+            </>
+          ),
+        }}
+      >
+        <ModuleTabs
+          label="Contacts pages"
+          linkAs={Link}
+          className="border-0 bg-transparent [&_ul]:px-0 [&_a]:h-10 [&_a]:text-sm"
+          items={[
+            { id: 'all', label: 'All contacts', href: '/contacts', active: true },
+            { id: 'segments', label: 'Segments', href: '/contacts/segments', active: false },
+            { id: 'tags', label: 'Tags', href: '/contacts/tags', active: false },
+            ...(can('contacts.import')
+              ? [{ id: 'imports', label: 'Imports', href: '/contacts/imports', active: false }]
+              : []),
+          ]}
+        />
+        <ContactDirectory
+          data={list.data?.data ?? []}
+          preview={preview}
+          onPreview={openPreview}
+          selected={selected}
+          selectable={can('contacts.write')}
+          onSelectionChange={setSelected}
+          onExport={can('contacts.export') ? () => exportCsv.mutate() : undefined}
+          exporting={exportCsv.isPending}
+          toolbar={(columns) => (
+            <FilterBar
+              end={columns}
+              activeCount={rules + (q.trim() ? 1 : 0)}
+              onClear={() => {
+                setQ('')
+                setDraft(EMPTY_FILTER)
                 setCursors([])
               }}
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              aria-expanded={showFilter}
-              onClick={() => setShowFilter((s) => !s)}
             >
-              <Filter aria-hidden="true" />
-              {rules ? `Filters (${rules})` : 'Filter'}
-            </Button>
-            {rules && can('contacts.write') ? (
-              <Button variant="ghost" size="sm" onClick={() => setSaving(true)}>
-                Save as segment
+              <SearchInput
+                label="Search contacts"
+                placeholder="Search contacts…"
+                className="w-full sm:w-52"
+                value={q}
+                onValueChange={(v) => {
+                  setQ(v)
+                  setCursors([])
+                }}
+              />
+              <Select
+                value={tagFilter}
+                onValueChange={(v) => {
+                  quickRule(
+                    'tags',
+                    v === '__all' ? null : { field: 'tags', operator: 'HAS_ANY', value: [v] },
+                  )
+                }}
+              >
+                <SelectTrigger aria-label="Filter by tag" className="h-10 w-28 sm:h-9">
+                  <SelectValue placeholder="Tag" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">All tags</SelectItem>
+                  {tags.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={ownerFilter}
+                onValueChange={(v) => {
+                  quickRule(
+                    'ownerId',
+                    v === '__all'
+                      ? null
+                      : v === 'mine'
+                        ? { field: 'ownerId', operator: 'IN', value: [me.user.id] }
+                        : { field: 'ownerId', operator: 'NOT_EXISTS' },
+                  )
+                }}
+              >
+                <SelectTrigger
+                  aria-label="Filter by assignment"
+                  className="h-10 w-36 whitespace-nowrap sm:h-9"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">Assignment</SelectItem>
+                  <SelectItem value="mine">Assigned to me</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="min-h-10 sm:min-h-8"
+                aria-expanded={showFilter}
+                onClick={() => setShowFilter((s) => !s)}
+              >
+                <Filter aria-hidden="true" />
+                {rules ? `More filters (${rules})` : 'More filters'}
               </Button>
-            ) : null}
-            {showFilter ? (
-              <div className="w-full rounded-lg border border-border bg-surface p-3">
-                <FilterBuilder
-                  value={draft}
-                  onChange={(f) => {
-                    setDraft(f)
-                    setCursors([])
-                  }}
-                />
-              </div>
-            ) : null}
-          </FilterBar>
-        }
-        bulkActions={
-          can('contacts.write')
-            ? () => (
-                <Dropdown>
-                  <DropdownTrigger asChild>
-                    <Button variant="secondary" size="sm">
-                      <Tags aria-hidden="true" />
-                      Tags
-                    </Button>
-                  </DropdownTrigger>
-                  <DropdownContent align="start">
-                    {tags.length ? null : (
-                      <DropdownLabel>Create tags in Contacts → Tags first</DropdownLabel>
-                    )}
-                    {tags.length ? <DropdownLabel>Add tag</DropdownLabel> : null}
-                    {tags.map((t) => (
+              {rules && can('contacts.write') ? (
+                <Button variant="ghost" size="sm" onClick={() => setSaving(true)}>
+                  Save as segment
+                </Button>
+              ) : null}
+              {showFilter ? (
+                <div className="w-full rounded-lg border border-border bg-surface p-3">
+                  <FilterBuilder
+                    value={draft}
+                    onChange={(f) => {
+                      setDraft(f)
+                      setCursors([])
+                    }}
+                  />
+                </div>
+              ) : null}
+            </FilterBar>
+          )}
+          bulkActions={
+            can('contacts.write') ? (
+              <Dropdown>
+                <DropdownTrigger asChild>
+                  <Button variant="secondary" size="sm" disabled={bulk.isPending}>
+                    <Tags aria-hidden="true" />
+                    Tags
+                  </Button>
+                </DropdownTrigger>
+                <DropdownContent align="start">
+                  {tags.length ? null : (
+                    <DropdownLabel>Create tags in Contacts → Tags first</DropdownLabel>
+                  )}
+                  {tags.length ? <DropdownLabel>Add tag</DropdownLabel> : null}
+                  {tags.map((t) => (
+                    <DropdownItem
+                      key={`add-${t.id}`}
+                      onSelect={() => bulk.mutate({ action: 'TAG', tagId: t.id })}
+                    >
+                      {t.name}
+                    </DropdownItem>
+                  ))}
+                  {tags.length ? <DropdownSeparator /> : null}
+                  {tags.length ? <DropdownLabel>Remove tag</DropdownLabel> : null}
+                  {tags.map((t) => (
+                    <DropdownItem
+                      key={`rm-${t.id}`}
+                      onSelect={() => bulk.mutate({ action: 'UNTAG', tagId: t.id })}
+                    >
+                      {t.name}
+                    </DropdownItem>
+                  ))}
+                  {can('contacts.delete') ? (
+                    <>
+                      <DropdownSeparator />
                       <DropdownItem
-                        key={`add-${t.id}`}
-                        onSelect={() => bulk.mutate({ action: 'TAG', tagId: t.id })}
+                        destructive
+                        onSelect={async () => {
+                          if (
+                            await confirm({
+                              title: `Delete ${selected.length} contacts?`,
+                              description: 'This can’t be undone from the app.',
+                              impact: [
+                                'They disappear from lists, segments and future campaigns.',
+                                'Their message history is kept for your records.',
+                              ],
+                              confirmLabel: 'Delete contacts',
+                              destructive: true,
+                            })
+                          )
+                            bulk.mutate({ action: 'DELETE' })
+                        }}
                       >
-                        {t.name}
+                        Delete
                       </DropdownItem>
-                    ))}
-                    {tags.length ? <DropdownSeparator /> : null}
-                    {tags.length ? <DropdownLabel>Remove tag</DropdownLabel> : null}
-                    {tags.map((t) => (
-                      <DropdownItem
-                        key={`rm-${t.id}`}
-                        onSelect={() => bulk.mutate({ action: 'UNTAG', tagId: t.id })}
-                      >
-                        {t.name}
-                      </DropdownItem>
-                    ))}
-                    {can('contacts.delete') ? (
-                      <>
-                        <DropdownSeparator />
-                        <DropdownItem
-                          destructive
-                          onSelect={async () => {
-                            if (
-                              await confirm({
-                                title: `Delete ${selected.length} contacts?`,
-                                description: 'This can’t be undone from the app.',
-                                impact: [
-                                  'They disappear from lists, segments and future campaigns.',
-                                  'Their message history is kept for your records.',
-                                ],
-                                confirmLabel: 'Delete contacts',
-                                destructive: true,
-                              })
-                            )
-                              bulk.mutate({ action: 'DELETE' })
-                          }}
-                        >
-                          Delete
-                        </DropdownItem>
-                      </>
-                    ) : null}
-                  </DropdownContent>
-                </Dropdown>
-              )
-            : undefined
-        }
-        loading={list.isPending}
-        error={
-          list.isError
-            ? { message: message(list.error), onRetry: () => void list.refetch() }
-            : undefined
-        }
-        empty={
-          filtered
-            ? {
-                title: 'No contacts match',
-                description: 'Try a different search, or clear the filters.',
-              }
-            : {
-                title: 'No contacts yet',
-                description:
-                  'Contacts are the people you message on WhatsApp. They appear when customers write to you; you can also add them or import a CSV, with their consent.',
-                action: can('contacts.write') ? (
-                  <div className="flex gap-2">
-                    <Button onClick={() => setCreating(true)}>
-                      <Plus aria-hidden="true" />
-                      Add your first contact
-                    </Button>
-                    {can('contacts.import') ? (
-                      <Button variant="secondary" asChild>
-                        <Link href="/contacts/imports">Import CSV</Link>
+                    </>
+                  ) : null}
+                </DropdownContent>
+              </Dropdown>
+            ) : undefined
+          }
+          loading={list.isPending}
+          error={
+            list.isError
+              ? { message: message(list.error), onRetry: () => void list.refetch() }
+              : undefined
+          }
+          empty={
+            filtered
+              ? {
+                  title: 'No contacts match',
+                  description: 'Try a different search, or clear the filters.',
+                }
+              : {
+                  title: 'No contacts yet',
+                  description:
+                    'Contacts are the people you message on WhatsApp. They appear when customers write to you; you can also add them or import a CSV, with their consent.',
+                  action: can('contacts.write') ? (
+                    <div className="flex gap-2">
+                      <Button onClick={() => setCreating(true)}>
+                        <Plus aria-hidden="true" />
+                        Add your first contact
                       </Button>
-                    ) : null}
-                  </div>
-                ) : undefined,
-              }
-        }
-        pagination={{
-          hasPrevious: cursors.length > 0,
-          hasNext: !!list.data?.page.nextCursor,
-          onPrevious: () => setCursors((c) => c.slice(0, -1)),
-          onNext: () =>
-            list.data?.page.nextCursor && setCursors((c) => [...c, list.data!.page.nextCursor!]),
-          summary: `Page ${cursors.length + 1}`,
-        }}
-      />
-      <ContactFormModal
-        open={creating}
-        onOpenChange={setCreating}
-        onSaved={(c) => {
-          toast.success('Contact created')
-          refresh()
-          router.push(`/contacts/${c.id}`)
-        }}
-      />
-      <SaveSegmentModal filter={filter} open={saving} onOpenChange={setSaving} />
+                      {can('contacts.import') ? (
+                        <Button variant="secondary" asChild>
+                          <Link href="/contacts/imports">Import CSV</Link>
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : undefined,
+                }
+          }
+          pagination={{
+            hasPrevious: cursors.length > 0,
+            hasNext: !!list.data?.page.nextCursor,
+            onPrevious: () => setCursors((c) => c.slice(0, -1)),
+            onNext: () =>
+              list.data?.page.nextCursor && setCursors((c) => [...c, list.data!.page.nextCursor!]),
+            summary: (
+              <span role="status">
+                {count.data !== undefined
+                  ? `${count.data.toLocaleString('en-IN')} contacts${filtered ? ' match' : ''}`
+                  : count.isError
+                    ? 'Contact count unavailable'
+                    : 'Loading contact count…'}{' '}
+                · Page {cursors.length + 1}
+              </span>
+            ),
+          }}
+        />
+        <ContactFormModal
+          open={creating}
+          onOpenChange={setCreating}
+          onSaved={(c) => {
+            toast.success('Contact created')
+            refresh()
+            router.push(`/contacts/${c.id}`)
+          }}
+        />
+        <SaveSegmentModal filter={filter} open={saving} onOpenChange={setSaving} />
+      </ListPage>
       <ContactPreview
         id={preview}
         onClose={() => setPreview(null)}
-        restoreFocus={() => previewTrigger.current?.focus()}
+        restoreFocus={() => {
+          const original = previewTrigger.current
+          if (original?.getClientRects().length) original.focus()
+          else
+            [
+              ...document.querySelectorAll<HTMLElement>(
+                `[data-contact-preview="${previewTriggerId.current}"]`,
+              ),
+            ]
+              .find((button) => button.getClientRects().length > 0)
+              ?.focus()
+        }}
       />
-    </ListPage>
+    </div>
   )
 }
 

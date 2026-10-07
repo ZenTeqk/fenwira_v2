@@ -65,6 +65,34 @@ export function EligibilityIndicator({ contactId }: { contactId: string }) {
   )
 }
 
+/** Directory presentation only: purpose-specific labels from the same server read model. */
+export function DirectoryEligibility({ contactId }: { contactId: string }) {
+  const q = useEligibility(contactId)
+  if (q.isPending) return <Skeleton className="h-8 w-24" />
+  if (q.isError)
+    return <span className="text-xs text-secondary">Open details to retry eligibility</span>
+  return (
+    <span className="flex flex-col items-start gap-0.5">
+      <StatusBadge
+        appearance="inline"
+        status={q.data.freeform.allowed ? 'CAN_SEND' : 'CANNOT_SEND'}
+        label={
+          q.data.freeform.allowed
+            ? 'Service replies'
+            : q.data.freeform.code === 'CONVERSATION_WINDOW_CLOSED'
+              ? 'Template required'
+              : 'Service unavailable'
+        }
+      />
+      <StatusBadge
+        appearance="inline"
+        status={q.data.marketingTemplate.allowed ? 'CAN_SEND' : 'CANNOT_SEND'}
+        label={q.data.marketingTemplate.allowed ? 'Marketing allowed' : 'Marketing restricted'}
+      />
+    </span>
+  )
+}
+
 /**
  * What can be sent to this contact now, as decided by MessageEligibilityService (the API computes
  * it; the browser never re-implements consent rules). Explains every restriction in words.

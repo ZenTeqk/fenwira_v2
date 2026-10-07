@@ -38,3 +38,7 @@ The reconstruction is not visually approved. The [final fidelity pass](inbox-fin
 The user then requested removal of the separate Inbox view column. The [compact view-menu checkpoint](inbox-view-menu/README.md) moves all six existing views into an icon menu beside the list heading and gives the freed space to the thread. It supersedes the rail composition while retaining the approved Home shell and all previous evidence.
 
 The subsequent [customer-details arrow checkpoint](inbox-contact-toggle/README.md) lets the operator collapse/reopen the desktop panel for more chat space while preserving the smaller-screen drawer, drafts and keyboard focus.
+
+## Contacts reconstruction checkpoint
+
+The user approved the final Home and Inbox implementations and requested Contacts against `03-Contacts.png`. The [Contacts reconstruction evidence](contacts-reconstruction/README.md) retains before/first-pass/final captures, four-width checks and Home/Inbox consistency evidence. This checkpoint covers Contacts only and stops for visual review; it does not authorize later-module propagation.

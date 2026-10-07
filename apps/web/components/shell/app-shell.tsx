@@ -68,7 +68,9 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   const home = pathname === '/dashboard'
   // The inbox fills the viewport under the header with its own panes (docs/INBOX.md → Layout).
   const fullBleed = pathname === '/inbox' || pathname.startsWith('/inbox/')
-  const communicationShell = home || fullBleed
+  // Contacts reuses the approved shell variant and owns its contextual links below its heading.
+  const contactsDirectory = pathname === '/contacts'
+  const communicationShell = home || fullBleed || contactsDirectory
   const { membership, tenantId, can } = useSession()
   const unread = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox-unread'),
@@ -243,7 +245,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           <AccountMenu />
         </header>
 
-        {tabs.length && !fullBleed ? (
+        {tabs.length && !fullBleed && !contactsDirectory ? (
           <ModuleTabs
             items={tabs}
             label={`${currentModule?.label ?? 'Module'} pages`}

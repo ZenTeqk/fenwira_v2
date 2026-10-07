@@ -1,0 +1,93 @@
+{
+  "sidebar": {
+    "x": 0,
+    "y": 0,
+    "width": 224,
+    "height": 1000
+  },
+  "topbar": {
+    "x": 224,
+    "y": 0,
+    "width": 1216,
+    "height": 56
+  },
+  "views": null,
+  "list": {
+    "x": 232,
+    "y": 64,
+    "width": 320,
+    "height": 928
+  },
+  "firstRow": {
+    "x": 233,
+    "y": 210,
+    "width": 318,
+    "height": 65
+  },
+  "ordinaryRow": {
+    "x": 233,
+    "y": 275,
+    "width": 318,
+    "height": 65
+  },
+  "threadHeader": {
+    "x": 561,
+    "y": 65,
+    "width": 606,
+    "height": 130
+  },
+  "primaryHeader": {
+    "x": 561,
+    "y": 65,
+    "width": 606,
+    "height": 64
+  },
+  "windowContext": {
+    "x": 561,
+    "y": 129,
+    "width": 606,
+    "height": 65
+  },
+  "avatar": {
+    "x": 249,
+    "y": 220,
+    "width": 36,
+    "height": 36
+  },
+  "identity": {
+    "x": 1193,
+    "y": 81,
+    "width": 222,
+    "height": 68
+  },
+  "eligibility": {
+    "x": 1193,
+    "y": 281,
+    "width": 222,
+    "height": 121
+  },
+  "writing": {
+    "x": 574,
+    "y": 936,
+    "width": 420,
+    "height": 42
+  },
+  "thread": {
+    "x": 560,
+    "y": 64,
+    "width": 608,
+    "height": 928
+  },
+  "context": {
+    "x": 1176,
+    "y": 64,
+    "width": 256,
+    "height": 928
+  },
+  "composer": {
+    "x": 561,
+    "y": 890,
+    "width": 606,
+    "height": 101
+  }
+}

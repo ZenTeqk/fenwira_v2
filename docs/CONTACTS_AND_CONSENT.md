@@ -4,6 +4,14 @@
 
 The contact model, phone normalization, dedupe, custom properties, tags, the filter DSL shared by lists, segments and campaigns, consent tracking and enforcement, CSV import and export, and the Contact 360 view.
 
+## Experience V2 directory
+
+The `/contacts` directory follows the approved Home/Inbox scale and Contacts reference: heading/actions → All contacts/Segments/Tags/Imports contextual links → one compact working surface. The existing shell variant is reused only for this route; Home/Inbox and the global navigation are unchanged. Ordinary desktop rows use 36px varied initials, compact stored tags and purpose-specific server eligibility labels. `lastInboundAt` is labelled **Last incoming**, not presented as a last-conversation date. Owner names resolve only through the authorized existing team read, with a teammate fallback when names are unavailable.
+
+Tag and assignment shortcuts edit the same root filter rules as the advanced builder, retaining its AND/OR mode and nesting limit. Search/count, saved segments and exports use that existing DSL. The Columns menu preserves the **Export filtered contacts** action; this exports the current query, not the selected rows. Bulk selection supports existing tag/untag/delete operations only. No bulk assignment, blanket eligibility filter, CRM field or favourite has been added.
+
+Selecting a contact opens a 288px inline desktop context at 1280px and wider; below that it opens the existing accessible drawer. It prioritizes identity, actual contact fields, stored tags, WhatsApp service/marketing verdicts, owner and real recent activity. The full centralized eligibility and consent details remain accessible through a keyboard disclosure. Message links to an existing conversation only; More retains editing and the full profile route. The compact timeline shows the latest three real activity records, with the full history retained on the contact profile. Escape returns focus to the initiating identity/action control. At mobile widths the directory uses contact cards rather than a miniature table. See [reconstruction and review evidence](design/EXPERIENCE_V2_CONTACTS_RECONSTRUCTION.md).
+
 ## Decisions
 
 ### Contact identity
