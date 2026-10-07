@@ -159,7 +159,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     expect((await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations).toEqual([])
     await page.screenshot({ path: testInfo.outputPath(`inbox-${width}.png`), fullPage: true })
     if (width < 1280) {
-      await page.getByRole('button', { name: 'Contact details' }).click()
+      await page.getByRole('button', { name: 'Show customer details' }).click()
       await page
         .getByRole('dialog', { name: 'Contact', exact: true })
         .getByText('Eligibility and consent details', { exact: true })
@@ -174,7 +174,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
           .violations,
       ).toEqual([])
       await page.keyboard.press('Escape')
-      await expect(page.getByRole('button', { name: 'Contact details' })).toBeFocused()
+      await expect(page.getByRole('button', { name: 'Show customer details' })).toBeFocused()
     }
   }
   await page.getByRole('button', { name: 'Back to conversations' }).click()

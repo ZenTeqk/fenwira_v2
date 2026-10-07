@@ -272,6 +272,19 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
         ).toBeLessThanOrEqual(0)
       }
       await page.screenshot({ path: info.outputPath(`${name}-${width}.png`), fullPage: true })
+      if (name === 'inbox' && width === 1024) {
+        const showContact = page.getByRole('button', { name: 'Show customer details' })
+        await expect(showContact).toHaveAttribute('aria-haspopup', 'dialog')
+        await showContact.click()
+        await expect(page.getByRole('dialog', { name: 'Contact', exact: true })).toBeVisible()
+        await page.setViewportSize({ width: 1440, height: 1000 })
+        await expect(page.getByRole('dialog', { name: 'Contact', exact: true })).toBeHidden()
+        await expect(page.getByRole('complementary', { name: 'Contact' })).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Hide customer details' })).toBeFocused()
+        await page.setViewportSize({ width: 1024, height: 1000 })
+        await expect(showContact).toHaveAttribute('aria-expanded', 'false')
+        await expect(page.getByRole('dialog', { name: 'Contact', exact: true })).toBeHidden()
+      }
       if (name === 'inbox' && width === 1440) {
         const viewMenu = page.getByRole('button', { name: /^Inbox views/ })
         await viewMenu.focus()
@@ -295,6 +308,33 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
         await page.keyboard.press('Escape')
         await expect(viewMenu).toBeFocused()
         const reply = page.getByLabel('Reply', { exact: true })
+        await reply.fill('Keep this draft while inspecting customer details')
+        const hideContact = page.getByRole('button', { name: 'Hide customer details' })
+        await expect(hideContact).toHaveAttribute('aria-expanded', 'true')
+        await hideContact.focus()
+        await page.keyboard.press('Enter')
+        await expect(page.getByRole('complementary', { name: 'Contact' })).toBeHidden()
+        const showContact = page.getByRole('button', { name: 'Show customer details' })
+        await expect(showContact).toHaveAttribute('aria-expanded', 'false')
+        await expect(showContact).toBeFocused()
+        await expect(reply).toHaveValue('Keep this draft while inspecting customer details')
+        expect((await page.getByRole('region', { name: 'Chat' }).boundingBox())?.width).toBe(872)
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+              .analyze()
+          ).violations,
+        ).toEqual([])
+        await page.screenshot({
+          path: info.outputPath('inbox-contact-hidden-1440.png'),
+          fullPage: true,
+        })
+        await page.keyboard.press('Enter')
+        await expect(page.getByRole('complementary', { name: 'Contact' })).toBeVisible()
+        await expect(hideContact).toBeFocused()
+        await expect(reply).toHaveValue('Keep this draft while inspecting customer details')
+        expect((await page.getByRole('region', { name: 'Chat' }).boundingBox())?.width).toBe(608)
         await reply.fill(Array.from({ length: 30 }, (_, i) => `Draft line ${i + 1}`).join('\n'))
         await expect.poll(async () => (await reply.boundingBox())?.height).toBe(160)
         expect(await reply.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true)
@@ -338,7 +378,7 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
         await page.getByRole('button', { name: 'Reply', exact: true }).click()
       }
       if (name === 'inbox' && width === 375) {
-        await page.getByRole('button', { name: 'Contact details' }).click()
+        await page.getByRole('button', { name: 'Show customer details' }).click()
         await page
           .getByRole('dialog', { name: 'Contact', exact: true })
           .getByText('Eligibility and consent details', { exact: true })
@@ -357,7 +397,7 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
         ).toEqual([])
         await page.screenshot({ path: info.outputPath('inbox-context-375.png'), fullPage: true })
         await page.keyboard.press('Escape')
-        await expect(page.getByRole('button', { name: 'Contact details' })).toBeFocused()
+        await expect(page.getByRole('button', { name: 'Show customer details' })).toBeFocused()
         await page.getByRole('button', { name: 'Back to conversations' }).click()
         await expect(page.getByRole('list', { name: 'Conversation list' })).toBeVisible()
         await page.screenshot({ path: info.outputPath('inbox-list-375.png'), fullPage: true })

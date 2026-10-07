@@ -36,3 +36,5 @@ The user subsequently approved that final Home density; it is now the canonical 
 The reconstruction is not visually approved. The [final fidelity pass](inbox-final-fidelity/README.md) retains all previous stages and corrects row/header/composer density, message character and customer-context hierarchy. Home and its shell stay unchanged. Ready for visual review; no later-module propagation.
 
 The user then requested removal of the separate Inbox view column. The [compact view-menu checkpoint](inbox-view-menu/README.md) moves all six existing views into an icon menu beside the list heading and gives the freed space to the thread. It supersedes the rail composition while retaining the approved Home shell and all previous evidence.
+
+The subsequent [customer-details arrow checkpoint](inbox-contact-toggle/README.md) lets the operator collapse/reopen the desktop panel for more chat space while preserving the smaller-screen drawer, drafts and keyboard focus.

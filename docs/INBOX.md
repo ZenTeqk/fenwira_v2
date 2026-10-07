@@ -144,3 +144,9 @@ The primary thread header uses compact assignment/Resolve/More controls and iden
 ## Compact view menu — user-directed refinement
 
 The user requested removal of the redundant Inbox view column. All/Mine/Unassigned/Unread/Takeover/Resolved now live in the accessible icon menu beside the list heading. The current heading and menu check/accessible current state identify the selected view; Escape restores trigger focus. Search, status/unread filters, underlying query parameters, permissions and all messaging behavior are unchanged. The 1440 thread gains 184px; the global Home shell and customer context stay unchanged. Separate review evidence: [view-menu checkpoint](design/experience-v2/evidence/inbox-view-menu/README.md).
+
+## Customer-details arrow toggle
+
+The chat header has a chevron with **Hide customer details / Show customer details** labels and tooltips. On desktop (1280px and wider), the panel starts visible; the right-pointing chevron hides it, and the left-pointing chevron restores it. Collapsing the 256px panel and its gutter gives the 1440px thread another 264px (608px → 872px). The control exposes `aria-expanded` and `aria-controls`; keyboard toggling retains focus and the current reply draft. Visibility is local to the selected conversation, with no persisted customer preference.
+
+Below 1280px the same control opens the existing accessible details drawer. Escape/close returns focus to the control. If the viewport grows to desktop while the drawer is open, the drawer closes and the inline panel resumes without leaving a modal overlay. Existing customer content, permissions, eligibility, messaging and Home remain unchanged. [Review evidence](design/experience-v2/evidence/inbox-contact-toggle/README.md).

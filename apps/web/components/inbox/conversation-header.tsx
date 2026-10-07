@@ -16,7 +16,7 @@ import {
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type Ref } from 'react'
-import { ArrowLeft, Bot, Ellipsis, PanelRight, UserPlus } from 'lucide-react'
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Ellipsis, UserPlus } from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, post, put } from '@/lib/api/client'
 import { del } from '@/lib/api/client'
@@ -45,11 +45,17 @@ export function ConversationHeader({
   onBack,
   onToggleContact,
   contactButtonRef,
+  contactExpanded,
+  contactControlsId,
+  contactIsDrawer,
 }: {
   conversation: Conversation
   onBack: () => void
   onToggleContact: () => void
   contactButtonRef?: Ref<HTMLButtonElement>
+  contactExpanded: boolean
+  contactControlsId: string
+  contactIsDrawer: boolean
 }) {
   const { tenantId, can, me } = useSession()
   const queryClient = useQueryClient()
@@ -227,12 +233,20 @@ export function ConversationHeader({
           <Button
             variant="ghost"
             size="icon"
-            className="size-10 xl:hidden"
+            className="size-10 sm:size-9"
             ref={contactButtonRef}
-            aria-label="Contact details"
+            aria-label={contactExpanded ? 'Hide customer details' : 'Show customer details'}
+            title={contactExpanded ? 'Hide customer details' : 'Show customer details'}
+            aria-expanded={contactExpanded}
+            aria-controls={contactControlsId}
+            aria-haspopup={contactIsDrawer ? 'dialog' : undefined}
             onClick={onToggleContact}
           >
-            <PanelRight aria-hidden="true" />
+            {contactExpanded ? (
+              <ChevronRight aria-hidden="true" />
+            ) : (
+              <ChevronLeft aria-hidden="true" />
+            )}
           </Button>
         </div>
       </div>

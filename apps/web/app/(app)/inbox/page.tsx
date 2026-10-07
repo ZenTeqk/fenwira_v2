@@ -13,7 +13,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessagesSquare } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { Composer } from '@/components/inbox/composer'
 import { ContactPane } from '@/components/inbox/contact-pane'
 import { ConversationHeader } from '@/components/inbox/conversation-header'
@@ -24,11 +24,29 @@ import { get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { useConversationRoom, useRealtimeEvent } from '@/lib/realtime'
 
+// Match the existing xl contact-panel breakpoint; SSR renders the drawer variant.
+const desktopContactQuery = '(min-width: 1280px)'
+const subscribeDesktopContact = (callback: () => void) => {
+  const query = window.matchMedia(desktopContactQuery)
+  query.addEventListener('change', callback)
+  return () => query.removeEventListener('change', callback)
+}
+
 function Chat({ id, onBack }: { id: string; onBack: () => void }) {
   const { tenantId, can } = useSession()
   const queryClient = useQueryClient()
   const [contactOpen, setContactOpen] = useState(false)
+  const [contactVisible, setContactVisible] = useState(true)
+  const contactId = useId()
+  const desktopContact = useSyncExternalStore(
+    subscribeDesktopContact,
+    () => window.matchMedia(desktopContactQuery).matches,
+    () => false,
+  )
   const contactTrigger = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (desktopContact) setContactOpen(false)
+  }, [desktopContact])
   const key = keys.tenant(tenantId, 'inbox', 'conversation', id)
   const conversation = useQuery({
     queryKey: key,
@@ -70,7 +88,12 @@ function Chat({ id, onBack }: { id: string; onBack: () => void }) {
           conversation={c}
           contactButtonRef={contactTrigger}
           onBack={onBack}
-          onToggleContact={() => setContactOpen(true)}
+          contactExpanded={desktopContact ? contactVisible : contactOpen}
+          contactControlsId={`${contactId}-${desktopContact ? 'panel' : 'drawer'}`}
+          contactIsDrawer={!desktopContact}
+          onToggleContact={() =>
+            desktopContact ? setContactVisible((visible) => !visible) : setContactOpen(true)
+          }
         />
         <Thread conversationId={id} />
         {can('inbox.reply') ? (
@@ -82,13 +105,18 @@ function Chat({ id, onBack }: { id: string; onBack: () => void }) {
         )}
       </section>
       <aside
+        id={`${contactId}-panel`}
         aria-label="Contact"
-        className="hidden w-64 shrink-0 overflow-y-auto rounded-lg border border-border bg-surface xl:block"
+        className={cn(
+          'hidden w-64 shrink-0 overflow-y-auto rounded-lg border border-border bg-surface',
+          contactVisible && 'xl:block',
+        )}
       >
         <ContactPane contactId={c.contact.id} conversationId={id} assignee={c.assignee} />
       </aside>
       <Drawer open={contactOpen} onOpenChange={setContactOpen}>
         <DrawerContent
+          id={`${contactId}-drawer`}
           title="Contact"
           side="right"
           width="sm"
