@@ -251,7 +251,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
         actions: (
           <>
             {can('inbox.read') ? (
-              <Button size="lg" asChild>
+              <Button size="md" className="h-10 sm:h-9" asChild>
                 <Link href="/inbox">
                   <MessageSquare aria-hidden="true" />
                   Open inbox
@@ -259,7 +259,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
               </Button>
             ) : null}
             {can('campaigns.write') ? (
-              <Button size="lg" variant="secondary" asChild>
+              <Button size="md" className="h-10 sm:h-9" variant="secondary" asChild>
                 <Link href="/campaigns/new">Create campaign</Link>
               </Button>
             ) : null}
@@ -267,24 +267,24 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
         ),
       }}
       attention={
-        <Card className="min-h-72">
-          <CardHeader className="border-b border-border px-5 py-3">
-            <CardTitle as="h2" id="attention" className="text-lg">
+        <Card>
+          <CardHeader className="border-b border-border px-4 py-3">
+            <CardTitle as="h2" id="attention" className="text-md">
               Needs attention
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-1">
+          <CardContent className="px-4 pt-1 pb-4">
             <section aria-labelledby="attention" className="flex flex-col gap-3">
               {loadingAttention && !attention.length ? (
                 <Skeleton className="h-32 w-full" />
               ) : attention.length ? (
                 <ul className="divide-y divide-border">
                   {attention.map((a) => (
-                    <li key={a.id} className="flex flex-wrap items-center gap-4 py-4">
+                    <li key={a.id} className="flex flex-wrap items-center gap-3 py-3">
                       <span
                         aria-hidden="true"
                         className={cn(
-                          'flex size-12 shrink-0 items-center justify-center rounded-full',
+                          'flex size-8 shrink-0 items-center justify-center rounded-full',
                           a.id === 'unassigned' || a.id === 'connect'
                             ? 'bg-info-soft text-info-strong'
                             : a.id === 'automation-failures' || a.tone === 'danger'
@@ -295,26 +295,26 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
                         )}
                       >
                         {a.id === 'unassigned' || a.id === 'connect' ? (
-                          <MessageSquare className="size-5" />
+                          <MessageSquare className="size-4" />
                         ) : a.id === 'wallet' ? (
-                          <Wallet className="size-5" />
+                          <Wallet className="size-4" />
                         ) : a.id === 'automation-failures' ? (
-                          <Workflow className="size-5" />
+                          <Workflow className="size-4" />
                         ) : a.id === 'paused' ? (
-                          <Megaphone className="size-5" />
+                          <Megaphone className="size-4" />
                         ) : a.id === 'rejected' ? (
-                          <FileText className="size-5" />
+                          <FileText className="size-4" />
                         ) : (
-                          <CircleAlert className="size-5" />
+                          <CircleAlert className="size-4" />
                         )}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-md font-semibold text-slate">{a.title}</p>
+                        <p className="text-base font-semibold text-slate">{a.title}</p>
                         <p className="mt-1 text-base text-secondary">{a.body}</p>
                       </div>
                       {a.href ? (
                         <div className="basis-full sm:basis-auto">
-                          <Button variant="link" size="sm" className="ml-16 sm:ml-0" asChild>
+                          <Button variant="link" size="sm" className="ml-11 sm:ml-0" asChild>
                             <Link href={a.href}>
                               {a.action}
                               <ArrowRight aria-hidden="true" />

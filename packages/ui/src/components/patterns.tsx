@@ -156,7 +156,10 @@ export function DashboardLayout({
 }) {
   return (
     <div data-pattern="dashboard" className={cn('flex flex-col gap-4', className)}>
-      <PageHeader {...header} className="mb-2 [&_h1]:text-3xl [&_h1]:font-bold [&_p]:text-lg" />
+      <PageHeader
+        {...header}
+        className="mb-1 [&_h1]:text-2xl [&_h1]:font-semibold [&_p]:text-base"
+      />
       <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-10">
         <div className="min-w-0 xl:col-span-7 [&>div]:h-full">{attention}</div>
         {aside ? <div className="min-w-0 xl:col-span-3 [&>div]:h-full">{aside}</div> : null}
@@ -178,7 +181,7 @@ export function DashboardLayout({
               className="rounded-lg border border-border bg-surface px-3 py-3"
             >
               <div className="flex flex-wrap items-center justify-between gap-2 px-2">
-                <h2 className="text-lg font-semibold text-slate">Workspace summary</h2>
+                <h2 className="text-md font-semibold text-slate">Workspace summary</h2>
                 {summaryNote}
               </div>
               <div className="mt-2 grid grid-cols-2 gap-y-3 divide-x divide-border md:grid-cols-4">

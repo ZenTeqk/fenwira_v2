@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
+import { writeFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { type Conversation, type WhatsAppConnection } from '@fenwira/contracts'
 import { API, MOCK, customerWritesIn, ownerHeaders, signInAsNewOwner } from './support'
@@ -181,6 +182,34 @@ test('Home reconstruction uses persisted records and reference composition at fo
     .boundingBox()
   expect(Math.abs(recent!.y - campaign!.y)).toBeLessThan(5)
   expect(campaign!.x).toBeGreaterThan(recent!.x + 300)
+  const geometry = await page.evaluate(() => {
+    const box = (element: Element | null) => {
+      if (!element) return null
+      const { x, y, width, height } = element.getBoundingClientRect()
+      const style = getComputedStyle(element)
+      return { x, y, width, height, fontSize: style.fontSize, padding: style.padding }
+    }
+    const surface = (text: string) =>
+      [...document.querySelectorAll('h2')]
+        .find((h) => h.textContent === text)
+        ?.closest('[data-slot="card"]') ?? null
+    return {
+      viewport: { width: innerWidth, height: innerHeight },
+      sidebar: box(document.querySelector('aside')),
+      topbar: box(document.querySelector('header')),
+      home: box(document.querySelector('[data-pattern="dashboard"]')),
+      greeting: box(document.querySelector('h1')),
+      attention: box(surface('Needs attention')),
+      activity: box(surface('Activity')),
+      conversations: box(surface('Recent conversations')),
+      campaign: box(surface('Festival customer update')),
+      automation: box(surface('Automation activity')),
+      metrics: box(document.querySelector('[aria-label="Workspace summary"]')),
+      conversationRow: box(document.querySelector('[aria-label="Recent conversations"] li')),
+      attentionRow: box(document.querySelector('[aria-labelledby="attention"] li')),
+    }
+  })
+  writeFileSync(info.outputPath('home-geometry-1440.json'), JSON.stringify(geometry, null, 2))
   for (const width of [1440, 1024, 768, 375]) {
     await page.setViewportSize({ width, height: 1000 })
     expect(

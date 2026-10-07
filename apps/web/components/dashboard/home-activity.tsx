@@ -34,15 +34,15 @@ export function RecentConversations() {
   })
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 border-b border-border px-5 py-3">
-        <CardTitle as="h2" className="text-lg">
+      <CardHeader className="flex-row items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <CardTitle as="h2" className="text-md">
           Recent conversations
         </CardTitle>
         <Button variant="link" size="sm" asChild>
           <Link href="/inbox">Open inbox</Link>
         </Button>
       </CardHeader>
-      <CardContent className="pt-0 pb-3">
+      <CardContent className="px-4 pt-0 pb-3">
         {conversations.isPending ? (
           <Skeleton className="h-40" />
         ) : conversations.isError ? (
@@ -58,16 +58,16 @@ export function RecentConversations() {
                   href={`/inbox?c=${c.id}`}
                   className={`flex min-w-0 items-center gap-3 rounded-md py-2.5 hover:bg-neutral-soft ${focusRing}`}
                 >
-                  <Avatar name={displayName(c)} size="lg" appearance="varied" />
+                  <Avatar name={displayName(c)} size="md" appearance="varied" />
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-md font-semibold text-slate">
+                    <span className="truncate text-base font-semibold text-slate">
                       {displayName(c)}
                     </span>
                     <span className="truncate text-base text-secondary">
                       {c.lastMessagePreview ?? 'No messages yet'}
                     </span>
                   </span>
-                  <span className="flex shrink-0 flex-col items-end gap-2">
+                  <span className="flex shrink-0 flex-col items-end gap-1">
                     <span className="text-xs text-muted">{shortTime(c.lastMessageAt)}</span>
                     {c.unreadCount ? (
                       <span className="rounded-full bg-primary-strong px-2 text-xs text-surface">
@@ -153,16 +153,16 @@ export function CampaignActivity({
     .slice(0, 4)
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 px-5 py-3">
-        <CardTitle as="h2" className="text-lg">
+      <CardHeader className="flex-row items-center justify-between gap-2 px-4 py-3">
+        <CardTitle as="h2" className="text-md">
           Activity
         </CardTitle>
         <Button variant="link" size="sm" asChild>
           <Link href="/campaigns">View campaigns</Link>
         </Button>
       </CardHeader>
-      <CardContent className="pt-0">
-        <p className="mb-4 text-xs text-muted">Current workspace updates</p>
+      <CardContent className="px-4 pt-0 pb-4">
+        <p className="mb-3 text-xs text-muted">Current workspace updates</p>
         {error || conversations.isError || flows.isError ? (
           <ErrorState
             title="Some updates couldn’t be loaded"
@@ -176,20 +176,20 @@ export function CampaignActivity({
         {!campaigns ? (
           <Skeleton className="h-40" />
         ) : updates.length ? (
-          <ol aria-label="Current workspace updates" className="flex flex-col gap-4">
+          <ol aria-label="Current workspace updates" className="flex flex-col gap-2">
             {updates.map(({ id, name, time, label, status, Icon, tone }, i) => (
               <li key={id} className="relative flex items-start gap-3">
                 {i < updates.length - 1 ? (
                   <span
                     aria-hidden="true"
-                    className="absolute top-10 -bottom-4 left-5 w-px bg-border"
+                    className="absolute top-8 -bottom-2 left-4 w-px bg-border"
                   />
                 ) : null}
                 <span
                   aria-hidden="true"
-                  className={`relative flex size-10 shrink-0 items-center justify-center rounded-full ${tone}`}
+                  className={`relative flex size-8 shrink-0 items-center justify-center rounded-full ${tone}`}
                 >
-                  <Icon className="size-5" />
+                  <Icon className="size-4" />
                 </span>
                 <div className="min-w-0">
                   <p className="truncate font-medium text-slate">{name}</p>
@@ -223,31 +223,31 @@ export function AutomationActivity() {
     .slice(0, 3)
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 px-5 py-3">
-        <CardTitle as="h2" className="text-lg">
+      <CardHeader className="flex-row items-center justify-between gap-2 px-4 py-3">
+        <CardTitle as="h2" className="text-md">
           Automation activity
         </CardTitle>
         <Button variant="link" size="sm" asChild>
           <Link href="/automations">View all</Link>
         </Button>
       </CardHeader>
-      <CardContent className="pt-0 pb-4">
+      <CardContent className="px-4 pt-0 pb-4">
         {flows.isPending ? (
           <Skeleton className="h-20" />
         ) : flows.isError ? (
           <ErrorState title="Automations couldn’t be loaded" onRetry={() => void flows.refetch()} />
         ) : recent.length ? (
-          <ul className="flex flex-col gap-4" aria-label="Current automation activity">
+          <ul className="flex flex-col gap-3" aria-label="Current automation activity">
             {recent.map((f) => (
-              <li key={f.id} className="flex min-w-0 flex-wrap items-center gap-4">
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong">
-                  <Workflow className="size-6" aria-hidden="true" />
+              <li key={f.id} className="flex min-w-0 flex-wrap items-center gap-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong">
+                  <Workflow className="size-4" aria-hidden="true" />
                 </span>
                 <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href={`/automations/${f.id}`}
-                      className={`text-md font-semibold text-slate hover:underline ${focusRing}`}
+                      className={`text-base font-semibold text-slate hover:underline ${focusRing}`}
                     >
                       {f.name}
                     </Link>
@@ -299,8 +299,8 @@ export function CampaignSnapshot({
   const sent = data ? data.sent : undefined
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 px-5 py-3">
-        <CardTitle as="h2" className="min-w-0 truncate text-lg">
+      <CardHeader className="flex-row items-center justify-between gap-2 px-4 py-3">
+        <CardTitle as="h2" className="min-w-0 truncate text-md">
           {campaign ? (
             <Link href={`/campaigns/${campaign.id}`} className={`hover:underline ${focusRing}`}>
               {campaign.name}
@@ -315,7 +315,7 @@ export function CampaignSnapshot({
           </Link>
         </Button>
       </CardHeader>
-      <CardContent className="pt-0 pb-3">
+      <CardContent className="px-4 pt-0 pb-3">
         {error ? (
           <ErrorState title="Campaigns couldn’t be loaded" onRetry={retry} />
         ) : !campaigns ? (
@@ -351,13 +351,13 @@ export function CampaignSnapshot({
             <dl className="mt-3 grid grid-cols-3 divide-x divide-border border-t border-border pt-2">
               <div className="pr-3">
                 <dt className="text-sm text-secondary">Delivered</dt>
-                <dd className="mt-1 text-lg font-semibold">
+                <dd className="mt-1 text-md font-semibold">
                   {data ? percent(data.deliveryRate) : '—'}
                 </dd>
               </div>
               <div className="px-3">
                 <dt className="text-sm text-secondary">Read</dt>
-                <dd className="mt-1 text-lg font-semibold">
+                <dd className="mt-1 text-md font-semibold">
                   {data ? percent(data.readRate) : '—'}
                 </dd>
               </div>

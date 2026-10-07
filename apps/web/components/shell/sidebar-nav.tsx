@@ -7,7 +7,6 @@ import { activeModule, moduleHref, type NavItem, SECONDARY_MODULES } from '@/lib
 type SidebarNavProps = {
   items: NavItem[]
   pathname: string
-  comfortable?: boolean
   collapsed?: boolean
   onNavigate?: () => void
   /** Count pills by item id (e.g. unread conversations on Inbox). */
@@ -31,7 +30,6 @@ export function SidebarNav({
   items,
   pathname,
   collapsed = false,
-  comfortable = false,
   onNavigate,
   badges = {},
 }: SidebarNavProps) {
@@ -48,12 +46,7 @@ export function SidebarNav({
         href={moduleHref(item)}
         onClick={onNavigate}
         aria-current={isActive ? 'page' : undefined}
-        className={cn(
-          itemBase,
-          comfortable && 'h-11 text-md [&_svg]:size-5',
-          isActive ? active : inactive,
-          collapsed && 'justify-center px-0',
-        )}
+        className={cn(itemBase, isActive ? active : inactive, collapsed && 'justify-center px-0')}
       >
         <Icon aria-hidden="true" />
         {collapsed ? (

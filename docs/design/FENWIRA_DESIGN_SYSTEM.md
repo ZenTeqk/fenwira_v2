@@ -88,7 +88,7 @@ Font: Inter for UI, JetBrains Mono for identifiers, phone numbers and code (load
 | Caption | 12 / 16 | `text-xs` | regular / medium |
 | Metric value | 24 / 32 | `text-2xl tabular-nums` | semibold (via `MetricCard`) |
 
-`text-3xl` (30/36) is reserved for authentication, onboarding and the Home welcome heading in the reference-driven reconstruction. Other application pages retain the standard page title. Headings follow document order (one `h1` per page from `PageHeader`, `h2` for sections, `h3` inside cards).
+`text-3xl` (30/36) is reserved for authentication and onboarding. The approved Home scale refinement returns its welcome heading to 24/32, section headings to 16/24 and primary body/row text to 14/20. Other application pages retain their existing typography. Headings follow document order (one `h1` per page from `PageHeader`, `h2` for sections, `h3` inside cards).
 
 ## 3. Spacing
 

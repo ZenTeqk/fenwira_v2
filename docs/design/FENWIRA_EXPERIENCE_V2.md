@@ -39,3 +39,7 @@ The user requested a focused App Shell/Home/Inbox polish pass after identifying 
 ## Home reconstruction — visual approval pending
 
 The current foundation, Batch 2 and subsequent correction are engineering foundations, **not visually approved**. The latest user direction restricts reconstruction to Home and shared shell elements visible there. Home is rebuilt from the actual 01-Home reference: attention/current updates at 70:30, recent communication beside campaign and secondary summary at 44:56, followed by a compact flow strip. Home alone uses a 240px sidebar, 64px topbar and 30/36 welcome heading; other module presentations remain unchanged. No propagation is authorized until Home visual review. See [reference decomposition, iterative comparison and validation](EXPERIENCE_V2_HOME_RECONSTRUCTION.md).
+
+## Home visual direction approved — scale refinement
+
+The user approved the reconstructed Home direction in `408dfd0`. This supersedes the Home visual-pending status above; it does not authorize propagation to Inbox or Batch 2. Preserve the composition, palette, surface hierarchy and real data. The current refinement uses 224px navigation, 36px nav rows/18px icons, 56px topbar, a 24/32 welcome heading, 16/24 sections and 14/20 body/row text. Home-only surfaces and 32px icons/avatars tighten density without global scaling. Existing 16px band gaps and 24px desktop gutters stay. [Scale/density evidence and validation](EXPERIENCE_V2_HOME_DENSITY.md) require their own visual checkpoint.

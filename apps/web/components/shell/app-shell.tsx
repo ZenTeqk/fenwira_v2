@@ -123,7 +123,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       <aside
         className={cn(
           'sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 border-r border-sidebar-border bg-sidebar p-3 transition-all lg:flex',
-          collapsed ? 'w-16' : home ? 'w-60' : 'w-58',
+          collapsed ? 'w-16' : home ? 'w-56' : 'w-58',
         )}
       >
         <Link
@@ -137,19 +137,13 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           <BrandMark
             tone="light"
             compact={collapsed}
-            size={home ? 'lg' : 'md'}
-            className={home ? 'text-2xl' : undefined}
+            size="md"
+            className={home ? 'text-xl' : undefined}
           />
           <span className="sr-only">Fenwira home</span>
         </Link>
         <div className="flex-1 overflow-y-auto">
-          <SidebarNav
-            items={nav}
-            pathname={pathname}
-            collapsed={collapsed}
-            badges={badges}
-            comfortable={home}
-          />
+          <SidebarNav items={nav} pathname={pathname} collapsed={collapsed} badges={badges} />
         </div>
         <SidebarStatus collapsed={collapsed} />
         <AccountMenu footer collapsed={collapsed} />
@@ -203,7 +197,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
         <header
           className={cn(
             'sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface px-4 md:px-6',
-            home ? 'h-16' : 'h-14',
+            'h-14',
           )}
         >
           <Button
@@ -255,7 +249,12 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           {fullBleed ? (
             children
           ) : (
-            <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 md:px-6">
+            <div
+              className={cn(
+                'mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 md:px-6',
+                home ? 'py-5' : 'py-6',
+              )}
+            >
               <SubscriptionBanner />
               <div>{children}</div>
             </div>

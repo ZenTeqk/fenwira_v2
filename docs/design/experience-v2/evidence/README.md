@@ -25,4 +25,6 @@ The user subsequently approved the foundation and authorized Contacts/Templates/
 
 These original implementation captures remain unchanged as before evidence. The focused correction retains separate [Home/Inbox review captures](checkpoint-1-visual-fidelity/README.md), with comparison links to the approved images and original implementation. See the [correction report](../../EXPERIENCE_V2_VISUAL_FIDELITY.md). Visual approval remains pending.
 
-Latest checkpoint: [Home reconstruction](home-reconstruction/README.md). The foundation and previous correction remain engineering evidence and are **not visually approved**. The latest task reconstructs Home only, retains the historical captures and stops for user visual review before any propagation.
+Historical checkpoint: [Home reconstruction](home-reconstruction/README.md). The user has now approved that Home direction. This does not approve the other modules or authorize propagation.
+
+Latest checkpoint: [Home scale and density refinement](home-density/README.md). It preserves the approved composition and palette, tightens Home and its visible shell, retains every historical capture and stops for a separate visual review.
