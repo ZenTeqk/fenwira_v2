@@ -1,0 +1,54 @@
+{
+  "capturedAt": "2026-10-07T05:59:08.248932+00:00",
+  "scanner": "Trivy",
+  "severity": [
+    "HIGH",
+    "CRITICAL"
+  ],
+  "ignoreUnfixed": true,
+  "scanners": [
+    "vuln",
+    "secret"
+  ],
+  "results": [
+    {
+      "image": "fenwira/api:local",
+      "imageId": "sha256:3fcc4ca6825e32f947d87286a790812284b4ed4aad84f7636a911ed931aee42f",
+      "exitCode": 0,
+      "fixableHighCritical": 0,
+      "detectedSecrets": 0,
+      "vulnerabilityIds": [],
+      "scanCapturedAt": "2026-10-07T05:45:43.809117+00:00",
+      "reusedVerifiedImageScan": true
+    },
+    {
+      "image": "fenwira/worker:local",
+      "imageId": "sha256:14dfe114671e89f6a21ee0bdd0c16e0c0a7f6c57d6d8f9c9c1c58671cd27c119",
+      "exitCode": 0,
+      "fixableHighCritical": 0,
+      "detectedSecrets": 0,
+      "vulnerabilityIds": [],
+      "scanCapturedAt": "2026-10-07T05:45:43.809117+00:00",
+      "reusedVerifiedImageScan": true
+    },
+    {
+      "image": "fenwira/migrate:local",
+      "imageId": "sha256:3498ad959d30e45964c170cc0c0429464fa698af05f24110185c884e1eb10db0",
+      "exitCode": 0,
+      "fixableHighCritical": 0,
+      "detectedSecrets": 0,
+      "vulnerabilityIds": [],
+      "scanCapturedAt": "2026-10-07T05:45:43.809117+00:00",
+      "reusedVerifiedImageScan": true
+    },
+    {
+      "image": "fenwira/web:local",
+      "imageId": "sha256:a0b2a4a59eb7c61d0794f5e3b94946d88e08f590efc7e0cc2cc5149157c0616b",
+      "exitCode": 0,
+      "fixableHighCritical": 0,
+      "detectedSecrets": 0,
+      "vulnerabilityIds": [],
+      "reusedVerifiedImageScan": false
+    }
+  ]
+}

@@ -66,3 +66,7 @@ Existing Radix Tabs unit `act(...)` warnings and worker test-server listener war
 Implemented independently: audit/foundation (`1a57b4c`), shell (`abd4330`), Home (`1e429b1`), Inbox plus checkpoint evidence (this increment). Current compositions are ready for user visual review against approved references 01/02 and the common shell.
 
 Pending user review, **stop here**. Contacts, Templates, Campaigns and remaining EV2 compositions stay in the implementation plan. No all-Experience-V2 acceptance or Phase 11 closure is declared. The approved commercial/product/security decisions remain authoritative.
+
+## Subsequent checkpoint — Batch 2
+
+The user approved this foundation checkpoint and authorized Contacts → Templates → Campaigns → Campaign Studio. The historical validation above remains foundation evidence. The [Batch 2 checkpoint report](EXPERIENCE_V2_BATCH_2.md) records the separate increments and fresh regression results, with [24 responsive implementation captures](experience-v2/evidence/batch-2/README.md). Batch 2 stops for visual/product review before later compositions; foundation approval does not imply approval of this batch.

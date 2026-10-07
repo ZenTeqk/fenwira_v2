@@ -27,3 +27,7 @@ References are visual composition guidance, not data/product contracts. Campaign
 Contact lists stay communication-oriented with contextual inspection; templates become a message library; campaigns retain their real audience/template/personalization/schedule/review and reservation semantics; automations retain the existing engine/React Flow/accessible Outline; analytics retain definitions/freshness/retention and chart tables; Billing/Integrations/Settings inherit the foundation and later migrate compositions. `/platform` retains its separate privileged shell and commercial workflows.
 
 **Checkpoint:** implement App Shell, Home, Inbox, test/report and stop for visual review before later module compositions. This checkpoint does not complete all Experience V2 or declare Phase 11 closure.
+
+## Checkpoint history — approved foundation and Batch 2
+
+The user approved the App Shell/Home/Inbox foundation and authorized EV2-05–07B. Contacts, Templates, Campaigns and Campaign Studio are now implemented in four separate increments. Preserve the foundation and stop again for visual/product review. See the [Batch 2 checkpoint](EXPERIENCE_V2_BATCH_2.md) and [implementation evidence](experience-v2/evidence/batch-2/README.md). Later modules remain pending; no aggregate Experience V2 or Phase 11 closure is declared.

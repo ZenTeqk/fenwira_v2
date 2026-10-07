@@ -370,7 +370,7 @@ export function CampaignWizard({
   const e = estimate.data
 
   return (
-    <div className="flex flex-col gap-6">
+    <div data-campaign-studio className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Campaign steps">
           <ol className="flex flex-wrap gap-1">

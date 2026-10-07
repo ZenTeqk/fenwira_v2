@@ -1,0 +1,79 @@
+{
+  "capturedAt": "2026-10-07T05:37:41.537928+00:00",
+  "scanner": "Trivy",
+  "severity": [
+    "HIGH",
+    "CRITICAL"
+  ],
+  "ignoreUnfixed": true,
+  "scanners": [
+    "vuln",
+    "secret"
+  ],
+  "results": [
+    {
+      "image": "fenwira/api:local",
+      "imageId": "sha256:539b192bdce427145958ce27ee071a223535f952bf51dd9213775984a42d2648",
+      "exitCode": 1,
+      "fixableHighCritical": 7,
+      "detectedSecrets": 0,
+      "vulnerabilityIds": [
+        "CVE-2026-13221",
+        "CVE-2026-42496",
+        "CVE-2026-42497",
+        "CVE-2026-48962",
+        "CVE-2026-57432",
+        "CVE-2026-57433",
+        "CVE-2026-8376"
+      ]
+    },
+    {
+      "image": "fenwira/worker:local",
+      "imageId": "sha256:a7c1317be73de4345a7da4e1d3dd942e81f4bc1714a8f1ebb2aece9fea973fc6",
+      "exitCode": 1,
+      "fixableHighCritical": 7,
+      "detectedSecrets": 0,
+      "vulnerabilityIds": [
+        "CVE-2026-13221",
+        "CVE-2026-42496",
+        "CVE-2026-42497",
+        "CVE-2026-48962",
+        "CVE-2026-57432",
+        "CVE-2026-57433",
+        "CVE-2026-8376"
+      ]
+    },
+    {
+      "image": "fenwira/migrate:local",
+      "imageId": "sha256:4d6913d142df668bf36bb4929b0c6e7ec11876a6a95928cad4abbeccbed65ccf",
+      "exitCode": 1,
+      "fixableHighCritical": 7,
+      "detectedSecrets": 0,
+      "vulnerabilityIds": [
+        "CVE-2026-13221",
+        "CVE-2026-42496",
+        "CVE-2026-42497",
+        "CVE-2026-48962",
+        "CVE-2026-57432",
+        "CVE-2026-57433",
+        "CVE-2026-8376"
+      ]
+    },
+    {
+      "image": "fenwira/web:local",
+      "imageId": "sha256:1a79713fb428fef140007ad8916ccff2eeddfe86c756bdff88da17e01a9d9145",
+      "exitCode": 1,
+      "fixableHighCritical": 7,
+      "detectedSecrets": 0,
+      "vulnerabilityIds": [
+        "CVE-2026-13221",
+        "CVE-2026-42496",
+        "CVE-2026-42497",
+        "CVE-2026-48962",
+        "CVE-2026-57432",
+        "CVE-2026-57433",
+        "CVE-2026-8376"
+      ]
+    }
+  ]
+}

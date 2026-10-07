@@ -14,6 +14,7 @@ import {
 } from 'react'
 import { ApiError, get, post, setActiveTenantId, setCsrfToken } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
+import { requestNavigation } from '@/lib/navigation-intent'
 
 const TENANT_KEY = 'fenwira.tenant'
 
@@ -104,12 +105,14 @@ export function SessionProvider({ me, children }: { me: Me; children: ReactNode 
   const switchTenant = useCallback(
     (next: string) => {
       if (next === membership.tenantId) return
-      setActiveTenantId(next)
-      storeTenant(next)
-      // Drop every cached query from the previous tenant before anything re-renders with the new one.
-      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
-      setTenantId(next)
-      router.push('/dashboard')
+      requestNavigation('/dashboard', () => {
+        setActiveTenantId(next)
+        storeTenant(next)
+        // Drop every cached query from the previous tenant before anything re-renders with the new one.
+        queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
+        setTenantId(next)
+        router.push('/dashboard')
+      })
     },
     [membership.tenantId, queryClient, router],
   )

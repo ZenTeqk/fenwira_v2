@@ -44,9 +44,9 @@ RUN pnpm --filter @fenwira/database exec prisma generate
 
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production PRISMA_HIDE_UPDATE_MESSAGE=1
-# Patch the base image's PCRE library; runtime entrypoints use Node directly, not npm.
+# Apply available PCRE and Perl security updates; runtime entrypoints use Node directly, not npm.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends openssl ca-certificates libpcre2-8-0 \
+ && apt-get install -y --no-install-recommends openssl ca-certificates libpcre2-8-0 perl-base \
  && rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm \
  && rm -f /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /repo

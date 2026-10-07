@@ -14,6 +14,7 @@ import {
 } from '@fenwira/ui'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { requestNavigation } from '@/lib/navigation-intent'
 import { useSession } from '../session/session-provider'
 
 /** Switching tenant clears every cached query and remounts the page (docs/MULTI_TENANCY.md). */
@@ -72,7 +73,9 @@ export function TenantSwitcher({
           </DropdownItem>
         ))}
         <DropdownSeparator />
-        <DropdownItem onSelect={() => router.push('/onboarding')}>
+        <DropdownItem
+          onSelect={() => requestNavigation('/onboarding', () => router.push('/onboarding'))}
+        >
           <Plus aria-hidden="true" />
           Create workspace
         </DropdownItem>

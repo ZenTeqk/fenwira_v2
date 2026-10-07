@@ -22,6 +22,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
+import { requestNavigation } from '@/lib/navigation-intent'
 import { get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { flattenLeaves, type NavItem } from '@/lib/navigation'
@@ -94,7 +95,7 @@ export function useCommandGroups({
 
   const groups = useMemo(() => {
     const leaves = flattenLeaves(nav)
-    const go = (href: string) => () => router.push(href)
+    const go = (href: string) => () => requestNavigation(href, () => router.push(href))
     const out: CommandGroup[] = [
       {
         heading: 'Go to',

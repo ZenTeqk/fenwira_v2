@@ -16,3 +16,7 @@ Reference comparison: [01 Home](../01-Home.png) and [02 Inbox](../02-Inbox.png).
 Supported differences: preserved Fenwira brand, actual personal assignment/takeover/resolved views, existing seven-day analytics and billing state. Current campaign/flow state replaces an unsupported unified event feed. No invented screenshot numbers, teams, calls, AI, CRM cards or commercial policies. Accessible muted text and focus contrast are documented in the design contract.
 
 Four-width WCAG 2.2 AA axe checks and no-page-overflow assertions pass. [Sanitized Lighthouse results](accessibility.json): Home **100**, populated Inbox **100**, protected final URLs verified. No cookies, tokens, browser profiles or raw Lighthouse payloads are retained here.
+
+## Approved foundation and subsequent Batch 2
+
+The user subsequently approved the foundation and authorized Contacts/Templates/Campaigns/Studio. Their separate [24 responsive implementation captures](batch-2/README.md) preserve these original foundation captures and all approved references. Batch 2 has its own visual/product review checkpoint.

@@ -3,18 +3,26 @@
 import { toast, useConfirm } from '@fenwira/ui'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef } from 'react'
+import { NAVIGATION_INTENT, type NavigationIntentEvent } from '@/lib/navigation-intent'
 
 /** Scope navigation protection to this campaign editor; no global navigation or persisted PII. */
 export function useDraftProtection(dirty: boolean, busy: boolean, savedId?: string) {
   const confirm = useConfirm()
   const router = useRouter()
   const prompting = useRef(false)
+  const editorFocus = useRef<HTMLElement | null>(null)
   useEffect(() => {
     if (!dirty && !busy) return
     const currentUrl = window.location.href
     const currentState: unknown = window.history.state
     let leaving = false
-    const leave = async (url: URL) => {
+    const rememberFocus = () => {
+      const focused = document.activeElement
+      if (focused instanceof HTMLElement && focused.closest('[data-campaign-studio]'))
+        editorFocus.current = focused
+    }
+    rememberFocus()
+    const leave = async (url: URL, proceed?: () => void) => {
       if (prompting.current) return
       if (busy) {
         toast.info('Wait for the current campaign operation to finish.')
@@ -34,15 +42,28 @@ export function useDraftProtection(dirty: boolean, busy: boolean, savedId?: stri
           })
         ) {
           leaving = true
-          router.push(`${url.pathname}${url.search}${url.hash}`)
+          if (proceed) proceed()
+          else router.push(`${url.pathname}${url.search}${url.hash}`)
         }
       } finally {
         prompting.current = false
-        if (!leaving && previousFocus instanceof HTMLElement)
+        if (!leaving)
           requestAnimationFrame(() => {
-            if (previousFocus.isConnected) previousFocus.focus()
+            const target =
+              previousFocus instanceof HTMLElement && previousFocus.isConnected
+                ? previousFocus
+                : editorFocus.current
+            if (target?.isConnected) target.focus()
           })
       }
+    }
+    const intent = (event: Event) => {
+      if (leaving) return
+      const { destination, proceed } = (event as NavigationIntentEvent).detail
+      const target = new URL(destination, currentUrl)
+      if (target.href === currentUrl) return
+      event.preventDefault()
+      void leave(target, proceed)
     }
     const click = (event: MouseEvent) => {
       if (
@@ -101,11 +122,15 @@ export function useDraftProtection(dirty: boolean, busy: boolean, savedId?: stri
       void leave(target)
     }
     navigation?.addEventListener('navigate', navigate)
+    window.addEventListener(NAVIGATION_INTENT, intent)
+    document.addEventListener('focusin', rememberFocus, true)
     document.addEventListener('click', click, true)
     window.addEventListener('beforeunload', unload)
     window.addEventListener('popstate', pop, true)
     return () => {
       navigation?.removeEventListener('navigate', navigate)
+      window.removeEventListener(NAVIGATION_INTENT, intent)
+      document.removeEventListener('focusin', rememberFocus, true)
       document.removeEventListener('click', click, true)
       window.removeEventListener('beforeunload', unload)
       window.removeEventListener('popstate', pop, true)
