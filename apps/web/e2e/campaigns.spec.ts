@@ -71,7 +71,7 @@ test('create a campaign, review it, launch it and watch the results', async ({ p
   await page.goto('/campaigns')
   await expect(page.getByRole('heading', { name: 'Campaigns', level: 1 })).toBeVisible()
   await axe(page)
-  await page.getByRole('link', { name: 'New campaign' }).click()
+  await page.getByRole('link', { name: 'Create campaign' }).click()
 
   // 1. Audience
   await page.getByLabel('Campaign name').fill('Delivery wave')

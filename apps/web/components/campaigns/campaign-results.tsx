@@ -15,7 +15,7 @@ export function CampaignResults({
   const results = useCampaignStats(c.id, campaignResultsLive(c), Boolean(c.audienceSnapshotAt))
   if (!c.audienceSnapshotAt)
     return (
-      <p className="text-sm text-muted">
+      <p className="text-xs text-secondary">
         {c.status === 'DRAFT' ? 'Not launched' : 'Audience prepared at launch'}
       </p>
     )
@@ -31,8 +31,25 @@ export function CampaignResults({
     )
   const s = results.data
   return (
-    <div className="flex flex-col gap-3" aria-label={`${c.name} delivery results`}>
-      <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+    <div className="flex flex-col gap-2" aria-label={`${c.name} delivery results`}>
+      {!compact ? (
+        <>
+          {s.eligible > 0 ? (
+            <Progress
+              label={`${c.name}: sent out of eligible recipients`}
+              value={s.sent}
+              max={s.eligible}
+            />
+          ) : null}
+          <p className="text-xs text-secondary">
+            {s.sent.toLocaleString('en-IN')} of {s.eligible.toLocaleString('en-IN')} eligible sent ·{' '}
+            {(s.pending + s.queued).toLocaleString('en-IN')} waiting
+            {s.failed ? ` · ${s.failed.toLocaleString('en-IN')} failed` : ''}
+            {s.skipped ? ` · ${s.skipped.toLocaleString('en-IN')} skipped` : ''}
+          </p>
+        </>
+      ) : null}
+      <dl className="grid grid-cols-3 gap-3 border-t border-border pt-3 text-sm">
         {[
           ['Sent', s.sent.toLocaleString('en-IN')],
           [
@@ -54,23 +71,6 @@ export function CampaignResults({
           </div>
         ))}
       </dl>
-      {!compact ? (
-        <>
-          {s.eligible > 0 ? (
-            <Progress
-              label={`${c.name}: sent out of eligible recipients`}
-              value={s.sent}
-              max={s.eligible}
-            />
-          ) : null}
-          <p className="text-sm text-muted">
-            {s.sent.toLocaleString('en-IN')} of {s.eligible.toLocaleString('en-IN')} eligible sent ·{' '}
-            {(s.pending + s.queued).toLocaleString('en-IN')} waiting
-            {s.failed ? ` · ${s.failed.toLocaleString('en-IN')} failed` : ''}
-            {s.skipped ? ` · ${s.skipped.toLocaleString('en-IN')} skipped` : ''}
-          </p>
-        </>
-      ) : null}
     </div>
   )
 }

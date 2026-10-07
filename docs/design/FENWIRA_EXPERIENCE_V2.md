@@ -63,3 +63,9 @@ The latest user instructions visually approve Home and Inbox, including the comp
 ## Templates checkpoint — approved Home, Inbox and Contacts foundation
 
 The latest common implementation prompt approves all three foundation screens. They remain canonical and unchanged. Templates alone now follows `04-Templates.png`: compact status navigation/filter surface, message-library cards, actual lifecycle/sample information and an inline desktop context with responsive drawer. Existing template domain services and approved-version availability remain authoritative. [Templates decomposition and review evidence](EXPERIENCE_V2_TEMPLATES_RECONSTRUCTION.md). Ready for visual review; Campaigns and all subsequent checkpoints remain gated on that approval.
+
+## Templates approved — Campaigns and Studio checkpoint
+
+The user approved Templates and its recipient mobile preview, then authorized the next checkpoint. Campaigns operations follows `06-Campaign-studio.png`; Create Campaign follows `05-Campaign.png` (the reference filenames are reversed relative to their contents). Both reuse the approved 224px navigation/56px header and real domain behavior. Operations prioritizes active/scheduled cards and compact history; Studio combines saved steps, contextual campaign/template identity, recipient preview and an action footer. A Studio-only compact phone option reduces decorative wallpaper while leaving the approved Templates default unchanged.
+
+[Campaigns decomposition and evidence](EXPERIENCE_V2_CAMPAIGNS_RECONSTRUCTION.md) records product differences, responsive checks and validation. Ready for visual review. Stop before Automations; earlier approved Home, Inbox, Contacts and Templates remain canonical.

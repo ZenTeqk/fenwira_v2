@@ -1,6 +1,7 @@
 'use client'
 
 import { BuilderPage, PermissionState, Skeleton } from '@fenwira/ui'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { CampaignWizard } from '@/components/campaigns/campaign-wizard'
@@ -13,8 +14,10 @@ function NewCampaign() {
   return (
     <BuilderPage
       header={{
-        title: 'New campaign',
-        description: 'Prepare an approved WhatsApp message for your audience.',
+        title: 'Create campaign',
+        breadcrumbs: [{ label: 'Campaigns', href: '/campaigns' }, { label: 'Create campaign' }],
+        linkAs: Link,
+        description: 'Send a WhatsApp campaign to the right audience.',
       }}
     >
       <CampaignWizard initialTemplateVersionId={params.get('templateVersionId') ?? undefined} />

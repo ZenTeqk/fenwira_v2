@@ -531,12 +531,28 @@ test('Campaigns prioritize actual scheduled and paused communications over histo
   ).toContainText('100%')
   await expect(history).toContainText('Weekend delivery draft')
   for (const width of WIDTHS) {
-    await page.setViewportSize({ width, height: 900 })
+    await page.setViewportSize({ width, height: 1000 })
     await page.evaluate(() => window.scrollTo(0, 0))
     await accessible(page)
     await page.screenshot({ path: info.outputPath(`campaigns-${width}.png`), fullPage: true })
   }
-  await page.getByRole('tab', { name: 'Drafts', exact: true }).click()
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.getByRole('combobox', { name: 'Status', exact: true }).click()
+  await page.getByRole('option', { name: 'completed', exact: true }).click()
+  await expect(history).toContainText('Morning delivery update')
+  await expect(active).toHaveCount(0)
+  await page.getByRole('button', { name: /^Clear filters/ }).click()
+  await page.getByRole('combobox', { name: 'Audience', exact: true }).click()
+  await page.getByRole('option', { name: 'Saved segment', exact: true }).click()
+  await expect(page.getByText('No matching campaigns')).toBeVisible()
+  await page
+    .getByRole('button', { name: /^Clear filters/ })
+    .first()
+    .click()
+  await page.getByRole('combobox', { name: 'Sort campaigns', exact: true }).click()
+  await page.getByRole('option', { name: 'Campaign name', exact: true }).click()
+  await expect(history.getByRole('row').nth(1)).toContainText('Morning delivery update')
+  await page.getByRole('tab', { name: /^Drafts(?:\s|$)/ }).click()
   await expect(history).toContainText('Weekend delivery draft')
   await expect(active).toHaveCount(0)
   await page.getByRole('searchbox', { name: 'Search campaigns' }).fill('no_matching_campaign')
@@ -591,7 +607,7 @@ test('Campaign Studio keeps guided steps beside recipient previews at four width
   await page.goto('/templates')
   await page.getByRole('button', { name: 'Preview delivery_update', exact: true }).click()
   await page
-    .getByRole('dialog', { name: 'delivery_update' })
+    .getByRole('complementary', { name: 'delivery_update' })
     .getByRole('link', { name: 'Use in campaign' })
     .click()
   await page.getByLabel('Campaign name').fill('Tomorrow’s deliveries')
@@ -630,6 +646,30 @@ test('Campaign Studio keeps guided steps beside recipient previews at four width
   await page.getByRole('combobox', { name: 'Preview recipient' }).click()
   await page.getByRole('option', { name: 'Farah Ali', exact: true }).click()
   await expect(preview).toContainText('Hi Farah, your delivery')
+  await expect(page.getByText('Draft save temporarily unavailable', { exact: true })).toBeHidden({
+    timeout: 10_000,
+  })
+  await page.getByRole('button', { name: 'Personalize', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Message {{1}}: value' }).click()
+  await page.getByRole('option', { name: 'Full name', exact: true }).click()
+  await expect(preview).toContainText('Hi Priya, your delivery')
+  await expect(page.getByText('Template example values.', { exact: false })).toBeVisible()
+  await page.getByRole('combobox', { name: 'Message {{1}}: value' }).click()
+  await page.getByRole('option', { name: 'First name', exact: true }).click()
+  await expect(preview).toContainText('Hi Farah, your delivery')
+
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await accessible(page)
+    await page.screenshot({
+      path: info.outputPath(`campaign-personalize-${width}.png`),
+      fullPage: true,
+    })
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.getByRole('button', { name: 'Save and continue' }).click()
+
   await page.getByRole('radio', { name: 'Schedule for later' }).click()
   const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
   await page.getByLabel('Date', { exact: true }).fill(tomorrow)
@@ -662,7 +702,7 @@ test('Campaign Studio keeps guided steps beside recipient previews at four width
   await page.getByRole('button', { name: 'Try again', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Schedule campaign', exact: true })).toBeEnabled()
   for (const width of WIDTHS) {
-    await page.setViewportSize({ width, height: 900 })
+    await page.setViewportSize({ width, height: 1000 })
     await page.evaluate(() => window.scrollTo(0, 0))
     await accessible(page)
     await page.screenshot({ path: info.outputPath(`campaign-studio-${width}.png`), fullPage: true })
@@ -693,11 +733,11 @@ test('Campaign Studio protects unsaved links, browser Back and reload, but saved
   await page.getByRole('menuitem', { name: /Acme Retail/ }).click()
   await expect(page.getByRole('button', { name: /Current workspace: Acme Retail/ })).toBeVisible()
   await page.goto('/campaigns')
-  await page.getByRole('link', { name: 'New campaign', exact: true }).click()
+  await page.getByRole('link', { name: 'Create campaign', exact: true }).click()
   await expect(page.getByText('Not saved yet', { exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Exit', exact: true }).click()
   await expect(page).toHaveURL(/\/campaigns$/)
-  await page.getByRole('link', { name: 'New campaign', exact: true }).click()
+  await page.getByRole('link', { name: 'Create campaign', exact: true }).click()
   await page.getByLabel('Campaign name').fill('Retain this draft')
   const dialog = page.getByRole('alertdialog', { name: 'Leave with unsaved changes?' })
   await page.keyboard.press('Control+k')
@@ -833,7 +873,7 @@ test('Campaign Studio retries a lost launch response with the same idempotency k
 
 test('Batch 2 primary routes meet the Lighthouse accessibility gate', async ({ page }) => {
   test.skip(
-    process.env.EV2_BATCH2_LIGHTHOUSE !== 'true',
+    process.env.EV2_BATCH2_LIGHTHOUSE !== 'true' && process.env.EV2_CAMPAIGNS_LIGHTHOUSE !== 'true',
     'Set EV2_BATCH2_LIGHTHOUSE=true for the explicit checkpoint audit',
   )
   test.setTimeout(300_000)
@@ -853,13 +893,11 @@ test('Batch 2 primary routes meet the Lighthouse accessibility gate', async ({ p
   const scores: Array<{ path: string; score: number; failing: string[] }> = []
   try {
     await context.addCookies(await page.context().cookies())
-    for (const path of [
-      '/contacts',
-      '/templates',
-      '/campaigns',
-      '/campaigns/new',
-      `/campaigns/${draft.id}`,
-    ]) {
+    const paths =
+      process.env.EV2_CAMPAIGNS_LIGHTHOUSE === 'true'
+        ? ['/campaigns', '/campaigns/new', `/campaigns/${draft.id}`]
+        : ['/contacts', '/templates', '/campaigns', '/campaigns/new', `/campaigns/${draft.id}`]
+    for (const path of paths) {
       const output = resolve(directory, 'result.json')
       const base = test.info().project.use.baseURL ?? 'http://localhost:3000'
       await promisify(execFile)(
@@ -889,6 +927,7 @@ test('Batch 2 primary routes meet the Lighthouse accessibility gate', async ({ p
         failing,
       })
       expect(score, path).toBeGreaterThanOrEqual(95)
+      expect(failing, path).toEqual([])
     }
     writeFileSync(
       resolve(directory, 'scores.json'),

@@ -1,0 +1,34 @@
+# Campaigns and Campaign Studio — reference decomposition
+
+Templates, including its recipient mobile preview, is now visually approved by the user. This checkpoint covers Campaign operations and Create Campaign together, with separate visual validation, then stops before Automations.
+
+## Reference and existing product
+
+| Area | Existing implementation | Reference-led correction |
+| --- | --- | --- |
+| Shell/header | Older shell scale; generic campaign subtitle | Approved 224px navigation/56px header, clear Campaigns/Create campaign purpose |
+| Operations | Spacious active cards and a combined results cell | Compact operational identity, real schedule band/progress/results, clear history surface |
+| Navigation | Supported status views and search | Compact view counts, filters using loaded status/date/audience, explicit sorting |
+| Studio | Five supported saved steps, two columns, actions inside left column | Connected step navigation, contextual campaign/template identity, compact work surface, bottom action bar |
+| Preview | Editor-style variable chips | Approved recipient-facing mobile preview, existing server-estimated recipient selection |
+| Summary | Vertical configuration metadata | Real audience/charge/wallet summary with quiet supporting configuration |
+
+## Intentional product differences
+
+Campaigns have no persisted campaign artwork or descriptive subtitle, and campaign stats do not include attributed replies. Use semantic communication icons, actual frozen template/audience source and existing sent/delivered/read rates; never invent thumbnails, reply counts or percentages. Campaign snapshots do not contain friendly audience names: do not infer them from IDs. Draft/scheduled audience counts are not final; recipients are frozen at launch. Active/scheduled/paused and exceptional pause states remain distinct, with unchanged recovery copy.
+
+All existing campaign APIs, approved-version authority, eligibility/consent, variable sources, fallback behavior, one-time schedule, workspace timezone, pacing, save-on-continue, unsaved-navigation protection, launch idempotency/confirmation and wallet reservation semantics remain authoritative. Counts/filters/sorting describe the loaded campaign collection; no backend search/pagination capability is invented. Subscription enforcement and provider-cost confidentiality remain unchanged.
+
+The Studio uses actual stored template examples until an estimate matches the saved audience/template/mapping, then actual server sample recipients. No unsaved local eligibility or variable-resolution engine. Missing customer charge/wallet amounts remain unavailable. Existing Save and continue wording explains the persistence step.
+
+## Validation
+
+Capture before, first pass and final at 1440 × 1000. Validate operations and Studio separately at 1024/768/375, Axe/overflow/keyboard permissions, failures/empty states, real immediate and scheduled launches, stale preview handling, idempotent retry and unsaved draft protection. Extend existing tests without weakening lifecycle assertions. Keep sanitized screenshots/results under `experience-v2/evidence/campaigns-reconstruction/`; preserve earlier evidence. No backend/domain changes expected.
+
+## Implemented correction and review
+
+Active cards now put progress above compact results; history has explicit sent/delivered/read columns. Views carry actual loaded counts, with supported status/date/audience filters and sorting. Campaign analytics remains available as a quiet header link. Create Campaign uses connected steps, contextual identity, one coherent left surface and a recipient mobile preview beside actual audience/charge/wallet information. Existing actions remain in their disabled-busy fieldset in the new footer.
+
+First-pass captures showed excessive Studio height from decorative wallpaper, repeated metadata and separated cards. The final pass joins configuration sections, reduces their interiors to 12px, places save status beside desktop steps and opts Studio into a shorter wallpaper area. Full message content and the approved Templates default remain unchanged. All final operations/Personalize/Review captures were visually inspected at 1440/1024/768/375.
+
+Before captures retain the existing 1440 × 900 baseline; final captures use a 1440 × 1000 viewport and full-page output where content grows. See [concrete validation and review artifacts](experience-v2/evidence/campaigns-reconstruction/README.md). Ready for visual review; stop before Automations.

@@ -16,6 +16,8 @@ import {
 } from '@fenwira/contracts'
 import {
   Alert,
+  Badge,
+  StatusBadge,
   Button,
   Card,
   CardContent,
@@ -39,13 +41,23 @@ import {
   useConfirm,
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  FileText,
+  Megaphone,
+  Save,
+  Users,
+  Wallet,
+} from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { type ReactNode, useId, useMemo, useRef, useState } from 'react'
 import { completeFilter, FilterBuilder } from '@/components/contacts/filter-builder'
 import { useSession } from '@/components/session/session-provider'
-import { TemplatePreview } from '@/components/templates/template-preview'
+import { TemplatePhonePreview } from '@/components/templates/template-phone-preview'
+import { VariableText } from '@/components/templates/variable-text'
 import { ApiError, get, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import {
@@ -91,10 +103,12 @@ function Labeled({ label, children }: { label: string; children: (id: string) =>
 function Step({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle as="h2">{title}</CardTitle>
+      <CardHeader className="px-3 pt-3 pb-2">
+        <CardTitle as="h2" className="text-md">
+          {title}
+        </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">{children}</CardContent>
+      <CardContent className="flex flex-col gap-3 px-3 pb-3">{children}</CardContent>
     </Card>
   )
 }
@@ -370,12 +384,12 @@ export function CampaignWizard({
   const e = estimate.data
 
   return (
-    <div data-campaign-studio className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav aria-label="Campaign steps">
-          <ol className="flex flex-wrap gap-1">
+    <div data-campaign-studio className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <nav aria-label="Campaign steps" className="min-w-0 flex-1 overflow-x-auto pb-1">
+          <ol className="flex min-w-max items-center gap-2 lg:min-w-0">
             {STEPS.map((label, i) => (
-              <li key={label}>
+              <li key={label} className="flex items-center gap-2 lg:flex-1">
                 <Button
                   type="button"
                   variant="ghost"
@@ -383,14 +397,18 @@ export function CampaignWizard({
                   aria-current={i === step ? 'step' : undefined}
                   disabled={i > step || busy}
                   onClick={() => setStep(i)}
-                  className={cn(i === step && 'bg-primary-soft text-primary-strong')}
+                  className={cn(
+                    'h-10 px-2',
+                    i <= step && 'text-primary-strong',
+                    i === step && 'font-semibold',
+                  )}
                 >
                   <span
                     aria-hidden="true"
                     className={cn(
                       'flex size-6 items-center justify-center rounded-full border text-sm',
                       i <= step
-                        ? 'border-primary-strong text-primary-strong'
+                        ? 'border-primary-strong bg-primary-strong text-surface'
                         : 'border-border text-muted',
                     )}
                   >
@@ -398,11 +416,20 @@ export function CampaignWizard({
                   </span>
                   {label}
                 </Button>
+                {i < STEPS.length - 1 ? (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'h-px w-8 shrink-0 lg:w-auto lg:flex-1',
+                      i < step ? 'bg-primary' : 'border-t border-dashed border-border-strong',
+                    )}
+                  />
+                ) : null}
               </li>
             ))}
           </ol>
         </nav>
-        <p role="status" className="text-sm text-muted">
+        <p role="status" className="text-xs text-secondary">
           {save.isPending
             ? 'Saving draft…'
             : dirty
@@ -412,9 +439,65 @@ export function CampaignWizard({
                 : 'Not saved yet'}
         </p>
       </div>
-      <div className="grid gap-6 lg:grid-cols-5">
-        <fieldset disabled={busy} className="flex min-w-0 flex-col gap-5 lg:col-span-3">
+      <div className="grid items-start gap-4 xl:grid-cols-5">
+        <fieldset
+          disabled={busy}
+          className="flex min-w-0 flex-col gap-0 overflow-hidden rounded-lg border border-border bg-surface xl:col-span-3 [&>[data-slot=card]]:rounded-none [&>[data-slot=card]]:border-0 [&>[data-slot=card]+[data-slot=card]]:border-t"
+        >
           <legend className="sr-only">Campaign configuration</legend>
+          {step > 0 ? (
+            <Card>
+              <CardContent className="flex items-start gap-3 p-3">
+                <span
+                  aria-hidden="true"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-strong"
+                >
+                  <Megaphone className="size-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="break-words text-md font-semibold">
+                    {name.trim() || 'Your campaign'}
+                  </h2>
+                  <p className="text-sm text-secondary">
+                    {template
+                      ? `${CATEGORY_LABEL[template.category]} campaign`
+                      : 'Choose a WhatsApp message'}
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setStep(0)}>
+                  Edit audience
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+          {step >= 2 && template ? (
+            <Card>
+              <CardContent className="flex flex-col gap-3 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-md font-semibold">Selected template</h2>
+                  <Button variant="link" size="sm" onClick={() => setStep(1)}>
+                    Change template
+                  </Button>
+                </div>
+                <div className="flex items-start gap-3 rounded-md border border-border p-3">
+                  <FileText
+                    aria-hidden="true"
+                    className="mt-1 size-5 shrink-0 text-primary-strong"
+                  />
+                  <div className="min-w-0">
+                    <p className="break-words text-base font-semibold">{template.name}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <Badge tone={template.category === 'MARKETING' ? 'primary' : 'info'}>
+                        {CATEGORY_LABEL[template.category]}
+                      </Badge>
+                      <Badge tone="neutral">{languageLabel(template.language)}</Badge>
+                      <StatusBadge status="APPROVED" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
           {save.isError ? (
             <Alert tone="danger" title="Draft couldn’t be saved">
               {save.error instanceof ApiError
@@ -643,7 +726,15 @@ export function CampaignWizard({
           ) : null}
 
           {step === 2 ? (
-            <Step title="Fill in the variables">
+            <Step title="Personalize your message">
+              <p className="text-sm text-secondary">
+                Set values for template variables. Each recipient receives their own details.
+              </p>
+              {template ? (
+                <div className="rounded-md border border-border bg-neutral-soft p-3 text-base">
+                  <VariableText text={template.components.body.text} />
+                </div>
+              ) : null}
               {!template || !need ? (
                 <Skeleton className="h-24" />
               ) : need.body + need.header + Object.keys(need.buttons).length === 0 ? (
@@ -728,6 +819,36 @@ export function CampaignWizard({
             </Step>
           ) : null}
 
+          {(step === 2 || step === 3) && e && previewMatchesSaved ? (
+            <Card>
+              <CardContent className="flex flex-col gap-3 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-md font-semibold">Audience</h2>
+                  <Button variant="link" size="sm" onClick={() => setStep(0)}>
+                    View audience
+                    <ArrowRight aria-hidden="true" />
+                  </Button>
+                </div>
+                <p className="text-sm text-secondary">
+                  Server estimate for the saved audience and personalization.
+                </p>
+                <dl className="grid grid-cols-3 gap-3 rounded-md border border-border p-3">
+                  {[
+                    ['Total contacts', e.total],
+                    ['Eligible', e.sendable],
+                    ['Excluded', e.total - e.sendable],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="text-xs text-secondary">{label}</dt>
+                      <dd className="text-md font-semibold">
+                        {Number(value).toLocaleString('en-IN')}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+          ) : null}
           {step === 4 ? (
             <Step title="Review">
               {estimate.isError ? (
@@ -804,124 +925,64 @@ export function CampaignWizard({
               )}
             </Step>
           ) : null}
-
-          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-            <Button
-              variant="secondary"
-              loading={save.isPending && !save.variables?.advance}
-              disabled={!name.trim() || busy}
-              onClick={() => beginSave(false)}
-            >
-              Save draft
-            </Button>
-            {step > 0 ? (
-              <Button variant="secondary" onClick={() => setStep((s) => s - 1)}>
-                Back
-              </Button>
-            ) : null}
-            {step < 4 ? (
-              <Button
-                loading={save.isPending && save.variables?.advance}
-                disabled={!canContinue || busy}
-                onClick={() => beginSave(true)}
-              >
-                Save and continue
-              </Button>
-            ) : can('campaigns.launch') ? (
-              <Button
-                loading={launch.isPending}
-                disabled={
-                  !e || estimate.isError || estimate.isFetching || e.sendable === 0 || dirty || busy
-                }
-                onClick={async () => {
-                  if (!e || operationLock.current) return
-                  operationLock.current = true
-                  setConfirming(true)
-                  const when =
-                    later && date ? formatInZone(zonedToUtc(date, time, zone), zone) : 'right away'
-                  const ok = await confirm({
-                    title: later ? 'Schedule this campaign?' : 'Launch this campaign now?',
-                    description: 'Messages can’t be recalled once WhatsApp delivers them.',
-                    impact: [
-                      `${e.sendable.toLocaleString('en-IN')} contacts receive “${template?.name ?? 'the template'}” ${later ? `on ${when}` : 'right away'}.`,
-                      `${(e.total - e.sendable).toLocaleString('en-IN')} contacts are left out (consent, blocked or missing values).`,
-                      e.estimatedCostMinor === null
-                        ? 'Estimated customer charge: not available.'
-                        : `Estimated customer charge ${money(e.estimatedCostMinor, e.currency)}${e.availableFundsMinor !== null ? ` of ${money(e.availableFundsMinor, e.currency)} available` : ''}.`,
-                    ],
-                    confirmLabel: later ? 'Schedule campaign' : 'Launch campaign',
-                  })
-                  setConfirming(false)
-                  if (ok) launch.mutate()
-                  else operationLock.current = false
-                }}
-              >
-                {later ? 'Schedule campaign' : 'Launch campaign'}
-              </Button>
-            ) : (
-              <p className="text-sm text-muted">
-                Someone with permission to launch campaigns can send it.
-              </p>
-            )}
-            <Button variant="ghost" asChild>
-              <Link href="/campaigns">Exit</Link>
-            </Button>
-          </div>
         </fieldset>
-        <aside aria-labelledby="campaign-summary" className="min-w-0 lg:col-span-2">
-          <div className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5 lg:sticky lg:top-20">
-            <div className="flex flex-col gap-3">
-              <h2 className="text-md font-semibold text-slate">WhatsApp preview</h2>
+        <aside aria-labelledby="campaign-summary" className="min-w-0 xl:col-span-2">
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3 xl:sticky xl:top-20">
+            <div className="flex flex-col gap-2">
+              <h2 className="text-md font-semibold text-slate">Preview</h2>
               {template ? (
                 <>
-                  <p className="text-sm text-secondary">
-                    {template.name} · {languageLabel(template.language)}
-                  </p>
                   {previewMatchesSaved && e?.samples.length ? (
                     <>
                       {e.samples.length > 1 ? (
-                        <Labeled label="Preview recipient">
-                          {(id) => (
-                            <Select value={sampleIndex} onValueChange={setSampleIndex}>
-                              <SelectTrigger aria-labelledby={id}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {e.samples.map((sample, i) => (
-                                  <SelectItem key={sample.phoneE164} value={String(i)}>
-                                    {sample.contactName ?? sample.phoneE164}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </Labeled>
+                        <div className="[&>div]:flex-row [&>div]:items-center [&>div>span]:shrink-0 [&_button]:flex-1">
+                          <Labeled label="Preview recipient">
+                            {(id) => (
+                              <Select value={sampleIndex} onValueChange={setSampleIndex}>
+                                <SelectTrigger aria-labelledby={id}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {e.samples.map((sample, i) => (
+                                    <SelectItem key={sample.phoneE164} value={String(i)}>
+                                      {sample.contactName ?? sample.phoneE164}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </Labeled>
+                        </div>
                       ) : (
                         <p className="text-sm text-muted">
                           To {e.samples[0]?.contactName ?? e.samples[0]?.phoneE164}
                         </p>
                       )}
-                      <TemplatePreview
+                      <TemplatePhonePreview
+                        compact
                         components={template.components}
                         samples={
                           (e.samples[Number(sampleIndex)] ?? e.samples[0])!
                             .variables as VariableSamples
                         }
                         headerImageUrl={sampleUrl.data}
+                        businessName={live.find((n) => n.id === phone)?.verifiedName ?? undefined}
                       />
-                      <p className="text-sm text-muted">
+                      <p className="text-xs text-secondary">
                         Recipient values from the saved server estimate. Eligibility is checked
                         again when sending.
                       </p>
                     </>
                   ) : (
                     <>
-                      <TemplatePreview
+                      <TemplatePhonePreview
+                        compact
                         components={template.components}
                         samples={template.samples}
                         headerImageUrl={sampleUrl.data}
+                        businessName={live.find((n) => n.id === phone)?.verifiedName ?? undefined}
                       />
-                      <p className="text-sm text-muted">
+                      <p className="text-xs text-secondary">
                         Template example values. Save your audience and personalization to preview
                         recipient values.
                       </p>
@@ -937,73 +998,189 @@ export function CampaignWizard({
             </div>
             <h2
               id="campaign-summary"
-              className="border-t border-border pt-4 text-md font-semibold text-slate"
+              className="border-t border-border pt-3 text-md font-semibold text-slate"
             >
               Campaign summary
             </h2>
-            <dl className="flex flex-col gap-3 text-sm">
-              {[
-                ['Name', name.trim() || '—'],
-                [
-                  'Audience',
-                  kind === 'TAGS'
-                    ? tagIds.length
-                      ? `Tagged ${tags
-                          .filter((t) => tagIds.includes(t.id))
+            {e && previewMatchesSaved ? (
+              <dl
+                className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+                aria-label="Campaign commercial summary"
+              >
+                {[
+                  ['Recipients', e.sendable.toLocaleString('en-IN'), Users],
+                  [
+                    'Customer charge',
+                    e.estimatedCostMinor === null
+                      ? 'Not available'
+                      : money(e.estimatedCostMinor, e.currency),
+                    FileText,
+                  ],
+                  [
+                    'Wallet available',
+                    e.availableFundsMinor === null
+                      ? 'Not available'
+                      : money(e.availableFundsMinor, e.currency),
+                    Wallet,
+                  ],
+                ].map(([label, value, icon]) => {
+                  const Icon = icon as typeof Users
+                  return (
+                    <div key={String(label)} className="min-w-0">
+                      <span
+                        aria-hidden="true"
+                        className="mb-2 flex size-8 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                      >
+                        <Icon className="size-4" />
+                      </span>
+                      <dt className="text-xs text-secondary">{String(label)}</dt>
+                      <dd className="mt-1 break-words text-md font-semibold">{String(value)}</dd>
+                    </div>
+                  )
+                })}
+              </dl>
+            ) : null}
+            <details className="border-t border-border pt-2">
+              <summary className="cursor-pointer rounded-md text-sm font-medium text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+                Campaign details
+              </summary>
+              <dl className="mt-2 flex flex-col gap-2 text-sm">
+                {[
+                  ['Name', name.trim() || '—'],
+                  [
+                    'Audience',
+                    kind === 'TAGS'
+                      ? tagIds.length
+                        ? `Tagged ${tags
+                            .filter((t) => tagIds.includes(t.id))
+                            .map((t) => t.name)
+                            .join(match === 'ALL' ? ' and ' : ' or ')}`
+                        : '—'
+                      : kind === 'SEGMENT'
+                        ? (segments.find((x) => x.id === segmentId)?.name ?? '—')
+                        : kind === 'FILTER'
+                          ? `${completeFilter(filter).rules.length} filter rule(s)`
+                          : importJobId
+                            ? 'Contacts from an import'
+                            : '—',
+                  ],
+                  [
+                    'Excluding',
+                    excludeTags.length
+                      ? tags
+                          .filter((t) => excludeTags.includes(t.id))
                           .map((t) => t.name)
-                          .join(match === 'ALL' ? ' and ' : ' or ')}`
-                      : '—'
-                    : kind === 'SEGMENT'
-                      ? (segments.find((x) => x.id === segmentId)?.name ?? '—')
-                      : kind === 'FILTER'
-                        ? `${completeFilter(filter).rules.length} filter rule(s)`
-                        : importJobId
-                          ? 'Contacts from an import'
-                          : '—',
-                ],
-                [
-                  'Excluding',
-                  excludeTags.length
-                    ? tags
-                        .filter((t) => excludeTags.includes(t.id))
-                        .map((t) => t.name)
-                        .join(', ')
-                    : 'Nobody',
-                ],
-                ['From', live.find((n) => n.id === phone)?.displayPhoneNumber ?? '—'],
-                ['Template', template ? `${template.name} (${template.language})` : '—'],
-                [
-                  'When',
-                  later
-                    ? date && time
-                      ? formatInZone(zonedToUtc(date, time, zone), zone)
-                      : 'Scheduled (pick a date)'
-                    : 'Right after launch',
-                ],
-                ...(e && previewMatchesSaved
-                  ? [
-                      [
-                        'Will receive',
-                        `${e.sendable.toLocaleString('en-IN')} of ${e.total.toLocaleString('en-IN')}`,
-                      ],
-                      [
-                        'Estimated customer charge',
-                        e.estimatedCostMinor === null
-                          ? 'Not available'
-                          : money(e.estimatedCostMinor, e.currency),
-                      ],
-                    ]
-                  : []),
-              ].map(([k, v]) => (
-                <div key={k} className="flex flex-col gap-0.5">
-                  <dt className="text-secondary">{k}</dt>
-                  <dd className="text-slate">{v}</dd>
-                </div>
-              ))}
-            </dl>
+                          .join(', ')
+                      : 'Nobody',
+                  ],
+                  ['From', live.find((n) => n.id === phone)?.displayPhoneNumber ?? '—'],
+                  ['Template', template ? `${template.name} (${template.language})` : '—'],
+                  [
+                    'When',
+                    later
+                      ? date && time
+                        ? formatInZone(zonedToUtc(date, time, zone), zone)
+                        : 'Scheduled (pick a date)'
+                      : 'Right after launch',
+                  ],
+                  ...(e && previewMatchesSaved
+                    ? [
+                        [
+                          'Will receive',
+                          `${e.sendable.toLocaleString('en-IN')} of ${e.total.toLocaleString('en-IN')}`,
+                        ],
+                        [
+                          'Estimated customer charge',
+                          e.estimatedCostMinor === null
+                            ? 'Not available'
+                            : money(e.estimatedCostMinor, e.currency),
+                        ],
+                      ]
+                    : []),
+                ].map(([k, v]) => (
+                  <div
+                    key={k}
+                    className="flex min-w-0 flex-wrap justify-between gap-1 border-b border-border py-1.5"
+                  >
+                    <dt className="text-secondary">{k}</dt>
+                    <dd className="max-w-full break-words text-slate">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
           </div>
         </aside>
       </div>
+      <fieldset
+        disabled={busy}
+        className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-3"
+      >
+        <legend className="sr-only">Campaign actions</legend>
+        {step > 0 ? (
+          <Button variant="secondary" disabled={busy} onClick={() => setStep((s) => s - 1)}>
+            <ArrowLeft aria-hidden="true" />
+            Back
+          </Button>
+        ) : null}
+        <Button variant="ghost" asChild>
+          <Link href="/campaigns">Exit</Link>
+        </Button>
+        <Button
+          className="sm:ml-auto"
+          variant="secondary"
+          loading={save.isPending && !save.variables?.advance}
+          disabled={!name.trim() || busy}
+          onClick={() => beginSave(false)}
+        >
+          <Save aria-hidden="true" />
+          Save draft
+        </Button>
+        {step < 4 ? (
+          <Button
+            loading={save.isPending && save.variables?.advance}
+            disabled={!canContinue || busy}
+            onClick={() => beginSave(true)}
+          >
+            Save and continue
+            <ArrowRight aria-hidden="true" />
+          </Button>
+        ) : can('campaigns.launch') ? (
+          <Button
+            loading={launch.isPending}
+            disabled={
+              !e || estimate.isError || estimate.isFetching || e.sendable === 0 || dirty || busy
+            }
+            onClick={async () => {
+              if (!e || operationLock.current) return
+              operationLock.current = true
+              setConfirming(true)
+              const when =
+                later && date ? formatInZone(zonedToUtc(date, time, zone), zone) : 'right away'
+              const ok = await confirm({
+                title: later ? 'Schedule this campaign?' : 'Launch this campaign now?',
+                description: 'Messages can’t be recalled once WhatsApp delivers them.',
+                impact: [
+                  `${e.sendable.toLocaleString('en-IN')} contacts receive “${template?.name ?? 'the template'}” ${later ? `on ${when}` : 'right away'}.`,
+                  `${(e.total - e.sendable).toLocaleString('en-IN')} contacts are left out (consent, blocked or missing values).`,
+                  e.estimatedCostMinor === null
+                    ? 'Estimated customer charge: not available.'
+                    : `Estimated customer charge ${money(e.estimatedCostMinor, e.currency)}${e.availableFundsMinor !== null ? ` of ${money(e.availableFundsMinor, e.currency)} available` : ''}.`,
+                ],
+                confirmLabel: later ? 'Schedule campaign' : 'Launch campaign',
+              })
+              setConfirming(false)
+              if (ok) launch.mutate()
+              else operationLock.current = false
+            }}
+          >
+            {later ? 'Schedule campaign' : 'Launch campaign'}
+          </Button>
+        ) : (
+          <p className="text-sm text-muted">
+            Someone with permission to launch campaigns can send it.
+          </p>
+        )}
+      </fieldset>
     </div>
   )
 }

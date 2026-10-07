@@ -1,5 +1,6 @@
 'use client'
 
+import { cn } from '@fenwira/ui'
 import { type TemplateComponents, type VariableSamples } from '@fenwira/contracts'
 import {
   ArrowLeft,
@@ -23,11 +24,14 @@ export function TemplatePhonePreview({
   samples,
   headerImageUrl,
   businessName,
+  compact = false,
 }: {
   components: TemplateComponents
   samples: VariableSamples
   headerImageUrl?: string | null
   businessName?: string
+  /** Studio-only reduction of decorative wallpaper space; message content stays complete. */
+  compact?: boolean
 }) {
   const patternId = useId()
   return (
@@ -65,7 +69,12 @@ export function TemplatePhonePreview({
             <MoreVertical className="size-4" />
           </div>
         </div>
-        <div className="relative flex min-h-80 flex-col items-start gap-4 bg-thread-soft px-3 py-4">
+        <div
+          className={cn(
+            'relative flex flex-col items-start gap-4 bg-thread-soft px-3 py-4',
+            compact ? 'min-h-48' : 'min-h-80',
+          )}
+        >
           <svg
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full text-muted-decorative opacity-10"
@@ -116,8 +125,9 @@ export function TemplatePhonePreview({
         </div>
       </div>
       <p className="mt-2 text-xs text-secondary">
-        Recipient preview using sample values. Layout may vary by device. Preview controls do not
-        send messages.
+        {compact
+          ? 'Recipient preview · layout varies by device.'
+          : 'Recipient preview using sample values. Layout may vary by device. Preview controls do not send messages.'}
       </p>
     </div>
   )

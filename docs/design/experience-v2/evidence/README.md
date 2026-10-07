@@ -46,3 +46,7 @@ The user approved the final Home and Inbox implementations and requested Contact
 ## Templates reconstruction checkpoint
 
 Home, Inbox and Contacts are now visually approved. The [Templates checkpoint](templates-reconstruction/README.md) follows the approved `04-Templates.png` composition and retains separate before/first-pass/final captures. It covers Templates only and stops for visual review before Campaigns.
+
+## Campaigns and Studio reconstruction checkpoint
+
+Templates and its mobile recipient preview are now visually approved. The next [Campaigns and Studio checkpoint](campaigns-reconstruction/README.md) retains before/first-pass/final captures and validates operations, Personalize and Review separately at four widths. Ready for visual review; stop before Automations.

@@ -175,3 +175,11 @@ Home and Inbox are now visually approved by the user. Contacts follows their exa
 ## Templates reconstruction checkpoint
 
 Templates reuses the approved 224px navigation/56px topbar only at its library route. A compact message library follows status tabs and existing server-backed search/category/language/status filters. Selected cards open a 320px inline context above 1280px; below that, one accessible drawer preserves keyboard focus/closure and mobile reading. Category/language/status and actual message content precede update/preview metadata. Lifecycle edits/submit/delete remain on the existing full record page; approved-version availability gates sending links. No concept-only sync time, usage count or variable label is synthesized. [Review evidence](experience-v2/evidence/templates-reconstruction/README.md); stop for visual approval before Campaigns.
+
+## Experience V2 Campaigns / Create Campaign reconstruction checkpoint
+
+Reuse the approved 224px navigation and 56px header for Campaign routes. Operations uses compact loaded-record views/filters and active/scheduled communication cards above one history surface. Counts and filters reflect the collection actually loaded; unavailable artwork, audience names or attributed replies must not be fabricated. Keep fund/template pause recovery explicit.
+
+Create Campaign keeps the five saved steps in connected navigation, one coherent configuration surface and a recipient preview at desktop (3:2 from xl), stacked below configuration at smaller widths. Use 12px configuration/preview interiors and 16px operational cards. Put the existing save/back/exit/launch controls in a separate footer; preserve confirmation, busy state and unsaved-draft protection. The Studio-only compact phone option reduces wallpaper space without clipping message content; Templates keeps its approved default. Preview recipient data must come from a matching saved server estimate, with stored examples otherwise. History and step navigation can scroll locally; the page must not overflow.
+
+[Validation and screenshots](experience-v2/evidence/campaigns-reconstruction/README.md). Ready for visual review, not authorization to propagate to Automations.

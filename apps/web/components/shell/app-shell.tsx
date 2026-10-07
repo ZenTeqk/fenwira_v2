@@ -71,7 +71,9 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   // Contacts reuses the approved shell variant and owns its contextual links below its heading.
   const contactsDirectory = pathname === '/contacts'
   const templatesLibrary = pathname === '/templates'
-  const communicationShell = home || fullBleed || contactsDirectory || templatesLibrary
+  const campaignsModule = pathname === '/campaigns' || pathname.startsWith('/campaigns/')
+  const communicationShell =
+    home || fullBleed || contactsDirectory || templatesLibrary || campaignsModule
   const { membership, tenantId, can } = useSession()
   const unread = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox-unread'),
@@ -246,7 +248,10 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           <AccountMenu />
         </header>
 
-        {tabs.length && !fullBleed && !contactsDirectory ? (
+        {tabs.length &&
+        !fullBleed &&
+        !contactsDirectory &&
+        (!campaignsModule || pathname === '/campaigns/analytics') ? (
           <ModuleTabs
             items={tabs}
             label={`${currentModule?.label ?? 'Module'} pages`}

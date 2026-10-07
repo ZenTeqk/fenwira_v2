@@ -164,3 +164,9 @@ None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → De
 ## Experience V2 campaign operations
 
 Campaigns prioritize active/scheduled/paused communications and then focused history/drafts. Cards and rows use existing inclusive counts and server-defined rates; unknown denominators remain “—”. Audience-source summaries do not invent names from stored IDs. Snapshot-free campaigns explain that the audience is prepared at launch. Funding and template pauses link to existing recovery workflows without changing remaining recipients or the frozen template. The detail route retains controls, recipient results and export. See [Batch 2 evidence](design/EXPERIENCE_V2_BATCH_2.md) for responsive, keyboard, accessibility and operational regression results.
+
+## Experience V2 Campaigns checkpoint (2026-10-07)
+
+Campaigns now uses the approved workspace shell, compact status views and loaded-record filters, active/scheduled communication cards and an explicit sent/delivered/read history. Create Campaign retains the five saved steps, arranged as one working surface beside the recipient mobile preview, with a separate action footer. Recipient samples come from the matching saved server estimate; otherwise the preview uses stored template examples. Missing wallet/charge values remain unavailable.
+
+This presentation change does not alter campaign APIs, snapshot/frozen-version authority, consent, fallback handling, one-time scheduling/timezones, wallet reservations, pause recovery or launch idempotency. Loaded-record counts/filtering are not server-wide pagination. See [review evidence](design/experience-v2/evidence/campaigns-reconstruction/README.md). Ready for visual review; no Automations reconstruction is included.
