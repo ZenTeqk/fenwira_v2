@@ -7,18 +7,21 @@ export function Segmented<T extends string>({
   options,
   onChange,
   disabled = false,
+  compact = false,
 }: {
   label: string
   value: T
   options: Array<{ value: T; label: string }>
   onChange: (v: T) => void
   disabled?: boolean
+  /** Composer only: a small desktop selector, practical mobile mode targets. */
+  compact?: boolean
 }) {
   return (
     <div
       role="group"
       aria-label={label}
-      className="flex flex-wrap gap-1 rounded-md bg-neutral-soft p-1"
+      className={cn('flex flex-wrap gap-1 rounded-md bg-neutral-soft', compact ? 'p-0.5' : 'p-1')}
     >
       {options.map((o) => (
         <button
@@ -29,6 +32,7 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           className={cn(
             'shrink-0 rounded-sm px-2.5 py-1 text-sm font-medium text-slate transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+            compact && 'min-h-10 sm:min-h-6 sm:py-0.5',
             o.value === value ? 'bg-surface shadow-raised' : 'hover:bg-surface/60',
           )}
         >

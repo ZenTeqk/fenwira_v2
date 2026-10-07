@@ -3,7 +3,6 @@
 import { type Conversation } from '@fenwira/contracts'
 import {
   Avatar,
-  Badge,
   Checkbox,
   cn,
   EmptyState,
@@ -12,7 +11,6 @@ import {
   SearchInput,
   focusRing,
   Skeleton,
-  StatusBadge,
   Select,
   SelectContent,
   SelectItem,
@@ -20,12 +18,12 @@ import {
   SelectValue,
 } from '@fenwira/ui'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, Inbox } from 'lucide-react'
+import { Inbox } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
-import { displayName, shortTime, useNow } from '@/lib/inbox'
+import { displayName, shortTime } from '@/lib/inbox'
 import { useRealtimeEvent, useRealtimeReconnect } from '@/lib/realtime'
 import { Segmented } from './segmented'
 import { InboxViews, INBOX_CHOICES, type ViewChoice } from './inbox-views'
@@ -49,7 +47,6 @@ export function ConversationList({
 }) {
   const { tenantId } = useSession()
   const queryClient = useQueryClient()
-  const now = useNow()
   const [view, setView] = useState<ViewChoice>('all')
   const [status, setStatus] = useState<Conversation['status'] | 'ALL'>('ALL')
   const [search, setSearch] = useState('')
@@ -85,7 +82,7 @@ export function ConversationList({
         aria-label="Conversations"
         className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface"
       >
-        <div className="flex flex-col gap-3 border-b border-border bg-surface p-3">
+        <div className="flex flex-col gap-2 border-b border-border bg-surface p-3">
           <h2 className="text-md font-semibold text-slate">
             {view === 'all' ? 'All conversations' : INBOX_CHOICES.find((v) => v.id === view)?.label}
           </h2>
@@ -159,25 +156,29 @@ export function ConversationList({
             <ul aria-label="Conversation list">
               {list.data.map((c) => {
                 const selected = c.id === selectedId
-                const open =
-                  c.serviceWindow.isOpen &&
-                  !!c.serviceWindow.expiresAt &&
-                  new Date(c.serviceWindow.expiresAt).getTime() > now
                 const name = displayName(c)
                 return (
                   <li key={c.id}>
                     <button
                       type="button"
                       onClick={() => onSelect(c.id)}
+                      title={[
+                        c.assignee ? `Assigned to ${c.assignee.name}` : 'Unassigned',
+                        c.serviceWindow.isOpen ? 'Window open' : 'Window closed',
+                        c.automationState === 'AGENT_TAKEOVER' ? 'Agent takeover' : null,
+                        c.status === 'PENDING' ? 'Waiting on customer' : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                       aria-current={selected ? 'true' : undefined}
                       className={cn(
-                        'flex w-full gap-3 border-b border-b-border/60 border-l-4 px-3 py-3 text-left transition-colors hover:bg-neutral-soft',
+                        'flex w-full gap-3 border-b border-b-border/60 border-l-4 px-3 py-2.5 text-left transition-colors hover:bg-neutral-soft',
                         focusRing,
                         'focus-visible:-outline-offset-2',
                         selected ? 'border-l-primary bg-primary-soft' : 'border-l-transparent',
                       )}
                     >
-                      <Avatar appearance="varied" name={name} size="md" />
+                      <Avatar appearance="varied" name={name} size="md" className="size-9" />
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <span
@@ -207,34 +208,11 @@ export function ConversationList({
                         >
                           {c.snippet ?? c.lastMessagePreview ?? 'No messages yet'}
                         </span>
-                        <div className="flex min-w-0 flex-wrap items-center justify-between gap-1 text-xs text-secondary">
-                          <span
-                            className="flex min-w-0 max-w-28 items-center gap-1"
-                            title={c.assignee ? `Assigned to ${c.assignee.name}` : 'Unassigned'}
-                          >
-                            {c.assignee ? (
-                              <Avatar
-                                appearance="varied"
-                                name={c.assignee.name}
-                                size="sm"
-                                className="size-5 text-xs"
-                              />
-                            ) : null}
-                            <span className="truncate">
-                              {c.assignee ? c.assignee.name : 'Unassigned'}
-                            </span>
-                          </span>
-                          <StatusBadge
-                            appearance="inline"
-                            status={open ? 'WINDOW_OPEN' : 'WINDOW_CLOSED'}
-                          />
-                          {c.automationState === 'AGENT_TAKEOVER' ? (
-                            <Badge tone="info" icon={<Bot />}>
-                              Takeover
-                            </Badge>
-                          ) : null}
-                          {c.status === 'PENDING' ? <StatusBadge status="PENDING" /> : null}
-                        </div>
+                        <span className="sr-only">
+                          {c.assignee ? `Assigned to ${c.assignee.name}` : 'Unassigned'}
+                          {c.automationState === 'AGENT_TAKEOVER' ? ' · Agent takeover' : ''}
+                          {c.status === 'PENDING' ? ' · Waiting on customer' : ''}
+                        </span>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1.5">
                         {c.unreadCount ? (

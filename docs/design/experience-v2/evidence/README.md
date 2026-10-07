@@ -30,3 +30,7 @@ Historical checkpoint: [Home reconstruction](home-reconstruction/README.md). The
 Latest checkpoint: [Home scale and density refinement](home-density/README.md). It preserves the approved composition and palette, tightens Home and its visible shell, retains every historical capture and stops for a separate visual review.
 
 The user subsequently approved that final Home density; it is now the canonical global language. The current [Inbox reconstruction](inbox-reconstruction/README.md) follows the Inbox reference composition and approved Home scale, preserving Home and all historical captures. Inbox has its own visual review checkpoint; later modules remain outside scope.
+
+## Latest Inbox review checkpoint
+
+The reconstruction is not visually approved. The [final fidelity pass](inbox-final-fidelity/README.md) retains all previous stages and corrects row/header/composer density, message character and customer-context hierarchy. Home and its shell stay unchanged. Ready for visual review; no later-module propagation.

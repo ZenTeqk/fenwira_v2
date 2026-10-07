@@ -18,6 +18,7 @@ describe('color tokens', () => {
       warning: '#F59E0B',
       danger: '#DC2626',
       info: '#2563EB',
+      'message-outbound': '#D2F2DF',
     })
     expect(Object.keys(colorTokens)).toHaveLength(35)
   })

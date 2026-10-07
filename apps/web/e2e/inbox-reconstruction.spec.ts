@@ -187,6 +187,10 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
         ).violations,
       ).toEqual([])
       if (width === 1440) {
+        await page.screenshot({
+          path: info.outputPath(`${name}-desktop-inspection.png`),
+          fullPage: true,
+        })
         const geometry = await page.evaluate(() => {
           const box = (element: Element | null) => {
             if (!element) return null
@@ -205,19 +209,60 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
             threadHeader: box(
               document.querySelector('[aria-label="Chat"]')?.firstElementChild ?? null,
             ),
+            primaryHeader: box(
+              document.querySelector('[aria-label="Chat"]')?.firstElementChild?.firstElementChild ??
+                null,
+            ),
+            windowContext: box(document.querySelector('[aria-label="Conversation context"]')),
+            avatar: box(
+              document.querySelector('[aria-label="Conversation list"] [data-slot="avatar"]'),
+            ),
+            identity: box(document.querySelector('[aria-label="Customer identity"]')),
+            eligibility: box(document.querySelector('[aria-label="WhatsApp context"]')),
+            writing: box(document.querySelector('textarea[aria-label="Reply"]')),
             thread: box(document.querySelector('[aria-label="Chat"]')),
             context: box(document.querySelector('[aria-label="Contact"]')),
-            composer: box(document.querySelector('[aria-label="Compose"]')?.parentElement ?? null),
+            composer: box(
+              document.querySelector('[aria-label="Compose"]')?.parentElement?.parentElement ??
+                null,
+            ),
           }
         })
         expect(geometry.sidebar?.width).toBe(224)
         expect(geometry.topbar?.height).toBe(56)
+        if (name === 'inbox') {
+          expect(geometry.ordinaryRow?.height).toBeGreaterThanOrEqual(64)
+          expect(geometry.ordinaryRow?.height).toBeLessThanOrEqual(72)
+          expect(geometry.avatar?.width).toBe(36)
+          expect(geometry.primaryHeader?.height).toBeGreaterThanOrEqual(60)
+          expect(geometry.primaryHeader?.height).toBeLessThanOrEqual(72)
+          expect(geometry.threadHeader?.height).toBeLessThan(150)
+          expect(geometry.composer?.height).toBeLessThan(120)
+          expect(geometry.writing?.height).toBeLessThanOrEqual(44)
+        }
         writeFileSync(
           info.outputPath(`${name}-geometry-1440.json`),
           JSON.stringify(geometry, null, 2),
         )
       }
       if (name === 'inbox') {
+        const replyBox = page.getByLabel('Reply', { exact: true })
+        expect((await replyBox.boundingBox())?.height).toBeLessThanOrEqual(44)
+        const identity = page.getByRole('heading', { name: 'Priya Sharma', exact: true }).first()
+        expect(await identity.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true)
+        if (width === 375) {
+          for (const label of [
+            'Send',
+            'Send a template',
+            'Canned replies',
+            'Reply',
+            'Internal note',
+          ]) {
+            expect(
+              (await page.getByRole('button', { name: label, exact: true }).boundingBox())?.height,
+            ).toBeGreaterThanOrEqual(40)
+          }
+        }
         // Long, individually scrollable lists must not leak a second document scrollbar.
         expect(
           await page.evaluate(() => document.documentElement.scrollHeight - innerHeight),
@@ -225,6 +270,41 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
       }
       await page.screenshot({ path: info.outputPath(`${name}-${width}.png`), fullPage: true })
       if (name === 'inbox' && width === 1440) {
+        const reply = page.getByLabel('Reply', { exact: true })
+        await reply.fill(Array.from({ length: 30 }, (_, i) => `Draft line ${i + 1}`).join('\n'))
+        await expect.poll(async () => (await reply.boundingBox())?.height).toBe(160)
+        expect(await reply.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true)
+        await page.screenshot({ path: info.outputPath('inbox-expanded-1440.png'), fullPage: true })
+        const expanded = await page.evaluate(() => ({
+          writing: document.querySelector('textarea[aria-label="Reply"]')?.getBoundingClientRect()
+            .height,
+          composer: document
+            .querySelector('[aria-label="Compose"]')
+            ?.parentElement?.parentElement?.getBoundingClientRect().height,
+        }))
+        writeFileSync(
+          info.outputPath('inbox-expanded-geometry.json'),
+          JSON.stringify(expanded, null, 2),
+        )
+        await reply.fill('')
+        await expect.poll(async () => (await reply.boundingBox())?.height).toBeLessThanOrEqual(44)
+        const disclosure = page.getByText('Eligibility and consent details', { exact: true })
+        await disclosure.focus()
+        await page.keyboard.press('Enter')
+        await expect(page.getByRole('region', { name: 'Messaging eligibility' })).toBeVisible()
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+              .analyze()
+          ).violations,
+        ).toEqual([])
+        await page.screenshot({
+          path: info.outputPath('inbox-eligibility-1440.png'),
+          fullPage: true,
+        })
+        await page.keyboard.press('Enter')
+        await expect(page.getByRole('region', { name: 'Messaging eligibility' })).toBeHidden()
         await page.getByRole('button', { name: 'Internal note', exact: true }).click()
         await expect(page.getByLabel('Internal note', { exact: true })).toHaveAttribute(
           'placeholder',
@@ -235,6 +315,10 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
       }
       if (name === 'inbox' && width === 375) {
         await page.getByRole('button', { name: 'Contact details' }).click()
+        await page
+          .getByRole('dialog', { name: 'Contact', exact: true })
+          .getByText('Eligibility and consent details', { exact: true })
+          .click()
         await expect(
           page
             .getByRole('dialog', { name: 'Contact', exact: true })

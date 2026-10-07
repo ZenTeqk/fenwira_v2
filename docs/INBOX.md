@@ -48,7 +48,7 @@ Assignment emits `conversation.assigned` (in-app notification to the assignee) a
 
 - The server enforces this: `MessagingService` rejects `source = AUTOMATION` unless the state is `AUTOMATION_ACTIVE` (`AUTOMATION_BLOCKED_BY_TAKEOVER`), and the automation engine checks it before each send step (`AUTOMATION_ENGINE.md`).
 - Tenant setting `takeover_auto_release_hours` (default null = never): if set, the maintenance job returns `AGENT_TAKEOVER` → `AUTOMATION_ACTIVE` when there has been no agent message for N hours and the conversation is RESOLVED.
-- UI: the takeover state shows an `info` badge in the list and an `info` banner in the thread, with the action "Return to automation".
+- UI: takeover is available in list-row details and the Takeover view. The thread shows a compact contextual state with the action "Return to automation"; automation remains server-enforced.
 
 ### Collision control (compose lock)
 
@@ -134,3 +134,9 @@ None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → De
 ## Experience V2 presentation (2026-10-06)
 
 The separate view rail uses existing Mine/Unassigned/All/Takeover/Resolved queries; Unread maps to the existing server unread filter. Status filtering uses the existing status parameter. No team queues. Avatar-led rows show real assignment, unread and window state. Consecutive same-sender messages within five minutes group visually, with day separators; notes and system messages interrupt grouping. Read-only roles have no composer. The composer reuses shared Textarea/focus and displays server eligibility/connection explanations. Reconnect refreshes authorized Inbox HTTP queries after rejoining rooms. No backend/schema/lifecycle changes. See `design/FENWIRA_EXPERIENCE_V2.md`.
+
+## Inbox final visual fidelity checkpoint
+
+The `e50211a` reconstruction is not visually approved. This focused pass retains the approved Home shell and pane widths, while standard conversation rows become two-line identity/preview rows with 36px deterministic initials. Assignment/window/takeover/pending metadata is available in row details and selected-conversation header/context; existing filter queries are unchanged. Contact/conversation responses expose no supported profile photo URL, so no avatar backend or fake photos are introduced.
+
+The primary thread header uses compact assignment/Resolve/More controls and identity/status. Healthy window, conversation tags and takeover share a quiet contextual area instead of stacked banners; composer warnings for closing/closed/restricted/disconnected states remain. The warm thread has an original, decorative 5%-opacity SVG pattern and the AA-tested outbound-only emerald token. Reply/note writing grows from one line to a 160px cap, then scrolls internally; mode and toolbar remain explicit with 40px mobile controls. Customer context prioritizes identity/assignment/tags, compact server eligibility and keyboard-accessible full eligibility/consent details, then real notes/history. All domain, permission, locking, realtime/offline, draft and sending paths remain authoritative. See [final-fidelity report](design/EXPERIENCE_V2_INBOX_FINAL_FIDELITY.md); stop for visual review.

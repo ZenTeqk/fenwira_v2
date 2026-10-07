@@ -12,7 +12,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import Image from 'next/image'
 import { followsSameSender } from '@/lib/message-grouping'
 import { Paperclip, StickyNote } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useId, useMemo, useRef } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
@@ -134,7 +134,7 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
   const { me } = useSession()
   if (item.kind === 'note')
     return (
-      <div className="mx-auto w-full max-w-5/6 rounded-lg border border-warning/20 bg-note-soft px-3 py-2.5 text-slate">
+      <div className="mx-auto w-full max-w-5/6 rounded-lg border border-warning/20 bg-note-soft px-3 py-2 text-slate">
         <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-warning-strong">
           <StickyNote className="size-3.5" aria-hidden="true" />
           Internal note · {item.note.authorName}
@@ -157,7 +157,7 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
     <div className={cn('flex', outbound ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'flex min-w-0 max-w-5/6 flex-col gap-1 rounded-lg px-3 py-2.5 text-base text-slate shadow-raised',
+          'flex min-w-0 max-w-5/6 flex-col gap-1 rounded-lg px-3 py-2 text-base text-slate shadow-raised',
           outbound
             ? 'rounded-tr-sm bg-message-outbound'
             : 'rounded-tl-sm border border-border/60 bg-surface',
@@ -201,6 +201,7 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
 /** Virtualized thread, oldest at the top; scrolls to the newest on open and on new messages. */
 export function Thread({ conversationId }: { conversationId: string }) {
   const { tenantId } = useSession()
+  const patternId = useId()
   const queryClient = useQueryClient()
   const key = threadKey(tenantId, conversationId)
   const messages = useInfiniteQuery({
@@ -300,72 +301,93 @@ export function Thread({ conversationId }: { conversationId: string }) {
       <ErrorState title="Messages couldn’t be loaded" onRetry={() => void messages.refetch()} />
     )
   return (
-    <div
-      ref={scroller}
-      tabIndex={0}
-      className={cn(
-        'min-h-0 flex-1 overflow-y-auto bg-thread-soft px-4 py-4',
-        focusRing,
-        'focus-visible:-outline-offset-2',
-      )}
-      role="log"
-      aria-live="polite"
-      aria-label="Messages"
-      onScroll={(e) => {
-        const el = e.currentTarget
-        nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-      }}
-    >
-      {notes.isError ? (
-        <ErrorState
-          title="Internal notes couldn’t be loaded"
-          onRetry={() => void notes.refetch()}
-        />
-      ) : null}
-      {messages.hasNextPage ? (
-        <div className="flex justify-center pb-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            loading={messages.isFetchingNextPage}
-            onClick={() => void messages.fetchNextPage()}
-          >
-            Load earlier messages
-          </Button>
-        </div>
-      ) : null}
-      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-        {virtualizer.getVirtualItems().map((v) => {
-          const item = items[v.index]!
-          const previous = items[v.index - 1]
-          const grouped =
-            item.kind === 'message' &&
-            previous?.kind === 'message' &&
-            followsSameSender(item.message, previous.message)
-          const date = new Date(item.at).toLocaleDateString(undefined, {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })
-          const newDay =
-            !previous || new Date(item.at).toDateString() !== new Date(previous.at).toDateString()
-          return (
-            <div
-              key={item.kind === 'note' ? `n-${item.note.id}` : item.message.id}
-              data-index={v.index}
-              ref={virtualizer.measureElement}
-              className={cn('absolute left-0 top-0 w-full pb-1', grouped ? 'pt-0.5' : 'pt-3')}
-              style={{ transform: `translateY(${v.start}px)` }}
+    <div className="relative isolate min-h-0 flex-1 overflow-hidden bg-thread-soft">
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        className="pointer-events-none absolute inset-0 size-full text-secondary opacity-5"
+      >
+        <defs>
+          <pattern id={patternId} width="64" height="64" patternUnits="userSpaceOnUse">
+            <path
+              d="M12 16h12a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-3l-5 4v-4h-4a4 4 0 0 1-4-4v-6a4 4 0 0 1 4-4Z M42 44h10 M47 39v10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+            />
+            <circle cx="48" cy="12" r="1" fill="currentColor" />
+            <circle cx="16" cy="50" r="1" fill="currentColor" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#${patternId})`} />
+      </svg>
+      <div
+        ref={scroller}
+        tabIndex={0}
+        className={cn(
+          'relative h-full min-h-0 overflow-y-auto px-4 py-3',
+          focusRing,
+          'focus-visible:-outline-offset-2',
+        )}
+        role="log"
+        aria-live="polite"
+        aria-label="Messages"
+        onScroll={(e) => {
+          const el = e.currentTarget
+          nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+        }}
+      >
+        {notes.isError ? (
+          <ErrorState
+            title="Internal notes couldn’t be loaded"
+            onRetry={() => void notes.refetch()}
+          />
+        ) : null}
+        {messages.hasNextPage ? (
+          <div className="flex justify-center pb-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              loading={messages.isFetchingNextPage}
+              onClick={() => void messages.fetchNextPage()}
             >
-              {newDay ? (
-                <p className="mx-auto mb-3 w-fit rounded-md bg-surface px-3 py-1 text-xs font-medium text-secondary shadow-raised">
-                  {date}
-                </p>
-              ) : null}
-              <Row item={item} grouped={grouped} />
-            </div>
-          )
-        })}
+              Load earlier messages
+            </Button>
+          </div>
+        ) : null}
+        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+          {virtualizer.getVirtualItems().map((v) => {
+            const item = items[v.index]!
+            const previous = items[v.index - 1]
+            const grouped =
+              item.kind === 'message' &&
+              previous?.kind === 'message' &&
+              followsSameSender(item.message, previous.message)
+            const date = new Date(item.at).toLocaleDateString(undefined, {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })
+            const newDay =
+              !previous || new Date(item.at).toDateString() !== new Date(previous.at).toDateString()
+            return (
+              <div
+                key={item.kind === 'note' ? `n-${item.note.id}` : item.message.id}
+                data-index={v.index}
+                ref={virtualizer.measureElement}
+                className={cn('absolute left-0 top-0 w-full pb-1', grouped ? 'pt-0.5' : 'pt-2')}
+                style={{ transform: `translateY(${v.start}px)` }}
+              >
+                {newDay ? (
+                  <p className="mx-auto mb-2 w-fit rounded-md bg-surface px-3 py-1 text-xs font-medium text-secondary shadow-raised">
+                    {date}
+                  </p>
+                ) : null}
+                <Row item={item} grouped={grouped} />
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

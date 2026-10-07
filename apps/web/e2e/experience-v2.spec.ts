@@ -156,6 +156,10 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     await page.screenshot({ path: testInfo.outputPath(`inbox-${width}.png`), fullPage: true })
     if (width < 1280) {
       await page.getByRole('button', { name: 'Contact details' }).click()
+      await page
+        .getByRole('dialog', { name: 'Contact', exact: true })
+        .getByText('Eligibility and consent details', { exact: true })
+        .click()
       await expect(
         page
           .getByRole('dialog', { name: 'Contact', exact: true })

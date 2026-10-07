@@ -47,3 +47,7 @@ The user approved the reconstructed Home direction in `408dfd0`. This supersedes
 ## Home scale approved — Inbox reconstruction checkpoint
 
 The user approved the final Home density in `ef485de`; Home is now the canonical global Experience V2 language and must stay unchanged. Inbox alone is authorized for reconstruction: reuse the Home shell geometry, scale, palette and controls while following 02-Inbox for its four-pane communication composition. Desktop views/list/context target 176/320/256px, with the largest flexible area assigned to the thread. Preserve actual assignments, eligibility, locks, draft protection, real-time recovery and all server contracts. No queues, ticketing, AI, calls or fabricated counts. [Inbox decomposition, visual iteration and validation](EXPERIENCE_V2_INBOX_RECONSTRUCTION.md) have a separate visual checkpoint; do not propagate to Contacts or later modules.
+
+## Inbox final fidelity — not visually approved
+
+User review accepts the broad composition and necessary product differences, but requires a focused density/message-character pass. Keep Home and its shell unchanged. Reduce universal row metadata, consolidate thread header states, add original subtle texture, slightly enrich outbound surfaces, make the reply/note composer auto-grow and rebalance customer context. Preserve all real filters, individual assignment, eligibility, lifecycle, locking and messaging behavior. [Final-fidelity comparison and validation](EXPERIENCE_V2_INBOX_FINAL_FIDELITY.md) requires another user visual checkpoint; no propagation to later modules.

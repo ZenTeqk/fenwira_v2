@@ -46,7 +46,7 @@ export const colorTokens = {
   'neutral-soft': '#F5F5F1',
   // Communication surfaces: warm thread, perceptible outbound tint, private team notes.
   'thread-soft': '#F3F2ED',
-  'message-outbound': '#DDF4E8',
+  'message-outbound': '#D2F2DF',
   'note-soft': '#FFF8EB',
 } as const
 

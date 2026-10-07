@@ -25,6 +25,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
@@ -67,6 +68,30 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const connection = connections.data?.find((c) => c.id === conversation.phoneNumber.id)
   const [mode, setMode] = useState<'reply' | 'note'>('reply')
   const [text, setText] = useState('')
+  const writing = useRef<HTMLTextAreaElement>(null)
+  // Presentation only: resize after typing, canned insertion, mode change and send/clear.
+  // CSS supplies the 40px resting / 160px maximum; no messaging state changes here.
+  useLayoutEffect(() => {
+    const element = writing.current
+    if (!element) return
+    const resize = () => {
+      element.style.height = 'auto'
+      element.style.height = `${element.scrollHeight + 2}px`
+    }
+    resize()
+    // Observe available width, not the textarea's height (which this callback changes).
+    if (element.parentElement) {
+      let width = element.parentElement.clientWidth
+      const widthObserver = new ResizeObserver(([entry]) => {
+        if (entry && entry.contentRect.width !== width) {
+          width = entry.contentRect.width
+          resize()
+        }
+      })
+      widthObserver.observe(element.parentElement)
+      return () => widthObserver.disconnect()
+    }
+  }, [text, mode, conversation.serviceWindow.isOpen])
   const [picking, setPicking] = useState(false)
   const [lock, setLock] = useState<ComposeLock | null>(null)
   const holding = lock?.holder?.id === me.user.id
@@ -296,20 +321,23 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   return (
     <div
       className={cn(
-        'relative z-10 flex flex-col gap-2 border-t border-border p-3',
+        'relative z-10 flex flex-col gap-1 border-t border-border p-2',
         mode === 'note' ? 'bg-note-soft' : 'bg-surface',
       )}
     >
-      <Segmented
-        label="Compose"
-        disabled={busy}
-        value={mode}
-        options={[
-          { value: 'reply', label: 'Reply' },
-          { value: 'note', label: 'Internal note' },
-        ]}
-        onChange={setMode}
-      />
+      <div className="self-start">
+        <Segmented
+          compact
+          label="Compose"
+          disabled={busy}
+          value={mode}
+          options={[
+            { value: 'reply', label: 'Reply' },
+            { value: 'note', label: 'Internal note' },
+          ]}
+          onChange={setMode}
+        />
+      </div>
       {mode === 'reply' &&
       connection &&
       ['DISCONNECTED', 'RESTRICTED', 'ERROR', 'PENDING'].includes(connection.status) ? (
@@ -359,7 +387,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
       ) : (
         <div
           className={cn(
-            'relative flex flex-wrap items-end gap-1 rounded-lg border border-border-strong p-1 shadow-raised',
+            'relative flex items-end gap-1 rounded-lg border border-border-strong p-1 shadow-raised',
             mode === 'note' ? 'bg-note-soft' : 'bg-surface',
           )}
         >
@@ -395,23 +423,19 @@ export function Composer({ conversation }: { conversation: Conversation }) {
             </ul>
           ) : null}
           <Textarea
+            ref={writing}
             aria-label={mode === 'note' ? 'Internal note' : 'Reply'}
             aria-autocomplete={mode === 'reply' ? 'list' : undefined}
             aria-controls={matches.length ? listId : undefined}
             aria-activedescendant={matches.length ? `${listId}-${active}` : undefined}
-            placeholder={
-              mode === 'note'
-                ? 'Only your team sees notes'
-                : canned.length
-                  ? 'Type a reply, or / for canned replies (Enter to send)'
-                  : 'Type a reply… (Enter to send)'
-            }
+            placeholder={mode === 'note' ? 'Only your team sees notes' : 'Type a reply…'}
+            title="Enter to send; Shift+Enter for a new line; / for canned replies"
             className={cn(
-              'min-h-12 w-full min-w-0 basis-full resize-none rounded-md border-0 px-2 py-1 text-base text-slate',
+              'min-h-10 max-h-40 min-w-0 flex-1 resize-none overflow-y-auto rounded-md border-0 px-2 py-2.5 text-base text-slate',
               mode === 'note' ? 'bg-note-soft' : 'bg-surface',
               disabled && 'cursor-not-allowed opacity-60',
             )}
-            rows={2}
+            rows={1}
             value={text}
             disabled={disabled || busy}
             onChange={(e) => onType(e.target.value)}
@@ -424,6 +448,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
               size="icon"
               className="size-10 sm:size-9"
               aria-label="Send a template"
+              title="Send a template"
               disabled={disabled || busy}
               onClick={() => setPicking(true)}
             >
@@ -438,6 +463,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                   size="icon"
                   className="size-10 sm:size-9"
                   aria-label="Canned replies"
+                  title="Canned replies"
                   disabled={disabled || busy}
                 >
                   <MessageSquareText aria-hidden="true" />
@@ -454,6 +480,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           ) : null}
           {mode === 'reply' ? (
             <label
+              title="Attach a file"
               className={cn(
                 'inline-flex size-10 cursor-pointer sm:size-9 items-center justify-center rounded-md text-slate hover:bg-neutral-soft',
                 disabled && 'pointer-events-none opacity-60',
@@ -478,6 +505,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
             size="icon"
             className="ml-auto size-10 rounded-full shadow-raised sm:size-9"
             aria-label={mode === 'note' ? 'Save note' : 'Send'}
+            title={mode === 'note' ? 'Save internal note' : 'Send reply'}
             loading={busy}
             disabled={disabled || freeformRestricted || !text.trim()}
             onClick={submit}

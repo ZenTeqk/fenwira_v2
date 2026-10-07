@@ -2,7 +2,6 @@
 
 import { type AutomationState, type Conversation, type Presence } from '@fenwira/contracts'
 import {
-  cn,
   Avatar,
   Badge,
   Button,
@@ -17,7 +16,7 @@ import {
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type Ref } from 'react'
-import { ArrowLeft, Bot, PanelRight, UserPlus } from 'lucide-react'
+import { ArrowLeft, Bot, Ellipsis, PanelRight, UserPlus } from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, post, put } from '@/lib/api/client'
 import { del } from '@/lib/api/client'
@@ -90,23 +89,68 @@ export function ConversationHeader({
   const canReply = can('inbox.reply')
 
   return (
-    <div className="flex flex-col border-b border-border bg-surface">
-      <div className="flex flex-wrap items-center gap-2 px-3 py-3">
+    <div className="@container flex flex-col border-b border-border bg-surface">
+      <div className="flex min-h-16 flex-wrap items-center gap-2 px-3 py-3">
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden"
+          className="size-10 md:hidden"
           aria-label="Back to conversations"
           onClick={onBack}
         >
           <ArrowLeft aria-hidden="true" />
         </Button>
-        <Avatar appearance="varied" name={displayName(c)} size="md" />
-        <div className="flex min-w-24 flex-1 flex-col">
+        <Avatar appearance="varied" name={displayName(c)} size="md" className="size-9" />
+        <div className="flex min-w-0 flex-1 flex-col">
           <h2 className="truncate text-md font-semibold text-slate">{displayName(c)}</h2>
-          <span className="font-mono text-sm text-muted">{`•••• ${c.contact.phoneE164.slice(-4)}`}</span>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="font-mono text-xs text-muted">{`•••• ${c.contact.phoneE164.slice(-4)}`}</span>
+            <StatusBadge status={c.status} appearance="inline" />
+          </div>
         </div>
-        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+        <div className="flex w-full shrink-0 items-center justify-end gap-1 @sm:w-auto">
+          {can('inbox.assign_self') ? (
+            <Dropdown>
+              <DropdownTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-10 sm:size-9"
+                  aria-label={c.assignee ? `Assign · ${c.assignee.name}` : 'Assign'}
+                  title={c.assignee ? `Assigned to ${c.assignee.name}` : 'Assign conversation'}
+                >
+                  {c.assignee ? (
+                    <Avatar appearance="varied" name={c.assignee.name} size="sm" />
+                  ) : (
+                    <UserPlus aria-hidden="true" />
+                  )}
+                </Button>
+              </DropdownTrigger>
+              <DropdownContent>
+                {c.assignee?.id !== me.user.id ? (
+                  <DropdownItem onSelect={() => assign(me.user.id)}>Assign to me</DropdownItem>
+                ) : null}
+                {c.assignee && (c.assignee.id === me.user.id || can('inbox.reassign')) ? (
+                  <DropdownItem onSelect={() => assign(null)}>Unassign</DropdownItem>
+                ) : null}
+                {can('inbox.reassign') ? (
+                  <>
+                    <DropdownSeparator />
+                    <DropdownLabel>Workspace members</DropdownLabel>
+                    {(members.data ?? [])
+                      .filter((m) => m.userId !== me.user.id)
+                      .map((m) => (
+                        <DropdownItem key={m.userId} onSelect={() => assign(m.userId)}>
+                          {m.name}{' '}
+                          <span className="text-xs text-muted">({PRESENCE_TEXT[m.status]})</span>
+                        </DropdownItem>
+                      ))}
+                  </>
+                ) : null}
+              </DropdownContent>
+            </Dropdown>
+          ) : null}
+
           {canReply ? (
             c.status === 'RESOLVED' || c.status === 'SNOOZED' ? (
               <Button size="sm" variant="secondary" onClick={() => status('OPEN')}>
@@ -119,8 +163,14 @@ export function ConversationHeader({
                 </Button>
                 <Dropdown>
                   <DropdownTrigger asChild>
-                    <Button size="sm" variant="ghost">
-                      More
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-10 sm:size-8"
+                      aria-label="More"
+                      title="More conversation actions"
+                    >
+                      <Ellipsis aria-hidden="true" />
                     </Button>
                   </DropdownTrigger>
                   <DropdownContent>
@@ -177,7 +227,7 @@ export function ConversationHeader({
           <Button
             variant="ghost"
             size="icon"
-            className="xl:hidden"
+            className="size-10 xl:hidden"
             ref={contactButtonRef}
             aria-label="Contact details"
             onClick={onToggleContact}
@@ -187,52 +237,16 @@ export function ConversationHeader({
         </div>
       </div>
       <div
-        className={cn(
-          'flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-3 py-2',
-          windowStatus === 'WINDOW_OPEN' ? 'bg-primary-soft/40' : 'bg-warning-soft/40',
-        )}
+        className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border/60 px-3 py-2"
+        aria-label="Conversation context"
       >
         <span className="min-w-0" title="WhatsApp 24-hour service window">
           <StatusBadge
+            appearance="inline"
             status={windowStatus}
-            label={left ? `Window open · ${left}` : 'Window closed'}
+            label={left ? `Window open · ${left.replace(' left', '')}` : 'Window closed'}
           />
         </span>
-        {can('inbox.assign_self') ? (
-          <Dropdown>
-            <DropdownTrigger asChild>
-              <Button variant="secondary" size="sm">
-                <UserPlus aria-hidden="true" />
-                <span className="max-w-20 truncate" title={c.assignee?.name}>
-                  {c.assignee ? c.assignee.name : 'Assign'}
-                </span>
-              </Button>
-            </DropdownTrigger>
-            <DropdownContent>
-              {c.assignee?.id !== me.user.id ? (
-                <DropdownItem onSelect={() => assign(me.user.id)}>Assign to me</DropdownItem>
-              ) : null}
-              {c.assignee && (c.assignee.id === me.user.id || can('inbox.reassign')) ? (
-                <DropdownItem onSelect={() => assign(null)}>Unassign</DropdownItem>
-              ) : null}
-              {can('inbox.reassign') ? (
-                <>
-                  <DropdownSeparator />
-                  <DropdownLabel>Workspace members</DropdownLabel>
-                  {(members.data ?? [])
-                    .filter((m) => m.userId !== me.user.id)
-                    .map((m) => (
-                      <DropdownItem key={m.userId} onSelect={() => assign(m.userId)}>
-                        {m.name}{' '}
-                        <span className="text-xs text-muted">({PRESENCE_TEXT[m.status]})</span>
-                      </DropdownItem>
-                    ))}
-                </>
-              ) : null}
-            </DropdownContent>
-          </Dropdown>
-        ) : null}
-        <StatusBadge status={c.status} />
         {c.tags.length ? (
           <div className="flex min-w-0 flex-wrap gap-1">
             {c.tags.map((t) => (
@@ -242,35 +256,38 @@ export function ConversationHeader({
             ))}
           </div>
         ) : null}
-      </div>
-      {c.automationState !== 'AUTOMATION_ACTIVE' ? (
-        <div
-          role="status"
-          className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-info-soft px-3 py-2 text-xs text-secondary"
-        >
-          <Bot className="size-4 shrink-0 text-info-strong" aria-hidden="true" />
-          <span className="min-w-0 flex-1">
-            <span className="font-medium text-info-strong">
-              {c.automationState === 'AGENT_TAKEOVER'
-                ? 'An agent has taken over'
-                : 'Automation is paused'}
-            </span>
-            <span className="block text-xs text-secondary">
-              Automated messages won’t be sent in this conversation.
-            </span>
-          </span>
-          {canReply ? (
-            <Button
-              size="sm"
-              variant="link"
-              className="min-h-6"
-              onClick={() => automation('AUTOMATION_ACTIVE')}
+        {c.automationState !== 'AUTOMATION_ACTIVE' ? (
+          <div
+            role="status"
+            className="flex w-full flex-wrap items-center gap-1 text-xs text-secondary"
+          >
+            <Bot className="size-4 shrink-0 text-info-strong" aria-hidden="true" />
+            <span
+              className="min-w-0 flex-1"
+              title="Automated messages won’t be sent in this conversation."
             >
-              Return to automation
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+              <span className="font-medium text-info-strong">
+                {c.automationState === 'AGENT_TAKEOVER'
+                  ? 'An agent has taken over'
+                  : 'Automation is paused'}
+              </span>
+              <span className="sr-only">
+                Automated messages won’t be sent in this conversation.
+              </span>
+            </span>
+            {canReply ? (
+              <Button
+                size="sm"
+                variant="link"
+                className="min-h-10 py-0 text-xs sm:min-h-6"
+                onClick={() => automation('AUTOMATION_ACTIVE')}
+              >
+                Return to automation
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
