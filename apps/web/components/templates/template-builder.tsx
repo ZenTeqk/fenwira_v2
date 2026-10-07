@@ -51,7 +51,7 @@ import {
   useTemplateAccounts,
   useTemplateSampleUrl,
 } from '@/lib/templates'
-import { TemplatePreview } from './template-preview'
+import { TemplatePhonePreview } from './template-phone-preview'
 
 type HeaderKind = 'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'
 const HEADER_LABEL: Record<HeaderKind, string> = {
@@ -715,7 +715,12 @@ export function TemplateBuilder({
       <aside className="lg:col-span-2" aria-label="Preview">
         <div className={cn('flex flex-col gap-2 lg:sticky lg:top-20')}>
           <h2 className="text-sm font-semibold text-slate">Preview</h2>
-          <TemplatePreview components={c} samples={draft.samples} headerImageUrl={sampleUrl.data} />
+          <TemplatePhonePreview
+            components={c}
+            samples={draft.samples}
+            headerImageUrl={sampleUrl.data}
+            businessName={accounts.data?.find((a) => a.id === account)?.name ?? template?.wabaName}
+          />
         </div>
       </aside>
     </div>

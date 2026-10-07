@@ -233,7 +233,7 @@ export default function TemplatePage() {
               <Card>
                 <CardContent className="flex flex-col gap-4 p-5">
                   <h2 className="text-md font-semibold">WhatsApp message</h2>
-                  <TemplateMessage version={v} />
+                  <TemplateMessage version={v} businessName={t.wabaName} />
                 </CardContent>
               </Card>
               <dl className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 text-base">

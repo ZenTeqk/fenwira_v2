@@ -237,6 +237,14 @@ test('Templates are a real message library with filters and keyboard context at 
     await expect(drawer.getByRole('figure', { name: 'Message preview' })).toContainText(
       'View order',
     )
+    await expect(drawer.getByLabel('WhatsApp mobile conversation preview')).toBeVisible()
+    const recipientMessage = drawer.getByRole('figure', { name: 'Message preview' })
+    await expect(recipientMessage).toContainText('Hi Priya,')
+    await expect(recipientMessage.locator('[title="{{1}}"]')).toHaveCount(0)
+    await expect(recipientMessage.getByRole('list', { name: 'Buttons' })).toContainText(
+      'View order',
+    )
+    await expect(recipientMessage.getByRole('button')).toHaveCount(0)
     await expect(drawer.getByRole('link', { name: 'Open Inbox' })).toBeVisible()
     const sending = (
       await (await page.request.get(`${API}/templates/approved`, { headers })).json()

@@ -446,7 +446,11 @@ export default function TemplatesPage() {
             </section>
             <section className="border-t border-border pt-3" aria-label="WhatsApp preview">
               <h3 className="mb-2 text-sm font-semibold">WhatsApp preview</h3>
-              <TemplateMessage version={selected.currentVersion} library />
+              <TemplateMessage
+                version={selected.currentVersion}
+                businessName={selected.wabaName}
+                library
+              />
             </section>
             {selected.currentVersion.samples.body.length ? (
               <section className="border-t border-border pt-3" aria-label="Stored sample values">
