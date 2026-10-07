@@ -51,3 +51,7 @@ The user approved the final Home density in `ef485de`; Home is now the canonical
 ## Inbox final fidelity — not visually approved
 
 User review accepts the broad composition and necessary product differences, but requires a focused density/message-character pass. Keep Home and its shell unchanged. Reduce universal row metadata, consolidate thread header states, add original subtle texture, slightly enrich outbound surfaces, make the reply/note composer auto-grow and rebalance customer context. Preserve all real filters, individual assignment, eligibility, lifecycle, locking and messaging behavior. [Final-fidelity comparison and validation](EXPERIENCE_V2_INBOX_FINAL_FIDELITY.md) requires another user visual checkpoint; no propagation to later modules.
+
+## Inbox views moved into list heading
+
+The user subsequently requested removal of the separate 176px contextual Inbox rail. Its existing six filters now use an icon menu beside the current list heading at all widths, preserving queries and selected-state/keyboard semantics. List/context widths are unchanged; the 1440 thread grows from 424px to 608px using the reclaimed rail/gutter space. This focused refinement supersedes the earlier four-pane recommendation; Home and its shell stay unchanged. [Review evidence and verification](experience-v2/evidence/inbox-view-menu/README.md). Stop for visual review.

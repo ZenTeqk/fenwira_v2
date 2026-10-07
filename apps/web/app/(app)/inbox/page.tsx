@@ -117,7 +117,7 @@ function Inbox() {
       <h1 className="sr-only">Inbox</h1>
       <div
         className={cn(
-          'min-h-0 w-full shrink-0 md:w-70 lg:w-112 xl:w-126',
+          'min-h-0 w-full shrink-0 md:w-70 lg:w-66 xl:w-80',
           selected && 'hidden md:block',
         )}
       >

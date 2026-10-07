@@ -34,3 +34,5 @@ The user subsequently approved that final Home density; it is now the canonical 
 ## Latest Inbox review checkpoint
 
 The reconstruction is not visually approved. The [final fidelity pass](inbox-final-fidelity/README.md) retains all previous stages and corrects row/header/composer density, message character and customer-context hierarchy. Home and its shell stay unchanged. Ready for visual review; no later-module propagation.
+
+The user then requested removal of the separate Inbox view column. The [compact view-menu checkpoint](inbox-view-menu/README.md) moves all six existing views into an icon menu beside the list heading and gives the freed space to the thread. It supersedes the rail composition while retaining the approved Home shell and all previous evidence.

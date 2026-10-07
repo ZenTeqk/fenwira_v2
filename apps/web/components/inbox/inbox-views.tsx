@@ -1,6 +1,6 @@
 import { type InboxView } from '@fenwira/contracts'
-import { Button, cn } from '@fenwira/ui'
-import { Bot, Inbox, Mail, User, UserRoundCheck, CheckCheck } from 'lucide-react'
+import { Button, Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from '@fenwira/ui'
+import { Bot, Inbox, Mail, User, UserRoundCheck, CheckCheck, Check, ListFilter } from 'lucide-react'
 
 export type ViewChoice = InboxView | 'unread'
 export const INBOX_CHOICES = [
@@ -20,33 +20,35 @@ export function InboxViews({
   value: ViewChoice
   onChange: (choice: ViewChoice) => void
 }) {
+  const selected = INBOX_CHOICES.find((choice) => choice.id === value)!
   return (
-    <nav
-      aria-label="Inbox views"
-      className="hidden h-full w-44 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-sidebar p-2 lg:flex"
-    >
-      <h2 className="px-2 py-2 text-md font-semibold text-slate">Inbox</h2>
-      <div className="flex flex-col gap-1" role="group" aria-label="Views">
-        {INBOX_CHOICES.map(({ id, label, icon: Icon }, index) => (
-          <Button
+    <Dropdown modal={false}>
+      <DropdownTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-10 shrink-0 sm:size-9"
+          aria-label={`Inbox views · ${selected.label}`}
+          title="Choose conversation view"
+        >
+          <ListFilter aria-hidden="true" />
+        </Button>
+      </DropdownTrigger>
+      <DropdownContent aria-label="Inbox views" align="end">
+        {INBOX_CHOICES.map(({ id, label, icon: Icon }) => (
+          <DropdownItem
             key={id}
-            variant="ghost"
-            aria-pressed={value === id}
-            onClick={() => onChange(id)}
-            className={cn(
-              'h-9 justify-start gap-2 px-2 font-normal',
-              index === 4 && 'mt-4',
-              value === id && 'bg-primary-soft text-primary-strong',
-            )}
+            onSelect={() => onChange(id)}
+            aria-current={value === id ? 'true' : undefined}
           >
-            <Icon aria-hidden="true" />
-            {label}
-          </Button>
+            <Icon aria-hidden="true" className="size-4" />
+            <span className="flex-1">{id === 'all' ? 'All conversations' : label}</span>
+            {value === id ? (
+              <Check aria-hidden="true" className="size-4 text-primary-strong" />
+            ) : null}
+          </DropdownItem>
         ))}
-      </div>
-      <p className="mt-2 border-t border-border px-2 pt-3 text-xs text-secondary">
-        Shared conversations, assigned to people in your workspace.
-      </p>
-    </nav>
+      </DropdownContent>
+    </Dropdown>
   )
 }

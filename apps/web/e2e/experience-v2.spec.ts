@@ -104,20 +104,24 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
   await page.goto('/inbox')
   const list = page.getByRole('list', { name: 'Conversation list' })
   await expect(list.getByText(customer)).toBeVisible()
-  const views = page.getByRole('navigation', { name: 'Inbox views' })
+  const viewMenu = page.getByRole('button', { name: /^Inbox views/ })
+  await viewMenu.click()
+  const views = page.getByRole('menu', { name: 'Inbox views' })
   await Promise.all([
     page.waitForResponse(
       (r) =>
         new URL(r.url()).pathname.endsWith('/conversations') &&
         new URL(r.url()).searchParams.get('unread') === 'true',
     ),
-    views.getByRole('button', { name: 'Unread', exact: true }).click(),
+    views.getByRole('menuitem', { name: 'Unread', exact: true }).click(),
   ])
-  await expect(views.getByRole('button', { name: 'Unread', exact: true })).toHaveAttribute(
-    'aria-pressed',
+  await expect(viewMenu).toHaveAccessibleName('Inbox views · Unread')
+  await viewMenu.click()
+  await expect(views.getByRole('menuitem', { name: 'Unread', exact: true })).toHaveAttribute(
+    'aria-current',
     'true',
   )
-  await views.getByRole('button', { name: 'All', exact: true }).click()
+  await views.getByRole('menuitem', { name: 'All conversations', exact: true }).click()
   await list.getByText(customer).click()
   await expect(
     page.getByRole('log', { name: 'Messages' }).getByText('Can you confirm the delivery date?'),

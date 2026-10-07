@@ -234,6 +234,9 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
           expect(geometry.ordinaryRow?.height).toBeGreaterThanOrEqual(64)
           expect(geometry.ordinaryRow?.height).toBeLessThanOrEqual(72)
           expect(geometry.avatar?.width).toBe(36)
+          expect(geometry.views).toBeNull()
+          expect(geometry.list?.width).toBe(320)
+          expect(geometry.thread?.width).toBe(608)
           expect(geometry.primaryHeader?.height).toBeGreaterThanOrEqual(60)
           expect(geometry.primaryHeader?.height).toBeLessThanOrEqual(72)
           expect(geometry.threadHeader?.height).toBeLessThan(150)
@@ -270,6 +273,27 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
       }
       await page.screenshot({ path: info.outputPath(`${name}-${width}.png`), fullPage: true })
       if (name === 'inbox' && width === 1440) {
+        const viewMenu = page.getByRole('button', { name: /^Inbox views/ })
+        await viewMenu.focus()
+        await page.keyboard.press('Enter')
+        const views = page.getByRole('menu', { name: 'Inbox views' })
+        await expect(views.getByRole('menuitem')).toHaveCount(6)
+        await expect(
+          views.getByRole('menuitem', { name: 'All conversations', exact: true }),
+        ).toHaveAttribute('aria-current', 'true')
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+              .analyze()
+          ).violations,
+        ).toEqual([])
+        await page.screenshot({
+          path: info.outputPath('inbox-views-menu-1440.png'),
+          fullPage: true,
+        })
+        await page.keyboard.press('Escape')
+        await expect(viewMenu).toBeFocused()
         const reply = page.getByLabel('Reply', { exact: true })
         await reply.fill(Array.from({ length: 30 }, (_, i) => `Draft line ${i + 1}`).join('\n'))
         await expect.poll(async () => (await reply.boundingBox())?.height).toBe(160)

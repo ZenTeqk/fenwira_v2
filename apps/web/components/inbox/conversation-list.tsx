@@ -25,7 +25,6 @@ import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { displayName, shortTime } from '@/lib/inbox'
 import { useRealtimeEvent, useRealtimeReconnect } from '@/lib/realtime'
-import { Segmented } from './segmented'
 import { InboxViews, INBOX_CHOICES, type ViewChoice } from './inbox-views'
 
 export function useDebounced<T>(value: T, ms = 300): T {
@@ -77,15 +76,19 @@ export function ConversationList({
 
   return (
     <div className="flex h-full min-h-0 gap-2">
-      <InboxViews value={view} onChange={setView} />
       <section
         aria-label="Conversations"
         className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface"
       >
         <div className="flex flex-col gap-2 border-b border-border bg-surface p-3">
-          <h2 className="text-md font-semibold text-slate">
-            {view === 'all' ? 'All conversations' : INBOX_CHOICES.find((v) => v.id === view)?.label}
-          </h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="min-w-0 truncate text-md font-semibold text-slate">
+              {view === 'all'
+                ? 'All conversations'
+                : INBOX_CHOICES.find((v) => v.id === view)?.label}
+            </h2>
+            <InboxViews value={view} onChange={setView} />
+          </div>
           <SearchInput
             label="Search conversations"
             placeholder="Search conversations…"
@@ -94,14 +97,6 @@ export function ConversationList({
             onValueChange={setSearch}
             className="sm:w-full"
           />
-          <div className="lg:hidden">
-            <Segmented
-              label="Views"
-              value={view}
-              options={INBOX_CHOICES.map((v) => ({ value: v.id, label: v.label }))}
-              onChange={setView}
-            />
-          </div>
           <div className="flex flex-wrap items-center gap-2">
             <Select
               value={status}
