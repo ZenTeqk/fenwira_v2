@@ -37,7 +37,7 @@ test('Home is attention first, uses real activity and stays accessible at four w
     expect(created.status(), await created.text()).toBe(201)
   }
   await page.goto('/dashboard')
-  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /Welcome back,/ })).toBeVisible()
   await expect(
     page
       .getByRole('region', { name: 'Needs attention' })
@@ -58,7 +58,7 @@ test('Home is attention first, uses real activity and stays accessible at four w
   expect(beforeMetrics).toBe(true)
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 })
-    await expect(page.getByRole('heading', { name: 'Home', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Welcome back,/, exact: true })).toBeVisible()
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -86,7 +86,11 @@ test('Home failures are explained rather than represented as empty activity', as
   })
   await expect(page.getByText('New customer conversations will appear here.')).toHaveCount(0)
   await page.unroute('**/api/v1/conversations?view=all&limit=5')
-  await page.getByRole('button', { name: 'Try again' }).click()
+  await page
+    .getByRole('alert')
+    .filter({ hasText: 'Conversations couldn’t be loaded' })
+    .getByRole('button', { name: 'Try again' })
+    .click()
   await expect(page.getByText('New customer conversations will appear here.')).toBeVisible()
 })
 

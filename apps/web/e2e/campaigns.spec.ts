@@ -117,6 +117,14 @@ test('create a campaign, review it, launch it and watch the results', async ({ p
   await expect(page.getByText('Delivery rate')).toBeVisible()
   await axe(page)
 
+  // Home uses the same cumulative domain counters: read messages are already included in sent.
+  await page.goto('/dashboard')
+  await expect(page.getByText('2 / 2 sent', { exact: true })).toBeVisible()
+  const homeProgress = page.getByRole('progressbar', { name: 'Campaign messages sent' })
+  await expect(homeProgress).toHaveAttribute('value', '2')
+  await expect(homeProgress).toHaveAttribute('max', '2')
+  await axe(page)
+
   await page.goto('/campaigns/analytics')
   await expect(page.getByRole('table', { name: 'Campaign results' })).toContainText('Delivery wave')
   await axe(page)

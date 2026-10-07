@@ -38,7 +38,12 @@ import {
   Wallet,
 } from 'lucide-react'
 import Link from 'next/link'
-import { AutomationActivity, CampaignActivity, RecentConversations } from './home-activity'
+import {
+  AutomationActivity,
+  CampaignActivity,
+  CampaignSnapshot,
+  RecentConversations,
+} from './home-activity'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
@@ -241,18 +246,30 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
   return (
     <DashboardLayout
       header={{
-        title: 'Home',
-        description: `Welcome back, ${me.user.name}. Here’s what needs you in your WhatsApp workspace.`,
-        actions: can('campaigns.write') ? (
-          <Button asChild>
-            <Link href="/campaigns/new">Create campaign</Link>
-          </Button>
-        ) : undefined,
+        title: `Welcome back, ${me.user.name.split(' ')[0]}`,
+        description: 'Here’s what needs your attention in your WhatsApp workspace.',
+        actions: (
+          <>
+            {can('inbox.read') ? (
+              <Button size="lg" asChild>
+                <Link href="/inbox">
+                  <MessageSquare aria-hidden="true" />
+                  Open inbox
+                </Link>
+              </Button>
+            ) : null}
+            {can('campaigns.write') ? (
+              <Button size="lg" variant="secondary" asChild>
+                <Link href="/campaigns/new">Create campaign</Link>
+              </Button>
+            ) : null}
+          </>
+        ),
       }}
       attention={
-        <Card>
-          <CardHeader className="border-b border-border px-5 py-4">
-            <CardTitle as="h2" id="attention">
+        <Card className="min-h-72">
+          <CardHeader className="border-b border-border px-5 py-3">
+            <CardTitle as="h2" id="attention" className="text-lg">
               Needs attention
             </CardTitle>
           </CardHeader>
@@ -263,11 +280,11 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
               ) : attention.length ? (
                 <ul className="divide-y divide-border">
                   {attention.map((a) => (
-                    <li key={a.id} className="flex flex-wrap items-center gap-3 py-4">
+                    <li key={a.id} className="flex flex-wrap items-center gap-4 py-4">
                       <span
                         aria-hidden="true"
                         className={cn(
-                          'flex size-10 shrink-0 items-center justify-center rounded-full',
+                          'flex size-12 shrink-0 items-center justify-center rounded-full',
                           a.id === 'unassigned' || a.id === 'connect'
                             ? 'bg-info-soft text-info-strong'
                             : a.id === 'automation-failures' || a.tone === 'danger'
@@ -292,16 +309,18 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
                         )}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-slate">{a.title}</p>
-                        <p className="mt-1 text-sm text-secondary">{a.body}</p>
+                        <p className="text-md font-semibold text-slate">{a.title}</p>
+                        <p className="mt-1 text-base text-secondary">{a.body}</p>
                       </div>
                       {a.href ? (
-                        <Button variant="link" size="sm" asChild>
-                          <Link href={a.href}>
-                            {a.action}
-                            <ArrowRight aria-hidden="true" />
-                          </Link>
-                        </Button>
+                        <div className="basis-full sm:basis-auto">
+                          <Button variant="link" size="sm" className="ml-16 sm:ml-0" asChild>
+                            <Link href={a.href}>
+                              {a.action}
+                              <ArrowRight aria-hidden="true" />
+                            </Link>
+                          </Button>
+                        </div>
                       ) : null}
                     </li>
                   ))}
@@ -332,11 +351,30 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
           />
         ) : undefined
       }
+      conversations={can('inbox.read') ? <RecentConversations /> : undefined}
+      campaign={
+        can('campaigns.read') ? (
+          <CampaignSnapshot
+            campaigns={campaigns.data}
+            error={campaigns.isError}
+            retry={() => void campaigns.refetch()}
+          />
+        ) : undefined
+      }
+      automation={can('automations.read') ? <AutomationActivity /> : undefined}
+      summaryNote={
+        can('analytics.read') && analytics.data?.meta.freshness.status === 'NOT_STARTED' ? (
+          <p role="status" className="text-xs text-muted">
+            Analytics are being prepared
+          </p>
+        ) : undefined
+      }
       metrics={
         <>
           <MetricCard
             compact
-            label="Messages sent (7 days)"
+            className="p-2"
+            label="Sent · 7 days"
             icon={<Send />}
             loading={can('analytics.read') && analytics.isPending}
             value={a ? a.kpis.sent.value.toLocaleString('en-IN') : '—'}
@@ -344,7 +382,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
             hint={
               can('analytics.read') ? (
                 <Link className="underline-offset-4 hover:underline" href="/analytics/messaging">
-                  Messaging analytics
+                  View analytics
                 </Link>
               ) : (
                 'Your role can’t view analytics'
@@ -353,7 +391,8 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
           />
           <MetricCard
             compact
-            label="Open conversations"
+            className="p-2"
+            label="Open chats"
             icon={<MessageSquare />}
             loading={can('inbox.read') && open.isPending}
             value={can('inbox.read') ? (count(open.data) ?? '—') : '—'}
@@ -365,7 +404,8 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
           />
           <MetricCard
             compact
-            label="Delivery rate (7 days)"
+            className="p-2"
+            label="Delivery · 7 days"
             icon={<HeartPulse />}
             loading={can('analytics.read') && analytics.isPending}
             value={a ? percent(a.kpis.deliveryRate.value) : '—'}
@@ -375,7 +415,6 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
                 'Connect a number to see Meta’s quality rating'
               ) : (
                 <span className="flex flex-wrap items-center gap-2">
-                  <span>Meta quality</span>
                   <StatusBadge status={QUALITY[worstQuality].status} />
                 </span>
               )
@@ -383,6 +422,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
           />
           <MetricCard
             compact
+            className="p-2"
             label="Wallet"
             icon={<Wallet />}
             loading={can('billing.read') && wallet.isPending}
@@ -402,7 +442,6 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
                 )
               ) : (
                 <span className="flex flex-wrap items-center gap-2">
-                  <StatusBadge status={wallet.data.state} />
                   <Link className="underline-offset-4 hover:underline" href="/billing/wallet">
                     Open wallet
                   </Link>
@@ -413,13 +452,6 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
         </>
       }
     >
-      {can('analytics.read') && analytics.data?.meta.freshness.status === 'NOT_STARTED' ? (
-        <p role="status" className="text-sm text-secondary">
-          Analytics are being prepared. Seven-day figures will appear after processing.
-        </p>
-      ) : null}
-      {can('inbox.read') ? <RecentConversations /> : null}
-      {can('automations.read') ? <AutomationActivity /> : null}
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-secondary">
         {can('whatsapp.read') && connections.data ? (
           <ConnectionState status={conn.status} name="WhatsApp" variant="compact" />

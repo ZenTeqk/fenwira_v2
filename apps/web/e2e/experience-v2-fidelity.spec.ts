@@ -114,7 +114,7 @@ test('Home and Inbox visual-fidelity evidence uses real communication records at
     if (name === 'home')
       await expect(
         page.getByRole('list', { name: 'Recent conversations' }).getByRole('link'),
-      ).toHaveCount(5)
+      ).toHaveCount(4)
     else
       await expect(
         messages.getByText('Interested in the 55-inch model. Confirm stock before following up.'),
@@ -124,7 +124,7 @@ test('Home and Inbox visual-fidelity evidence uses real communication records at
       await expect(
         page.getByRole('heading', {
           level: 1,
-          name: name === 'home' ? 'Home' : 'Inbox',
+          name: name === 'home' ? /Welcome back,/ : 'Inbox',
           exact: true,
         }),
       ).toBeAttached()

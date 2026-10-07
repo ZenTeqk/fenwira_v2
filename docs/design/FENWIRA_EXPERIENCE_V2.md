@@ -35,3 +35,7 @@ The user approved the App Shell/Home/Inbox foundation and authorized EV2-05–07
 ## Foundation visual-fidelity correction
 
 The user requested a focused App Shell/Home/Inbox polish pass after identifying overly uniform icons, avatars and surfaces. Preserve all existing compositions and behaviors. Supporting color is intentional: compact semantic icon tints, deterministic human avatar tones, warmer thread canvas, clearer emerald outgoing messages and separately labelled warm internal notes. The three communication tokens and opt-in primitive appearances are specified in Design System v1. The new [visual-fidelity checkpoint](EXPERIENCE_V2_VISUAL_FIDELITY.md) compares the original references and retains before/after evidence. Other module compositions are outside this correction; stop for visual approval.
+
+## Home reconstruction — visual approval pending
+
+The current foundation, Batch 2 and subsequent correction are engineering foundations, **not visually approved**. The latest user direction restricts reconstruction to Home and shared shell elements visible there. Home is rebuilt from the actual 01-Home reference: attention/current updates at 70:30, recent communication beside campaign and secondary summary at 44:56, followed by a compact flow strip. Home alone uses a 240px sidebar, 64px topbar and 30/36 welcome heading; other module presentations remain unchanged. No propagation is authorized until Home visual review. See [reference decomposition, iterative comparison and validation](EXPERIENCE_V2_HOME_RECONSTRUCTION.md).

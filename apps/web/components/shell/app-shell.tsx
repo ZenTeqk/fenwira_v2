@@ -65,6 +65,7 @@ type AppShellProps = { children: ReactNode; navPreview: boolean; galleryEnabled:
  */
 export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps) {
   const pathname = usePathname()
+  const home = pathname === '/dashboard'
   // The inbox fills the viewport under the header with its own panes (docs/INBOX.md → Layout).
   const fullBleed = pathname === '/inbox' || pathname.startsWith('/inbox/')
   const { membership, tenantId, can } = useSession()
@@ -122,7 +123,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       <aside
         className={cn(
           'sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 border-r border-sidebar-border bg-sidebar p-3 transition-all lg:flex',
-          collapsed ? 'w-16' : 'w-58',
+          collapsed ? 'w-16' : home ? 'w-60' : 'w-58',
         )}
       >
         <Link
@@ -133,11 +134,22 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             focusRing,
           )}
         >
-          <BrandMark tone="light" compact={collapsed} />
+          <BrandMark
+            tone="light"
+            compact={collapsed}
+            size={home ? 'lg' : 'md'}
+            className={home ? 'text-2xl' : undefined}
+          />
           <span className="sr-only">Fenwira home</span>
         </Link>
         <div className="flex-1 overflow-y-auto">
-          <SidebarNav items={nav} pathname={pathname} collapsed={collapsed} badges={badges} />
+          <SidebarNav
+            items={nav}
+            pathname={pathname}
+            collapsed={collapsed}
+            badges={badges}
+            comfortable={home}
+          />
         </div>
         <SidebarStatus collapsed={collapsed} />
         <AccountMenu footer collapsed={collapsed} />
@@ -188,7 +200,12 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       </Drawer>
 
       <div className={cn('flex min-w-0 flex-1 flex-col', fullBleed && 'h-dvh')}>
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-surface px-4 md:px-6">
+        <header
+          className={cn(
+            'sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface px-4 md:px-6',
+            home ? 'h-16' : 'h-14',
+          )}
+        >
           <Button
             variant="ghost"
             size="icon"
@@ -203,15 +220,18 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             <TenantSwitcher variant="topbar" />
           </div>
           <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
-          <div className="min-w-0 flex-1">
-            {crumbs.length > 0 ? <Breadcrumb items={crumbs} linkAs={Link} /> : null}
+          <div className={cn('min-w-0 flex-1', home && 'lg:w-0 lg:flex-none xl:w-24')}>
+            {!home && crumbs.length > 0 ? <Breadcrumb items={crumbs} linkAs={Link} /> : null}
           </div>
           <Button
             variant="secondary"
             size="sm"
             onClick={() => setPaletteOpen(true)}
             aria-label="Search and jump to (Control K)"
-            className="min-w-0 gap-2 bg-sidebar text-secondary shadow-raised lg:w-72 lg:justify-start"
+            className={cn(
+              'min-w-0 gap-2 bg-sidebar text-secondary shadow-raised lg:justify-start',
+              home ? 'lg:mr-auto lg:w-72 xl:w-96' : 'lg:w-72',
+            )}
           >
             <Search aria-hidden="true" />
             <span className="hidden sm:inline">Search Fenwira…</span>

@@ -147,3 +147,7 @@ A feature is done when every applicable item holds. Reviewers check the list in 
 - [ ] Critical browser e2e passes
 
 **Platform Operations (Phase 11 Step 5).** Separate `/platform` shell and privileged sign-in, search-driven workspace selection, contextual commercial summary and activity. Internal cost coverage is separate from customer charges. No customer conversations or general database editor. Financial actions require fresh MFA, review/confirmation and immutable receipts.
+
+## Home reconstruction checkpoint
+
+The reference-driven Home variant of `DashboardLayout` uses separate attention/update and communication/campaign-summary bands (70:30 and approximately 44:56 above 1280px), then horizontal real automation summaries. Recent conversation previews show the latest four records, with full history in Inbox. The summary retains the actual seven-day analytics period; campaign progress uses the existing cumulative `sent` counter and actual total. An unlaunched campaign has no progress. Current update times are not an event history. The Home-only shell uses 240px navigation, 64px topbar and a centered desktop search; 1024px keeps a narrower search and smaller spacer. The welcome heading is 30/36. Other modules retain their existing geometry. Stop for Home visual review before propagation.

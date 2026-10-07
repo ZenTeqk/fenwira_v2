@@ -75,6 +75,6 @@ test('Analytics: activity appears after processing, with chart, table alternativ
 
   // Dashboard: the Messages metric comes from analytics.
   await page.goto('/dashboard')
-  await expect(page.getByText('Messages sent (7 days)')).toBeVisible()
-  await expect(page.getByText('Delivery rate (7 days)')).toBeVisible()
+  await expect(page.getByText('Sent · 7 days')).toBeVisible()
+  await expect(page.getByText('Delivery · 7 days')).toBeVisible()
 })

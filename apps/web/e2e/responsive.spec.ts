@@ -52,7 +52,7 @@ test('sidebar collapses to an icon rail and remembers it', async ({ page }) => {
   await page.goto('/dashboard')
   const sidebar = page.locator('aside')
   const wide = await sidebar.evaluate((el) => el.getBoundingClientRect().width)
-  expect(wide).toBe(232)
+  expect(wide).toBe(240)
   await page.getByRole('button', { name: 'Collapse sidebar' }).click()
   await expect.poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width)).toBe(64)
   await page.reload()

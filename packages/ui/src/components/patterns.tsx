@@ -130,13 +130,17 @@ export function SettingsPage({
   )
 }
 
-/** Home: attention/current activity → conversations/automations → compact secondary metrics. */
+/** Home composition: attention/update timeline → conversations + commercial snapshot → flows. */
 export function DashboardLayout({
   header,
   attention,
   metrics,
   children,
   aside,
+  conversations,
+  campaign,
+  automation,
+  summaryNote,
   className,
 }: {
   header: HeaderProps
@@ -144,26 +148,48 @@ export function DashboardLayout({
   metrics?: ReactNode
   children?: ReactNode
   aside?: ReactNode
+  conversations?: ReactNode
+  campaign?: ReactNode
+  automation?: ReactNode
+  summaryNote?: ReactNode
   className?: string
 }) {
   return (
-    <div data-pattern="dashboard" className={cn('flex flex-col gap-6', className)}>
-      <PageHeader {...header} />
-      {attention || aside ? (
-        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
-          <div className="min-w-0 xl:col-span-2">{attention}</div>
-          {aside ? <div className="flex min-w-0 flex-col gap-4">{aside}</div> : null}
-        </div>
-      ) : null}
-      {children}
-      {metrics ? (
-        <section
-          aria-label="Workspace summary"
-          className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-surface p-2 sm:grid-cols-2 xl:grid-cols-4"
+    <div data-pattern="dashboard" className={cn('flex flex-col gap-4', className)}>
+      <PageHeader {...header} className="mb-2 [&_h1]:text-3xl [&_h1]:font-bold [&_p]:text-lg" />
+      <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-10">
+        <div className="min-w-0 xl:col-span-7 [&>div]:h-full">{attention}</div>
+        {aside ? <div className="min-w-0 xl:col-span-3 [&>div]:h-full">{aside}</div> : null}
+      </div>
+      <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-9">
+        {conversations ? (
+          <div className="min-w-0 xl:col-span-4 [&>div]:h-full">{conversations}</div>
+        ) : null}
+        <div
+          className={cn(
+            'flex min-w-0 flex-col gap-4',
+            conversations ? 'xl:col-span-5' : 'xl:col-span-9',
+          )}
         >
-          {metrics}
-        </section>
-      ) : null}
+          {campaign}
+          {metrics ? (
+            <section
+              aria-label="Workspace summary"
+              className="rounded-lg border border-border bg-surface px-3 py-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 px-2">
+                <h2 className="text-lg font-semibold text-slate">Workspace summary</h2>
+                {summaryNote}
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-y-3 divide-x divide-border md:grid-cols-4">
+                {metrics}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      </div>
+      {automation}
+      {children}
     </div>
   )
 }
