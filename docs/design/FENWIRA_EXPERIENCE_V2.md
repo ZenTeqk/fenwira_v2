@@ -59,3 +59,7 @@ The user subsequently requested removal of the separate 176px contextual Inbox r
 ## Home and Inbox approved — Contacts reconstruction checkpoint
 
 The latest user instructions visually approve Home and Inbox, including the compact Inbox view menu and customer-details toggle. They are the canonical workspace/communication implementations and remain unchanged. Contacts alone is reconstructed against `03-Contacts.png`: coherent directory surface, compact human rows, real filter shortcuts, inline desktop context and mobile cards/drawer. Reuse the existing approved shell variant for Contacts; retain actual fields, permissions, centralized eligibility and domain operations. [Decomposition, corrections and validation](EXPERIENCE_V2_CONTACTS_RECONSTRUCTION.md) have a separate visual review checkpoint. Stop after Contacts; no Templates/Campaigns reconstruction is authorized by this task.
+
+## Templates checkpoint — approved Home, Inbox and Contacts foundation
+
+The latest common implementation prompt approves all three foundation screens. They remain canonical and unchanged. Templates alone now follows `04-Templates.png`: compact status navigation/filter surface, message-library cards, actual lifecycle/sample information and an inline desktop context with responsive drawer. Existing template domain services and approved-version availability remain authoritative. [Templates decomposition and review evidence](EXPERIENCE_V2_TEMPLATES_RECONSTRUCTION.md). Ready for visual review; Campaigns and all subsequent checkpoints remain gated on that approval.

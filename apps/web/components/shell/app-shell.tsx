@@ -70,7 +70,8 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   const fullBleed = pathname === '/inbox' || pathname.startsWith('/inbox/')
   // Contacts reuses the approved shell variant and owns its contextual links below its heading.
   const contactsDirectory = pathname === '/contacts'
-  const communicationShell = home || fullBleed || contactsDirectory
+  const templatesLibrary = pathname === '/templates'
+  const communicationShell = home || fullBleed || contactsDirectory || templatesLibrary
   const { membership, tenantId, can } = useSession()
   const unread = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox-unread'),

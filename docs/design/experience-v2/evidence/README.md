@@ -42,3 +42,7 @@ The subsequent [customer-details arrow checkpoint](inbox-contact-toggle/README.m
 ## Contacts reconstruction checkpoint
 
 The user approved the final Home and Inbox implementations and requested Contacts against `03-Contacts.png`. The [Contacts reconstruction evidence](contacts-reconstruction/README.md) retains before/first-pass/final captures, four-width checks and Home/Inbox consistency evidence. This checkpoint covers Contacts only and stops for visual review; it does not authorize later-module propagation.
+
+## Templates reconstruction checkpoint
+
+Home, Inbox and Contacts are now visually approved. The [Templates checkpoint](templates-reconstruction/README.md) follows the approved `04-Templates.png` composition and retains separate before/first-pass/final captures. It covers Templates only and stops for visual review before Campaigns.

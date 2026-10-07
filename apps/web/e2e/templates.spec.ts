@@ -25,7 +25,7 @@ test('build → validate → submit → approved → sent from the inbox picker'
   await expect(page.getByRole('link', { name: 'hello_world' })).toBeVisible({ timeout: 15_000 })
   await axe(page)
 
-  await page.getByRole('link', { name: 'New template' }).click()
+  await page.getByRole('link', { name: 'Create template' }).click()
   const editor = page.getByRole('form', { name: 'Template editor' })
   await editor.getByLabel('Name').fill('Order Arrival')
   await expect(editor.getByLabel('Name')).toHaveValue('order_arrival')

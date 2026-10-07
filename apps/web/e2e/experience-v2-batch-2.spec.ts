@@ -223,18 +223,52 @@ test('Templates are a real message library with filters and keyboard context at 
   await expect(library.getByRole('link', { name: 'order_update', exact: true })).toBeVisible()
   await expect(library.getByText('Hi Priya, your order is ready', { exact: false })).toBeVisible()
   for (const width of WIDTHS) {
-    await page.setViewportSize({ width, height: 900 })
+    await page.setViewportSize({ width, height: 1000 })
     await page.evaluate(() => window.scrollTo(0, 0))
     await accessible(page)
     await page.screenshot({ path: info.outputPath(`templates-${width}.png`), fullPage: true })
     const trigger = page.getByRole('button', { name: 'Preview order_update', exact: true })
     await trigger.focus()
     await page.keyboard.press('Enter')
-    const drawer = page.getByRole('dialog', { name: 'order_update', exact: true })
+    const drawer = page.getByRole(width >= 1280 ? 'complementary' : 'dialog', {
+      name: 'order_update',
+      exact: true,
+    })
     await expect(drawer.getByRole('figure', { name: 'Message preview' })).toContainText(
       'View order',
     )
     await expect(drawer.getByRole('link', { name: 'Open Inbox' })).toBeVisible()
+    const sending = (
+      await (await page.request.get(`${API}/templates/approved`, { headers })).json()
+    ).data
+    const chosen = sending.find((t: { name: string }) => t.name === 'order_update')
+    await expect(drawer.getByRole('link', { name: 'Use in campaign' })).toHaveAttribute(
+      'href',
+      `/campaigns/new?templateVersionId=${chosen.versionId}`,
+    )
+    if (width === 1440) {
+      const geometry = await page.evaluate(() => {
+        const box = (e: Element | null) => {
+          const b = e?.getBoundingClientRect()
+          return b ? { width: b.width, height: b.height, x: b.x, y: b.y } : null
+        }
+        return {
+          sidebar: box(document.querySelector('aside')),
+          topbar: box(document.querySelector('header')),
+          context: box(document.querySelector('aside[aria-labelledby]')),
+          card: box(document.querySelector('[data-template-card]')),
+          preview: box(document.querySelector('[data-template-card] figure')),
+        }
+      })
+      expect(geometry.sidebar?.width).toBe(224)
+      expect(geometry.topbar?.height).toBe(56)
+      expect(geometry.context?.width).toBe(320)
+      expect(geometry.card?.width).toBeGreaterThan(230)
+      writeFileSync(
+        info.outputPath('templates-geometry-1440.json'),
+        JSON.stringify(geometry, null, 2),
+      )
+    }
     await accessible(page)
     await page.screenshot({
       path: info.outputPath(`template-context-${width}.png`),
@@ -243,15 +277,30 @@ test('Templates are a real message library with filters and keyboard context at 
     await page.keyboard.press('Escape')
     await expect(trigger).toBeFocused()
   }
-  await page.getByRole('tab', { name: 'Drafts', exact: true }).click()
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  const preview = page.getByRole('button', { name: 'Preview order_update', exact: true })
+  await preview.click()
+  await page.setViewportSize({ width: 375, height: 1000 })
+  await expect(page.getByRole('dialog', { name: 'order_update', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(preview).toBeFocused()
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.getByRole('button', { name: 'Preview weekly_update', exact: true }).click()
+  const paused = page.getByRole('complementary', { name: 'weekly_update', exact: true })
+  await expect(paused.getByText('Sending unavailable')).toBeVisible()
+  await expect(paused.getByRole('link', { name: 'Use in campaign' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Sync with WhatsApp', exact: true }).click()
+  await expect(page.getByText(/^Synced from Meta:/)).toBeVisible()
+  await page.getByRole('tab', { name: /^Drafts(?:\s|$)/ }).click()
   await expect(library.getByRole('link', { name: 'welcome_draft' })).toBeVisible()
   await expect(library.getByRole('link', { name: 'order_update' })).toHaveCount(0)
-  await page.getByRole('tab', { name: 'In review', exact: true }).click()
+  await page.getByRole('tab', { name: /^In review(?:\s|$)/ }).click()
   await expect(library.getByRole('link', { name: 'appointment_reminder' })).toBeVisible()
-  await page.getByRole('tab', { name: 'Needs attention', exact: true }).click()
+  await page.getByRole('tab', { name: /^Needs attention(?:\s|$)/ }).click()
   await expect(library.getByRole('link', { name: 'weekly_update' })).toBeVisible()
   await expect(library.getByRole('link', { name: 'collection_offer' })).toBeVisible()
-  await page.getByRole('tab', { name: 'All templates', exact: true }).click()
+  await page.getByRole('tab', { name: /^All(?:\s|$)/ }).click()
   await page.getByRole('combobox', { name: 'Language', exact: true }).click()
   await page.getByRole('option', { name: 'Hindi', exact: true }).click()
   await expect(library.getByRole('link', { name: 'festival_offer' })).toBeVisible()
@@ -261,6 +310,12 @@ test('Templates are a real message library with filters and keyboard context at 
   await page.getByRole('option', { name: 'Utility', exact: true }).click()
   await expect(library.getByRole('link', { name: 'order_update' })).toBeVisible()
   await expect(library.getByRole('link', { name: 'festival_offer' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Clear filters' }).click()
+  await page.getByRole('combobox', { name: 'Status', exact: true }).click()
+  await page.getByRole('option', { name: 'Paused', exact: true }).click()
+  await expect(library.getByRole('link', { name: 'weekly_update', exact: true })).toBeVisible()
+  await expect(library.getByRole('link', { name: 'order_update', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Clear filters' }).click()
   await page.getByRole('searchbox', { name: 'Search templates' }).fill('nothing_matches')
   await expect(page.getByText('No matching templates')).toBeVisible()
 })

@@ -1,0 +1,13 @@
+{
+  "capturedAt": "2026-10-07T15:41:25.847Z",
+  "lighthouse": "12.8.2",
+  "category": "accessibility",
+  "finalUrlsVerified": true,
+  "scores": [
+    {
+      "path": "/contacts",
+      "score": 100,
+      "failing": []
+    }
+  ]
+}
