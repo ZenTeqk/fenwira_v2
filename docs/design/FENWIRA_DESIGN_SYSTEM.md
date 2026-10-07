@@ -155,3 +155,11 @@ Every component: built on Radix primitives via `@fenwira/ui` (feature code may n
 - `packages/ui/test/tokens.test.ts` pins the palette and every contrast pairing above.
 - axe e2e (WCAG 2.2 A/AA) runs on every major page; see UX_PATTERNS.md → Quality gate.
 - **Changing a token** means updating this document, `tokens.ts`, `theme.css` and the contrast test in the same change.
+
+## Experience V2 communication polish (2026-10-07)
+
+The approved visual correction adds controlled color to the existing calm foundation, without changing page structure or domain meaning. New semantic surfaces: `thread-soft` **#F3F2ED** (warm focused conversation canvas), `message-outbound` **#DDF4E8** (perceptible emerald outbound bubble), `note-soft` **#FFF8EB** (private team notes). Incoming messages remain white. Outbound metadata uses secondary/strong status text rather than muted text: muted on the stronger emerald tint fails AA. Executable contrast tests cover all actual new foreground/background pairings. The accessible muted token remains #66716B.
+
+Avatar `appearance="varied"` selects a stable, deterministic soft emerald/blue/amber/red/green identity treatment using existing accessible strong foregrounds; it never implies status. Home, Inbox and account identity opt in; all other avatar defaults remain unchanged. Timeline `appearance="activity"` uses existing status semantics for compact tinted icon circles and connecting lines, with default audit timelines preserved. Message `StatusBadge appearance="inline"` retains the status label and icon without an opaque pill inside a bubble; status mappings stay authoritative.
+
+Use compact tinted attention icons, fine section dividers, stronger identity/type hierarchy and existing `shadow-raised` for messages/composer. No gradients, illustrations, heavy shadows, arbitrary palette or change to selected navigation geometry. Tags continue to honor persisted user-selected colors. Existing routes, permissions, communication behavior and data remain authoritative.

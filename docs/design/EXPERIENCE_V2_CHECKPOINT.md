@@ -70,3 +70,7 @@ Pending user review, **stop here**. Contacts, Templates, Campaigns and remaining
 ## Subsequent checkpoint — Batch 2
 
 The user approved this foundation checkpoint and authorized Contacts → Templates → Campaigns → Campaign Studio. The historical validation above remains foundation evidence. The [Batch 2 checkpoint report](EXPERIENCE_V2_BATCH_2.md) records the separate increments and fresh regression results, with [24 responsive implementation captures](experience-v2/evidence/batch-2/README.md). Batch 2 stops for visual/product review before later compositions; foundation approval does not imply approval of this batch.
+
+## Foundation visual-fidelity correction — 2026-10-07
+
+The user identified flat, overly uniform visual treatments and authorized a focused App Shell/Home/Inbox polish pass. Preserve the established page compositions and domain behavior. New semantic communication surfaces and opt-in avatar/timeline/message-status appearances restore purposeful color and hierarchy; other module defaults stay unchanged. The [correction report](EXPERIENCE_V2_VISUAL_FIDELITY.md) records the reference comparison, validation and separate before/after review evidence. **Visual approval remains pending; stop after this correction.**

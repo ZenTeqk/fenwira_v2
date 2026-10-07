@@ -31,3 +31,7 @@ Contact lists stay communication-oriented with contextual inspection; templates 
 ## Checkpoint history — approved foundation and Batch 2
 
 The user approved the App Shell/Home/Inbox foundation and authorized EV2-05–07B. Contacts, Templates, Campaigns and Campaign Studio are now implemented in four separate increments. Preserve the foundation and stop again for visual/product review. See the [Batch 2 checkpoint](EXPERIENCE_V2_BATCH_2.md) and [implementation evidence](experience-v2/evidence/batch-2/README.md). Later modules remain pending; no aggregate Experience V2 or Phase 11 closure is declared.
+
+## Foundation visual-fidelity correction
+
+The user requested a focused App Shell/Home/Inbox polish pass after identifying overly uniform icons, avatars and surfaces. Preserve all existing compositions and behaviors. Supporting color is intentional: compact semantic icon tints, deterministic human avatar tones, warmer thread canvas, clearer emerald outgoing messages and separately labelled warm internal notes. The three communication tokens and opt-in primitive appearances are specified in Design System v1. The new [visual-fidelity checkpoint](EXPERIENCE_V2_VISUAL_FIDELITY.md) compares the original references and retains before/after evidence. Other module compositions are outside this correction; stop for visual approval.

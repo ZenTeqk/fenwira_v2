@@ -185,6 +185,24 @@ describe('status and identity', () => {
     expect(screen.getByText('Pending').querySelector('[aria-hidden="true"]')).not.toBeNull()
   })
 
+  it('identity colors remain stable and opt-in; names remain accessible', () => {
+    const { rerender } = render(<Avatar name="Priya Sharma" appearance="varied" />)
+    const first = screen.getByLabelText('Priya Sharma').className
+    rerender(<Avatar name="Priya Sharma" appearance="varied" />)
+    expect(screen.getByLabelText('Priya Sharma').className).toBe(first)
+    rerender(<Avatar name="ABC Electronics" appearance="varied" />)
+    expect(screen.getByLabelText('ABC Electronics').className).not.toBe(first)
+    rerender(<Avatar name="ABC Electronics" />)
+    expect(screen.getByLabelText('ABC Electronics').className).toContain('bg-primary-soft')
+    expect(screen.getByLabelText('ABC Electronics')).toHaveTextContent('AE')
+  })
+
+  it('inline delivery metadata preserves the status label and accessible meaning', () => {
+    render(<StatusBadge status="READ" appearance="inline" />)
+    expect(screen.getByText('Read')).toHaveAttribute('data-status', 'READ')
+    expect(screen.getByText('Read').querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('Avatar falls back to initials', () => {
     expect(initials('Priya Sharma')).toBe('PS')
     expect(initials('Madonna')).toBe('MA')

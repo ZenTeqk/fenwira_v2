@@ -136,7 +136,9 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
   await expect(
     page.getByRole('log', { name: 'Messages' }).getByText('Delivery needs a follow-up tomorrow.'),
   ).toBeVisible()
-  await expect(page.getByRole('log', { name: 'Messages' }).getByText(/Internal ·/)).toBeVisible()
+  await expect(
+    page.getByRole('log', { name: 'Messages' }).getByText(/Internal note ·/),
+  ).toBeVisible()
   await page.getByRole('button', { name: 'Reply', exact: true }).click()
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 })

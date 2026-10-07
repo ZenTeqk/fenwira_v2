@@ -19,7 +19,7 @@ describe('color tokens', () => {
       danger: '#DC2626',
       info: '#2563EB',
     })
-    expect(Object.keys(colorTokens)).toHaveLength(32)
+    expect(Object.keys(colorTokens)).toHaveLength(35)
   })
 
   it('uses uppercase 6-digit hex only', () => {
@@ -75,6 +75,16 @@ describe('color tokens', () => {
       [t.slate, t['warning-soft']],
       [t.slate, t['info-soft']],
       [t.slate, t['danger-soft']],
+      [t.slate, t['message-outbound']],
+      [t.secondary, t['message-outbound']],
+      [t['info-strong'], t['message-outbound']],
+      [t['success-strong'], t['message-outbound']],
+      [t['danger-strong'], t['message-outbound']],
+      // Message statuses have no warning category; warning text is on its own note/window surface.
+      [t['warning-strong'], t['note-soft']],
+      ...(['thread-soft', 'note-soft'] as const).flatMap((bg): Array<[string, string]> =>
+        [t.slate, t.secondary, t.muted].map((fg) => [fg, t[bg]]),
+      ),
     ]
     for (const [fg, bg] of pairs)
       expect(ratio(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5)

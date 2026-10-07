@@ -123,3 +123,7 @@ Four-width axe and no-overflow checks pass; Home and populated Inbox score 100 i
 ## Experience V2 — Batch 2 review checkpoint
 
 The user approved the foundation and authorized Contacts/Templates/Campaigns/Studio. People-led contact rows and contextual inspection, a reusable message library, active communications ahead of campaign history and paired Studio configuration/preview now use the established shared foundation. Existing read models and services remain authoritative; backend, tenant isolation and accepted commercial behavior are unchanged. Retry, contextual permissions, unsaved navigation, responsive and accessibility evidence are recorded in the [Batch 2 checkpoint](EXPERIENCE_V2_BATCH_2.md). The [24 screenshots](experience-v2/evidence/batch-2/README.md) are separate from approved references. **Batch 2 visual acceptance is pending user review.** Later module compositions remain outside this checkpoint.
+
+## Foundation visual-fidelity correction — 2026-10-07
+
+The user identified flat, overly uniform visual treatments and authorized a focused App Shell/Home/Inbox polish pass. Preserve the established page compositions and domain behavior. New semantic communication surfaces and opt-in avatar/timeline/message-status appearances restore purposeful color and hierarchy; other module defaults stay unchanged. The [correction report](EXPERIENCE_V2_VISUAL_FIDELITY.md) records the reference comparison, validation and separate before/after review evidence. **Visual approval remains pending; stop after this correction.**

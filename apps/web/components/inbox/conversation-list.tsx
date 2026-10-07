@@ -84,7 +84,7 @@ export function ConversationList({
         aria-label="Conversations"
         className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface"
       >
-        <div className="flex flex-col gap-2 border-b border-border p-3">
+        <div className="flex flex-col gap-2 border-b border-border bg-sidebar p-3">
           <SearchInput
             label="Search conversations"
             placeholder="Search messages, names, numbers"
@@ -163,11 +163,11 @@ export function ConversationList({
                       onClick={() => onSelect(c.id)}
                       aria-current={selected ? 'true' : undefined}
                       className={cn(
-                        'flex w-full gap-3 border-l-4 px-3 py-3 text-left transition-colors hover:bg-neutral-soft',
+                        'flex w-full gap-3 border-b border-b-border/60 border-l-4 px-3 py-4 text-left transition-colors hover:bg-neutral-soft',
                         selected ? 'border-l-primary bg-primary-soft' : 'border-l-transparent',
                       )}
                     >
-                      <Avatar name={name} size="md" />
+                      <Avatar appearance="varied" name={name} size="lg" />
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <span
@@ -196,8 +196,13 @@ export function ConversationList({
                         >
                           {c.snippet ?? c.lastMessagePreview ?? 'No messages yet'}
                         </span>
-                        <span className="truncate text-xs text-secondary">
-                          {c.assignee ? `Assigned to ${c.assignee.name}` : 'Unassigned'}
+                        <span className="flex min-w-0 items-center gap-1.5 text-xs text-secondary">
+                          {c.assignee ? (
+                            <Avatar appearance="varied" name={c.assignee.name} size="sm" />
+                          ) : null}
+                          <span className="truncate">
+                            {c.assignee ? `Assigned to ${c.assignee.name}` : 'Unassigned'}
+                          </span>
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <StatusBadge status={open ? 'WINDOW_OPEN' : 'WINDOW_CLOSED'} />

@@ -20,6 +20,7 @@ import {
   ErrorState,
   Skeleton,
   StatusBadge,
+  cn,
   type StatusKey,
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
@@ -27,6 +28,10 @@ import {
   Activity,
   CircleCheck,
   CircleAlert,
+  Workflow,
+  FileText,
+  Megaphone,
+  ArrowRight,
   HeartPulse,
   MessageSquare,
   Send,
@@ -246,36 +251,56 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
       }}
       attention={
         <Card>
-          <CardHeader>
+          <CardHeader className="border-b border-border px-5 py-4">
             <CardTitle as="h2" id="attention">
               Needs attention
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-1">
             <section aria-labelledby="attention" className="flex flex-col gap-3">
               {loadingAttention && !attention.length ? (
                 <Skeleton className="h-32 w-full" />
               ) : attention.length ? (
                 <ul className="divide-y divide-border">
                   {attention.map((a) => (
-                    <li key={a.id} className="flex flex-wrap items-start gap-3 py-3">
-                      <CircleAlert
-                        className={
-                          a.tone === 'danger'
-                            ? 'mt-0.5 size-5 shrink-0 text-danger-strong'
-                            : a.tone === 'warning'
-                              ? 'mt-0.5 size-5 shrink-0 text-warning-strong'
-                              : 'mt-0.5 size-5 shrink-0 text-info-strong'
-                        }
+                    <li key={a.id} className="flex flex-wrap items-center gap-3 py-4">
+                      <span
                         aria-hidden="true"
-                      />
+                        className={cn(
+                          'flex size-10 shrink-0 items-center justify-center rounded-full',
+                          a.id === 'unassigned' || a.id === 'connect'
+                            ? 'bg-info-soft text-info-strong'
+                            : a.id === 'automation-failures' || a.tone === 'danger'
+                              ? 'bg-danger-soft text-danger-strong'
+                              : a.tone === 'warning'
+                                ? 'bg-warning-soft text-warning-strong'
+                                : 'bg-info-soft text-info-strong',
+                        )}
+                      >
+                        {a.id === 'unassigned' || a.id === 'connect' ? (
+                          <MessageSquare className="size-5" />
+                        ) : a.id === 'wallet' ? (
+                          <Wallet className="size-5" />
+                        ) : a.id === 'automation-failures' ? (
+                          <Workflow className="size-5" />
+                        ) : a.id === 'paused' ? (
+                          <Megaphone className="size-5" />
+                        ) : a.id === 'rejected' ? (
+                          <FileText className="size-5" />
+                        ) : (
+                          <CircleAlert className="size-5" />
+                        )}
+                      </span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-slate">{a.title}</p>
+                        <p className="font-semibold text-slate">{a.title}</p>
                         <p className="mt-1 text-sm text-secondary">{a.body}</p>
                       </div>
                       {a.href ? (
-                        <Button variant="secondary" size="sm" asChild>
-                          <Link href={a.href}>{a.action}</Link>
+                        <Button variant="link" size="sm" asChild>
+                          <Link href={a.href}>
+                            {a.action}
+                            <ArrowRight aria-hidden="true" />
+                          </Link>
                         </Button>
                       ) : null}
                     </li>

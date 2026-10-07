@@ -14,13 +14,13 @@ type SidebarNavProps = {
 }
 
 const itemBase = cn(
-  'relative flex h-9 w-full items-center gap-3 rounded-sm px-3 text-base font-medium transition-colors [&_svg]:size-4.5 [&_svg]:shrink-0',
+  'relative flex h-9 w-full items-center gap-3 rounded-sm px-3 text-base font-normal transition-colors [&_svg]:size-4.5 [&_svg]:shrink-0',
   focusRing,
   'focus-visible:outline-offset-0',
 )
 const inactive = 'text-secondary hover:bg-neutral-soft hover:text-slate'
 // Active: subtle emerald fill, strong emerald text (FENWIRA_EXPERIENCE_V2 → shell).
-const active = 'bg-primary-soft text-primary-strong'
+const active = 'bg-primary-soft font-medium text-primary-strong'
 
 /**
  * Modules only (UX_PATTERNS → Application shell). A module's sub-pages are the ModuleTabs under

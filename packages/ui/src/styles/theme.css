@@ -40,6 +40,9 @@
   --color-border: #e5e7e3;
   --color-border-strong: #d6d9d4;
   --color-neutral-soft: #f5f5f1;
+  --color-thread-soft: #f3f2ed;
+  --color-message-outbound: #ddf4e8;
+  --color-note-soft: #fff8eb;
 
   --font-*: initial;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;

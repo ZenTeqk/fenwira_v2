@@ -38,7 +38,7 @@ export function AccountMenu({
         )}
       >
         <span aria-hidden="true">
-          <Avatar name={me.user.name} size="md" />
+          <Avatar appearance="varied" name={me.user.name} size="md" />
         </span>
         {footer && !collapsed ? (
           <span className="min-w-0 flex-1">

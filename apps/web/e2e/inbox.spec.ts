@@ -76,7 +76,7 @@ test('internal notes, resolve, and the mobile single-pane layout', async ({ page
   await page.getByLabel('Internal note').fill('Checking with the warehouse')
   await page.getByRole('button', { name: 'Save note' }).click()
   await expect(page.getByText('Checking with the warehouse')).toBeVisible()
-  await expect(page.getByText(/^Internal ·/)).toBeVisible()
+  await expect(page.getByText(/^Internal note ·/)).toBeVisible()
   await page.getByRole('button', { name: 'Resolve' }).click()
   await expect(page.getByRole('button', { name: 'Reopen' })).toBeVisible()
   await page.getByRole('button', { name: 'Back to conversations' }).click()

@@ -62,27 +62,40 @@ export function ContactPane({
   const others = (past.data ?? []).filter((p) => p.id !== conversationId)
   return (
     <div className="flex flex-col gap-5 p-4">
-      <Avatar name={c.name ?? c.waProfileName ?? c.phoneE164} size="lg" />
-      <div className="flex flex-col gap-1">
-        <h2 className="text-md font-semibold text-slate">
-          {c.name ?? c.waProfileName ?? c.phoneE164}
-        </h2>
-        <span className="font-mono text-sm text-muted">{c.phoneE164}</span>
-        {c.email ? <span className="text-sm text-muted">{c.email}</span> : null}
-        <Link
-          href={`/contacts/${c.id}`}
-          className="text-sm text-primary-strong underline-offset-4 hover:underline"
-        >
-          Open contact
-        </Link>
+      <div className="flex flex-col gap-3 rounded-lg bg-sidebar p-3">
+        <Avatar
+          appearance="varied"
+          name={c.name ?? c.waProfileName ?? c.phoneE164}
+          size="lg"
+          className="size-16 ring-4 ring-surface"
+        />
+        <div className="flex flex-col gap-1">
+          <h2 className="text-md font-semibold text-slate">
+            {c.name ?? c.waProfileName ?? c.phoneE164}
+          </h2>
+          <span className="font-mono text-sm text-muted">{c.phoneE164}</span>
+          {c.email ? <span className="text-sm text-muted">{c.email}</span> : null}
+          <Link
+            href={`/contacts/${c.id}`}
+            className="text-sm text-primary-strong underline-offset-4 hover:underline"
+          >
+            Open contact
+          </Link>
+        </div>
       </div>
-      <section className="flex flex-col gap-2" aria-labelledby="pane-messaging">
+      <section
+        className="flex flex-col gap-2 border-t border-border/70 pt-4"
+        aria-labelledby="pane-messaging"
+      >
         <h3 id="pane-messaging" className="text-sm font-semibold text-slate">
           What you can send
         </h3>
         <EligibilitySummary contactId={c.id} conversationId={conversationId} />
       </section>
-      <section className="flex flex-col gap-2" aria-labelledby="pane-consent">
+      <section
+        className="flex flex-col gap-2 border-t border-border/70 pt-4"
+        aria-labelledby="pane-consent"
+      >
         <h3 id="pane-consent" className="text-sm font-semibold text-slate">
           Consent
         </h3>
@@ -97,11 +110,14 @@ export function ContactPane({
           </dd>
         </dl>
       </section>
-      <section className="flex flex-col gap-2" aria-label="Tags">
+      <section className="flex flex-col gap-2 border-t border-border/70 pt-4" aria-label="Tags">
         <h3 className="text-sm font-semibold text-slate">Tags</h3>
         <TagBadges tags={c.tags} max={10} />
       </section>
-      <section className="flex flex-col gap-2" aria-label="Contact notes">
+      <section
+        className="flex flex-col gap-2 border-t border-border/70 pt-4"
+        aria-label="Contact notes"
+      >
         <h3 className="text-sm font-semibold text-slate">Notes</h3>
         {notes.isPending ? (
           <Skeleton className="h-20" />
@@ -110,7 +126,10 @@ export function ContactPane({
         ) : notes.data?.length ? (
           <ul className="flex flex-col gap-2">
             {notes.data.slice(0, 5).map((n) => (
-              <li key={n.id} className="rounded-md border border-border p-2 text-sm text-slate">
+              <li
+                key={n.id}
+                className="rounded-md border border-warning/20 bg-note-soft p-3 text-sm text-slate"
+              >
                 <p className="whitespace-pre-wrap break-words">{n.body}</p>
                 <p className="text-xs text-muted">
                   {n.authorName} · {relativeTime(n.createdAt)}
@@ -122,7 +141,10 @@ export function ContactPane({
           <p className="text-sm text-secondary">No notes yet. Notes on the contact show here.</p>
         )}
       </section>
-      <section className="flex flex-col gap-2" aria-label="Other conversations">
+      <section
+        className="flex flex-col gap-2 border-t border-border/70 pt-4"
+        aria-label="Other conversations"
+      >
         <h3 className="text-sm font-semibold text-slate">Other conversations</h3>
         {past.isPending ? (
           <Skeleton className="h-20" />
@@ -137,7 +159,7 @@ export function ContactPane({
               <li key={p.id}>
                 <Link
                   href={`/inbox?c=${p.id}`}
-                  className="flex flex-col text-sm text-slate hover:underline"
+                  className="flex flex-col border-l-2 border-primary-soft pl-3 text-sm text-slate hover:underline"
                 >
                   <span className="truncate">{p.lastMessagePreview ?? 'No messages'}</span>
                   <span className="text-xs text-muted">

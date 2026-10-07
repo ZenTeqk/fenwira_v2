@@ -15,7 +15,7 @@ import {
   focusRing,
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
-import { MessageSquare, Workflow } from 'lucide-react'
+import { MessageSquare, Workflow, Megaphone } from 'lucide-react'
 import Link from 'next/link'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
@@ -33,13 +33,13 @@ export function RecentConversations() {
   })
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2">
+      <CardHeader className="flex-row items-center justify-between gap-2 border-b border-border px-5 py-4">
         <CardTitle as="h2">Recent conversations</CardTitle>
         <Button variant="link" size="sm" asChild>
           <Link href="/inbox">Open inbox</Link>
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-3">
         {conversations.isPending ? (
           <Skeleton className="h-40" />
         ) : conversations.isError ? (
@@ -55,9 +55,9 @@ export function RecentConversations() {
                   href={`/inbox?c=${c.id}`}
                   className={`flex min-w-0 items-center gap-3 rounded-md py-3 hover:bg-neutral-soft ${focusRing}`}
                 >
-                  <Avatar name={displayName(c)} size="md" />
+                  <Avatar name={displayName(c)} size="lg" appearance="varied" />
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="truncate font-medium text-slate">{displayName(c)}</span>
+                    <span className="truncate font-semibold text-slate">{displayName(c)}</span>
                     <span className="truncate text-sm text-secondary">
                       {c.lastMessagePreview ?? 'No messages yet'}
                     </span>
@@ -115,23 +115,25 @@ export function CampaignActivity({
     .slice(0, 4)
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2">
+      <CardHeader className="flex-row items-center justify-between gap-2 border-b border-border px-5 py-4">
         <CardTitle as="h2">{active.length ? 'Active campaigns' : 'Campaign activity'}</CardTitle>
         <Button variant="link" size="sm" asChild>
           <Link href="/campaigns">View all</Link>
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-3">
         {error ? (
           <ErrorState title="Campaigns couldn’t be loaded" onRetry={retry} />
         ) : !campaigns ? (
           <Skeleton className="h-40" />
         ) : (
           <Timeline
+            appearance="activity"
             label="Current campaign activity"
             empty="No campaigns yet. Campaign status and audience will appear here."
             items={recent.map((c) => ({
               id: c.id,
+              icon: <Megaphone />,
               title: (
                 <Link
                   href={`/campaigns/${c.id}`}
@@ -163,19 +165,20 @@ export function AutomationActivity() {
     .slice(0, 3)
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2">
+      <CardHeader className="flex-row items-center justify-between gap-2 border-b border-border px-5 py-4">
         <CardTitle as="h2">Automation activity</CardTitle>
         <Button variant="link" size="sm" asChild>
           <Link href="/automations">View all</Link>
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-3">
         {flows.isPending ? (
           <Skeleton className="h-20" />
         ) : flows.isError ? (
           <ErrorState title="Automations couldn’t be loaded" onRetry={() => void flows.refetch()} />
         ) : (
           <Timeline
+            appearance="activity"
             label="Current automation activity"
             empty="No automations yet. Published flows and their real run counts appear here."
             items={recent.map((f) => ({

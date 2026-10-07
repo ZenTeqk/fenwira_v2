@@ -11,7 +11,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import Image from 'next/image'
 import { followsSameSender } from '@/lib/message-grouping'
-import { Paperclip } from 'lucide-react'
+import { Paperclip, StickyNote } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
@@ -52,7 +52,7 @@ function MessageBody({ m }: { m: Message }) {
     case 'TEMPLATE':
       return (
         <p>
-          <span className="text-sm text-muted">Template</span> {c.name}
+          <span className="text-sm text-secondary">Template</span> {c.name}
         </p>
       )
     case 'INTERACTIVE':
@@ -75,7 +75,7 @@ function MessageBody({ m }: { m: Message }) {
         />
       )
     default:
-      return <p className="text-muted">Unsupported message</p>
+      return <p className="text-secondary">Unsupported message</p>
   }
 }
 
@@ -120,7 +120,7 @@ function MediaBody({
           <Paperclip aria-hidden="true" className="size-4" /> {label}
         </a>
       ) : (
-        <span className="flex items-center gap-1 text-muted">
+        <span className="flex items-center gap-1 text-secondary">
           <Paperclip aria-hidden="true" className="size-4" />{' '}
           {fileId ? label : `${label} (downloading…)`}
         </span>
@@ -134,12 +134,13 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
   const { me } = useSession()
   if (item.kind === 'note')
     return (
-      <div className="mx-auto w-full max-w-xl rounded-md border border-border bg-neutral-soft px-3 py-2 text-slate">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate">
-          Internal · {item.note.authorName}
+      <div className="mx-auto w-full max-w-xl rounded-lg border border-warning/20 bg-note-soft px-3 py-3 text-slate">
+        <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-warning-strong">
+          <StickyNote className="size-3.5" aria-hidden="true" />
+          Internal note · {item.note.authorName}
         </p>
         <p className="whitespace-pre-wrap break-words">{item.note.body}</p>
-        <p className="text-xs text-muted">{clockTime(item.note.createdAt)}</p>
+        <p className="text-xs text-secondary">{clockTime(item.note.createdAt)}</p>
       </div>
     )
   const m = item.message
@@ -156,8 +157,10 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
     <div className={cn('flex', outbound ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'flex min-w-0 max-w-prose flex-col gap-1 rounded-lg px-3 py-2 text-base text-slate',
-          outbound ? 'bg-primary-soft' : 'border border-border bg-surface',
+          'flex min-w-0 max-w-prose flex-col gap-1 rounded-lg px-3 py-2.5 text-base text-slate shadow-raised',
+          outbound
+            ? 'rounded-tr-sm bg-message-outbound'
+            : 'rounded-tl-sm border border-border/60 bg-surface',
         )}
       >
         {!grouped && outbound ? (
@@ -175,13 +178,14 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
         <span
           className={cn(
             'flex items-center justify-end gap-2 text-xs',
-            outbound ? 'text-slate' : 'text-muted',
+            outbound ? 'text-slate' : 'text-secondary',
           )}
         >
           {clockTime(m.createdAt)}
           {outbound ? (
             <StatusBadge
               status={m.status as Exclude<MessageStatus, 'RECEIVED'>}
+              appearance="inline"
               className="text-xs"
             />
           ) : null}
@@ -300,7 +304,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
       ref={scroller}
       tabIndex={0}
       className={cn(
-        'min-h-0 flex-1 overflow-y-auto bg-neutral-soft px-4 py-3',
+        'min-h-0 flex-1 overflow-y-auto bg-thread-soft px-4 py-4',
         focusRing,
         'focus-visible:-outline-offset-2',
       )}
@@ -354,7 +358,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
               style={{ transform: `translateY(${v.start}px)` }}
             >
               {newDay ? (
-                <p className="mx-auto mb-3 w-fit rounded-md bg-surface px-3 py-1 text-xs text-secondary">
+                <p className="mx-auto mb-3 w-fit rounded-md bg-surface px-3 py-1 text-xs font-medium text-secondary shadow-raised">
                   {date}
                 </p>
               ) : null}

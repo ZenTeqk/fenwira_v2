@@ -86,7 +86,7 @@ export function ConversationHeader({
 
   return (
     <div className="flex flex-col border-b border-border bg-surface">
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-3 px-3 py-3">
         <Button
           variant="ghost"
           size="icon"
@@ -96,14 +96,21 @@ export function ConversationHeader({
         >
           <ArrowLeft aria-hidden="true" />
         </Button>
-        <Avatar name={displayName(c)} size="md" />
+        <Avatar appearance="varied" name={displayName(c)} size="md" />
         <div className="flex min-w-40 flex-1 flex-col">
           <h2 className="truncate text-md font-semibold text-slate">{displayName(c)}</h2>
           <span className="font-mono text-sm text-muted">{c.contact.phoneE164}</span>
         </div>
         <span className="ml-1" title="WhatsApp 24-hour service window">
           <StatusBadge
-            status={left ? 'WINDOW_OPEN' : 'WINDOW_CLOSED'}
+            status={
+              left
+                ? c.serviceWindow.expiresAt &&
+                  new Date(c.serviceWindow.expiresAt).getTime() - now <= 3600_000
+                  ? 'EXPIRING'
+                  : 'WINDOW_OPEN'
+                : 'WINDOW_CLOSED'
+            }
             label={left ? `Window open · ${left}` : 'Window closed'}
           />
         </span>

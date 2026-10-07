@@ -20,3 +20,7 @@ Four-width WCAG 2.2 AA axe checks and no-page-overflow assertions pass. [Sanitiz
 ## Approved foundation and subsequent Batch 2
 
 The user subsequently approved the foundation and authorized Contacts/Templates/Campaigns/Studio. Their separate [24 responsive implementation captures](batch-2/README.md) preserve these original foundation captures and all approved references. Batch 2 has its own visual/product review checkpoint.
+
+## Foundation visual-fidelity correction
+
+These original implementation captures remain unchanged as before evidence. The focused correction retains separate [Home/Inbox review captures](checkpoint-1-visual-fidelity/README.md), with comparison links to the approved images and original implementation. See the [correction report](../../EXPERIENCE_V2_VISUAL_FIDELITY.md). Visual approval remains pending.

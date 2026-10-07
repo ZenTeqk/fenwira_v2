@@ -294,7 +294,12 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     mode === 'reply' && windowOpen && eligibility.data?.freeform.allowed === false
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border bg-surface p-3">
+    <div
+      className={cn(
+        'relative z-10 flex flex-col gap-2 border-t border-border-strong p-3 shadow-raised',
+        mode === 'note' ? 'bg-note-soft' : 'bg-surface',
+      )}
+    >
       <Segmented
         label="Compose"
         disabled={busy}
@@ -397,8 +402,8 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                   : 'Type a reply… (Enter to send)'
             }
             className={cn(
-              'min-h-16 w-full min-w-0 basis-full resize-none rounded-md border border-border-strong px-3 py-2 text-base text-slate',
-              mode === 'note' ? 'bg-warning-soft' : 'bg-surface',
+              'min-h-16 w-full min-w-0 basis-full resize-none rounded-lg border border-border-strong px-3 py-3 text-base text-slate shadow-raised',
+              mode === 'note' ? 'bg-note-soft' : 'bg-surface',
               disabled && 'cursor-not-allowed opacity-60',
             )}
             rows={3}
@@ -463,7 +468,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
             </label>
           ) : null}
           <Button
-            className="ml-auto"
+            className="ml-auto rounded-full shadow-raised"
             aria-label={mode === 'note' ? 'Save note' : 'Send'}
             loading={busy}
             disabled={disabled || freeformRestricted || !text.trim()}

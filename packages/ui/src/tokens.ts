@@ -44,6 +44,10 @@ export const colorTokens = {
   border: '#E5E7E3',
   'border-strong': '#D6D9D4',
   'neutral-soft': '#F5F5F1',
+  // Communication surfaces: warm thread, perceptible outbound tint, private team notes.
+  'thread-soft': '#F3F2ED',
+  'message-outbound': '#DDF4E8',
+  'note-soft': '#FFF8EB',
 } as const
 
 export type ColorToken = keyof typeof colorTokens

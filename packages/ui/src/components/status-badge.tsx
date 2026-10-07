@@ -18,6 +18,7 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react'
+import { cn } from '../lib/cn'
 import { Badge, type BadgeTone } from './badge'
 
 type StatusPreset = { tone: BadgeTone; label: string; icon: LucideIcon }
@@ -125,11 +126,42 @@ export type StatusBadgeProps = {
   /** Override the default label (e.g. "Delivered 2m ago"); the icon and tone stay. */
   label?: string
   className?: string
+  /** Message metadata uses label/ticks without nesting an opaque pill in the bubble. */
+  appearance?: 'default' | 'inline'
 }
 
-export function StatusBadge({ status, label, className }: StatusBadgeProps) {
+const inlineTones: Record<BadgeTone, string> = {
+  neutral: 'text-secondary',
+  primary: 'text-primary-strong',
+  success: 'text-success-strong',
+  warning: 'text-warning-strong',
+  danger: 'text-danger-strong',
+  info: 'text-info-strong',
+}
+
+export function StatusBadge({
+  status,
+  label,
+  className,
+  appearance = 'default',
+}: StatusBadgeProps) {
   const preset: StatusPreset = STATUS_PRESETS[status]
   const Icon = preset.icon
+  if (appearance === 'inline')
+    return (
+      <span
+        data-slot="badge"
+        data-status={status}
+        className={cn(
+          'inline-flex items-center gap-1 text-xs',
+          inlineTones[preset.tone],
+          className,
+        )}
+      >
+        <Icon className="size-3.5" aria-hidden="true" />
+        {label ?? preset.label}
+      </span>
+    )
   return (
     <Badge tone={preset.tone} icon={<Icon />} className={className} data-status={status}>
       {label ?? preset.label}

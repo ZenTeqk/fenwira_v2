@@ -211,7 +211,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             size="sm"
             onClick={() => setPaletteOpen(true)}
             aria-label="Search and jump to (Control K)"
-            className="min-w-0 gap-2 text-secondary lg:w-72 lg:justify-start"
+            className="min-w-0 gap-2 bg-sidebar text-secondary shadow-raised lg:w-72 lg:justify-start"
           >
             <Search aria-hidden="true" />
             <span className="hidden sm:inline">Search Fenwira…</span>

@@ -23,7 +23,7 @@ export function InboxViews({
   return (
     <nav
       aria-label="Inbox views"
-      className="hidden h-full w-40 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-surface p-3 lg:flex"
+      className="hidden h-full w-40 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-sidebar p-3 lg:flex"
     >
       <h2 className="px-2 pt-1 text-md font-semibold text-slate">Inbox</h2>
       <div className="flex flex-col gap-1" role="group" aria-label="Views">
@@ -34,7 +34,7 @@ export function InboxViews({
             aria-pressed={value === id}
             onClick={() => onChange(id)}
             className={cn(
-              'justify-start gap-2 px-2',
+              'justify-start gap-2 px-2 font-normal',
               value === id && 'bg-primary-soft text-primary-strong',
             )}
           >
