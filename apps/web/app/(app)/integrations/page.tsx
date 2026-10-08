@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { IntegrationsOverview } from '@/components/integrations/integrations-overview'
 
-export default function IntegrationsIndex(): never {
-  redirect('/integrations/whatsapp')
+export default function IntegrationsIndex() {
+  return <IntegrationsOverview />
 }

@@ -82,3 +82,7 @@ The user approved the graphical View campaign report (`a586a6b`) and authorized 
 ## 8 October 2026 — Automations approval and Analytics checkpoint
 
 The user approved Automations and its phone preview and authorized Analytics next. The [Analytics report](EXPERIENCE_V2_ANALYTICS_RECONSTRUCTION.md) records the reference mapping, supported measures, responsive navigation/date controls and retained domain boundaries. Its separate evidence records validation; stop for Analytics visual review before Integrations, Billing or Settings.
+
+## 8 October 2026 — Analytics approval and Integrations checkpoint
+
+Analytics (`eb0e693`) was visually approved. The user authorized Integrations next. The [Integrations report](EXPERIENCE_V2_INTEGRATIONS_RECONSTRUCTION.md) records the overview, real-data mapping, capability gaps and separate evidence. Stop for its visual review before Billing or Settings.

@@ -1,0 +1,101 @@
+{
+  "source": "Existing local textile demo APIs; no response fixtures.",
+  "checks": [
+    {
+      "view": "overview",
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "whatsapp",
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "api",
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "webhooks",
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "overview",
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "whatsapp",
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "api",
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "webhooks",
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "overview",
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "whatsapp",
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "api",
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "webhooks",
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "overview",
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "whatsapp",
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "api",
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "webhooks",
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    }
+  ]
+}

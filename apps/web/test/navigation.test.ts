@@ -25,7 +25,7 @@ describe('navigation', () => {
       'Billing',
       'Settings',
     ])
-    expect(flattenLeaves(NAVIGATION)).toHaveLength(31)
+    expect(flattenLeaves(NAVIGATION)).toHaveLength(32)
     const hrefs = flattenLeaves(NAVIGATION).map((l) => l.href)
     expect(new Set(hrefs).size).toBe(hrefs.length)
   })
@@ -71,6 +71,7 @@ describe('navigation', () => {
       'New template',
     ])
     expect(visible.find((i) => i.id === 'integrations')!.children!.map((c) => c.label)).toEqual([
+      'Overview',
       'WhatsApp',
     ])
     expect(visible.find((i) => i.id === 'settings')!.children!.map((c) => c.label)).toEqual([
@@ -84,7 +85,7 @@ describe('navigation', () => {
   })
 
   it('reveals everything in preview mode', () => {
-    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(31)
+    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(32)
   })
 
   it('keeps partially shipped groups with only their shipped children', () => {

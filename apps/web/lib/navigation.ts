@@ -229,6 +229,13 @@ export const NAVIGATION: NavItem[] = [
     icon: Plug,
     children: [
       {
+        id: 'integrations-overview',
+        label: 'Overview',
+        href: '/integrations',
+        phase: 4,
+        permission: 'whatsapp.read',
+      },
+      {
         id: 'integrations-whatsapp',
         label: 'WhatsApp',
         href: '/integrations/whatsapp',

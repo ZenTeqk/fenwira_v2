@@ -83,3 +83,5 @@ Main risks: constrained Inbox thread at laptop width (hide optional rails/panels
 2026-10-08: the user visually approved Campaigns and its graphical detail report and authorized the next checkpoint. EV2-08 Automations follows [the approved common prompt](EXPERIENCE_V2_AUTOMATIONS_RECONSTRUCTION.md): light workflow studio, existing node/runtime authority, responsive settings and Outline. Stop for Automations visual review before EV2-09 Analytics.
 
 2026-10-08: the user approved Automations and its phone preview and authorized EV2-09 Analytics. The [Analytics reconstruction](EXPERIENCE_V2_ANALYTICS_RECONSTRUCTION.md) follows reference 08 using existing aggregates, daily charts, permission-filtered usage and explicit freshness states. Stop for Analytics visual review before later modules.
+
+2026-10-08: the user visually approved Analytics and authorized Integrations next. The [Integrations reconstruction](EXPERIENCE_V2_INTEGRATIONS_RECONSTRUCTION.md) adds the supported overview against reference 09, preserves existing management workflows and omits unsupported native connectors/metrics. Stop for Integrations visual review before Billing or Settings.

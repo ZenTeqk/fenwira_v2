@@ -74,6 +74,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   const campaignsModule = pathname === '/campaigns' || pathname.startsWith('/campaigns/')
   const automationsModule = pathname === '/automations' || pathname.startsWith('/automations/')
   const analyticsModule = pathname === '/analytics' || pathname.startsWith('/analytics/')
+  const integrationsModule = pathname === '/integrations' || pathname.startsWith('/integrations/')
   const communicationShell =
     home ||
     fullBleed ||
@@ -81,7 +82,8 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
     templatesLibrary ||
     campaignsModule ||
     automationsModule ||
-    analyticsModule
+    analyticsModule ||
+    integrationsModule
   const { membership, tenantId, can } = useSession()
   const unread = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox-unread'),
@@ -260,6 +262,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
         !fullBleed &&
         !contactsDirectory &&
         !analyticsModule &&
+        pathname !== '/integrations' &&
         (!campaignsModule || pathname === '/campaigns/analytics') ? (
           <ModuleTabs
             items={tabs}
