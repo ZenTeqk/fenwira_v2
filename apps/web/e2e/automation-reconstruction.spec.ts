@@ -143,6 +143,7 @@ test('light automation studio preserves draft editing, responsive settings and r
   await expect(page.getByRole('figure', { name: 'Message preview' })).toContainText(
     '{{contact.firstName}}',
   )
+  await expect(page.getByLabel('WhatsApp mobile conversation preview')).toBeVisible()
   const library = page.getByRole('navigation', { name: 'Add a step' })
   await library.getByRole('textbox', { name: 'Search steps' }).fill('wait')
   await expect(library.getByRole('button', { name: 'Wait', exact: true })).toBeVisible()

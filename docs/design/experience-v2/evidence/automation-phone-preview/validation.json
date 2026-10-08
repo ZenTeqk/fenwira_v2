@@ -1,0 +1,17 @@
+{
+  "simulatedOnly": true,
+  "storedDraftChanged": false,
+  "imageHeaderCapture": "Not available: demo workspace has no approved image template.",
+  "checks": [
+    {
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    }
+  ]
+}

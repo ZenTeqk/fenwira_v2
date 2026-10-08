@@ -33,7 +33,7 @@ import { ApiError, get, post } from '@/lib/api/client'
 import { automationKey, type DraftNode, EXPRESSION_PATHS, NODE_LABEL } from '@/lib/automation'
 import { useProperties, useTags } from '@/lib/contacts'
 import { useApprovedTemplates, useTemplateSampleUrl } from '@/lib/templates'
-import { TemplatePreview } from '@/components/templates/template-preview'
+import { TemplatePhonePreview } from '@/components/templates/template-phone-preview'
 import { NODE_HINT, NodeSymbol } from './node-presentation'
 
 type Config = Record<string, unknown>
@@ -750,8 +750,8 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
           className="flex flex-col gap-3 border-t border-border pt-4"
         >
           <h3 className="text-sm font-semibold text-slate">Preview</h3>
-          <TemplatePreview
-            recipient
+          <TemplatePhonePreview
+            compact
             components={{ body: { text: c.text }, buttons: [] }}
             samples={{ body: [] }}
           />
@@ -766,8 +766,8 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
           className="flex flex-col gap-3 border-t border-border pt-4"
         >
           <h3 className="text-sm font-semibold text-slate">Preview</h3>
-          <TemplatePreview
-            recipient
+          <TemplatePhonePreview
+            compact
             components={chosenTemplate.components}
             samples={(c.variables as { body: string[]; header?: string[] }) ?? { body: [] }}
             headerImageUrl={sample.data}

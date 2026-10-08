@@ -22,3 +22,7 @@ White nodes retain category identity in semantic icon surfaces; emerald selectio
 ## Validation and evidence
 
 See [Automations review evidence](experience-v2/evidence/automations-reconstruction/README.md). Ready for visual review when the recorded checks complete; no Analytics work is included.
+
+## Right-panel phone preview follow-up
+
+The user requested a visual preview in the right panel. Selected Send message and Send template steps now reuse the approved TemplatePhonePreview from Templates/Campaigns: phone chrome, business header placeholder, chat wallpaper, actual message bubble and template buttons. Image templates retain their authorized header sample. Unresolved automation expressions remain visible until runtime; no customer names, image assets or verified business identity are fabricated. Existing settings, draft saving and execution semantics are unchanged. Long previews scroll in the existing settings panel/modal. Evidence: [right-panel preview](experience-v2/evidence/automation-phone-preview/README.md).
