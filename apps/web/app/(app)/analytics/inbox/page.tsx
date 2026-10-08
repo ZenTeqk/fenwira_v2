@@ -86,6 +86,7 @@ export default function InboxAnalyticsPage() {
           ) : null}
           <KpiGrid>
             <MetricCard
+              appearance="analytics"
               label="Conversations opened"
               icon={<MessageSquarePlus />}
               value={count(d.kpis.opened.value)}
@@ -93,6 +94,7 @@ export default function InboxAnalyticsPage() {
               hint={`${count(d.kpis.newConversations.value)} new conversations`}
             />
             <MetricCard
+              appearance="analytics"
               label="Median first reply"
               icon={<Clock />}
               value={duration(d.kpis.medianFirstResponseSeconds)}
@@ -103,6 +105,7 @@ export default function InboxAnalyticsPage() {
               }
             />
             <MetricCard
+              appearance="analytics"
               label="Resolved"
               icon={<CheckCircle2 />}
               value={count(d.kpis.resolved.value)}
@@ -110,6 +113,7 @@ export default function InboxAnalyticsPage() {
               hint={`Median time to resolve: ${duration(d.kpis.medianResolutionSeconds)}`}
             />
             <MetricCard
+              appearance="analytics"
               label="Unassigned now"
               icon={<UserX />}
               value={count(d.kpis.unassignedNow)}

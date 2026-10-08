@@ -23,6 +23,8 @@ export type MetricCardProps = {
   loading?: boolean
   /** Compact secondary summary for Home; analytics keeps the standard presentation. */
   compact?: boolean
+  /** Joined Analytics metric strip; default cards and Home remain unchanged. */
+  appearance?: 'analytics'
   className?: string
 }
 
@@ -42,9 +44,51 @@ export function MetricCard({
   hint,
   loading,
   compact,
+  appearance,
   className,
 }: MetricCardProps) {
   const DeltaIcon = delta ? deltaIcon[delta.direction] : null
+  if (appearance === 'analytics')
+    return (
+      <Card
+        data-slot="metric-card"
+        className={cn('flex items-start gap-3 rounded-none border-0 bg-transparent p-4', className)}
+      >
+        {icon ? (
+          <span
+            aria-hidden="true"
+            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong [&_svg]:size-5"
+          >
+            {icon}
+          </span>
+        ) : null}
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <p className="text-sm font-medium text-secondary">{label}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {loading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <p className="text-2xl font-semibold text-slate tabular-nums">{value}</p>
+            )}
+            {delta && DeltaIcon && !loading ? (
+              <p
+                className={cn(
+                  'flex items-center gap-1 text-xs font-medium',
+                  sentimentTone[delta.sentiment ?? 'neutral'],
+                )}
+              >
+                <DeltaIcon className="size-4" aria-hidden="true" />
+                {delta.value}
+              </p>
+            ) : null}
+          </div>
+          {delta?.label && !loading ? (
+            <p className="text-xs text-secondary">{delta.label}</p>
+          ) : null}
+          {hint ? <div className="text-xs text-secondary">{hint}</div> : null}
+        </div>
+      </Card>
+    )
   return (
     <Card
       data-slot="metric-card"

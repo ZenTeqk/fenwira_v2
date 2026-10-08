@@ -91,6 +91,7 @@ export default function AutomationAnalyticsPage() {
         <>
           <KpiGrid>
             <MetricCard
+              appearance="analytics"
               label="Runs"
               icon={<Workflow />}
               value={count(d.kpis.executions.value)}
@@ -98,6 +99,7 @@ export default function AutomationAnalyticsPage() {
               hint={`${count(d.kpis.inProgress)} still running or waiting`}
             />
             <MetricCard
+              appearance="analytics"
               label="Success rate"
               icon={<CheckCircle2 />}
               value={percent(d.kpis.successRate.value)}
@@ -105,6 +107,7 @@ export default function AutomationAnalyticsPage() {
               hint={rateHint(d.kpis.successRate, 'finished runs completed')}
             />
             <MetricCard
+              appearance="analytics"
               label="Failed"
               icon={<AlertTriangle />}
               value={count(d.kpis.failed.value)}
@@ -112,6 +115,7 @@ export default function AutomationAnalyticsPage() {
               hint={`${count(d.kpis.stepFailures.value)} failed steps · average run ${duration(d.kpis.averageDurationSeconds)}`}
             />
             <MetricCard
+              appearance="analytics"
               label="Stopped by takeover"
               icon={<Hand />}
               value={count(d.kpis.stoppedByTakeover.value)}

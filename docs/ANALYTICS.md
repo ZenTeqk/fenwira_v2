@@ -212,3 +212,7 @@ The day scan is an index-only scan on `messages (tenant_id, created_at)`.
 - Figures lag activity by up to about two minutes (settle delay plus the per-minute pass). Views show `PROCESSING` meanwhile.
 - A campaign's figures belong to its start day; a campaign that runs across midnight isn't split by day.
 - Subscription enforcement remains rollout-controlled and OFF by default; configured retention applies when it is enabled.
+
+## Experience V2 presentation
+
+The [Analytics visual reconstruction](design/EXPERIENCE_V2_ANALYTICS_RECONSTRUCTION.md) retains all endpoint definitions and permissions. Overview also reads the existing messaging and inbox endpoints for engagement and human response summaries, with the same tenant and date range. Inbound counts mean all customer messages; current awaiting-first-response counts have no elapsed-time threshold. Supplemental failures have their own retry state. No provider costs or new financial calculations are exposed.

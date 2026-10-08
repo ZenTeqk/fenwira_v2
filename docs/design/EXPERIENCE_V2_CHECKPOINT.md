@@ -78,3 +78,7 @@ The user identified flat, overly uniform visual treatments and authorized a focu
 ## 8 October 2026 — Campaigns approval and Automations checkpoint
 
 The user approved the graphical View campaign report (`a586a6b`) and authorized the next module. Automations now follows the supplied light studio reference with a searchable library, white icon-led nodes, contextual settings and actual flow counters. The existing runtime, node catalog, validation/versioning, autosave and execution history remain unchanged. [Automations report](EXPERIENCE_V2_AUTOMATIONS_RECONSTRUCTION.md) and its evidence record the concrete validation. This is ready for visual review, not approval to start Analytics or declare Phase 11 closure.
+
+## 8 October 2026 — Automations approval and Analytics checkpoint
+
+The user approved Automations and its phone preview and authorized Analytics next. The [Analytics report](EXPERIENCE_V2_ANALYTICS_RECONSTRUCTION.md) records the reference mapping, supported measures, responsive navigation/date controls and retained domain boundaries. Its separate evidence records validation; stop for Analytics visual review before Integrations, Billing or Settings.

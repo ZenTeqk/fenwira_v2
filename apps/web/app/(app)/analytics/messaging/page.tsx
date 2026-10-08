@@ -52,6 +52,7 @@ export default function MessagingAnalyticsPage() {
         <>
           <KpiGrid>
             <MetricCard
+              appearance="analytics"
               label="Sent"
               icon={<Send />}
               value={count(d.kpis.sent.value)}
@@ -59,6 +60,7 @@ export default function MessagingAnalyticsPage() {
               hint={`${count(d.kpis.inbound.value)} received from customers`}
             />
             <MetricCard
+              appearance="analytics"
               label="Delivery rate"
               icon={<CheckCheck />}
               value={percent(d.kpis.deliveryRate.value)}
@@ -66,6 +68,7 @@ export default function MessagingAnalyticsPage() {
               hint={rateHint(d.kpis.deliveryRate, 'sent messages delivered')}
             />
             <MetricCard
+              appearance="analytics"
               label="Read rate"
               icon={<Eye />}
               value={percent(d.kpis.readRate.value)}
@@ -73,6 +76,7 @@ export default function MessagingAnalyticsPage() {
               hint={rateHint(d.kpis.readRate, 'delivered messages read')}
             />
             <MetricCard
+              appearance="analytics"
               label="Failure rate"
               icon={<AlertTriangle />}
               value={percent(d.kpis.failureRate.value)}

@@ -1,0 +1,15 @@
+{
+  "source": "Real local textile demo workspace; custom-date wrapping regression.",
+  "checks": [
+    {
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    }
+  ]
+}

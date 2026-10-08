@@ -43,6 +43,7 @@ export default function UsageAnalyticsPage() {
           <>
             <KpiGrid>
               <MetricCard
+                appearance="analytics"
                 label="Billable messages"
                 icon={<Send />}
                 value={count(d.kpis.billableMessages.value)}
@@ -50,6 +51,7 @@ export default function UsageAnalyticsPage() {
                 hint="Messages Meta charged for"
               />
               <MetricCard
+                appearance="analytics"
                 label="Message charges"
                 icon={<Receipt />}
                 value={money(d.kpis.chargeMinor.value)}
@@ -57,6 +59,7 @@ export default function UsageAnalyticsPage() {
                 hint="Debited from the wallet"
               />
               <MetricCard
+                appearance="analytics"
                 label="Promotional credits added"
                 icon={<Gift />}
                 value={money(d.kpis.promotionalCreditsMinor.value)}

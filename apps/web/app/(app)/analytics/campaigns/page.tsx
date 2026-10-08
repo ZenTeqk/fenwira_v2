@@ -107,6 +107,7 @@ export default function CampaignAnalyticsPage() {
         <>
           <KpiGrid>
             <MetricCard
+              appearance="analytics"
               label="Campaigns"
               icon={<Megaphone />}
               value={count(d.kpis.campaigns.value)}
@@ -114,6 +115,7 @@ export default function CampaignAnalyticsPage() {
               hint={`${count(d.kpis.skipped.value)} recipients excluded`}
             />
             <MetricCard
+              appearance="analytics"
               label="Recipients"
               icon={<Users />}
               value={count(d.kpis.recipients.value)}
@@ -121,6 +123,7 @@ export default function CampaignAnalyticsPage() {
               hint={`${count(d.kpis.sent.value)} sent · ${count(d.kpis.failed.value)} failed`}
             />
             <MetricCard
+              appearance="analytics"
               label="Delivery rate"
               icon={<CheckCheck />}
               value={percent(d.kpis.deliveryRate.value)}
@@ -128,6 +131,7 @@ export default function CampaignAnalyticsPage() {
               hint={rateHint(d.kpis.deliveryRate, 'sent messages delivered')}
             />
             <MetricCard
+              appearance="analytics"
               label="Read rate"
               icon={<Eye />}
               value={percent(d.kpis.readRate.value)}

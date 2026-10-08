@@ -3,6 +3,7 @@
 import { type AnalyticsMeta } from '@fenwira/contracts'
 import {
   Alert,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -12,6 +13,7 @@ import {
   FilterBar,
   Input,
   Label,
+  ModuleTabs,
   PageHeader,
   Select,
   SelectContent,
@@ -22,6 +24,10 @@ import {
 } from '@fenwira/ui'
 import { type UseQueryResult } from '@tanstack/react-query'
 import { BarChart3 } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useSession } from '@/components/session/session-provider'
+import { moduleTabs, visibleNavigation } from '@/lib/navigation'
 import { type ReactNode, useState } from 'react'
 import { ApiError } from '@/lib/api/client'
 import { type AnalyticsRange, shortDay } from '@/lib/analytics'
@@ -114,7 +120,7 @@ export function RangePicker({
 }
 
 /** Freshness, retention and partial-day notices, so "0" is never confused with "not available". */
-function Notices({ meta }: { meta: AnalyticsMeta }) {
+export function Notices({ meta }: { meta: AnalyticsMeta }) {
   const notes: ReactNode[] = []
   if (meta.freshness.status === 'DEGRADED')
     notes.push(
@@ -160,11 +166,24 @@ export function AnalyticsFrame<T extends { meta: AnalyticsMeta }>({
   children: (data: T) => ReactNode
 }) {
   const data = query.data
+  const pathname = usePathname()
+  const { membership } = useSession()
+  const { tabs } = moduleTabs(pathname, visibleNavigation(false, undefined, membership.permissions))
   return (
-    <div data-pattern="analytics" className="flex flex-col gap-6">
-      <PageHeader title={title} description={description} />
+    <div data-pattern="analytics" className="flex min-w-0 flex-col gap-4">
+      <PageHeader
+        title={title}
+        description={description}
+        className="[&>div>div]:max-w-full"
+        actions={<RangePicker range={range} onChange={onRangeChange} today={data?.meta.today} />}
+      />
+      <ModuleTabs
+        items={tabs}
+        label="Analytics pages"
+        linkAs={Link}
+        className="bg-transparent [&_ul]:px-0 [&_a[aria-current]]:text-primary-strong"
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <RangePicker range={range} onChange={onRangeChange} today={data?.meta.today} />
         {data ? (
           <p className="text-sm text-muted">
             {shortDay(data.meta.range.from)} – {shortDay(data.meta.range.to)}
@@ -183,7 +202,7 @@ export function AnalyticsFrame<T extends { meta: AnalyticsMeta }>({
             onRetry={() => void query.refetch()}
           />
         </Card>
-      ) : !data ? (
+      ) : !data || query.isPlaceholderData ? (
         <div
           className="flex flex-col gap-4"
           role="status"
@@ -207,6 +226,19 @@ export function AnalyticsFrame<T extends { meta: AnalyticsMeta }>({
         </Card>
       ) : (
         <>
+          {query.isError ? (
+            <Alert
+              tone="warning"
+              title="Latest figures couldn’t load"
+              action={
+                <Button variant="secondary" size="sm" onClick={() => void query.refetch()}>
+                  Try again
+                </Button>
+              }
+            >
+              Showing the last available figures for this range.
+            </Alert>
+          ) : null}
           <Notices meta={data.meta} />
           {children(data)}
         </>
@@ -220,22 +252,32 @@ export function Panel({
   title,
   description,
   children,
+  action,
 }: {
   title: string
   description?: ReactNode
+  action?: ReactNode
   children: ReactNode
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle as="h2">{title}</CardTitle>
+    <Card className="min-w-0">
+      <CardHeader className="p-4 pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle as="h2">{title}</CardTitle>
+          {action}
+        </div>
         {description ? <p className="text-sm text-muted">{description}</p> : null}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className="p-4 pt-0">{children}</CardContent>
     </Card>
   )
 }
 
 export const KpiGrid = ({ children }: { children: ReactNode }) => (
-  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{children}</div>
+  <section
+    aria-label="Key metrics"
+    className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 sm:[&>div+div]:border-l sm:[&>div+div]:border-border"
+  >
+    {children}
+  </section>
 )
