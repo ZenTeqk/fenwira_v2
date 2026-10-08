@@ -10,7 +10,10 @@ import {
 import {
   Alert,
   Button,
-  PageHeader,
+  BuilderPage,
+  ErrorState,
+  Modal,
+  ModalContent,
   Skeleton,
   StatusBadge,
   Tabs,
@@ -18,28 +21,20 @@ import {
   TabsList,
   TabsTrigger,
   toast,
+  useConfirm,
 } from '@fenwira/ui'
 import { useQueryClient } from '@tanstack/react-query'
-import { History, LayoutGrid, Pause, Play, Rocket } from 'lucide-react'
+import { History, LayoutGrid, Pause, Play, Rocket, Save, PanelLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, post, put } from '@/lib/api/client'
-import {
-  addNode,
-  autoLayout,
-  automationKey,
-  categoryOf,
-  NODE_LABEL,
-  PALETTE,
-  removeNode,
-  useDraft,
-  useFlow,
-} from '@/lib/automation'
+import { addNode, autoLayout, automationKey, removeNode, useDraft, useFlow } from '@/lib/automation'
 import { FlowCanvas } from './flow-canvas'
 import { FlowOutline } from './flow-outline'
 import { NodeInspector } from './node-inspector'
 import { ValidationPanel } from './validation-panel'
+import { NodeLibrary } from './node-library'
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'conflict' | 'error'
 const SAVE_LABEL: Record<SaveState, string> = {
@@ -56,11 +51,28 @@ const SERVER_CODES = new Set(['FLOW_REFERENCE_MISSING', 'FLOW_TEMPLATE_NOT_APPRO
 export function FlowBuilder({ flowId }: { flowId: string }) {
   const { tenantId, can } = useSession()
   const qc = useQueryClient()
+  const confirm = useConfirm()
+  const [wide, setWide] = useState(false)
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1280px)')
+    const update = () => setWide(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
   const flow = useFlow(flowId)
   const draft = useDraft(flowId)
   const editable = can('automations.write') && flow.data?.status !== 'ARCHIVED'
   const [graph, setGraph] = useState<DraftGraph | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const inspectorOpener = useRef<HTMLElement | null>(null)
+  function selectStep(id: string | null) {
+    if (id)
+      inspectorOpener.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setSelected(id)
+  }
   const [save, setSave] = useState<SaveState>('saved')
   const [serverIssues, setServerIssues] = useState<FlowIssue[]>([])
   const etag = useRef<string | null>(null)
@@ -134,6 +146,18 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
 
   const [publishing, setPublishing] = useState(false)
   async function publish() {
+    if (
+      !(await confirm({
+        title: 'Publish this automation?',
+        description: 'New matching events will use this version.',
+        impact: [
+          'The saved draft becomes the active published version.',
+          'Existing runs stay on the version they started with.',
+        ],
+        confirmLabel: 'Publish automation',
+      }))
+    )
+      return
     setPublishing(true)
     try {
       if (!(await flush())) return
@@ -178,6 +202,16 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
     setSelected(r.id)
   }
 
+  if (flow.isError || draft.isError)
+    return (
+      <ErrorState
+        title="This automation couldn’t be loaded"
+        onRetry={() => {
+          void flow.refetch()
+          void draft.refetch()
+        }}
+      />
+    )
   if (flow.isPending || draft.isPending || !graph)
     return (
       <div className="flex flex-col gap-4">
@@ -190,173 +224,225 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
   const node = graph.nodes.find((n) => n.id === selected) ?? null
   const hasTrigger = graph.nodes.some((n) => isTrigger(n.type))
 
+  const inspector = node ? (
+    <NodeInspector
+      key={node.id}
+      flowId={flowId}
+      node={node}
+      issues={issues.filter((i) => i.nodeId === node.id)}
+      readOnly={!editable}
+      onChange={(config) =>
+        change({
+          ...graph,
+          nodes: graph.nodes.map((n) => (n.id === node.id ? { ...n, config } : n)),
+        })
+      }
+      onDelete={() => {
+        change(removeNode(graph, node.id))
+        setSelected(null)
+      }}
+    />
+  ) : (
+    <div className="flex flex-col gap-2">
+      <h2 className="text-md font-semibold text-slate">Step settings</h2>
+      <p className="text-sm text-secondary">
+        {hasTrigger
+          ? 'Select a step on the canvas or outline to inspect its settings.'
+          : 'Choose a trigger from Add step to start your automation.'}
+      </p>
+    </div>
+  )
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeader
-        title={f.name}
-        breadcrumbs={[{ label: 'Automations', href: '/automations' }, { label: f.name }]}
-        linkAs={Link}
-        description={
-          <span className="inline-flex flex-wrap items-center gap-2">
-            <StatusBadge status={f.status} />
-            {f.activeVersion ? (
-              <span>Live version {f.activeVersion}</span>
-            ) : (
-              <span>Not published yet</span>
-            )}
-            <span aria-live="polite" className="text-sm">
-              · {SAVE_LABEL[save]}
+    <>
+      <BuilderPage
+        appearance="studio"
+        header={{
+          title: f.name,
+          breadcrumbs: [{ label: 'Automations', href: '/automations' }, { label: f.name }],
+          linkAs: Link,
+          description: (
+            <span className="flex flex-col gap-2">
+              {f.description ? <span>{f.description}</span> : null}
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <StatusBadge status={f.status} />
+                <span>
+                  {f.activeVersion ? `Live version ${f.activeVersion}` : 'Not published yet'}
+                </span>
+                <span aria-live="polite" className="text-sm">
+                  · {SAVE_LABEL[save]}
+                </span>
+                <span>
+                  · {f.executions.total.toLocaleString('en-IN')} total runs ·{' '}
+                  {f.executions.running.toLocaleString('en-IN')} running
+                </span>
+              </span>
             </span>
-          </span>
+          ),
+          actions: (
+            <>
+              {editable ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => void flush()}
+                  disabled={save !== 'dirty' && save !== 'error'}
+                  loading={save === 'saving'}
+                >
+                  <Save aria-hidden="true" />
+                  Save
+                </Button>
+              ) : null}
+              <Button variant="secondary" asChild>
+                <Link href={`/automations/${flowId}/history`}>
+                  <History aria-hidden="true" />
+                  History
+                </Link>
+              </Button>
+              {can('automations.publish') && f.status === 'ACTIVE' ? (
+                <Button variant="secondary" onClick={() => void setStatus('pause')}>
+                  <Pause aria-hidden="true" />
+                  Pause
+                </Button>
+              ) : null}
+              {can('automations.publish') && f.status === 'PAUSED' ? (
+                <Button variant="secondary" onClick={() => void setStatus('resume')}>
+                  <Play aria-hidden="true" />
+                  Resume
+                </Button>
+              ) : null}
+              {can('automations.publish') && editable ? (
+                <Button
+                  onClick={() => void publish()}
+                  loading={publishing}
+                  disabled={issues.length > 0}
+                >
+                  <Rocket aria-hidden="true" />
+                  Publish
+                </Button>
+              ) : null}
+            </>
+          ),
+        }}
+        banner={
+          save === 'conflict' ? (
+            <Alert
+              tone="warning"
+              title="This flow was changed somewhere else"
+              action={
+                <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
+                  Reload
+                </Button>
+              }
+            >
+              Your latest change wasn’t saved. Reload to see the current version.
+            </Alert>
+          ) : save === 'error' ? (
+            <Alert
+              tone="danger"
+              title="Changes couldn’t be saved"
+              action={
+                <Button variant="secondary" size="sm" onClick={() => void flush()}>
+                  Try again
+                </Button>
+              }
+            >
+              Your changes are still in this editor. Retry saving before leaving.
+            </Alert>
+          ) : undefined
         }
-        actions={
-          <>
-            <Button variant="secondary" asChild>
-              <Link href={`/automations/${flowId}/history`}>
-                <History aria-hidden="true" />
-                History
-              </Link>
-            </Button>
-            {can('automations.publish') && f.status === 'ACTIVE' ? (
-              <Button variant="secondary" onClick={() => void setStatus('pause')}>
-                <Pause aria-hidden="true" />
-                Pause
-              </Button>
-            ) : null}
-            {can('automations.publish') && f.status === 'PAUSED' ? (
-              <Button variant="secondary" onClick={() => void setStatus('resume')}>
-                <Play aria-hidden="true" />
-                Resume
-              </Button>
-            ) : null}
-            {can('automations.publish') && editable ? (
-              <Button
-                onClick={() => void publish()}
-                loading={publishing}
-                disabled={issues.length > 0}
-              >
-                <Rocket aria-hidden="true" />
-                Publish
-              </Button>
-            ) : null}
-          </>
+        palette={
+          editable ? (
+            <div className="hidden lg:block">
+              <NodeLibrary hasTrigger={hasTrigger} onAdd={add} />
+            </div>
+          ) : undefined
         }
-      />
-      {save === 'conflict' ? (
-        <Alert
-          tone="warning"
-          title="This flow was changed somewhere else"
-          action={
-            <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
-              Reload
-            </Button>
-          }
-        >
-          Your latest change wasn’t saved. Reload to see the current version.
-        </Alert>
-      ) : null}
-      <Tabs value={view} onValueChange={setView}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <TabsList aria-label="Builder view">
-            <TabsTrigger value="canvas">Canvas</TabsTrigger>
-            <TabsTrigger value="outline">Outline</TabsTrigger>
-          </TabsList>
-          {editable ? (
-            <Button variant="ghost" size="sm" onClick={() => change(autoLayout(graph))}>
-              <LayoutGrid aria-hidden="true" />
-              Tidy layout
-            </Button>
-          ) : null}
-        </div>
-        <div className="mt-3 flex flex-col gap-4 lg:flex-row">
-          {editable ? (
-            <nav aria-label="Add a step" className="hidden shrink-0 flex-col gap-3 md:flex lg:w-52">
-              {PALETTE.filter((g) => g.category !== 'trigger' || !hasTrigger).map((g) => (
-                <div key={g.title} className="flex flex-col gap-1">
-                  <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
-                    {g.title}
-                  </h2>
-                  {g.types.map((t) => (
-                    <Button
-                      key={t}
-                      variant="secondary"
-                      size="sm"
-                      className="justify-start"
-                      data-category={categoryOf(t)}
-                      onClick={() => add(t)}
-                    >
-                      {NODE_LABEL[t]}
-                    </Button>
-                  ))}
-                </div>
-              ))}
-            </nav>
-          ) : null}
-          <div className="min-w-0 flex-1">
-            <TabsContent value="canvas" className="h-160">
-              <div className="flex h-full flex-col items-center justify-center gap-3 rounded-md border border-border bg-surface p-6 text-center md:hidden">
-                <p className="text-base text-slate">The canvas needs a larger screen.</p>
-                <Button variant="secondary" onClick={() => setView('outline')}>
-                  Use the outline
+        inspector={wide ? inspector : undefined}
+      >
+        <Tabs value={view} onValueChange={setView}>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2">
+            <TabsList aria-label="Builder view" className="w-auto border-b-0">
+              <TabsTrigger value="canvas">Canvas</TabsTrigger>
+              <TabsTrigger value="outline">Outline</TabsTrigger>
+            </TabsList>
+            {editable ? (
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="lg:hidden"
+                  onClick={() => setLibraryOpen(true)}
+                >
+                  <PanelLeft aria-hidden="true" />
+                  Add step
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => change(autoLayout(graph))}>
+                  <LayoutGrid aria-hidden="true" />
+                  Tidy layout
                 </Button>
               </div>
-              <div className="hidden h-full md:block">
-                <FlowCanvas
-                  graph={graph}
-                  issues={issues}
-                  selectedId={selected}
-                  onSelect={setSelected}
-                  onChange={editable ? change : undefined}
-                  readOnly={!editable}
-                />
-              </div>
-            </TabsContent>
-            <TabsContent value="outline">
-              <FlowOutline
+            ) : null}
+          </div>
+          <TabsContent value="canvas" className="mt-0 h-160 xl:h-176">
+            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center md:hidden">
+              <p className="text-base text-slate">The canvas needs a larger screen.</p>
+              <Button variant="secondary" onClick={() => setView('outline')}>
+                Use the outline
+              </Button>
+            </div>
+            <div className="hidden h-full md:block">
+              <FlowCanvas
                 graph={graph}
                 issues={issues}
                 selectedId={selected}
-                onSelect={setSelected}
-                onChange={change}
+                onSelect={selectStep}
+                onChange={editable ? change : undefined}
                 readOnly={!editable}
               />
-            </TabsContent>
-            <div className="mt-4 rounded-md border border-border bg-surface p-4">
-              <ValidationPanel graph={graph} issues={issues} onSelect={setSelected} />
             </div>
-          </div>
-          <aside
-            aria-label="Step settings"
-            className="shrink-0 rounded-md border border-border bg-surface p-4 lg:w-80"
-          >
-            {node ? (
-              <NodeInspector
-                key={node.id}
-                flowId={flowId}
-                node={node}
-                issues={issues.filter((i) => i.nodeId === node.id)}
-                readOnly={!editable}
-                onChange={(config) =>
-                  change({
-                    ...graph,
-                    nodes: graph.nodes.map((n) => (n.id === node.id ? { ...n, config } : n)),
-                  })
-                }
-                onDelete={() => {
-                  change(removeNode(graph, node.id))
-                  setSelected(null)
-                }}
-              />
-            ) : (
-              <p className="text-sm text-muted">
-                {hasTrigger
-                  ? 'Select a step to change its settings.'
-                  : 'Start by choosing what triggers this automation.'}
-              </p>
-            )}
-          </aside>
+          </TabsContent>
+          <TabsContent value="outline" className="p-3">
+            <FlowOutline
+              graph={graph}
+              issues={issues}
+              selectedId={selected}
+              onSelect={selectStep}
+              onChange={change}
+              readOnly={!editable}
+            />
+          </TabsContent>
+        </Tabs>
+        <div className="border-t border-border bg-surface p-4">
+          <ValidationPanel graph={graph} issues={issues} onSelect={selectStep} />
         </div>
-      </Tabs>
-    </div>
+      </BuilderPage>
+      <Modal open={!wide && !!node} onOpenChange={(open) => !open && setSelected(null)}>
+        <ModalContent
+          title="Step settings"
+          description="Configure the selected automation step."
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            const opener = inspectorOpener.current
+            if (opener?.isConnected && opener !== document.body) opener.focus()
+            else
+              document
+                .querySelector<HTMLElement>('[aria-label="Builder view"] [aria-selected="true"]')
+                ?.focus()
+          }}
+        >
+          {inspector}
+        </ModalContent>
+      </Modal>
+      <Modal open={libraryOpen} onOpenChange={setLibraryOpen}>
+        <ModalContent title="Add a step" description="Choose a supported step for this flow.">
+          <NodeLibrary
+            hasTrigger={hasTrigger}
+            onAdd={(type) => {
+              add(type)
+              setLibraryOpen(false)
+            }}
+          />
+        </ModalContent>
+      </Modal>
+    </>
   )
 }

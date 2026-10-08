@@ -79,7 +79,9 @@ export function BuilderPage({
   footer,
   children,
   className,
+  appearance = 'default',
 }: {
+  appearance?: 'default' | 'studio'
   header: HeaderProps
   banner?: ReactNode
   palette?: ReactNode
@@ -93,14 +95,43 @@ export function BuilderPage({
     <div data-pattern="builder-page" className={cn('flex flex-col gap-4', className)}>
       <PageHeader {...header} />
       {banner}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        {palette ? <div className="shrink-0 lg:w-52">{palette}</div> : null}
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
+      <div
+        className={cn(
+          'flex min-w-0 flex-col lg:flex-row lg:items-start',
+          appearance === 'studio'
+            ? 'overflow-hidden rounded-lg border border-border bg-surface gap-0'
+            : 'gap-4',
+        )}
+      >
+        {palette ? (
+          <div
+            className={cn(
+              'shrink-0 lg:w-52',
+              appearance === 'studio' &&
+                'hidden lg:block border-b border-border p-3 lg:max-h-192 lg:overflow-y-auto lg:border-b-0 lg:border-r',
+            )}
+          >
+            {palette}
+          </div>
+        ) : null}
+        <div
+          className={cn(
+            'flex min-w-0 flex-1 flex-col gap-4',
+            appearance === 'studio' && 'bg-background',
+          )}
+        >
           {children}
           {footer}
         </div>
         {inspector ? (
-          <aside className="shrink-0 rounded-lg border border-border bg-surface p-4 lg:sticky lg:top-20 lg:w-80">
+          <aside
+            className={cn(
+              'shrink-0 bg-surface p-4 lg:w-80',
+              appearance === 'studio'
+                ? 'border-t border-border xl:max-h-192 xl:overflow-y-auto lg:border-t-0 lg:border-l'
+                : 'rounded-lg border border-border lg:sticky lg:top-20',
+            )}
+          >
             {inspector}
           </aside>
         ) : null}

@@ -132,7 +132,7 @@ Test: replay a recorded trigger against a fixture DB twice and assert identical 
 
 ### Builder colors
 
-Trigger `slate`, message `surface`, condition `warning`, action `info`. The selected node gets a `primary` ring. Idle edges are `slate-400` and active or highlighted edges are `primary` (from `DESIGN_SYSTEM.md`).
+Experience V2 uses white node surfaces with category identity in semantic icon containers: trigger neutral/slate, message primary, condition warning, action info (timed waits warning). Selected nodes use primary-strong borders/rings. Idle edges remain slate-400; replay edges use primary, with textual step statuses. See `docs/design/EXPERIENCE_V2_AUTOMATIONS_RECONSTRUCTION.md`. These are presentation changes; the node catalog and runtime remain unchanged.
 
 ## Implementation (Phase 10)
 
@@ -165,3 +165,8 @@ Module `apps/api/src/modules/automation` (API and worker sides, like campaigns);
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+
+### Experience V2 studio
+
+The shared BuilderPage studio appearance joins the searchable node library, warm canvas and selected-step settings. Below 1280px settings use a focus-trapped modal; below 768px the Outline is the initial view. The catalog, expressions, graph adapter, validation, optimistic If-Match autosave, published versions, history and replay are reused. An explicit Save flushes that same autosave path, and Publish confirms version impact. Message/template previews preserve unresolved expressions and use authorized template samples. Header counts are the existing all-time total/running values, not invented daily metrics. Draft-read errors now expose retry instead of an indefinite skeleton. No wait-for-reply/customer-replied node or test simulator is added. [Visual checkpoint](design/EXPERIENCE_V2_AUTOMATIONS_RECONSTRUCTION.md).

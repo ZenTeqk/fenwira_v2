@@ -72,8 +72,14 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   const contactsDirectory = pathname === '/contacts'
   const templatesLibrary = pathname === '/templates'
   const campaignsModule = pathname === '/campaigns' || pathname.startsWith('/campaigns/')
+  const automationsModule = pathname === '/automations' || pathname.startsWith('/automations/')
   const communicationShell =
-    home || fullBleed || contactsDirectory || templatesLibrary || campaignsModule
+    home ||
+    fullBleed ||
+    contactsDirectory ||
+    templatesLibrary ||
+    campaignsModule ||
+    automationsModule
   const { membership, tenantId, can } = useSession()
   const unread = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox-unread'),

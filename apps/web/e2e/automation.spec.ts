@@ -20,6 +20,7 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
   page,
 }) => {
   test.setTimeout(90_000)
+  await page.setViewportSize({ width: 1440, height: 1000 })
   const owner = await signInAsNewOwner(page, 'ui-auto')
   await page.goto('/automations')
   await expect(page.getByRole('heading', { name: 'Automations', level: 1 })).toBeVisible()
@@ -48,7 +49,11 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
   await expect(page.getByText('All changes saved')).toBeVisible()
   await expectNoViolations(page)
 
-  await page.getByRole('button', { name: 'Publish' }).click()
+  await page.getByRole('button', { name: 'Publish', exact: true }).click()
+  await page
+    .getByRole('alertdialog', { name: 'Publish this automation?' })
+    .getByRole('button', { name: 'Publish automation', exact: true })
+    .click()
   await expect(page.getByText('Published. New conversations use this version.')).toBeVisible()
   await expect(page.getByText('Live version 1')).toBeVisible()
 
@@ -72,6 +77,7 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
 })
 
 test('the outline builds and connects a flow with the keyboard only', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
   const owner = await signInAsNewOwner(page, 'ui-auto-kbd')
   const created = await page.request.post(`${API}/flows`, {
     data: { name: 'Keyboard flow' },

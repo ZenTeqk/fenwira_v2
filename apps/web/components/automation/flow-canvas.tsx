@@ -1,7 +1,13 @@
 'use client'
 
-import { type DraftGraph, type EdgeHandle, type FlowIssue, outputsOf } from '@fenwira/contracts'
-import { cn } from '@fenwira/ui'
+import {
+  type DraftGraph,
+  type EdgeHandle,
+  type FlowIssue,
+  outputsOf,
+  STEP_STATUSES,
+} from '@fenwira/contracts'
+import { cn, StatusBadge } from '@fenwira/ui'
 import {
   Background,
   type Connection,
@@ -9,6 +15,7 @@ import {
   type Edge,
   Handle,
   MiniMap,
+  MarkerType,
   type Node,
   type NodeChange,
   type NodeProps,
@@ -19,7 +26,8 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { AlertCircle } from 'lucide-react'
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
+import { NodeSymbol } from './node-presentation'
 import {
   categoryOf,
   connect,
@@ -38,45 +46,40 @@ type CardData = {
   stepStatus?: string
 }
 
-/** Category colors from docs/AUTOMATION_ENGINE.md → Builder colors. */
-const CATEGORY_STYLE = {
-  trigger: 'border-slate bg-slate text-surface',
-  message: 'border-border bg-surface text-slate',
-  condition: 'border-warning bg-warning-soft text-slate',
-  action: 'border-info bg-info-soft text-slate',
-} as const
-
 const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardData>>) {
   const { node, issues, traversed, stepStatus } = data
   const category = categoryOf(node.type)
   const outputs = outputsOf(node.type)
+  const replayStatus = STEP_STATUSES.find((status) => status === stepStatus)
   return (
     <div
       data-testid={`flow-node-${node.id}`}
       className={cn(
-        'w-60 rounded-md border-2 px-3 py-2 shadow-raised',
-        CATEGORY_STYLE[category],
-        selected && 'ring-2 ring-primary ring-offset-2',
-        traversed && 'ring-2 ring-primary',
+        'w-60 rounded-lg border border-border bg-surface px-3 py-3 text-slate shadow-raised',
+        selected && 'border-primary-strong ring-1 ring-primary-strong',
+        traversed && 'ring-2 ring-primary-strong',
         issues.length > 0 && 'border-danger',
       )}
     >
       {category !== 'trigger' ? (
         <Handle type="target" position={Position.Top} className="bg-slate-400!" />
       ) : null}
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold tracking-wide uppercase">{category}</p>
+      <div className="flex items-center gap-3">
+        <NodeSymbol type={node.type} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">{NODE_LABEL[node.type]}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-secondary">{summarize(node)}</p>
+        </div>
         {issues.length ? (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-danger-strong">
             <AlertCircle className="size-3.5" aria-hidden="true" />
             {issues.length}
           </span>
-        ) : stepStatus ? (
-          <span className="text-xs font-medium">{stepStatus}</span>
+        ) : replayStatus ? (
+          <StatusBadge status={replayStatus} />
         ) : null}
       </div>
-      <p className="font-semibold">{NODE_LABEL[node.type]}</p>
-      <p className="truncate text-sm">{summarize(node)}</p>
+
       <div className="mt-1 flex justify-around text-xs">
         {outputs.length > 1 ? outputs.map((h) => <span key={h}>{HANDLE_LABEL[h]}</span>) : null}
       </div>
@@ -116,11 +119,16 @@ function Canvas({
   traversed,
   readOnly,
 }: FlowCanvasProps) {
+  // Browser measurements stay local; they are not part of the persisted flow graph.
+  const [measurements, setMeasurements] = useState<
+    Record<string, { width: number; height: number }>
+  >({})
   const nodes: Array<Node<CardData>> = useMemo(
     () =>
       graph.nodes.map((n) => ({
         id: n.id,
         type: 'card',
+        measured: measurements[n.id],
         position: graph.layout[n.id] ?? { x: 0, y: 0 },
         selected: n.id === selectedId,
         data: {
@@ -131,7 +139,7 @@ function Canvas({
         },
         deletable: !readOnly,
       })),
-    [graph, issues, selectedId, traversed, readOnly],
+    [graph, issues, selectedId, traversed, readOnly, measurements],
   )
   const edges: Edge[] = useMemo(
     () =>
@@ -142,6 +150,8 @@ function Canvas({
           source: e.source,
           target: e.target,
           sourceHandle: e.sourceHandle,
+          type: 'smoothstep',
+          markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-slate-400)' },
           label: e.sourceHandle === 'next' ? undefined : HANDLE_LABEL[e.sourceHandle],
           className: hot ? 'fw-edge-active' : undefined,
           animated: !!hot,
@@ -152,6 +162,18 @@ function Canvas({
 
   const onNodesChange = useCallback(
     (changes: Array<NodeChange<Node<CardData>>>) => {
+      const resized = changes.filter((c) => c.type === 'dimensions' && c.dimensions)
+      if (resized.length)
+        setMeasurements((previous) => {
+          let next = previous
+          for (const c of resized) {
+            if (c.type !== 'dimensions' || !c.dimensions) continue
+            const old = previous[c.id]
+            if (old?.width !== c.dimensions.width || old?.height !== c.dimensions.height)
+              next = { ...next, [c.id]: c.dimensions }
+          }
+          return next
+        })
       if (readOnly || !onChange) return
       let next = graph
       for (const c of changes) {
@@ -204,13 +226,19 @@ function Canvas({
       elementsSelectable
       deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
       fitView
-      fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+      fitViewOptions={{ padding: 0.12, maxZoom: 1 }}
       proOptions={{ hideAttribution: true }}
       aria-label="Flow canvas"
     >
       <Background gap={20} />
       <Controls showInteractive={false} />
-      <MiniMap pannable zoomable ariaLabel="Flow overview" />
+      <MiniMap
+        pannable
+        zoomable
+        ariaLabel="Flow overview"
+        nodeColor="var(--color-border-strong)"
+        nodeStrokeColor="var(--color-secondary)"
+      />
     </ReactFlow>
   )
 }
@@ -218,7 +246,7 @@ function Canvas({
 /** The React Flow canvas. React Flow state is converted to and from FlowGraph at this boundary. */
 export function FlowCanvas(props: FlowCanvasProps) {
   return (
-    <div className="fw-flow h-full min-h-96 w-full rounded-md border border-border bg-background">
+    <div className="fw-flow h-full min-h-96 w-full bg-background">
       <ReactFlowProvider>
         <Canvas {...props} />
       </ReactFlowProvider>

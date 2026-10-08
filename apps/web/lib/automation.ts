@@ -314,15 +314,15 @@ export function addNode(
 /** Top-to-bottom auto layout (dagre). Only `layout` changes. */
 export function autoLayout(g: DraftGraph): DraftGraph {
   const d = new dagre.graphlib.Graph()
-  d.setGraph({ rankdir: 'TB', nodesep: 60, ranksep: 70 })
+  d.setGraph({ rankdir: 'TB', nodesep: 60, ranksep: 40 })
   d.setDefaultEdgeLabel(() => ({}))
-  for (const n of g.nodes) d.setNode(n.id, { width: 240, height: 84 })
+  for (const n of g.nodes) d.setNode(n.id, { width: 240, height: 112 })
   for (const e of g.edges) d.setEdge(e.source, e.target)
   dagre.layout(d)
   const layout: DraftGraph['layout'] = {}
   for (const n of g.nodes) {
     const p = d.node(n.id)
-    layout[n.id] = { x: Math.round(p.x - 120), y: Math.round(p.y - 42) }
+    layout[n.id] = { x: Math.round(p.x - 120), y: Math.round(p.y - 56) }
   }
   return { ...g, layout }
 }

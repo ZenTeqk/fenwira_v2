@@ -2,7 +2,6 @@
 
 import {
   type FlowIssue,
-  isTrigger,
   type Member,
   OPERATORS,
   requiredVariables,
@@ -33,7 +32,9 @@ import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, post } from '@/lib/api/client'
 import { automationKey, type DraftNode, EXPRESSION_PATHS, NODE_LABEL } from '@/lib/automation'
 import { useProperties, useTags } from '@/lib/contacts'
-import { useApprovedTemplates } from '@/lib/templates'
+import { useApprovedTemplates, useTemplateSampleUrl } from '@/lib/templates'
+import { TemplatePreview } from '@/components/templates/template-preview'
+import { NODE_HINT, NodeSymbol } from './node-presentation'
 
 type Config = Record<string, unknown>
 type Props = {
@@ -81,6 +82,7 @@ function TextWithValues(props: {
       <Field label={props.label} hint={props.hint}>
         <Control
           value={props.value}
+          className={props.multiline ? 'min-h-40' : undefined}
           readOnly={props.readOnly}
           onChange={(e: { target: { value: string } }) => props.onChange(e.target.value)}
         />
@@ -244,6 +246,11 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
   const set = (patch: Config) => onChange({ ...c, ...patch })
   const properties = useProperties()
   const templates = useApprovedTemplates(undefined, node.type === 'action.send_template')
+  const chosenTemplate = templates.data?.find((t) => t.templateId === c.templateId)
+  const header = chosenTemplate?.components.header
+  const sample = useTemplateSampleUrl(
+    header && header.format !== 'TEXT' ? header.sampleFileId : null,
+  )
   const members = useQuery({
     queryKey: automationKey(tenantId, 'members'),
     queryFn: () => get<{ data: Member[] }>('/team/members').then((r) => r.data),
@@ -708,9 +715,12 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
   return (
     <section aria-labelledby="inspector-title" className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-2">
-        <h2 id="inspector-title" className="text-lg font-semibold text-slate">
-          {NODE_LABEL[node.type]}
-        </h2>
+        <div className="flex min-w-0 items-center gap-3">
+          <NodeSymbol type={node.type} />
+          <h2 id="inspector-title" className="text-md font-semibold text-slate">
+            {NODE_LABEL[node.type]}
+          </h2>
+        </div>
         {readOnly ? null : (
           <Button
             variant="ghost"
@@ -732,8 +742,42 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
           </ul>
         </Alert>
       ) : null}
-      {isTrigger(node.type) ? <p className="text-sm text-muted">Starts the automation.</p> : null}
+      <p className="text-sm text-secondary">{NODE_HINT[node.type]}</p>
       {form}
+      {node.type === 'action.send_message' && typeof c.text === 'string' && c.text ? (
+        <section
+          aria-label="Message preview"
+          className="flex flex-col gap-3 border-t border-border pt-4"
+        >
+          <h3 className="text-sm font-semibold text-slate">Preview</h3>
+          <TemplatePreview
+            recipient
+            components={{ body: { text: c.text }, buttons: [] }}
+            samples={{ body: [] }}
+          />
+          <p className="text-xs text-secondary">
+            Expression markers are replaced with actual contact or event values when this step runs.
+          </p>
+        </section>
+      ) : null}
+      {node.type === 'action.send_template' && chosenTemplate ? (
+        <section
+          aria-label="Template preview"
+          className="flex flex-col gap-3 border-t border-border pt-4"
+        >
+          <h3 className="text-sm font-semibold text-slate">Preview</h3>
+          <TemplatePreview
+            recipient
+            components={chosenTemplate.components}
+            samples={(c.variables as { body: string[]; header?: string[] }) ?? { body: [] }}
+            headerImageUrl={sample.data}
+          />
+          <p className="text-xs text-secondary">
+            The approved template version is resolved when this step runs. Expressions use actual
+            event values.
+          </p>
+        </section>
+      ) : null}
     </section>
   )
 }

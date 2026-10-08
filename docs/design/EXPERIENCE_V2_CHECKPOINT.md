@@ -74,3 +74,7 @@ The user approved this foundation checkpoint and authorized Contacts → Templat
 ## Foundation visual-fidelity correction — 2026-10-07
 
 The user identified flat, overly uniform visual treatments and authorized a focused App Shell/Home/Inbox polish pass. Preserve the established page compositions and domain behavior. New semantic communication surfaces and opt-in avatar/timeline/message-status appearances restore purposeful color and hierarchy; other module defaults stay unchanged. The [correction report](EXPERIENCE_V2_VISUAL_FIDELITY.md) records the reference comparison, validation and separate before/after review evidence. **Visual approval remains pending; stop after this correction.**
+
+## 8 October 2026 — Campaigns approval and Automations checkpoint
+
+The user approved the graphical View campaign report (`a586a6b`) and authorized the next module. Automations now follows the supplied light studio reference with a searchable library, white icon-led nodes, contextual settings and actual flow counters. The existing runtime, node catalog, validation/versioning, autosave and execution history remain unchanged. [Automations report](EXPERIENCE_V2_AUTOMATIONS_RECONSTRUCTION.md) and its evidence record the concrete validation. This is ready for visual review, not approval to start Analytics or declare Phase 11 closure.
