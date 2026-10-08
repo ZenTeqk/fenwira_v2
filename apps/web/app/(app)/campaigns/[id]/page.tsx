@@ -4,12 +4,10 @@ import { type CampaignRecipient, RECIPIENT_STATUSES } from '@fenwira/contracts'
 import {
   Alert,
   Button,
-  Card,
-  CardContent,
   type ColumnDef,
   DataTable,
+  DetailPage,
   ErrorState,
-  MetricCard,
   PageHeader,
   PermissionState,
   Select,
@@ -26,7 +24,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useId, useState } from 'react'
-import { TemplatePreview } from '@/components/templates/template-preview'
+import { CampaignPerformance } from '@/components/campaigns/campaign-performance'
+import { CampaignContext } from '@/components/campaigns/campaign-context'
+import { CampaignMessagePreview } from '@/components/campaigns/campaign-message-preview'
 import { CampaignWizard } from '@/components/campaigns/campaign-wizard'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, post } from '@/lib/api/client'
@@ -35,7 +35,6 @@ import {
   campaignsKey,
   formatInZone,
   PAUSE_LABEL,
-  percent,
   skipLabel,
   useCampaign,
   useCampaignStats,
@@ -189,15 +188,16 @@ export default function CampaignPage() {
   const s = stats.data
   const control = can('campaigns.launch')
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={c.name}
-        description={`${c.template?.name ?? 'No template'} · ${c.phoneNumberDisplay ?? ''}`}
-        breadcrumbs={[{ label: 'Campaigns', href: '/campaigns' }, { label: c.name }]}
-        linkAs={Link}
-        actions={
+    <DetailPage
+      className="gap-4"
+      header={{
+        title: c.name,
+        description: `${c.template?.name ?? 'No template'} · ${c.phoneNumberDisplay ?? ''}`,
+        breadcrumbs: [{ label: 'Campaigns', href: '/campaigns' }, { label: c.name }],
+        linkAs: Link,
+        actions: (
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge status={c.status} />
+            <StatusBadge status={c.status} context="campaign" />
             {control && (c.status === 'RUNNING' || c.status === 'PREPARING') ? (
               <Button
                 variant="secondary"
@@ -253,8 +253,9 @@ export default function CampaignPage() {
               </Button>
             ) : null}
           </div>
-        }
-      />
+        ),
+      }}
+    >
       {c.status === 'PAUSED_INSUFFICIENT_FUNDS' ? (
         <Alert
           tone="danger"
@@ -295,63 +296,24 @@ export default function CampaignPage() {
         </Alert>
       ) : null}
 
-      {c.template ? (
-        <Card>
-          <CardContent className="grid gap-5 p-5 md:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <h2 className="text-md font-semibold">Campaign message</h2>
-              <p className="text-sm text-secondary">
-                {c.template.name} · {c.template.language}
-              </p>
-              <p className="text-sm text-muted">
-                The version frozen at launch. Recipient values appear in the recipient report.
-              </p>
-            </div>
-            <TemplatePreview components={c.template.components} samples={{ body: [] }} compact />
-          </CardContent>
-        </Card>
-      ) : null}
+      <div className="grid items-start gap-4 xl:grid-cols-3">
+        <div className="min-w-0 xl:col-span-2">
+          {s ? (
+            <CampaignPerformance campaign={c} stats={s} />
+          ) : stats.isError ? (
+            <ErrorState
+              title="Campaign results couldn’t be loaded"
+              onRetry={() => void stats.refetch()}
+            />
+          ) : (
+            <Skeleton className="h-64" />
+          )}
+        </div>
+        <CampaignMessagePreview campaign={c} />
+      </div>
+      <CampaignContext campaign={c} />
       {s ? (
         <>
-          <section aria-label="Campaign results" className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <MetricCard label="Sent" value={s.sent.toLocaleString('en-IN')} />
-            <MetricCard label="Delivered" value={s.delivered.toLocaleString('en-IN')} />
-            <MetricCard label="Read" value={s.read.toLocaleString('en-IN')} />
-            <MetricCard label="Failed" value={s.failed.toLocaleString('en-IN')} />
-          </section>
-          <dl className="flex flex-wrap gap-6 rounded-lg border border-border bg-surface p-4 text-base text-slate">
-            {[
-              ['Total recipients', s.total],
-              ['Eligible', s.eligible],
-              ['Skipped', s.skipped],
-              ['Waiting', s.pending + s.queued],
-            ].map(([label, count]) => (
-              <div key={label}>
-                <dt className="text-sm text-muted">{label}</dt>
-                <dd className="font-semibold">{Number(count).toLocaleString('en-IN')}</dd>
-              </div>
-            ))}
-            <div>
-              <dt className="text-sm text-muted">Delivery rate</dt>
-              <dd className="font-semibold">{percent(s.deliveryRate)}</dd>
-            </div>
-            <div>
-              <dt className="text-sm text-muted">Read rate</dt>
-              <dd className="font-semibold">{percent(s.readRate)}</dd>
-            </div>
-            <div>
-              <dt className="text-sm text-muted">Failure rate</dt>
-              <dd className="font-semibold">{percent(s.failureRate)}</dd>
-            </div>
-            {s.durationSeconds !== null ? (
-              <div>
-                <dt className="text-sm text-muted">Duration</dt>
-                <dd className="font-semibold">
-                  {Math.max(1, Math.round(s.durationSeconds / 60))} min
-                </dd>
-              </div>
-            ) : null}
-          </dl>
           {Object.keys(s.skipReasons).length || Object.keys(s.failureCodes).length ? (
             <div className="grid gap-4 md:grid-cols-2">
               {Object.keys(s.skipReasons).length ? (
@@ -385,14 +347,7 @@ export default function CampaignPage() {
             </div>
           ) : null}
         </>
-      ) : stats.isError ? (
-        <ErrorState
-          title="Campaign results couldn’t be loaded"
-          onRetry={() => void stats.refetch()}
-        />
-      ) : (
-        <Skeleton className="h-32" />
-      )}
+      ) : null}
 
       {can('contacts.export') ? (
         <Button
@@ -405,6 +360,6 @@ export default function CampaignPage() {
         </Button>
       ) : null}
       <Recipients id={id} live={live} timezone={c.timezone} />
-    </div>
+    </DetailPage>
   )
 }

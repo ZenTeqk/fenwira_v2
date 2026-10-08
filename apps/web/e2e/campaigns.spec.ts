@@ -114,7 +114,17 @@ test('create a campaign, review it, launch it and watch the results', async ({ p
   const readCard = results.locator('[data-slot="metric-card"]').filter({ hasText: /^Read/ })
   await expect(readCard).toContainText('2', { timeout: 30_000 })
   await expect(page.getByRole('table', { name: 'Recipients' })).toContainText('Asha Rao')
-  await expect(page.getByText('Delivery rate')).toBeVisible()
+  await expect(page.getByText('Delivery rate', { exact: true })).toBeVisible()
+  for (const stage of ['Sent', 'Delivered', 'Read']) {
+    const progress = page.getByRole('progressbar', { name: `${stage} reach of eligible audience` })
+    await expect(progress).toHaveAttribute('value', '2')
+    await expect(progress).toHaveAttribute('max', '2')
+  }
+  await expect(page.getByRole('region', { name: 'Campaign milestones' })).toContainText(
+    'Campaign completed',
+  )
+  await expect(page.getByText('Read messages are already included', { exact: false })).toBeVisible()
+  await expect(page.getByRole('figure', { name: 'Message preview' })).toContainText('Hi {{1}}')
   await axe(page)
 
   // Home uses the same cumulative domain counters: read messages are already included in sent.
