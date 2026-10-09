@@ -99,6 +99,9 @@ test('Analytics reconstruction: populated overview, responsive layout, range and
       ).violations,
     ).toEqual([])
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    // A wider panel must not scale up the graph or its SVG labels.
+    const graph = page.getByRole('img', { name: /^Messages per day/ })
+    await expect.poll(async () => (await graph.boundingBox())?.height).toBeCloseTo(160, 0)
     await page.screenshot({ path: info.outputPath(`overview-${width}.png`), fullPage: true })
   }
   await page.getByRole('button', { name: 'Show as table' }).focus()

@@ -38,13 +38,7 @@ export const PAUSE_LABEL: Record<string, string> = {
     'The workspace’s trial or subscription has ended. Resume after a plan is active again.',
 }
 
-export const FIELD_LABEL = {
-  firstName: 'First name',
-  name: 'Full name',
-  phone: 'Phone number',
-  email: 'Email',
-  country: 'Country',
-} as const
+export { FIELD_LABEL } from './campaign-presentation'
 
 export function useCampaigns() {
   const { tenantId, can } = useSession()

@@ -36,6 +36,7 @@ import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { SOURCE_LABEL } from '@/lib/contacts'
 import { relativeTime } from '@/lib/relative-time'
+import { formatPhone } from '@/lib/phone'
 import { DirectoryEligibility } from './eligibility-summary'
 import { TagBadges } from './tag-badges'
 
@@ -157,7 +158,9 @@ export function ContactDirectory({
         >
           <span className="flex min-w-0 flex-col items-start">
             <span className="truncate">{contactName(c)}</span>
-            {mobile ? <span className="text-xs font-normal text-muted">{c.phoneE164}</span> : null}
+            {mobile ? (
+              <span className="text-xs font-normal text-muted">{formatPhone(c.phoneE164)}</span>
+            ) : null}
           </span>
         </Button>
         {!mobile ? (
@@ -305,7 +308,7 @@ export function ContactDirectory({
                         columnClass('phone'),
                       )}
                     >
-                      {c.phoneE164}
+                      {formatPhone(c.phoneE164)}
                     </TableCell>
                     <TableCell className={cn('max-w-28 px-2 py-2', columnClass('tags'))}>
                       <TagBadges tags={c.tags} max={1} />
@@ -322,7 +325,9 @@ export function ContactDirectory({
                         '—'
                       )}
                     </TableCell>
-                    <TableCell className={cn('max-w-24 px-2 py-2', columnClass('assigned'))}>
+                    <TableCell
+                      className={cn('min-w-28 max-w-36 px-2 py-2', columnClass('assigned'))}
+                    >
                       <ContactOwner ownerId={c.ownerId} />
                     </TableCell>
                     <TableCell className="px-1 py-2">{actions(c)}</TableCell>

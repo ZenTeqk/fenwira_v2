@@ -14,3 +14,5 @@ export * from './webhooks'
 export * from './subscriptions'
 
 export * from './platform'
+
+export * from './native-connectors'

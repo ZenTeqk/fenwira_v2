@@ -205,3 +205,13 @@ Automations and its phone preview were approved, authorizing Analytics next. Ana
 ## Integrations reconstruction checkpoint
 
 After Analytics approval, `/integrations` presents a supported overview: actual WhatsApp connection summaries, paired API/Webhooks entry cards and a configured endpoint table. Existing management routes/forms remain authoritative. Overview is permission-filtered; disabled queries must not appear as loading. Meta webhook subscription and outbound endpoint configuration are distinct from delivery health. Query parameters are omitted from overview destinations; secrets remain in their existing one-time management dialogs. No native third-party connector grid or invented request/delivery metrics. [Mapping and review](EXPERIENCE_V2_INTEGRATIONS_RECONSTRUCTION.md). Stop for visual review before Billing/Settings.
+
+### Compact module density — 8 October 2026
+
+The user requested smaller Templates, Campaigns, Automations, Analytics and Integrations. These modules use 20px page headings, 13px descriptions, compact summary icons/artwork and tighter vertical padding. Analytics joined metrics use 20px values and 32px icon surfaces. Charts measure container width, keeping SVG labels and explicit chart height stable as a panel widens instead of magnifying the entire graph. Automation canvas height is 480px/544px at desktop breakpoints; its outline and side inspectors remain available. Long lists/content may scroll; do not shrink body text or apply CSS zoom/scale to force all data into one viewport. Existing mobile touch controls and keyboard/focus behavior remain.
+
+The native application grid contains the four requested providers with real configuration/connection state, short setup dialogs and explicit export/disconnect impact. OAuth apps awaiting operator configuration are disabled with a setup explanation. Secrets never become decorative connection-card content.
+
+## Billing wallet reconstruction checkpoint
+
+The next checkpoint follows reference 10 using a compact available-balance and ledger column, read-only current subscription context and configured manual-funding support. `/billing/wallet` owns its Billing heading and contextual page links under the approved 224px shell. Effective features come from the entitlement response; ledger promotional identity does not imply independently available fund buckets. Unsupported forecasts, sample prices and tax/payment controls stay absent. The Usage alias reaches the existing customer-charge analytics view. [Mapping and validation](EXPERIENCE_V2_BILLING_RECONSTRUCTION.md). Stop for visual review before Settings.

@@ -42,9 +42,14 @@ export class ImportProcessor implements QueueProcessor<ImportJobData> {
   }
 
   async process(job: Job<ImportJobData>): Promise<string> {
-    const { tenantId, importJobId } = job.data
+    // Connector preparation reaches the same analyzer through the transactional outbox.
+    const event = job.data as unknown as { tenantId: string; payload?: { importJobId: string } }
+    const { tenantId, importJobId } = event.payload
+      ? { tenantId: event.tenantId, importJobId: event.payload.importJobId }
+      : job.data
     try {
-      if (job.name === IMPORT_STEPS.analyze) return await this.analyze(tenantId, importJobId)
+      if (job.name === IMPORT_STEPS.analyze || job.name === 'contacts.import_prepared')
+        return await this.analyze(tenantId, importJobId)
       if (job.name === IMPORT_STEPS.validate) return await this.validate(tenantId, importJobId)
       return await this.run(tenantId, importJobId)
     } catch (err) {

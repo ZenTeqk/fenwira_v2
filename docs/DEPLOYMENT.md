@@ -4,6 +4,8 @@
 
 The Docker Compose topology (the only deployment target in v2), images, environment variables, ports, volumes, migrations, the development and test variants, local Meta webhook tunnelling, backup and restore, and the later path to production (described only; nothing is built for it).
 
+The user-requested [AWS deployment without Docker](AWS_NON_DOCKER_DEPLOYMENT.md) describes EC2/systemd and managed-service configuration against current code, including compatibility gates. It is a preparation guide, not a provisioned or verified AWS deployment. Existing Compose acceptance evidence is unchanged.
+
 ## Decisions
 
 Docker Compose is the current deployment target (decision DP1). The production AWS architecture is finalized during production-readiness/migration work, and nothing in the code depends on Compose beyond environment variables.

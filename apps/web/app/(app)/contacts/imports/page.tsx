@@ -391,6 +391,10 @@ function ImportWizard({
 export default function ImportsPage() {
   const { tenantId, can } = useSession()
   const [wizard, setWizard] = useState<{ id: string | null } | null>(null)
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get('job')
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) setWizard({ id })
+  }, [])
   const imports = useQuery({
     queryKey: keys.tenant(tenantId, 'imports'),
     queryFn: () => get<{ data: ImportJob[] }>('/imports').then((r) => r.data),

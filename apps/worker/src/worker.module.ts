@@ -55,6 +55,11 @@ import {
   WebhooksMaintenanceProcessor,
   WebhooksModule,
 } from '@fenwira/api/modules/webhooks'
+import {
+  NativeModule,
+  NativeProcessor,
+  nativeOptions,
+} from '@fenwira/api/modules/native-connectors'
 import { parseKeyRing, type WorkerEnv } from '@fenwira/config'
 import { type DynamicModule, Module } from '@nestjs/common'
 import { ProcessorsHealthIndicator } from './processors.health'
@@ -149,6 +154,7 @@ export class WorkerModule {
     })
     const runtime = WorkerRuntimeModule.forRoot({
       imports: [
+        NativeModule.forWorker(nativeOptions(env, keyRing)),
         platform,
         identity,
         tenancy,
@@ -168,6 +174,7 @@ export class WorkerModule {
         ...PLATFORM_PROCESSORS,
         IdentityProcessor,
         TenancyProcessor,
+        NativeProcessor,
         WhatsAppSyncProcessor,
         ...MESSAGING_PROCESSORS,
         ...CONTACTS_PROCESSORS,

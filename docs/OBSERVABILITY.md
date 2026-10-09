@@ -130,3 +130,7 @@ Access to >25 distinct workspace IDs per operator in 5m raises one structured wa
 ## Phase 11 closure verification
 
 [Phase 11 closure evidence](plans/PHASE_11_CLOSURE.md) records wallet/usage reconciliation, concurrent trial-notice deduplication, failure logging/redaction and remaining CI/startup blockers. Closure does not deploy monitoring or change enforcement flags.
+
+### Native connectors
+
+The native.transfer queue uses the existing worker runtime's job/failure metrics and correlation/tenant context. Audit lifecycle events cover authorization start/failure, connect/disconnect, transfer request/retry/completion/failure and prepared contact import. Failed work has a sanitized receipt error classification and can be inspected/retried from the connection view. No provider response bodies, tokens, callback codes, contact payloads or credentials are logged or placed in outbox/audit payloads. Live provider acceptance remains separate from mock test results.

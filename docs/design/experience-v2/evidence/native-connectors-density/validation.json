@@ -1,0 +1,147 @@
+{
+  "capturedAt": "2026-10-08T14:00:57.019Z",
+  "workspace": "Fenwira Textiles — Local Demo",
+  "data": "Existing simulated local records; no native provider credentials configured",
+  "checks": [
+    {
+      "name": "templates",
+      "width": 1440,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "templates",
+      "width": 1024,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "templates",
+      "width": 768,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "templates",
+      "width": 375,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "campaigns",
+      "width": 1440,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "campaigns",
+      "width": 1024,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "campaigns",
+      "width": 768,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "campaigns",
+      "width": 375,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "automation",
+      "width": 1440,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "automation",
+      "width": 1024,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "automation",
+      "width": 768,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "automation",
+      "width": 375,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "analytics",
+      "width": 1440,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "analytics",
+      "width": 1024,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "analytics",
+      "width": 768,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "analytics",
+      "width": 375,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "integrations",
+      "width": 1440,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "integrations",
+      "width": 1024,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "integrations",
+      "width": 768,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    },
+    {
+      "name": "integrations",
+      "width": 375,
+      "overflow": 0,
+      "headingPx": "20px",
+      "violations": []
+    }
+  ]
+}

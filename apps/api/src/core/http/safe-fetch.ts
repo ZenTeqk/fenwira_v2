@@ -40,7 +40,7 @@ export type SafeFetchPolicy = {
 }
 
 export type SafeRequest = {
-  method: 'GET' | 'POST'
+  method: 'GET' | 'POST' | 'PUT'
   url: string
   headers?: Record<string, string>
   body?: string
@@ -224,7 +224,7 @@ export async function safeFetch(
     if (!HOP_BY_HOP.has(k.toLowerCase())) headers[k] = v
 
   let method = req.method
-  let body = req.method === 'POST' ? (req.body ?? '') : undefined
+  let body = req.method === 'POST' || req.method === 'PUT' ? (req.body ?? '') : undefined
   let current = req.url
   for (let hop = 0; ; hop++) {
     const target = await validateDestination(current, policy)

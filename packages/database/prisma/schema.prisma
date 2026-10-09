@@ -190,29 +190,32 @@ model SecurityEvent {
 /// Tenant root ("Workspace" in the UI). Custom RLS: visible when bound or when the current user is
 /// an ACTIVE member (post-migrate.sql → tenant_root).
 model Tenant {
+  nativeConnections        NativeConnection[]
+  nativeOauthChallenges    NativeOauthChallenge[]
+  nativeTransfers          NativeTransfer[]
   commercialOperations     CommercialOperation[]
-  id                       String                @id @default(uuid(7)) @db.Uuid
+  id                       String                 @id @default(uuid(7)) @db.Uuid
   name                     String
-  slug                     String                @unique @db.Citext
-  defaultCountry           String                @default("IN") @map("default_country") @db.Char(2)
-  timezone                 String                @default("Asia/Kolkata")
-  currency                 String                @default("INR") @db.Char(3)
-  require2fa               Boolean               @default(false) @map("require_2fa")
+  slug                     String                 @unique @db.Citext
+  defaultCountry           String                 @default("IN") @map("default_country") @db.Char(2)
+  timezone                 String                 @default("Asia/Kolkata")
+  currency                 String                 @default("INR") @db.Char(3)
+  require2fa               Boolean                @default(false) @map("require_2fa")
   /// Whole-message keywords that revoke / grant MARKETING consent (case-insensitive).
-  optOutKeywords           String[]              @default(["STOP", "UNSUBSCRIBE", "CANCEL", "STOP ALL", "OPT OUT"]) @map("opt_out_keywords")
-  optInKeywords            String[]              @default(["START", "SUBSCRIBE", "OPT IN"]) @map("opt_in_keywords")
+  optOutKeywords           String[]               @default(["STOP", "UNSUBSCRIBE", "CANCEL", "STOP ALL", "OPT OUT"]) @map("opt_out_keywords")
+  optInKeywords            String[]               @default(["START", "SUBSCRIBE", "OPT IN"]) @map("opt_in_keywords")
   /// Reply after an opt-out (a SERVICE message). Empty = no reply.
-  optOutReply              String?               @default("You're unsubscribed from marketing messages. Reply START to subscribe again.") @map("opt_out_reply")
-  autoAssign               AutoAssignMode        @default(OFF) @map("auto_assign")
-  inboxVisibility          InboxVisibility       @default(ALL) @map("inbox_visibility")
+  optOutReply              String?                @default("You're unsubscribed from marketing messages. Reply START to subscribe again.") @map("opt_out_reply")
+  autoAssign               AutoAssignMode         @default(OFF) @map("auto_assign")
+  inboxVisibility          InboxVisibility        @default(ALL) @map("inbox_visibility")
   /// Return AGENT_TAKEOVER to automation after N idle hours on a resolved conversation (null = never).
-  takeoverAutoReleaseHours Int?                  @map("takeover_auto_release_hours")
+  takeoverAutoReleaseHours Int?                   @map("takeover_auto_release_hours")
   /// P9-D1: FREE (never enforced), TRIAL (trial credits, enforced), PREPAID (enforced). Set by operators.
-  billingMode              BillingMode           @default(TRIAL) @map("billing_mode")
-  ownerUserId              String                @map("owner_user_id") @db.Uuid
-  createdAt                DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt                DateTime?             @map("deleted_at") @db.Timestamptz(3)
+  billingMode              BillingMode            @default(TRIAL) @map("billing_mode")
+  ownerUserId              String                 @map("owner_user_id") @db.Uuid
+  createdAt                DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt                DateTime?              @map("deleted_at") @db.Timestamptz(3)
 
   owner                    User                           @relation("TenantOwner", fields: [ownerUserId], references: [id])
   memberships              Membership[]
@@ -2271,4 +2274,71 @@ model CommercialOperation {
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, createdAt(sort: Desc), id])
   @@map("commercial_operations")
+}
+
+/// Native connector credentials never appear in public DTOs.
+model NativeConnection {
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transfers        NativeTransfer[]
+  id               String           @id @default(uuid(7)) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  provider         String
+  label            String
+  site             String?
+  region           String           @default("com")
+  secretCiphertext Bytes?           @map("secret_ciphertext")
+  status           String           @default("ACTIVE")
+  revision         Int              @default(0)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, createdAt])
+  @@map("native_connections")
+}
+
+model NativeOauthChallenge {
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  stateHash          Bytes     @unique @map("state_hash")
+  userId             String    @map("user_id") @db.Uuid
+  sessionId          String    @map("session_id") @db.Uuid
+  provider           String
+  label              String
+  site               String?
+  region             String
+  verifierCiphertext Bytes     @map("verifier_ciphertext")
+  expiresAt          DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt         DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([tenantId, expiresAt])
+  @@map("native_oauth_challenges")
+}
+
+/// Durable transfer receipt; contact snapshots are encrypted, not logged or audited.
+model NativeTransfer {
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connection         NativeConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Cascade)
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  tenantId           String           @map("tenant_id") @db.Uuid
+  connectionId       String           @map("connection_id") @db.Uuid
+  idempotencyKey     String           @map("idempotency_key") @db.Uuid
+  requestHash        String           @map("request_hash")
+  actorId            String           @map("actor_id") @db.Uuid
+  request            Json
+  leaseUntil         DateTime?        @map("lease_until") @db.Timestamptz(3)
+  leaseToken         String?          @map("lease_token") @db.Uuid
+  status             String           @default("PENDING")
+  rows               Int              @default(0)
+  snapshotCiphertext Bytes?           @map("snapshot_ciphertext")
+  importJobId        String?          @map("import_job_id") @db.Uuid
+  errorCode          String?          @map("error_code")
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, connectionId, createdAt])
+  @@map("native_transfers")
 }

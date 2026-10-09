@@ -10,46 +10,46 @@ This is a contract. Tokens live in `packages/ui` and are the only source of colo
 
 ### Brand and neutrals
 
-| Token | Hex | Role |
-| --- | --- | --- |
-| `primary` | `#00A884` | Fenwira action accent: active-nav indicator, focus ring, selection, checkbox/switch fill. **Non-text.** |
-| `primary-hover` | `#008F70` | Hover of `primary` fills |
-| `primary-soft` | `#EAF7F2` | Selected rows, outbound bubbles, variable chips |
-| `primary-strong` / `-hover` | `#007F64` / `#006B54` | **Filled primary buttons** (white text) and primary-colored text/links |
-| `whatsapp` | `#25D366` | WhatsApp channel identity only (the WhatsApp preview frame, "on WhatsApp" marks). Never an action color. |
-| `slate` | `#18201D` | Primary text (compatibility token name) |
-| `slate-800` | `#1E293B` | Dark surface compatibility; text on `neutral-soft` table headers |
-| `secondary` | `#4B5550` | Secondary text: descriptions, labels in dense rows, metadata that must stay readable |
-| `muted` | `#66716B` | De-emphasized text: timestamps, hints, placeholders. AA-safe on all warm neutrals. |
-| `slate-400` | `#94A3B8` | Idle icons, disabled glyphs, sidebar text on `slate`, idle flow edges |
-| `background` | `#F7F7F4` | Application canvas |
-| `surface` | `#FFFFFF` | Cards, panels, tables, dialogs |
-| `border` | `#E5E7E3` | Dividers, card and table borders |
-| `border-strong` | `#D6D9D4` | Form-control borders, emphasized dividers |
-| `neutral-soft` | `#F5F5F1` | Table headers, neutral badges, system events |
+| Token                       | Hex                   | Role                                                                                                     |
+| --------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `primary`                   | `#00A884`             | Fenwira action accent: active-nav indicator, focus ring, selection, checkbox/switch fill. **Non-text.**  |
+| `primary-hover`             | `#008F70`             | Hover of `primary` fills                                                                                 |
+| `primary-soft`              | `#EAF7F2`             | Selected rows, outbound bubbles, variable chips                                                          |
+| `primary-strong` / `-hover` | `#007F64` / `#006B54` | **Filled primary buttons** (white text) and primary-colored text/links                                   |
+| `whatsapp`                  | `#25D366`             | WhatsApp channel identity only (the WhatsApp preview frame, "on WhatsApp" marks). Never an action color. |
+| `slate`                     | `#18201D`             | Primary text (compatibility token name)                                                                  |
+| `slate-800`                 | `#1E293B`             | Dark surface compatibility; text on `neutral-soft` table headers                                         |
+| `secondary`                 | `#4B5550`             | Secondary text: descriptions, labels in dense rows, metadata that must stay readable                     |
+| `muted`                     | `#66716B`             | De-emphasized text: timestamps, hints, placeholders. AA-safe on all warm neutrals.                       |
+| `slate-400`                 | `#94A3B8`             | Idle icons, disabled glyphs, sidebar text on `slate`, idle flow edges                                    |
+| `background`                | `#F7F7F4`             | Application canvas                                                                                       |
+| `surface`                   | `#FFFFFF`             | Cards, panels, tables, dialogs                                                                           |
+| `border`                    | `#E5E7E3`             | Dividers, card and table borders                                                                         |
+| `border-strong`             | `#D6D9D4`             | Form-control borders, emphasized dividers                                                                |
+| `neutral-soft`              | `#F5F5F1`             | Table headers, neutral badges, system events                                                             |
 
 **Fenwira primary ≠ WhatsApp green.** `#00A884` means "Fenwira action or selection". `#25D366` means "this is WhatsApp"; healthy states use the separate `success` token. They are different tokens so the two meanings can never be confused in code.
 
 ### Status
 
-| Category | Meaning (examples) | Tokens | Text shade |
-| --- | --- | --- | --- |
-| Success | active, connected, approved, delivered, read, healthy, granted, window open | `success` `#16A34A`, `success-soft` `#D1FAE5` | `success-strong` `#166534` |
-| Warning | paused, attention required, low balance, opted out, window closed | `warning` `#F59E0B`, `warning-soft` `#FEF3C7` | `warning-strong` `#B45309` |
-| Danger | failed, rejected, disconnected, destructive | `danger` `#DC2626`, `danger-soft` `#FEE2E2` | `danger-strong` `#B91C1C` (hover `#991B1B`) |
-| Info | scheduled, processing, syncing, sent, running, open, human takeover | `info` `#2563EB`, `info-soft` `#EFF6FF` | `info-strong` `#1D4ED8` |
-| Neutral | draft, archived, inactive, cancelled, skipped | `neutral-soft` | `secondary` |
+| Category | Meaning (examples)                                                          | Tokens                                        | Text shade                                  |
+| -------- | --------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------- |
+| Success  | active, connected, approved, delivered, read, healthy, granted, window open | `success` `#16A34A`, `success-soft` `#D1FAE5` | `success-strong` `#166534`                  |
+| Warning  | paused, attention required, low balance, opted out, window closed           | `warning` `#F59E0B`, `warning-soft` `#FEF3C7` | `warning-strong` `#B45309`                  |
+| Danger   | failed, rejected, disconnected, destructive                                 | `danger` `#DC2626`, `danger-soft` `#FEE2E2`   | `danger-strong` `#B91C1C` (hover `#991B1B`) |
+| Info     | scheduled, processing, syncing, sent, running, open, human takeover         | `info` `#2563EB`, `info-soft` `#EFF6FF`       | `info-strong` `#1D4ED8`                     |
+| Neutral  | draft, archived, inactive, cancelled, skipped                               | `neutral-soft`                                | `secondary`                                 |
 
 ### Contrast (verified by `packages/ui/test/tokens.test.ts`)
 
 Every text pairing below clears WCAG AA 4.5:1; the test fails if a token change breaks one.
 
-| Pair | Requirement |
-| --- | --- |
-| White on primary/danger/info strong fills | ≥ 4.5 |
-| Strong status text on its soft tint | ≥ 4.5 |
-| Primary/secondary/muted text on white and warm neutrals | ≥ 4.5 |
-| Primary-strong focus outline on warm canvas | ≥ 3 |
+| Pair                                                    | Requirement |
+| ------------------------------------------------------- | ----------- |
+| White on primary/danger/info strong fills               | ≥ 4.5       |
+| Strong status text on its soft tint                     | ≥ 4.5       |
+| Primary/secondary/muted text on white and warm neutrals | ≥ 4.5       |
+| Primary-strong focus outline on warm canvas             | ≥ 3         |
 
 `tokens.test.ts` verifies the current actual values. New sidebar tokens: `sidebar` #FAFAF8, `sidebar-border` #E7E7E2. Muted text #66716B clears AA; screenshot decorative muted #737C77 does not.
 
@@ -71,22 +71,22 @@ A status always shows a **label**, and usually an icon. `StatusBadge` is the onl
 
 ### Brand assets
 
-The Fenwira mark, lockups, app icons and link-preview banner are image assets (`docs/brand/README.md`), produced from originals by `scripts/brand-assets.py`. Their gradient is part of the artwork only; it doesn't add UI colours.
+The Fenwira mark, lockups, app icons and link-preview banner are image assets (`docs/brand/README.md`), produced from originals by `scripts/brand-assets.py`. Their gradient is part of the artwork only; it doesn't add UI colours. Official logos of supported integrations (WhatsApp, ERPNext, Google Sheets, Zoho, Shopify) are likewise unmodified image assets, shown only through `IntegrationLogo` on a white tile beside the integration's name. Their colours are artwork, not UI colours ([docs/brand/README.md → Third-party logos](../brand/README.md#third-party-logos)).
 
 ## 2. Typography
 
 Font: Inter for UI, JetBrains Mono for identifiers, phone numbers and code (loaded with `next/font`).
 
-| Role | Size / line (px) | Utility | Weight |
-| --- | --- | --- | --- |
-| Page title | 24 / 32 | `text-2xl` | semibold (via `PageHeader`) |
-| Section title | 18 / 28 | `text-lg` | semibold (via `SectionHeader`) |
-| Card title | 16 / 24 | `text-md` | semibold (via `CardTitle`) |
-| Body | 14 / 20 | `text-base` | regular |
-| Body strong | 14 / 20 | `text-base font-medium` | medium |
-| Small | 13 / 18 | `text-sm` | regular |
-| Caption | 12 / 16 | `text-xs` | regular / medium |
-| Metric value | 24 / 32 | `text-2xl tabular-nums` | semibold (via `MetricCard`) |
+| Role          | Size / line (px) | Utility                 | Weight                         |
+| ------------- | ---------------- | ----------------------- | ------------------------------ |
+| Page title    | 24 / 32          | `text-2xl`              | semibold (via `PageHeader`)    |
+| Section title | 18 / 28          | `text-lg`               | semibold (via `SectionHeader`) |
+| Card title    | 16 / 24          | `text-md`               | semibold (via `CardTitle`)     |
+| Body          | 14 / 20          | `text-base`             | regular                        |
+| Body strong   | 14 / 20          | `text-base font-medium` | medium                         |
+| Small         | 13 / 18          | `text-sm`               | regular                        |
+| Caption       | 12 / 16          | `text-xs`               | regular / medium               |
+| Metric value  | 24 / 32          | `text-2xl tabular-nums` | semibold (via `MetricCard`)    |
 
 `text-3xl` (30/36) is reserved for authentication and onboarding. The approved Home scale refinement returns its welcome heading to 24/32, section headings to 16/24 and primary body/row text to 14/20. Other application pages retain their existing typography. Headings follow document order (one `h1` per page from `PageHeader`, `h2` for sections, `h3` inside cards).
 
@@ -94,22 +94,22 @@ Font: Inter for UI, JetBrains Mono for identifiers, phone numbers and code (load
 
 Tailwind's 4px scale, used from this set: **4, 8, 12, 16, 20, 24, 32, 40, 48, 64** (`1, 2, 3, 4, 5, 6, 8, 10, 12, 16`). Arbitrary values (`p-[13px]`) are rejected by `pnpm lint:design`.
 
-| Context | Value |
-| --- | --- |
-| Page gutter | 16 (mobile) / 24 (≥ md) |
-| Page sections | 24 between sections |
-| Card padding | 20 (`p-5`); dense panels 16 (`p-4`) |
-| Form field stack | 16 between fields; 6 label → control |
-| Table cell | 10 vertical × 12 horizontal (40px rows); header 40px |
-| Inline groups | 8 (buttons, badges), 12 (icon + text blocks) |
+| Context          | Value                                                |
+| ---------------- | ---------------------------------------------------- |
+| Page gutter      | 16 (mobile) / 24 (≥ md)                              |
+| Page sections    | 24 between sections                                  |
+| Card padding     | 20 (`p-5`); dense panels 16 (`p-4`)                  |
+| Form field stack | 16 between fields; 6 label → control                 |
+| Table cell       | 10 vertical × 12 horizontal (40px rows); header 40px |
+| Inline groups    | 8 (buttons, badges), 12 (icon + text blocks)         |
 
 ## 4. Shape and elevation
 
-| Element | Radius |
-| --- | --- |
-| Buttons, small controls | 8 (`rounded-sm`) |
-| Inputs, selects, badges, panels | 8 (`rounded-md`) |
-| Cards, tables | 12 (`rounded-lg`) |
+| Element                                         | Radius            |
+| ----------------------------------------------- | ----------------- |
+| Buttons, small controls                         | 8 (`rounded-sm`)  |
+| Inputs, selects, badges, panels                 | 8 (`rounded-md`)  |
+| Cards, tables                                   | 12 (`rounded-lg`) |
 | Dialogs, drawers' inner sheets, command palette | 16 (`rounded-xl`) |
 
 Surfaces are separated by **borders, not shadows**. Two elevation tokens exist: `shadow-raised` (small floating affordances: canvas nodes, segmented thumbs, preview bubbles) and `shadow-overlay` (menus, popovers, dialogs, drawers, toasts). Tailwind's default shadows are reset and generate nothing.
@@ -136,16 +136,16 @@ Every component: built on Radix primitives via `@fenwira/ui` (feature code may n
 
 ## 8. Module color usage
 
-| Context | Treatment |
-| --- | --- |
-| Sidebar | `sidebar` background, `sidebar-border` divider, `secondary` items; active `primary-soft` fill and `primary-strong` text |
-| Inbox outbound / inbound bubble | `primary-soft` / `surface` + `border` |
-| Inbox selected conversation | `primary-soft` + 3px `primary` left border |
-| Inbox system event / internal note | `neutral-soft` pill / `warning-soft` with an "Internal" label |
-| Human takeover | `info` badge and banner |
-| Template variables `{{n}}` | `primary-soft` chip, `primary-strong` text |
-| WhatsApp preview frame | `neutral-soft` chat background, `surface` bubble, `whatsapp` channel mark |
-| Flow nodes | trigger `slate`, message `surface`, condition `warning-soft`, action `info-soft`; selected `primary` ring; edges idle `slate-400`, traversed `primary` |
+| Context                            | Treatment                                                                                                                                              |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sidebar                            | `sidebar` background, `sidebar-border` divider, `secondary` items; active `primary-soft` fill and `primary-strong` text                                |
+| Inbox outbound / inbound bubble    | `primary-soft` / `surface` + `border`                                                                                                                  |
+| Inbox selected conversation        | `primary-soft` + 3px `primary` left border                                                                                                             |
+| Inbox system event / internal note | `neutral-soft` pill / `warning-soft` with an "Internal" label                                                                                          |
+| Human takeover                     | `info` badge and banner                                                                                                                                |
+| Template variables `{{n}}`         | `primary-soft` chip, `primary-strong` text                                                                                                             |
+| WhatsApp preview frame             | `neutral-soft` chat background, `surface` bubble, `whatsapp` channel mark                                                                              |
+| Flow nodes                         | trigger `slate`, message `surface`, condition `warning-soft`, action `info-soft`; selected `primary` ring; edges idle `slate-400`, traversed `primary` |
 
 ## 9. Enforcement
 

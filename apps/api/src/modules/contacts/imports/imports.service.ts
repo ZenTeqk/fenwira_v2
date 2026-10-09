@@ -1,6 +1,6 @@
 import { type ConfigureImportRequest, type ImportJob, type ImportTarget } from '@fenwira/contracts'
 import { uuidv7 } from '@fenwira/config'
-import { type Prisma } from '@fenwira/database'
+import { type Prisma, type TenantTx } from '@fenwira/database'
 import { jobId, QUEUES } from '@fenwira/queue'
 import { Injectable } from '@nestjs/common'
 import { TenantDb } from '../../../core/database/tenant-db'
@@ -62,6 +62,61 @@ export class ImportsService {
     private readonly audit: AuditService,
     private readonly entitlements: EntitlementsService,
   ) {}
+
+  /** Prepared connector CSV: job and analysis intent commit with the transfer receipt. */
+  async prepareNative(
+    tx: TenantTx,
+    input: {
+      tenantId: string
+      id: string
+      objectKey: string
+      sizeBytes: number
+      filename: string
+      actorId: string
+    },
+  ): Promise<void> {
+    const existing = await tx.importJob.findFirst({ where: { id: input.id } })
+    if (existing) return
+    await tx.file.create({
+      data: {
+        id: input.id,
+        tenantId: input.tenantId,
+        bucket: this.storage.importsBucket,
+        objectKey: input.objectKey,
+        mimeType: 'text/csv',
+        sizeBytes: input.sizeBytes,
+        filename: input.filename,
+        purpose: 'IMPORT',
+        status: 'READY',
+        uploadedBy: input.actorId,
+      },
+    })
+    await tx.importJob.create({
+      data: {
+        id: input.id,
+        tenantId: input.tenantId,
+        fileId: input.id,
+        createdBy: input.actorId,
+        suppressAutomations: true,
+      },
+    })
+    await tx.outboxEvent.create({
+      data: {
+        tenantId: input.tenantId,
+        eventType: 'contacts.import_prepared',
+        aggregateType: 'import_job',
+        aggregateId: input.id,
+        payload: { importJobId: input.id },
+      },
+    })
+    await this.audit.write(tx, {
+      tenantId: input.tenantId,
+      actorId: input.actorId,
+      action: 'contacts.native_import_prepared',
+      targetType: 'import_job',
+      targetId: input.id,
+    })
+  }
 
   async list(): Promise<ImportJob[]> {
     const rows = await this.tenantDb.run((tx) =>

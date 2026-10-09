@@ -66,7 +66,7 @@ export function TemplateContext({
           aria-labelledby={titleId}
           tabIndex={-1}
           className={cn(
-            'sticky top-4 max-h-screen w-80 shrink-0 overflow-y-auto rounded-lg border border-border bg-surface',
+            'sticky top-4 max-h-screen w-72 shrink-0 overflow-y-auto rounded-lg border border-border bg-surface',
             focusRing,
           )}
           onKeyDown={(event) => {

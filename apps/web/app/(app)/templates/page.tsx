@@ -29,7 +29,7 @@ import {
   toast,
 } from '@fenwira/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Eye, Plus, RefreshCw } from 'lucide-react'
+import { ArrowRight, Eye, Plus, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
 import { useDebounced } from '@/components/inbox/conversation-list'
@@ -420,8 +420,11 @@ export default function TemplatesPage() {
                 </Link>
               </Button>
               {approved.data?.some((t) => t.templateId === selected.id) && can('inbox.read') ? (
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/inbox">Open Inbox</Link>
+                <Button variant="link" size="sm" asChild>
+                  <Link href="/inbox">
+                    Open Inbox
+                    <ArrowRight aria-hidden="true" />
+                  </Link>
                 </Button>
               ) : null}
             </div>

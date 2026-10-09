@@ -387,3 +387,21 @@ Platform POST `wallet-preview`, `subscription-preview`, `entitlement-preview` un
 ## Phase 11 closure verification
 
 [Phase 11 closure evidence](plans/PHASE_11_CLOSURE.md) exercises platform MFA, shared commercial operations and tenant financial allowlists against the real API. Closure adds no endpoint or public API scope.
+
+## Native connectors (Experience V2 follow-up)
+
+The private, cookie-session API under `/api/v1/native-connectors` requires `integrations.manage`, tenant membership and normal mutation CSRF protection. It has no `@PublicApi` routes; API keys cannot access it. Contracts live in `packages/contracts/src/api/native-connectors.ts`.
+
+| Method / relative path | Behavior |
+| --- | --- |
+| GET `/native-connectors` | Four-provider catalog, configuration availability and safe connection summaries |
+| POST `/native-connectors/connect` | Verify ERPNext key/secret, or issue a ten-minute, user/session/workspace-bound OAuth challenge and authorization URL |
+| POST `/native-connectors/oauth/complete` | Consume one challenge and exchange the authorization code server-side; Shopify additionally verifies callback HMAC/store/time |
+| DELETE `/native-connectors/:id` | Remove local credentials, preserve imported contacts and transfer history |
+| GET `/native-connectors/:id/transfers` | Latest 20 tenant-scoped transfer receipts; no secrets or contact payloads |
+| POST `/native-connectors/:id/transfers` | Create a durable transfer and outbox intent, returning 202; requires `contacts.import` or `contacts.export` according to direction |
+| POST `/native-connectors/:id/transfers/:transferId/retry` | Requeue failed/stale work using the same snapshot/receipt; requires the same directional permission |
+
+Transfer idempotency keys are UUIDs, scoped to workspace and bound to connection/destination. A mismatched reuse returns 409. Only one PENDING transfer per connection is permitted. Imports prepare a private CSV and the existing Contacts mapping/preview/confirmation workflow; successful preparation does not mean contacts have already been imported. Google Sheets requires a spreadsheet ID and `confirmExport: true`; each receipt creates a distinct dedicated tab. Limits are 10,000 records per transfer; excess data fails explicitly rather than silently truncating it.
+
+Provider credentials, OAuth verifier/code/token data and contact snapshots never appear in list/receipt DTOs. See [native connector specification](NATIVE_CONNECTORS.md) for configuration and live acceptance requirements.

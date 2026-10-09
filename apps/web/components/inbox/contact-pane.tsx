@@ -8,6 +8,7 @@ import { TagBadges } from '@/components/contacts/tag-badges'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
+import { formatPhone } from '@/lib/phone'
 import { relativeTime } from '@/lib/relative-time'
 import { MessagingContext } from './messaging-context'
 
@@ -67,9 +68,9 @@ export function ContactPane({
         <Avatar appearance="varied" name={c.name ?? c.waProfileName ?? c.phoneE164} size="lg" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h2 className="truncate text-base font-semibold text-slate">
-            {c.name ?? c.waProfileName ?? c.phoneE164}
+            {c.name ?? c.waProfileName ?? formatPhone(c.phoneE164)}
           </h2>
-          <span className="font-mono text-sm text-muted">{c.phoneE164}</span>
+          <span className="text-sm text-muted tabular-nums">{formatPhone(c.phoneE164)}</span>
           {c.email ? <span className="text-sm text-muted">{c.email}</span> : null}
           <Link
             href={`/contacts/${c.id}`}

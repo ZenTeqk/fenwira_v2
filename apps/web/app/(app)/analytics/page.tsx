@@ -101,7 +101,7 @@ export default function AnalyticsOverviewPage() {
               >
                 <TrendChart
                   label="Messages per day"
-                  height={180}
+                  height={160}
                   data={d.series.map((p) => ({ label: shortDay(p.day), values: p.values }))}
                   series={[
                     { key: 'sent', label: 'Sent', tone: 'primary' },

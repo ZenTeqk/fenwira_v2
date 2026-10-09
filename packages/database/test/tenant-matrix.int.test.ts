@@ -73,6 +73,39 @@ const importJob = async (tx: TenantTx, tenantId: string, userId: string) =>
   })
 
 const FIXTURES: Record<string, Fixture> = {
+  native_connections: (tx, { tenantId }) =>
+    tx.nativeConnection.create({
+      data: { tenantId, provider: 'ERPNEXT', label: 'Matrix', site: 'https://example.com' },
+    }),
+  native_oauth_challenges: (tx, { tenantId, userId }) =>
+    tx.nativeOauthChallenge.create({
+      data: {
+        tenantId,
+        userId,
+        sessionId: uuidv7(),
+        stateHash: Buffer.from(uuidv7()),
+        provider: 'GOOGLE_SHEETS',
+        label: 'Matrix',
+        region: 'com',
+        verifierCiphertext: Buffer.from('ciphertext'),
+        expiresAt: new Date(Date.now() + 60000),
+      },
+    }),
+  native_transfers: async (tx, { tenantId, userId }) => {
+    const c = await tx.nativeConnection.create({
+      data: { tenantId, provider: 'ERPNEXT', label: 'Matrix' },
+    })
+    return tx.nativeTransfer.create({
+      data: {
+        tenantId,
+        connectionId: c.id,
+        actorId: userId,
+        idempotencyKey: uuidv7(),
+        requestHash: 'hash',
+        request: {},
+      },
+    })
+  },
   outbox_events: (tx, { tenantId }) =>
     tx.outboxEvent.create({ data: { tenantId, eventType: 'test.event', payload: {} } }),
   memberships: (tx, { tenantId, userId }) =>

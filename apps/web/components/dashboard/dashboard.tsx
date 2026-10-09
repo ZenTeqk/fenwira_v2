@@ -324,6 +324,17 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
                       ) : null}
                     </li>
                   ))}
+                  {attention.length < 3 && !failedAttention && !loadingAttention ? (
+                    <li className="flex items-center gap-3 py-3 text-sm text-secondary">
+                      <span
+                        aria-hidden="true"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success-soft"
+                      >
+                        <CircleCheck className="size-4 text-success-strong" />
+                      </span>
+                      Nothing else needs your attention.
+                    </li>
+                  ) : null}
                 </ul>
               ) : !failedAttention ? (
                 <p className="flex items-center gap-2 py-4 text-sm text-secondary">

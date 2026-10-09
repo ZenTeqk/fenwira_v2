@@ -217,3 +217,13 @@ Platform password challenges are bound to a short backing session family created
 ## Phase 11 closure verification
 
 Closure verification reproduced invitation bearer credentials in access-log paths. The serializer now redacts the public invitation path segment and all query parameters; focused logger regressions preserve the redaction. See [Phase 11 closure evidence](plans/PHASE_11_CLOSURE.md) for security, concurrency and provider-cost checks.
+
+### Native connector boundary
+
+Native connectors are tenant services, never platform capabilities or public API-key scopes. Management requires integrations.manage; import/export requires the corresponding Contacts permission as well. Workers recheck the initiating user's actual ACTIVE membership, current permissions, tenant deletion/security policy and disabled-user state before accessing external data.
+
+OAuth challenges expire after ten minutes, store hashed state plus an encrypted PKCE verifier, bind to the existing authenticated session/user/workspace/provider/destination, and are consumed atomically before exchange. The frontend removes callback query secrets from browser history immediately. Callback completion is a private CSRF-protected POST, with no anonymous RLS gateway. Shopify validates HMAC, pinned shop domain and timestamp before exchange. Provider app credentials are server-only configuration; connection access/refresh tokens are encrypted with the existing key ring.
+
+ERPNext accepts public HTTPS root URLs only. Provider HTTP uses safeFetch with no redirects, DNS pinning, bounded response/timeouts and no production private-host exception. Other provider destinations come from fixed region/domain allowlists. Errors are sanitized classifications. Google writes RAW values into a new receipt-specific tab, avoiding spreadsheet formula interpretation and duplicate append behavior. Snapshot payloads are encrypted and kept out of audit/outbox/log records.
+
+Disconnect destroys local credentials and prevents new transfers. An in-flight external request can finish; local disconnect does not revoke a remote OAuth grant or uninstall an app. Users must also revoke/uninstall at the provider when required. Imported contacts retain authoritative Fenwira consent/suppression behavior.

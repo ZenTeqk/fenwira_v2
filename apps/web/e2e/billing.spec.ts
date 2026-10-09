@@ -87,7 +87,7 @@ test('Wallet: backend state, ledger, filters, CSV export, accessible', async ({
     .getByRole('link', { name: 'Wallet' })
     .click()
   await expect(page).toHaveURL(/\/billing\/wallet$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Wallet' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Billing' })).toBeVisible()
 
   // The local stack doesn't enforce billing: the backend says NOT_ENFORCED and the UI shows it.
   await expect(page.getByText('Messages aren’t billed in this workspace')).toBeVisible()

@@ -64,7 +64,7 @@ export function EngagementSummary({ query }: { query: UseQueryResult<MessagingAn
               <div key={label} className="flex items-start gap-3 py-4">
                 <span
                   aria-hidden="true"
-                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
                 >
                   <Icon className="size-5" />
                 </span>
@@ -122,13 +122,13 @@ export function TeamSummary({ query }: { query: UseQueryResult<InboxAnalytics> }
             <div className="flex items-center gap-3">
               <span
                 aria-hidden="true"
-                className="flex size-10 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                className="flex size-8 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
               >
                 <Clock className="size-5" />
               </span>
               <div>
                 <p className="text-sm text-secondary">Median first reply</p>
-                <p className="text-2xl font-semibold tabular-nums">
+                <p className="text-xl font-semibold tabular-nums">
                   {duration(d.kpis.medianFirstResponseSeconds)}
                 </p>
               </div>

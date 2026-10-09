@@ -75,6 +75,15 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   const automationsModule = pathname === '/automations' || pathname.startsWith('/automations/')
   const analyticsModule = pathname === '/analytics' || pathname.startsWith('/analytics/')
   const integrationsModule = pathname === '/integrations' || pathname.startsWith('/integrations/')
+  const billingWallet = pathname === '/billing/wallet'
+  const compactModule =
+    pathname === '/templates' ||
+    pathname.startsWith('/templates/') ||
+    campaignsModule ||
+    automationsModule ||
+    analyticsModule ||
+    integrationsModule ||
+    billingWallet
   const communicationShell =
     home ||
     fullBleed ||
@@ -83,7 +92,8 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
     campaignsModule ||
     automationsModule ||
     analyticsModule ||
-    integrationsModule
+    integrationsModule ||
+    billingWallet
   const { membership, tenantId, can } = useSession()
   const unread = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox-unread'),
@@ -262,6 +272,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
         !fullBleed &&
         !contactsDirectory &&
         !analyticsModule &&
+        !billingWallet &&
         pathname !== '/integrations' &&
         (!campaignsModule || pathname === '/campaigns/analytics') ? (
           <ModuleTabs
@@ -277,7 +288,9 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             <div
               className={cn(
                 'mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 md:px-6',
-                home ? 'py-5' : 'py-6',
+                home ? 'py-5' : compactModule ? 'py-4' : 'py-6',
+                compactModule &&
+                  '[&_[data-slot=page-header]_h1]:text-xl [&_[data-slot=page-header]_p]:text-sm',
               )}
             >
               <SubscriptionBanner />

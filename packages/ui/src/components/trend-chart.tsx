@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { cn } from '../lib/cn'
 
 /**
@@ -51,7 +51,6 @@ export type TrendChartProps = {
   className?: string
 }
 
-const W = 640
 const PAD = { top: 12, right: 12, bottom: 28, left: 44 }
 
 /** "Nice" axis maximum: 1, 2 or 5 × 10ⁿ at or above `max`. */
@@ -75,6 +74,17 @@ export function TrendChart({
   height = 220,
   className,
 }: TrendChartProps) {
+  const container = useRef<HTMLElement>(null)
+  const [width, setWidth] = useState(640)
+  useEffect(() => {
+    if (!container.current) return
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry && entry.contentRect.width > 0) setWidth(entry.contentRect.width)
+    })
+    observer.observe(container.current)
+    return () => observer.disconnect()
+  }, [])
+  const W = Math.max(240, width)
   const id = useId()
   const [active, setActive] = useState<number | null>(null)
   const [table, setTable] = useState(false)
@@ -97,7 +107,14 @@ export function TrendChart({
   const band = plotW / Math.max(1, data.length)
   const bx = (i: number) => PAD.left + i * band
   const y = (v: number) => PAD.top + plotH - (v / max) * plotH
-  const every = Math.max(1, Math.ceil(data.length / 8))
+  // At most eight labels, at least ~64px apart. The last point is always labelled, so a sampled
+  // label closer to it than one interval is dropped instead of overlapping it.
+  const every = Math.max(
+    1,
+    Math.ceil(data.length / Math.min(8, Math.max(2, Math.floor(plotW / 64)))),
+  )
+  const labelled = (i: number) =>
+    i === data.length - 1 || (i % every === 0 && data.length - 1 - i >= every)
   const total = series.map((s) => ({
     ...s,
     sum: data.reduce((a, p) => a + (p.values[s.key] ?? 0), 0),
@@ -105,7 +122,11 @@ export function TrendChart({
   const summary = `${label}. ${total.map((s) => `${s.label}: ${formatValue(s.sum)} in total`).join(', ')}.`
 
   return (
-    <figure data-slot="trend-chart" className={cn('flex flex-col gap-3', className)}>
+    <figure
+      ref={container}
+      data-slot="trend-chart"
+      className={cn('flex flex-col gap-3', className)}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ul className="flex flex-wrap gap-x-4 gap-y-1" aria-label="Legend">
           {series.map((s) => (
@@ -187,7 +208,7 @@ export function TrendChart({
               </g>
             ))}
             {data.map((p, i) =>
-              i % every === 0 || i === data.length - 1 ? (
+              labelled(i) ? (
                 <text
                   key={i}
                   x={variant === 'line' ? x(i) : bx(i) + band / 2}
@@ -200,16 +221,20 @@ export function TrendChart({
               ) : null,
             )}
             {variant === 'line'
-              ? series.map((s) => (
-                  <polyline
-                    key={s.key}
-                    fill="none"
-                    strokeWidth={2}
-                    strokeLinejoin="round"
-                    className={STROKE[s.tone]}
-                    points={data.map((p, i) => `${x(i)},${y(p.values[s.key] ?? 0)}`).join(' ')}
-                  />
-                ))
+              ? // Drawn in reverse legend order so the first (primary) series stays on top where
+                // lines coincide, e.g. a zero Failed line over the baseline.
+                [...series]
+                  .reverse()
+                  .map((s) => (
+                    <polyline
+                      key={s.key}
+                      fill="none"
+                      strokeWidth={2}
+                      strokeLinejoin="round"
+                      className={STROKE[s.tone]}
+                      points={data.map((p, i) => `${x(i)},${y(p.values[s.key] ?? 0)}`).join(' ')}
+                    />
+                  ))
               : data.map((p, i) => {
                   const inner = Math.max(1, band * 0.7)
                   if (variant === 'stacked') {

@@ -21,7 +21,7 @@ import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { displayName, shortTime } from '@/lib/inbox'
-import { useCampaignStats, percent, ACTIVE_STATUSES } from '@/lib/campaigns'
+import { useCampaignStats, percent, ACTIVE_STATUSES, campaignAudienceLabel } from '@/lib/campaigns'
 import { relativeTime } from '@/lib/relative-time'
 
 export function RecentConversations() {
@@ -330,7 +330,10 @@ export function CampaignSnapshot({
               <StatusBadge status={campaign.status} />
               <span className="text-base text-secondary">
                 {sent === undefined
-                  ? `${campaign.totalRecipients.toLocaleString('en-IN')} recipients`
+                  ? // The audience is snapshotted at launch; before that the total is still 0.
+                    campaign.totalRecipients > 0
+                    ? `${campaign.totalRecipients.toLocaleString('en-IN')} recipients`
+                    : campaignAudienceLabel(campaign)
                   : `${sent.toLocaleString('en-IN')} / ${data!.total.toLocaleString('en-IN')} sent`}
               </span>
             </div>

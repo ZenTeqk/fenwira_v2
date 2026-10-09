@@ -4,6 +4,7 @@ import { Alert, Button, Card, CardContent, cn, focusRing, StatusBadge } from '@f
 import { ArrowRight, CalendarDays, FileText, Megaphone, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useSession } from '@/components/session/session-provider'
+import { campaignBodyPreview } from '@/lib/campaign-presentation'
 import { formatInZone, PAUSE_LABEL } from '@/lib/campaigns'
 import { CampaignResults } from './campaign-results'
 import { CampaignArtwork, CampaignActions } from './campaign-identity'
@@ -26,7 +27,7 @@ export function CampaignCard({
           : null
   return (
     <Card className={cn(c.status === 'RUNNING' && 'border-primary')} data-campaign-card>
-      <CardContent className="flex flex-col gap-3 p-4">
+      <CardContent className="flex flex-col gap-3 p-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-start gap-3">
             <CampaignArtwork campaign={c} />
@@ -35,7 +36,7 @@ export function CampaignCard({
                 <Link
                   href={`/campaigns/${c.id}`}
                   className={cn(
-                    'break-words text-md font-semibold text-slate hover:underline',
+                    'break-words text-sm font-semibold text-slate hover:underline',
                     focusRing,
                   )}
                 >
@@ -46,9 +47,12 @@ export function CampaignCard({
               {c.template ? (
                 <p
                   className="line-clamp-1 text-sm text-secondary"
-                  title={c.template.components.body.text}
+                  title={campaignBodyPreview(
+                    c.template.components.body.text,
+                    c.variableMapping.body,
+                  )}
                 >
-                  {c.template.components.body.text}
+                  {campaignBodyPreview(c.template.components.body.text, c.variableMapping.body)}
                 </p>
               ) : null}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary">
@@ -79,7 +83,7 @@ export function CampaignCard({
           <div className="flex items-start gap-2 rounded-md bg-info-soft p-3 text-info-strong">
             <CalendarDays aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <div className="min-w-0">
-              <p className="text-base font-medium">{formatInZone(c.scheduleAt, c.timezone)}</p>
+              <p className="text-sm font-medium">{formatInZone(c.scheduleAt, c.timezone)}</p>
               <p className="text-xs">{c.timezone} · Audience prepared at launch</p>
             </div>
           </div>

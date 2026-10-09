@@ -36,7 +36,17 @@ const optionalString = z
   .optional()
   .transform((v) => (v && v.trim() ? v.trim() : undefined))
 
+const nativeConnectorEnv = {
+  NATIVE_GOOGLE_CLIENT_ID: optionalString,
+  NATIVE_GOOGLE_CLIENT_SECRET: optionalString,
+  NATIVE_ZOHO_CLIENT_ID: optionalString,
+  NATIVE_ZOHO_CLIENT_SECRET: optionalString,
+  NATIVE_SHOPIFY_CLIENT_ID: optionalString,
+  NATIVE_SHOPIFY_CLIENT_SECRET: optionalString,
+}
+
 export const baseEnvSchema = z.object({
+  ...nativeConnectorEnv,
   /** B3/B4: billable sends reserve wallet funds. Off until billing launches (docs/BILLING.md). */
   BILLING_ENFORCED: booleanString.default(false),
   /**

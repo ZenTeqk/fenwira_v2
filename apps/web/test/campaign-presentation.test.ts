@@ -1,6 +1,11 @@
 import type { Campaign } from '@fenwira/contracts'
 import { describe, expect, it } from 'vitest'
-import { isActive, matchesView, selectCampaigns } from '../lib/campaign-presentation'
+import {
+  campaignBodyPreview,
+  isActive,
+  matchesView,
+  selectCampaigns,
+} from '../lib/campaign-presentation'
 
 // Minimal typed presentation fixtures: API statistics remain outside collection selection.
 function campaign(index: number, status: Campaign['status'] = 'DRAFT'): Campaign {
@@ -80,5 +85,23 @@ describe('API-driven campaign collection presentation', () => {
     ).toEqual(['1'])
     expect(selectCampaigns(rows, { ...filters, source: 'TAGS' }, now)).toEqual([])
     expect(selectCampaigns(rows, { ...filters, period: '7' }, now + 30 * 86400000)).toEqual([])
+  })
+})
+
+describe('campaignBodyPreview', () => {
+  it('reads positional variables as their mapped sources', () => {
+    expect(
+      campaignBodyPreview('Hi {{1}}, your service is due on {{2}}.', [
+        { kind: 'FIELD', field: 'firstName' },
+        { kind: 'STATIC', value: '15 October' },
+      ]),
+    ).toBe('Hi [First name], your service is due on 15 October.')
+    expect(campaignBodyPreview('Plan: {{1}}', [{ kind: 'PROPERTY', key: 'plan_tier' }])).toBe(
+      'Plan: [plan_tier]',
+    )
+  })
+
+  it('keeps unmapped variables as written', () => {
+    expect(campaignBodyPreview('Hi {{1}} 👋', [])).toBe('Hi {{1}} 👋')
   })
 })

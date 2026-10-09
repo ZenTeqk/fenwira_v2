@@ -143,6 +143,15 @@ describe('safeFetch against a local receiver (dev-host exception)', () => {
       if (req.url === '/ok') {
         res.setHeader('content-type', 'application/json')
         res.end(JSON.stringify({ ok: true }))
+      } else if (req.url === '/echo') {
+        let body = ''
+        req.on('data', (chunk) => {
+          body += chunk.toString()
+        })
+        req.on('end', () => {
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify({ method: req.method, type: req.headers['content-type'], body }))
+        })
       } else if (req.url === '/redirect')
         res.writeHead(302, { location: `http://hook.test.example:${port}/ok` }).end()
       else if (req.url === '/loop') res.writeHead(302, { location: '/loop' }).end()
@@ -166,6 +175,21 @@ describe('safeFetch against a local receiver (dev-host exception)', () => {
     expect(res.status).toBe(200)
     expect(JSON.parse(res.body)).toEqual({ ok: true })
     expect(hits).toEqual(['POST /ok k1'])
+  })
+
+  it('sends the complete JSON body for Sheets-style PUT writes', async () => {
+    const body = JSON.stringify({
+      values: [
+        ['Name', 'Phone'],
+        ['=literal', '+911234567890'],
+      ],
+    })
+    const response = await safeFetch(
+      { method: 'PUT', url: url('/echo'), body },
+      { ...dev, resolve },
+    )
+    expect(response.status).toBe(200)
+    expect(JSON.parse(response.body)).toEqual({ method: 'PUT', type: 'application/json', body })
   })
 
   it('follows a redirect, re-validating the hop (POST → GET on 302)', async () => {

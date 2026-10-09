@@ -168,3 +168,7 @@ Commercial read services lock an existing wallet for shared read consistency, wh
 ## Phase 11 closure verification
 
 [Phase 11 closure evidence](plans/PHASE_11_CLOSURE.md) verifies all tenant roles denied platform access, membership-free operator services and cross-workspace financial boundaries against the existing forced-RLS matrix. No new RLS exception is introduced.
+
+### Native connector tables
+
+`native_connections`, `native_oauth_challenges` and `native_transfers` are tenant-owned and have enabled/forced RLS. Native transfers use a composite tenant/connection foreign key, preventing a receipt from referencing another workspace's connection. The HTTP service uses TenantDb; worker processing uses withTenant with the tenant from the committed outbox envelope. No new system gateway or bypass role is introduced. All three tables are included in the generated read/update/delete tenant security matrix.

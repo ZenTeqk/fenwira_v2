@@ -52,12 +52,12 @@ export function MetricCard({
     return (
       <Card
         data-slot="metric-card"
-        className={cn('flex items-start gap-3 rounded-none border-0 bg-transparent p-4', className)}
+        className={cn('flex items-start gap-3 rounded-none border-0 bg-transparent p-3', className)}
       >
         {icon ? (
           <span
             aria-hidden="true"
-            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong [&_svg]:size-5"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong [&_svg]:size-4"
           >
             {icon}
           </span>
@@ -68,7 +68,7 @@ export function MetricCard({
             {loading ? (
               <Skeleton className="h-8 w-24" />
             ) : (
-              <p className="text-2xl font-semibold text-slate tabular-nums">{value}</p>
+              <p className="text-xl font-semibold text-slate tabular-nums">{value}</p>
             )}
             {delta && DeltaIcon && !loading ? (
               <p

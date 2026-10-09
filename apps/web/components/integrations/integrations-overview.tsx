@@ -1,5 +1,6 @@
 'use client'
 
+import { NativeConnectors } from './native-connectors'
 import { type WhatsAppConnection } from '@fenwira/contracts'
 import {
   Alert,
@@ -18,6 +19,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Code2, MessageCircle, RefreshCw, Settings2, Webhook } from 'lucide-react'
 import Link from 'next/link'
+import { IntegrationLogo } from '@/components/integrations/integration-logo'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
@@ -86,20 +88,15 @@ export function IntegrationsOverview() {
             </Card>
           ) : (
             connections.data.map((c) => (
-              <Card key={c.id} className="flex flex-wrap items-center gap-5 p-5">
+              <Card key={c.id} className="flex flex-wrap items-center gap-4 p-4">
                 <div className="flex min-w-0 flex-1 basis-48 items-center gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
-                  >
-                    <MessageCircle className="size-6" />
-                  </span>
+                  <IntegrationLogo integration="WHATSAPP" size="lg" />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-semibold">WhatsApp</h2>
+                      <h2 className="text-base font-semibold">WhatsApp</h2>
                       <StatusBadge status={c.status} />
                     </div>
-                    <p className="break-words text-base font-medium">
+                    <p className="break-words text-sm font-medium">
                       {c.label || c.verifiedName || c.waba.name}
                     </p>
                     <p className="text-sm text-secondary">Business account</p>
@@ -174,7 +171,7 @@ export function IntegrationsOverview() {
         <>
           <section aria-labelledby="build-heading" className="flex flex-col gap-3">
             <div>
-              <h2 id="build-heading" className="text-lg font-semibold">
+              <h2 id="build-heading" className="text-md font-semibold text-slate">
                 Build with Fenwira
               </h2>
               <p className="text-sm text-secondary">
@@ -182,13 +179,13 @@ export function IntegrationsOverview() {
               </p>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Card className="flex flex-col gap-4 p-5">
+              <Card className="flex flex-col gap-3 p-4">
                 <div className="flex items-center gap-4">
                   <span
                     aria-hidden="true"
-                    className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
                   >
-                    <Code2 className="size-6" />
+                    <Code2 className="size-4" />
                   </span>
                   <div>
                     <h3 className="text-md font-semibold">API</h3>
@@ -203,9 +200,9 @@ export function IntegrationsOverview() {
                 ) : apiKeys.isPending ? (
                   <Skeleton aria-label="Loading API key summary" className="h-10" />
                 ) : (
-                  <div className="flex flex-wrap items-end justify-between gap-3 border-t border-border pt-4">
+                  <div className="flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
                     <div>
-                      <p className="text-xl font-semibold tabular-nums">{activeKeys}</p>
+                      <p className="text-lg font-semibold tabular-nums">{activeKeys}</p>
                       <p className="text-sm text-secondary">active keys</p>
                     </div>
                     <Button variant="link" asChild>
@@ -219,13 +216,13 @@ export function IntegrationsOverview() {
                   </Alert>
                 ) : null}
               </Card>
-              <Card className="flex flex-col gap-4 p-5">
+              <Card className="flex flex-col gap-3 p-4">
                 <div className="flex items-center gap-4">
                   <span
                     aria-hidden="true"
-                    className="flex size-12 shrink-0 items-center justify-center rounded-full bg-info-soft text-info-strong"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-info-soft text-info-strong"
                   >
-                    <Webhook className="size-6" />
+                    <Webhook className="size-4" />
                   </span>
                   <div>
                     <h3 className="text-md font-semibold">Webhooks</h3>
@@ -242,9 +239,9 @@ export function IntegrationsOverview() {
                 ) : endpoints.isPending ? (
                   <Skeleton aria-label="Loading webhook summary" className="h-10" />
                 ) : (
-                  <div className="flex flex-wrap items-end justify-between gap-3 border-t border-border pt-4">
+                  <div className="flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
                     <div>
-                      <p className="text-xl font-semibold tabular-nums">{endpoints.data?.length}</p>
+                      <p className="text-lg font-semibold tabular-nums">{endpoints.data?.length}</p>
                       <p className="text-sm text-secondary">
                         endpoints · {endpoints.data?.filter((e) => e.status === 'ACTIVE').length}{' '}
                         active
@@ -263,10 +260,11 @@ export function IntegrationsOverview() {
               </Card>
             </div>
           </section>
+          <NativeConnectors />
           <section aria-labelledby="endpoints-heading" className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 id="endpoints-heading" className="text-lg font-semibold">
+                <h2 id="endpoints-heading" className="text-md font-semibold text-slate">
                   Webhook endpoints
                 </h2>
                 <p className="text-sm text-secondary">

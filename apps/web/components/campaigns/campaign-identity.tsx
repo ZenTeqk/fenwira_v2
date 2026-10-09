@@ -22,7 +22,7 @@ export function CampaignArtwork({
       aria-hidden="true"
       className={cn(
         'flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary-soft text-primary-strong',
-        small ? 'h-9 w-14' : 'h-16 w-24 sm:h-20 sm:w-32',
+        small ? 'h-9 w-14' : 'h-14 w-20 sm:h-16 sm:w-24',
       )}
     >
       {sample.data && sample.data !== failedUrl ? (
@@ -35,7 +35,7 @@ export function CampaignArtwork({
           onError={() => setFailedUrl(sample.data!)}
         />
       ) : (
-        <Megaphone className={small ? 'size-5' : 'size-8'} />
+        <Megaphone className={small ? 'size-5' : 'size-6'} />
       )}
     </span>
   )

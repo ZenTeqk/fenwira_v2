@@ -27,6 +27,7 @@ import { CampaignsModule } from './modules/campaigns'
 import { AutomationModule } from './modules/automation'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
 import { ApiKeyGuard, ApiKeysModule } from './modules/api-keys'
+import { NativeModule, nativeOptions } from './modules/native-connectors'
 import { WebhooksModule } from './modules/webhooks'
 
 export function coreConfigFromApiEnv(
@@ -86,6 +87,7 @@ export class ApiModule {
         tenancy,
         AuditApiModule,
         ContactsModule.forApi(),
+        NativeModule.forApi(nativeOptions(env, keyRing)),
         messaging,
         InboxModule.forApi([messaging]),
         AnalyticsModule.forApi(),

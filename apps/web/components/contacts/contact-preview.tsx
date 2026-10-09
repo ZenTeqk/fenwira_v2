@@ -27,6 +27,7 @@ import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { SOURCE_LABEL } from '@/lib/contacts'
 import { relativeTime } from '@/lib/relative-time'
+import { formatPhone } from '@/lib/phone'
 import { ConsentBadge } from './consent-badge'
 import { ContactCampaigns } from './contact-campaigns'
 import { ContactFormModal } from './contact-form-modal'
@@ -289,7 +290,7 @@ export function ContactPreview({
           <h2 id={titleId} className="truncate text-base font-semibold">
             {name}
           </h2>
-          <p className="text-xs text-muted">{c.phoneE164}</p>
+          <p className="text-xs text-muted tabular-nums">{formatPhone(c.phoneE164)}</p>
           <p className="mt-1 text-xs text-secondary">
             {SOURCE_LABEL[c.source]}
             {c.status === 'BLOCKED' ? (
@@ -337,7 +338,7 @@ export function ContactPreview({
       >
         <h3 className="text-sm font-semibold">Contact</h3>
         <dl className="flex flex-col gap-2">
-          {field('Phone', c.phoneE164, Phone)}
+          {field('Phone', formatPhone(c.phoneE164), Phone)}
           {c.email
             ? field(
                 'Email',

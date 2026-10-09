@@ -598,3 +598,7 @@ Step 5 security binding migration adds nullable parentFamilyId to platform chall
 ## Phase 11 closure verification
 
 Phase 11 closure adds no schema migration or financial-history backfill. Subscription lifecycle transitions acquire the existing subscription row lock to prevent concurrent duplicate notices. See [closure evidence](plans/PHASE_11_CLOSURE.md).
+
+### Native connectors — Experience V2 follow-up
+
+Additive migration `20261008000000_native_connectors` adds tenant-owned encrypted connection records, short-lived OAuth challenges, and durable transfer receipts with encrypted snapshots and leases. Forced RLS, tenant foreign keys, a composite transfer-to-connection foreign key and a partial unique index for one pending transfer per connection accompany the tables. Existing contact/import, wallet, subscription, analytics and audit history is preserved. No financial backfill is performed.

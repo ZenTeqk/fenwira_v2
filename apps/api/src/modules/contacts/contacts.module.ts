@@ -22,6 +22,16 @@ export class ContactsModule {
       imports: [EntitlementsModule.forRoot()],
       controllers: [ContactsController, ContactCatalogController, ImportExportController],
       providers: [ContactsService, ContactCatalogService, ImportsService, ExportsService],
+      exports: [ImportsService],
+    }
+  }
+
+  static forNative(): DynamicModule {
+    return {
+      module: ContactsModule,
+      imports: [EntitlementsModule.forRoot()],
+      providers: [ImportsService],
+      exports: [ImportsService],
     }
   }
 

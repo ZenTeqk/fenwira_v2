@@ -16,7 +16,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@fenwira/ui'
-import { Plus } from 'lucide-react'
+import { BarChart3, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { useTags, useSegments } from '@/lib/contacts'
@@ -85,8 +85,11 @@ export default function CampaignsPage() {
     !!search.trim() || view !== 'All' || status !== 'ALL' || period !== 'ALL' || source !== 'ALL'
   const create = (
     <div className="flex flex-wrap items-center gap-2">
-      <Button variant="ghost" size="sm" asChild>
-        <Link href="/campaigns/analytics">Campaign analytics</Link>
+      <Button variant="secondary" asChild>
+        <Link href="/campaigns/analytics">
+          <BarChart3 aria-hidden="true" />
+          Campaign analytics
+        </Link>
       </Button>
       {can('campaigns.write') ? (
         <Button asChild>
@@ -197,6 +200,7 @@ export default function CampaignsPage() {
           <div className="lg:ml-auto">
             <CampaignFilter
               label="Sort campaigns"
+              wide
               value={sort}
               onChange={(value) => {
                 setSort(value)

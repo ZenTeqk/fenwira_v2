@@ -382,7 +382,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
               </div>
             ) : null}
           </div>
-          <TabsContent value="canvas" className="mt-0 h-160 xl:h-176">
+          <TabsContent value="canvas" className="mt-0 h-120 xl:h-136">
             <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center md:hidden">
               <p className="text-base text-slate">The canvas needs a larger screen.</p>
               <Button variant="secondary" onClick={() => setView('outline')}>

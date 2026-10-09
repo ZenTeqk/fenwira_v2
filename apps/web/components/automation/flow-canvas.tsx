@@ -22,13 +22,16 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
+  useNodesInitialized,
+  useReactFlow,
   applyNodeChanges,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { AlertCircle } from 'lucide-react'
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NodeSymbol } from './node-presentation'
 import {
+  autoLayout,
   categoryOf,
   connect,
   type DraftNode,
@@ -123,13 +126,20 @@ function Canvas({
   const [measurements, setMeasurements] = useState<
     Record<string, { width: number; height: number }>
   >({})
+  // `layout` is optional editor metadata (graph contract), so a flow saved without positions would
+  // stack every node at the origin. Unplaced nodes get a display-only automatic position; nothing is
+  // persisted until the user moves or tidies them.
+  const fallback = useMemo(
+    () => (graph.nodes.some((n) => !graph.layout[n.id]) ? autoLayout(graph).layout : {}),
+    [graph],
+  )
   const nodes: Array<Node<CardData>> = useMemo(
     () =>
       graph.nodes.map((n) => ({
         id: n.id,
         type: 'card',
         measured: measurements[n.id],
-        position: graph.layout[n.id] ?? { x: 0, y: 0 },
+        position: graph.layout[n.id] ?? fallback[n.id] ?? { x: 0, y: 0 },
         selected: n.id === selectedId,
         data: {
           node: n,
@@ -139,8 +149,23 @@ function Canvas({
         },
         deletable: !readOnly,
       })),
-    [graph, issues, selectedId, traversed, readOnly, measurements],
+    [graph, fallback, issues, selectedId, traversed, readOnly, measurements],
   )
+  // Initial fit keeps step text readable (zoom ≥ 0.75). A flow taller than the canvas then opens at
+  // its start (the trigger) instead of being centred with both ends cut off.
+  const flow = useReactFlow()
+  const initialized = useNodesInitialized()
+  const fitted = useRef(false)
+  useEffect(() => {
+    if (!initialized || fitted.current || !nodes.length) return
+    fitted.current = true
+    void flow.fitView({ padding: 0.12, minZoom: 0.75, maxZoom: 1 }).then(() => {
+      const viewport = flow.getViewport()
+      const top = Math.min(...nodes.map((n) => n.position.y))
+      if (viewport.y + top * viewport.zoom < 0)
+        void flow.setViewport({ ...viewport, y: 24 - top * viewport.zoom })
+    })
+  }, [initialized, flow, nodes])
   const edges: Edge[] = useMemo(
     () =>
       graph.edges.map((e) => {
@@ -225,8 +250,6 @@ function Canvas({
       nodesConnectable={!readOnly}
       elementsSelectable
       deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
-      fitView
-      fitViewOptions={{ padding: 0.12, maxZoom: 1 }}
       proOptions={{ hideAttribution: true }}
       aria-label="Flow canvas"
     >
@@ -236,6 +259,7 @@ function Canvas({
         pannable
         zoomable
         ariaLabel="Flow overview"
+        style={{ width: 120, height: 80 }}
         nodeColor="var(--color-border-strong)"
         nodeStrokeColor="var(--color-secondary)"
       />

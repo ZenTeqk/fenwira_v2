@@ -29,3 +29,7 @@ The API has no seven-day request-count aggregate. The endpoint list has no last-
 [Review evidence](experience-v2/evidence/integrations-reconstruction/README.md) records actual local API captures separately from clearly labelled browser response fixtures. Tests cover widths 1440/1024/768/375, keyboard Sync, permissions, disabled reads, URL redaction, entitlement suspension, retries and existing API-key/webhook/WhatsApp workflows.
 
 No backend, contracts, schema, worker, financial data, subscription flags or commercial policy is changed. This is an Experience V2 visual checkpoint, not Phase 11 closure or an external deployment.
+
+## Subsequent user-authorized native connector follow-up
+
+The user subsequently requested ERPNext, Google Sheets, Zoho CRM and Shopify, approved CRM/store → Contacts imports and Contacts → Sheets exports, and selected OAuth for the latter three providers. The formerly deferred application grid is now backed by the private native connector catalog and setup/transfer services. Unregistered OAuth apps remain unavailable; no connection state is fabricated. See [NATIVE_CONNECTORS.md](../NATIVE_CONNECTORS.md) for domain/security/configuration and live acceptance dependencies. The compact density follow-up reduces icon surfaces, card padding and headings without changing the approved layout hierarchy.

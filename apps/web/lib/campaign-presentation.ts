@@ -1,4 +1,25 @@
-import type { Campaign } from '@fenwira/contracts'
+import type { Campaign, VariableSource } from '@fenwira/contracts'
+
+export const FIELD_LABEL = {
+  firstName: 'First name',
+  name: 'Full name',
+  phone: 'Phone number',
+  email: 'Email',
+  country: 'Country',
+} as const
+
+/**
+ * Template body for a campaign summary: positional `{{n}}` placeholders read as their mapped source
+ * (a static value, or the contact field/property in brackets). Unmapped variables stay as written.
+ */
+export function campaignBodyPreview(text: string, body: VariableSource[] = []): string {
+  return text.replace(/\{\{(\d+)\}\}/g, (raw, n: string) => {
+    const source = body[Number(n) - 1]
+    if (!source) return raw
+    if (source.kind === 'STATIC') return source.value
+    return `[${source.kind === 'FIELD' ? FIELD_LABEL[source.field] : source.key}]`
+  })
+}
 
 export const isActive = (c: Campaign) =>
   ['SCHEDULED', 'PREPARING', 'RUNNING'].includes(c.status) || c.status.startsWith('PAUSED')
