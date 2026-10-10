@@ -62,7 +62,8 @@ jobs:
       - name: Deployment templates (systemd, nginx -t)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends nginx-core >/dev/null
-          deploy/scripts/validate-templates.sh "$RUNNER_TEMP/release"
+          # nginx -t binds the configured ports (80/443), which needs root on the runner.
+          sudo deploy/scripts/validate-templates.sh "$RUNNER_TEMP/release"
 
   integration:
     name: Integration tests (Postgres + Redis, as fenwira_app)

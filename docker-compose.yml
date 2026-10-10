@@ -73,31 +73,27 @@ services:
 
   fenwira-minio:
     container_name: fenwira-minio
-    # KNOWN BLOCKER (found while setting up CI, 2026-09-29): MinIO discontinued free community
-    # container images in Oct 2025 and, as of 2026-09-24, quay.io/minio/minio also returns 401 to
-    # anonymous pulls. The only remaining public path, quay.io/minio/aistor/minio, pulls fine but
-    # is MinIO's commercial AIStor product — it refuses to create buckets ("No license is
-    # installed") without a paid or free-tier SUBNET license key. This blocks both local
-    # `docker compose up` and CI's `integration`/`docker` jobs until one of these is decided:
-    #   1. Request a MinIO AIStor free-tier license (min.io/download/aistor-server) and supply it
-    #      via MINIO_LICENSE/a license file — single-node, non-production use only.
-    #   2. Replace MinIO with a still-free S3-compatible store (e.g. SeaweedFS, Garage) — a real
-    #      infrastructure change: new image, new init/healthcheck shape, and a compatibility pass
-    #      over every S3 call in packages/ (presigned URLs, multipart, ACLs).
-    # Pinned to the last known-good tag; it will not pull until (1) or (2) above is resolved.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # Local/CI object storage only (production uses AWS S3). MinIO stopped publishing free community
+    # images (quay.io/minio/minio returns 401 since 2026-09; see docs/DEPLOYMENT.md), so this uses
+    # Chainguard's build of the same open-source MinIO server (AGPL; includes `mc`). The free tier
+    # publishes only `latest`, so it is pinned by digest (2026-10-10: RELEASE.2026-09-22T19-25-18Z).
+    # It runs as uid 65532: a data volume created by the old root-run image needs
+    # `docker compose down -v` (local dev data only) or a one-time chown.
+    image: cgr.dev/chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf
     restart: unless-stopped
     command: ['server', '/data', '--console-address', ':9001']
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY}
+      MC_HOST_local: http://${S3_ACCESS_KEY_ID}:${S3_SECRET_ACCESS_KEY}@127.0.0.1:9000
     ports:
       - '${MINIO_API_PORT:-9000}:9000'
       - '${MINIO_CONSOLE_PORT:-9001}:9001'
     volumes:
       - fenwira-minio-data:/data
     healthcheck:
-      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:9000/minio/health/live']
+      # No curl in this image; `mc ready` checks the server through the MC_HOST_local alias.
+      test: ['CMD', 'mc', 'ready', 'local']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -105,9 +101,8 @@ services:
 
   fenwira-minio-init:
     container_name: fenwira-minio-init
-    # Same image as fenwira-minio (blocker documented above) — it also bundles the `mc` client
-    # this init job needs.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # Same image as fenwira-minio; it bundles the `mc` client this init job needs.
+    image: cgr.dev/chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf
     entrypoint: ['/bin/sh', '-c']
     command:
       - |

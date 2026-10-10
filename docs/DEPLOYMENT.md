@@ -39,7 +39,10 @@ The web app is at http://localhost:3000, the API at http://localhost:4000, Mailp
 - Network: a single bridge network, `fenwira-network`.
 - Volumes: `fenwira-postgres-data`, `fenwira-redis-data`, `fenwira-minio-data` and `fenwira-mailpit-data`.
 - MinIO buckets (created by `fenwira-minio-init`): `fenwira-media`, `fenwira-imports` (7-day expiry), `fenwira-exports` (7-day expiry) and `fenwira-uploads`.
-- Docker Hub `minio/minio` no longer receives community images, so the MinIO images come from `quay.io`. **Known blocker (2026-09-29):** `quay.io/minio/minio` itself now also refuses anonymous pulls (MinIO discontinued free container distribution); the only remaining public path, `quay.io/minio/aistor/minio`, pulls but refuses to create buckets without a paid/free-tier AIStor license. This blocks `docker compose up` and CI until a license is obtained or MinIO is replaced — see the comment on `fenwira-minio` in `docker-compose.yml` for the two remediation paths.
+- **Local and CI object storage use Chainguard's build of the open-source MinIO server** (`cgr.dev/chainguard/minio`, pinned by digest; it includes `mc`). Production uses AWS S3.
+  - MinIO stopped publishing free community images: Docker Hub `minio/minio` gets no updates, `quay.io/minio/minio` refuses anonymous pulls since 2026-09, and `quay.io/minio/aistor/minio` needs a license.
+  - The image runs as uid 65532. A data volume created by the old root-run image needs `docker compose down -v` (local dev data only) or a one-time `chown`.
+  - Chainguard's free tier publishes only `latest`: refresh the digest deliberately.
 - Postgres and Redis publish no host ports. For a DB shell, use `docker compose exec fenwira-postgres psql -U postgres -d fenwira`.
 
 ### Images (`infrastructure/docker/`)
