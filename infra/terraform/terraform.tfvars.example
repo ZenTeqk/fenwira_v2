@@ -1,0 +1,33 @@
+# Copy to terraform.tfvars (git-ignored) and adjust. No secrets belong in this file.
+aws_account_id    = "569476542351"
+aws_region        = "ap-south-1"
+vpc_id            = "vpc-038deffeecb93ad2f"
+availability_zone = "ap-south-1a"
+
+# Domains (existing zenteqk.com zone). v2 testing hostnames: both records are new; the landing page
+# (fenwira.zenteqk.com) and the v1 demo (app.fenwira.zenteqk.com) are owned by other states and untouched.
+app_domain        = "v2.fenwira.zenteqk.com"
+api_domain        = "api.fenwira.zenteqk.com"
+manage_dns        = true
+route53_zone_name = "zenteqk.com"
+
+
+instance_type        = "t3a.medium"
+cpu_credits          = "standard"
+root_volume_size_gb  = 40
+swap_size_gb         = 2
+enable_ebs_snapshots = false
+
+db_instance_class           = "db.t4g.micro"
+db_engine_version           = "16.15"
+db_allocated_storage_gb     = 20
+db_max_allocated_storage_gb = 50
+db_backup_retention_days    = 7
+
+log_retention_days = 30
+alarm_email        = ""
+# Recovery ("OK") notifications; enable together with alarm_email.
+alarm_recovery_notifications = false
+
+# Availability-alarm notifications per running service (worker joins once SMTP is configured).
+app_alarm_services = []
