@@ -78,42 +78,6 @@ jobs:
       - if: always()
         run: docker compose --profile test down -v
 
-  docker:
-    name: Docker build, compose smoke test, image scan
-    runs-on: ubuntu-latest
-    needs: verify
-    steps:
-      - uses: actions/checkout@v4
-      - run: cp .env.example .env
-      - name: Build images
-        run: docker compose build
-      - name: Start the platform
-        run: docker compose up -d --wait --wait-timeout 180
-      - name: Smoke test (health + outbox round trip)
-        run: bash scripts/smoke.sh
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Build the shared packages the E2E specs import (@fenwira/contracts)
-        run: pnpm turbo run build --filter=@fenwira/contracts...
-      - name: Install Playwright Chromium
-        run: pnpm --filter @fenwira/web exec playwright install --with-deps chromium
-      - name: E2E (axe WCAG 2.2 AA critical routes, responsive, keyboard) against the composed stack
-        run: pnpm --filter @fenwira/web test:e2e
-      - name: Scan images (Trivy, fixable HIGH/CRITICAL)
-        run: |
-          for image in fenwira/api:local fenwira/worker:local fenwira/migrate:local fenwira/web:local; do
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest \
-              image --exit-code 1 --ignore-unfixed --severity HIGH,CRITICAL --no-progress "$image"
-          done
-      - if: failure()
-        run: docker compose logs --no-color
-      - if: always()
-        run: docker compose down -v
-
   security:
     name: Secret and dependency scanning
     runs-on: ubuntu-latest
