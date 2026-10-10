@@ -1,9 +1,11 @@
 name: CI
 
+# Checks only; never deploys (deployment is .github/workflows/deploy.yml, main only).
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -41,6 +43,26 @@ jobs:
         run: node apps/api/scripts/openapi.mjs --check
       - name: Prettier
         run: pnpm format:check
+
+  release:
+    name: Production release build (Ubuntu x86_64, verify-build)
+    # Same build as the deploy workflow, without AWS credentials or upload.
+    runs-on: ubuntu-24.04
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Build and verify the release
+        env:
+          NEXT_PUBLIC_API_URL: https://api.fenwira.zenteqk.com/api/v1
+        run: deploy/scripts/build-release.sh HEAD "$RUNNER_TEMP/release"
+      - name: Deployment templates (systemd, nginx -t)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends nginx-core >/dev/null
+          deploy/scripts/validate-templates.sh "$RUNNER_TEMP/release"
 
   integration:
     name: Integration tests (Postgres + Redis, as fenwira_app)

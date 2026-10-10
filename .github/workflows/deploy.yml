@@ -1,0 +1,117 @@
+name: Deploy
+
+# Continuous deployment of Fenwira v2 to the production EC2 server (docs/deployment/NON_DOCKER_SETUP.md
+# → Continuous deployment). Runs only for pushes to main (merged pull requests) that change
+# application or deployment code. Never on pull requests or other branches, never for Terraform- or
+# documentation-only changes, and it never runs Terraform.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'infra/**'
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/dependabot.yml'
+
+# One deployment at a time; a newer push waits instead of cancelling a deployment in progress.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  # Not secrets: identifiers of the Terraform-managed deploy resources (infra/terraform/cicd.tf).
+  AWS_DEPLOY_ROLE_ARN: arn:aws:iam::569476542351:role/zenteqk-internal-fenwira-v2-prod-github-deploy
+  DEPLOY_DOCUMENT: zenteqk-internal-fenwira-v2-prod-deploy
+  INSTANCE_ID: i-0c5a3e148c5a81b9f
+  ARTIFACT_BUCKET: zenteqk-internal-fenwira-v2-prod-imports
+  ARTIFACT_PREFIX: _deploy-artifacts
+  # Compiled into the web bundle.
+  NEXT_PUBLIC_API_URL: https://api.fenwira.zenteqk.com/api/v1
+  PRISMA_HIDE_UPDATE_MESSAGE: '1'
+  NEXT_TELEMETRY_DISABLED: '1'
+  TURBO_TELEMETRY_DISABLED: '1'
+
+jobs:
+  deploy:
+    name: Build release and deploy via SSM
+    # Production platform: Ubuntu x86_64 (Prisma query engine and native modules must match).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC → AWS; no stored AWS keys
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc # Node 22
+
+      # Build and validate before any AWS credentials exist in this job.
+      - name: Build release ${{ github.sha }}
+        run: deploy/scripts/build-release.sh "$GITHUB_SHA" "$RUNNER_TEMP/release/$GITHUB_SHA"
+      - name: Package and checksum
+        id: package
+        run: |
+          tar -C "$RUNNER_TEMP/release" -czf "$RUNNER_TEMP/$GITHUB_SHA.tar.gz" "$GITHUB_SHA"
+          sum="$(sha256sum "$RUNNER_TEMP/$GITHUB_SHA.tar.gz" | cut -d' ' -f1)"
+          echo "sha256=$sum" >>"$GITHUB_OUTPUT"
+          echo "release $GITHUB_SHA: $(du -h "$RUNNER_TEMP/$GITHUB_SHA.tar.gz" | cut -f1), sha256 $sum"
+
+      - name: AWS credentials (OIDC, main branch only)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: fenwira-deploy-${{ github.run_id }}
+          role-duration-seconds: 3600
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload release artifact
+        run: |
+          aws s3 cp --only-show-errors "$RUNNER_TEMP/$GITHUB_SHA.tar.gz" \
+            "s3://$ARTIFACT_BUCKET/$ARTIFACT_PREFIX/$GITHUB_SHA.tar.gz"
+
+      - name: Deploy on the server (SSM ${{ env.DEPLOY_DOCUMENT }})
+        env:
+          SHA256: ${{ steps.package.outputs.sha256 }}
+        run: |
+          cid="$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name "$DEPLOY_DOCUMENT" \
+            --parameters "release=$GITHUB_SHA,sha256=$SHA256" \
+            --comment "GitHub Actions run $GITHUB_RUN_ID" --timeout-seconds 600 \
+            --query Command.CommandId --output text)"
+          echo "SSM command $cid"
+          status=Pending
+          for _ in $(seq 1 240); do
+            status="$(aws ssm get-command-invocation --command-id "$cid" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo Pending)"
+            case "$status" in Pending | InProgress | Delayed) sleep 10 ;; *) break ;; esac
+          done
+          aws ssm get-command-invocation --command-id "$cid" --instance-id "$INSTANCE_ID" \
+            --query StandardOutputContent --output text
+          err="$(aws ssm get-command-invocation --command-id "$cid" --instance-id "$INSTANCE_ID" \
+            --query StandardErrorContent --output text)"
+          if [ -n "$err" ] && [ "$err" != "None" ]; then printf -- '--- stderr\n%s\n' "$err"; fi
+          echo "SSM status: $status"
+          if [ "$status" != "Success" ]; then
+            echo "::error::Deployment of $GITHUB_SHA failed (SSM status $status). See the output above."
+            exit 1
+          fi
+          {
+            echo "### Deployed \`$GITHUB_SHA\`"
+            echo "- Web: https://v2.fenwira.zenteqk.com"
+            echo "- API: https://api.fenwira.zenteqk.com"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Public smoke test
+        run: |
+          set -e
+          curl -fsS -o /dev/null -w 'web /login %{http_code}\n' https://v2.fenwira.zenteqk.com/login
+          curl -fsS -o /dev/null -w 'web /api/health %{http_code}\n' https://v2.fenwira.zenteqk.com/api/health
+          curl -fsS -w ' api /health/live %{http_code}\n' https://api.fenwira.zenteqk.com/health/live
+          code="$(curl -s -o /dev/null -w '%{http_code}' https://api.fenwira.zenteqk.com/api/v1/auth/me)"
+          echo "api /api/v1/auth/me $code (expected 401)"
+          test "$code" = 401
