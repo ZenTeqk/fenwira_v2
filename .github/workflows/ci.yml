@@ -97,6 +97,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Build the shared packages the E2E specs import (@fenwira/contracts)
+        run: pnpm turbo run build --filter=@fenwira/contracts...
       - name: Install Playwright Chromium
         run: pnpm --filter @fenwira/web exec playwright install --with-deps chromium
       - name: E2E (axe WCAG 2.2 AA critical routes, responsive, keyboard) against the composed stack
