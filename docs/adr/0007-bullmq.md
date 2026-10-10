@@ -1,6 +1,6 @@
 # ADR-0007: BullMQ for background jobs
 
-**Status:** Accepted
+**Status:** Accepted. The processor-registration detail was superseded by [ADR-0020](0020-worker-runtime.md).
 
 ## Context
 
@@ -8,13 +8,13 @@ We need durable async processing with retries, backoff, delays (automation Delay
 
 ## Decision
 
-BullMQ on Redis, with `@nestjs/bullmq` processors in `apps/worker`. Queue names, payload types and defaults live in `packages/queue` (catalog in `ARCHITECTURE.md`). Jobs always carry `tenantId` and `correlationId`, and use deterministic `jobId`s.
+BullMQ on Redis, with processors run by the worker runtime (ADR-0020). Queue names, payload types and defaults live in `packages/queue` (catalog in `ARCHITECTURE.md`). Jobs always carry `tenantId` and `correlationId`, and use deterministic `jobId`s.
 
 ## Consequences
 
 - Retries, delays, priorities and limiters come built in.
 - Jobs are at-least-once, so every processor must be idempotent (ADR-0014).
-- Queue names can't contain `:`, so we use dot notation.
+- Queue names and custom job IDs can't contain `:`, so queue names use dots and job IDs are built with `jobId()` (parts joined by `__`).
 
 ## Alternatives rejected
 

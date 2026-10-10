@@ -39,7 +39,7 @@ The system shape of Fenwira v2: runtime processes, module boundaries, how module
 | `apps/api` | HTTP/WS, authn/authz, validation, synchronous domain writes, webhook ingest | Call Meta **send** endpoints; do long-running work in-request |
 | `apps/worker` | Async processing, outbox relay, schedules, all Meta send/sync calls | Serve HTTP (except health on an internal port) |
 
-Both api and worker import the same domain modules from `apps/api/src/modules/*`. The worker is a second Nest entry point (`apps/worker/src/main.ts`) that loads the modules' processors. Business logic is written once.
+Both api and worker use the same domain modules from `apps/api/src/modules/*`. The worker is a second Nest entry point (`apps/worker/src/main.ts`) that imports them through `@fenwira/api`'s package exports (`./core`, `./modules/*`, `./bootstrap`; ADR-0018) and loads the modules' processors. Business logic is written once.
 
 ### Frontend architecture
 
@@ -54,7 +54,7 @@ Both api and worker import the same domain modules from `apps/api/src/modules/*`
 | Module | Owns tables | Phase |
 | --- | --- | --- |
 | `platform` | `outbox_events`, `idempotency_keys`, `files`, `notifications` | 1, 3 |
-| `identity` | `users`, `sessions`, `email_verification_tokens`, `password_reset_tokens`, `two_factor_credentials` | 3 |
+| `identity` | `users`, `sessions`, `email_verification_tokens`, `password_reset_tokens`, `two_factor_credentials`, `security_events` | 3 |
 | `tenancy` | `tenants`, `memberships`, `roles`, `permissions`, `role_permissions`, `invitations` | 3 |
 | `audit` | `audit_logs` | 3 |
 | `whatsapp-accounts` | `meta_business_accounts`, `whatsapp_business_accounts`, `whatsapp_phone_numbers`, `meta_credentials`, `webhook_subscriptions` | 4 |
@@ -64,9 +64,10 @@ Both api and worker import the same domain modules from `apps/api/src/modules/*`
 | `templates` | `templates`, `template_versions` | 8 |
 | `campaigns` | `campaigns`, `campaign_recipients` | 9 |
 | `automation` | `flows`, `flow_versions`, `automation_executions`, `automation_execution_steps` | 10 |
-| `billing` | `plans`, `plan_entitlements`, `subscriptions`, `tenant_entitlement_overrides`, `wallets`, `wallet_transactions`, `usage_events`, `price_book_entries` | 11 |
-| `analytics` | `analytics_events`, `analytics_daily_rollups` | 11 |
-| `developer` | `api_keys`, `webhook_endpoints`, `webhook_deliveries` | 11 |
+| `billing` | `plans`, `plan_entitlements`, `subscriptions`, `tenant_entitlement_overrides`, `wallets`, `wallet_transactions`, `wallet_reservations`, `usage_events`, `price_book_entries` | 11 |
+| `analytics` | `analytics_events`, `analytics_daily_rollups`, `analytics_conversation_episodes`, `analytics_dirty`, `analytics_tenant_state` (`ANALYTICS.md`) | 11 |
+| `api-keys`, `webhooks` | `api_keys`, `webhook_endpoints`, `webhook_deliveries` | 11 |
+| `platform-operations` | global `platform_grants`, `platform_challenges`, `platform_sessions`, immutable `platform_audit`; tenant `commercial_operations` | 11 Step 5 |
 
 ### Module rules
 
@@ -101,7 +102,7 @@ COMMIT
 Outbox relay (worker, every 250 ms, and on NOTIFY outbox_new)
   └─ system.claim_outbox_events(batch=200) — FOR UPDATE SKIP LOCKED across tenants
        for each event → for each subscriber queue in EVENT_SUBSCRIPTIONS[event_type]:
-           queue.add(event_type, payload, { jobId: `${event.id}:${subscriber}` })
+           queue.add(event_type, payload, { jobId: eventJobId(event.id, subscriber) })   // `${id}__${queue}`
        mark DISPATCHED (or bump attempts + available_at with backoff on failure)
         │
 Subscriber processor (worker)
@@ -114,20 +115,26 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 
 | Event type | Emitted by | Payload (besides `tenantId`, `occurredAt`, `correlationId`) | Subscribers (queue) |
 | --- | --- | --- | --- |
+| `identity.email_verification.requested` | identity (platform event) | `userId` | `identity.events` |
+| `identity.password_reset.requested` | identity (platform event) | `userId` | `identity.events` |
+| `tenancy.invitation.sent` | tenancy | `invitationId` | `tenancy.events` |
 | `message.outbound.requested` | messaging (`MessagingService.send`) | `messageId` | `whatsapp.outbound` |
-| `message.inbound.received` | messaging (inbound processor) | `messageId, conversationId, contactId, text?` | `contacts.events` (opt-in/out keywords), `automation.trigger`, `analytics.events` |
-| `message.status.changed` | messaging (status processor) | `messageId, from, to, errorCode?, pricing?` | `campaign.events`, `analytics.events`, `billing.usage`, `contacts.events` (on 131050) |
-| `conversation.opened` | messaging | `conversationId, contactId` | `analytics.events`, `inbox.events` (auto-assign) |
-| `conversation.assigned` | inbox | `conversationId, assigneeId, previousAssigneeId?` | `notifications.dispatch` |
-| `conversation.automation_state.changed` | inbox | `conversationId, from, to, actorId?` | `automation.trigger` |
-| `contact.created` | contacts | `contactId, source` | `automation.trigger`, `analytics.events` |
-| `contact.updated` | contacts | `contactId, changedFields[]` | `automation.trigger` |
+| `message.inbound.received` | messaging (inbound processor) | `messageId, conversationId, contactId, text?` | `contacts.events` (opt-in/out keywords), `automation.trigger`, `analytics.events`, `webhooks.deliver` |
+| `message.status.changed` | messaging (status processor) | `messageId, from, to, errorCode?, pricing?` | `campaign.events`, `analytics.events`, `billing.usage`, `contacts.events` (on 131050), `webhooks.deliver` |
+| `conversation.opened` | messaging | `conversationId, contactId, messageId?` (the opening customer message, since Phase 11) | `analytics.events`, `inbox.events` (auto-assign), `webhooks.deliver` |
+| `conversation.assigned` | inbox | `conversationId, assigneeId, previousAssigneeId?` | `notifications.dispatch`, `webhooks.deliver` |
+| `conversation.automation_state.changed` | inbox, messaging (an agent's first reply) | `conversationId, from, to, actorId?` | `automation.trigger` (stops the conversation's executions, P10-D2) |
+| `contact.created` | contacts, messaging (first message from a new number), automation webhook | `contactId, source` | `automation.trigger`, `analytics.events`, `webhooks.deliver` |
+| `contact.updated` | contacts | `contactId, changedFields[]` | `automation.trigger`, `webhooks.deliver` |
 | `consent.changed` | contacts | `contactId, purpose, status, source` | `analytics.events` |
 | `template.status.changed` | templates | `templateVersionId, from, to, reason?` | `notifications.dispatch` |
 | `campaign.launched` | campaigns | `campaignId` | `campaign.dispatch`, `analytics.events` |
-| `campaign.completed` | campaigns | `campaignId, counts` | `notifications.dispatch`, `analytics.events` |
-| `automation.execution.finished` | automation | `executionId, flowId, status` | `analytics.events` |
-| `wallet.low_balance` | billing | `walletId, balanceMinor` | `notifications.dispatch` |
+| `campaign.completed` | campaigns | `campaignId, counts` | `notifications.dispatch`, `analytics.events`, `webhooks.deliver` |
+| `automation.execution.finished` | automation (`finishExecution`, in the terminal-state transaction; Phase 11) | `executionId, flowId, status` | `analytics.events`, `webhooks.deliver` |
+| `wallet.low_balance` | billing (on a crossing into LOW_BALANCE or INSUFFICIENT_FUNDS, P11-D12) | `walletId, from, to, availableMinor, currency` | `notifications.dispatch` |
+| `wallet.funded` | billing (an unfunded wallet's first available funds, P11-D21) | `walletId, to, availableMinor, currency` | `notifications.dispatch` |
+| `wallet.recovered` | billing (a funded wallet crossing back to NORMAL) | `walletId, from, availableMinor, currency` | `notifications.dispatch` |
+| `subscription.plan_requested` | billing (OWNER requests a plan, Phase 11 Step 4, P11-D24) | `subscriptionId, planId` | `notifications.dispatch` (operator alert) |
 | `whatsapp.connection.changed` | whatsapp-accounts | `phoneNumberId, status` | `notifications.dispatch` |
 
 Payloads carry IDs, not full records. Processors re-read current state inside `withTenant`. Payload schemas live in `packages/contracts/src/events`.
@@ -141,26 +148,39 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `whatsapp.outbound` | outbox relay | Send one message to Meta | 20, plus a per-number limiter |
 | `whatsapp.outbound.dlq` | outbound processor (exhausted) | Parked for inspection and replay | 0 (manual) |
 | `whatsapp.media` | inbound processor | Download inbound media → MinIO | 5 |
-| `whatsapp.sync` | repeatable scheduler | Phone quality/tier/status, template reconciliation, credential expiry | 2 |
+| `whatsapp.sync` | repeatable scheduler | Phone quality/tier/status, credential expiry | 2 |
+| `templates.sync` | repeatable scheduler + `whatsapp.connection.changed` | Template reconciliation with Meta every 6 h (X14), and a sync right after a number connects (Phase 8) | 2 |
+| `identity.events` | outbox relay | Verification and password-reset tokens plus emails (Phase 3) | 5 |
+| `tenancy.events` | outbox relay | Invitation tokens plus emails (Phase 3) | 5 |
 | `contacts.events` | outbox relay | Opt-in/out keyword and 131050 consent handling | 10 |
 | `contacts.import` / `contacts.export` | contacts API | CSV import/export | 2 |
 | `inbox.events` | outbox relay | Auto-assignment | 10 |
 | `campaign.dispatch` | outbox relay / scheduler | Snapshot and batch-dispatch recipients | 4 |
 | `campaign.events` | outbox relay | Recipient status sync, completion detection | 10 |
-| `automation.trigger` | outbox relay | Match events to active flows, start executions | 10 |
-| `automation.execute` | automation (self), delayed jobs | Run execution steps | 20 |
-| `analytics.events` | outbox relay | Append analytics events | 10 |
+| `automation.trigger` | outbox relay | Match events to active flows, store the ordered plan (trigger run), start the first flow; stop executions on takeover | 5 |
+| `automation.execute` | automation (self), delayed jobs, 60 s recovery scheduler (X16) | Run execution steps: job id `exec__{executionId}__{stepCount}`, ≤ 25 steps per job | 10 |
+| `analytics.events` | outbox relay | Record each consumed event once and mark days/campaigns to recompute (`ANALYTICS.md`) | 5 |
+| `analytics.rollup` | repeatable scheduler | Recompute marked days and campaigns (every minute, X10), nightly heal (02:30 UTC) and retention (03:45 UTC) | 1 |
 | `billing.usage` | outbox relay | Price billable messages, debit the wallet | 5 |
-| `notifications.dispatch` | outbox relay | In-app notification + email | 5 |
-| `webhooks.deliver` | outbox relay (Phase 11) | Tenant outbound webhooks | 10 |
+| `billing.maintenance` | repeatable scheduler | Stale-reservation recovery (every 5 min, X17), daily ledger check (02:15 UTC, X18), `subscriptions-tick` (every 15 min, X20: trial notices, expiry, period roll, cancel at period end) | 1 |
+| `notifications.dispatch` | outbox relay | In-app notification + email (wallet crossings since Phase 11; plan requests and subscription notices since Step 4) | 5 |
+| `webhooks.deliver` | outbox relay (Phase 11 Step 3) | Tenant outbound webhooks: fan-out (idempotent, by domain event) and per-attempt delivery, two job kinds sharing one queue | 10 |
+| `webhooks.maintenance` | repeatable scheduler | Delivery retention (30 days, nightly 03:30 UTC, X19) | 1 |
 | `system.maintenance` | repeatable scheduler | Retention cleanup, idempotency key expiry, rollups | 1 |
 | `system.ping` | health/test | End-to-end queue check | 1 |
 
-Every job payload includes `tenantId` (except `system.*`) and `correlationId`.
+Every job payload includes `tenantId` (except `system.*`) and `correlationId`. Custom job IDs are always built with `jobId(...parts)` from `@fenwira/queue`, which joins parts with `__`, because BullMQ rejects `:` in job IDs. Processors implement `QueueProcessor` and are registered through `WorkerRuntimeModule` (ADR-0020), which runs every job inside its log context.
+
+### Phase 3 structure notes
+
+- **Guards** are global and default-deny, in the order `AuthGuard` → `CsrfGuard` → `TenantGuard` → `PermissionGuard` (see SECURITY.md → Phase 3 implementation notes). Route metadata comes from `@Public`, `@OptionalAuth`, `@TenantScoped`, `@RequirePermission` and `@RequireRole`.
+- **Module dependencies** have no cycles (dependency-cruiser): `tenancy` → `identity`, `audit`; `realtime` → `identity`, `tenancy`. `audit` is global. The `/audit-logs` controller lives in `audit` and uses the core `TenantDb`. `/auth/me` lives in `tenancy` because it composes the user with their memberships.
+- **Email** is sent only by the worker (`EmailModule`, one SMTP transport). The api queues it through outbox events.
+- **Web data layer:** TanStack Query with tenant-prefixed query keys, a `SessionProvider` holding the active tenant (switching clears the cache and remounts the page), and an `AuthGate` around the app shell.
 
 ### Realtime
 
-A Socket.IO gateway on the api with `@socket.io/redis-adapter`, so any api replica can emit.
+A Socket.IO gateway on the api (path `/ws`) with `@socket.io/redis-adapter`, so any api replica can emit. Implemented in Phase 3: cookie authentication at the handshake, the membership check before joining `tenant:{id}`, and `tenant.switch` with an ack. Workers get the Redis emitter in Phase 5.
 
 | Room | Joined when |
 | --- | --- |
@@ -169,6 +189,10 @@ A Socket.IO gateway on the api with `@socket.io/redis-adapter`, so any api repli
 | `conversation:{conversationId}` | When the client opens a conversation (inbox permission and tenant re-checked) |
 
 Server → client events: `message.created`, `message.status`, `conversation.updated`, `conversation.assigned`, `compose.lock` (a lock was taken or released), `presence.updated`, `import.progress`, `campaign.progress`, `notification.created`. Workers emit through the Redis adapter emitter (`@socket.io/redis-emitter`). Client → server events: `conversation.join`, `conversation.leave`, `compose.heartbeat`, `presence.heartbeat`, `tenant.switch`.
+
+### Database scaling
+
+One primary Postgres, with no read replica in v2 (decision A1). A replica is added only when production database metrics justify it. Reads go through the same `withTenant` path, so adding one later doesn't change module code.
 
 ### Storage
 
@@ -180,6 +204,8 @@ SMTP via Nodemailer (`SMTP_URL`), pointed at Mailpit locally. Templates are Reac
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| A1 | Do we need a separate read replica before Phase 12? (Assumed no.) | Eng |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+### Platform Operations boundary (Phase 11 Step 5)
+
+`/platform` is a separate web shell using dedicated platform-session/CSRF cookies and explicit global operator authorization. Tenant roles, memberships and API keys grant no platform access. Password/TOTP and short privilege are mandatory; grant/revoke remains restricted infrastructure tooling. Bounded `system.platform_workspaces` discovery returns identity fields only; commercial services then use ordinary `withTenant` transactions for the explicitly selected workspace. No general RLS bypass or conversation access is granted. HTTP and CLI share operation services; domain mutation, immutable receipt, tenant/platform audit and `commercial.operation_completed` outbox event commit atomically. Notification realtime emission follows commit.

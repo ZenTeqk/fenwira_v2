@@ -1,0 +1,296 @@
+# Fenwira v2 platform (docs/DEPLOYMENT.md). `cp .env.example .env && docker compose up -d`.
+# Only web (3000), api (4000), MinIO (9000 S3 API, 9001 console) and the Mailpit UI (8025)
+# are published. Postgres and Redis stay on the internal network.
+
+name: fenwira
+
+x-server-env: &server-env
+  NODE_ENV: ${NODE_ENV:-development}
+  APP_VERSION: ${APP_VERSION:-dev}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgresql://fenwira_app:${FENWIRA_APP_PASSWORD}@fenwira-postgres:5432/fenwira
+  DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+  REDIS_URL: redis://fenwira-redis:6379/0
+  BILLING_ENFORCED: ${BILLING_ENFORCED:-false}
+  BILLING_SUBSCRIPTIONS_ENFORCED: ${BILLING_SUBSCRIPTIONS_ENFORCED:-false}
+  BILLING_TRIAL_DAYS: ${BILLING_TRIAL_DAYS:-14}
+  BILLING_TRIAL_PLAN: ${BILLING_TRIAL_PLAN:-GROWTH}
+  TRIAL_CREDIT_MINOR: ${TRIAL_CREDIT_MINOR:-0}
+  BILLING_LOW_BALANCE_THRESHOLD_MINOR: ${BILLING_LOW_BALANCE_THRESHOLD_MINOR:-10000}
+  BILLING_SUPPORT_EMAIL: ${BILLING_SUPPORT_EMAIL:-}
+  BILLING_SUPPORT_URL: ${BILLING_SUPPORT_URL:-}
+
+# Object storage (MinIO locally). Browsers get presigned URLs on S3_PUBLIC_ENDPOINT.
+x-storage-env: &storage-env
+  S3_ENDPOINT: http://fenwira-minio:9000
+  S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+  S3_FORCE_PATH_STYLE: 'true'
+
+# Meta platform config (docs/META_INTEGRATION.md). Empty app id/secret = Embedded Signup off.
+x-meta-env: &meta-env
+  META_APP_ID: ${META_APP_ID:-}
+  META_APP_SECRET: ${META_APP_SECRET:-}
+  META_GRAPH_API_VERSION: ${META_GRAPH_API_VERSION:-v23.0}
+  META_GRAPH_BASE_URL: ${META_GRAPH_BASE_URL:-https://graph.facebook.com}
+
+services:
+  fenwira-postgres:
+    container_name: fenwira-postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+      FENWIRA_OWNER_PASSWORD: ${FENWIRA_OWNER_PASSWORD}
+      FENWIRA_APP_PASSWORD: ${FENWIRA_APP_PASSWORD}
+    volumes:
+      - fenwira-postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d fenwira']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [fenwira-network]
+
+  fenwira-redis:
+    container_name: fenwira-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - fenwira-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [fenwira-network]
+
+  fenwira-minio:
+    container_name: fenwira-minio
+    # Local/CI object storage only (production uses AWS S3). MinIO stopped publishing free community
+    # images (quay.io/minio/minio returns 401 since 2026-09; see docs/DEPLOYMENT.md), so this uses
+    # Chainguard's build of the same open-source MinIO server (AGPL; includes `mc`). The free tier
+    # publishes only `latest`, so it is pinned by digest (2026-10-10: RELEASE.2026-09-22T19-25-18Z).
+    # It runs as uid 65532: a data volume created by the old root-run image needs
+    # `docker compose down -v` (local dev data only) or a one-time chown.
+    image: cgr.dev/chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY}
+      MC_HOST_local: http://${S3_ACCESS_KEY_ID}:${S3_SECRET_ACCESS_KEY}@127.0.0.1:9000
+    ports:
+      - '${MINIO_API_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - fenwira-minio-data:/data
+    healthcheck:
+      # No curl in this image; `mc ready` checks the server through the MC_HOST_local alias.
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [fenwira-network]
+
+  fenwira-minio-init:
+    container_name: fenwira-minio-init
+    # Same image as fenwira-minio; it bundles the `mc` client this init job needs.
+    image: cgr.dev/chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        mc alias set local http://fenwira-minio:9000 "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY"
+        for b in fenwira-media fenwira-imports fenwira-exports fenwira-uploads; do mc mb --ignore-existing "local/$$b"; done
+        mc ilm rule add --expire-days 7 local/fenwira-imports || true
+        mc ilm rule add --expire-days 7 local/fenwira-exports || true
+        echo "buckets ready"
+    environment:
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+    depends_on:
+      fenwira-minio: { condition: service_healthy }
+    restart: 'no'
+    networks: [fenwira-network]
+
+  fenwira-mailpit:
+    container_name: fenwira-mailpit
+    image: axllent/mailpit:v1.29
+    restart: unless-stopped
+    ports:
+      - '${MAILPIT_UI_PORT:-8025}:8025'
+    volumes:
+      - fenwira-mailpit-data:/data
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [fenwira-network]
+
+  fenwira-migrate:
+    container_name: fenwira-migrate
+    build: { context: ., dockerfile: infrastructure/docker/server.Dockerfile, target: migrate }
+    image: fenwira/migrate:local
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://fenwira_owner:${FENWIRA_OWNER_PASSWORD}@fenwira-postgres:5432/fenwira
+    depends_on:
+      fenwira-postgres: { condition: service_healthy }
+    restart: 'no'
+    networks: [fenwira-network]
+
+  fenwira-api:
+    container_name: fenwira-api
+    build: { context: ., dockerfile: infrastructure/docker/server.Dockerfile, target: api }
+    image: fenwira/api:local
+    restart: unless-stopped
+    environment:
+      <<: [*server-env, *meta-env, *storage-env]
+      PORT: 4000
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      SYSTEM_PING_ENABLED: ${SYSTEM_PING_ENABLED:-false}
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS}
+      ENCRYPTION_ACTIVE_KEY_ID: ${ENCRYPTION_ACTIVE_KEY_ID:-k1}
+      NATIVE_GOOGLE_CLIENT_ID: ${NATIVE_GOOGLE_CLIENT_ID:-}
+      NATIVE_GOOGLE_CLIENT_SECRET: ${NATIVE_GOOGLE_CLIENT_SECRET:-}
+      NATIVE_ZOHO_CLIENT_ID: ${NATIVE_ZOHO_CLIENT_ID:-}
+      NATIVE_ZOHO_CLIENT_SECRET: ${NATIVE_ZOHO_CLIENT_SECRET:-}
+      NATIVE_SHOPIFY_CLIENT_ID: ${NATIVE_SHOPIFY_CLIENT_ID:-}
+      NATIVE_SHOPIFY_CLIENT_SECRET: ${NATIVE_SHOPIFY_CLIENT_SECRET:-}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+      META_ES_CONFIG_ID: ${META_ES_CONFIG_ID:-}
+      WHATSAPP_DEV_CONNECT: ${WHATSAPP_DEV_CONNECT:-false}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:4000}
+      API_KEY_PEPPER: ${API_KEY_PEPPER:-development-only-api-key-pepper}
+      API_KEY_RATE_LIMIT_PER_MINUTE: ${API_KEY_RATE_LIMIT_PER_MINUTE:-120}
+      METRICS_PORT: 9464 # internal only (docs/OBSERVABILITY.md); not published
+    ports:
+      - '${API_PORT:-4000}:4000'
+    depends_on:
+      fenwira-postgres: { condition: service_healthy }
+      fenwira-redis: { condition: service_healthy }
+      fenwira-minio-init: { condition: service_completed_successfully }
+      fenwira-migrate: { condition: service_completed_successfully }
+    networks: [fenwira-network]
+
+  fenwira-worker:
+    container_name: fenwira-worker
+    build: { context: ., dockerfile: infrastructure/docker/server.Dockerfile, target: worker }
+    image: fenwira/worker:local
+    restart: unless-stopped
+    environment:
+      <<: [*server-env, *meta-env, *storage-env]
+      WORKER_HEALTH_PORT: 4100
+      OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-250}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      SMTP_URL: smtp://fenwira-mailpit:1025
+      MAIL_FROM: ${MAIL_FROM:-Fenwira <no-reply@fenwira.local>}
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS}
+      ENCRYPTION_ACTIVE_KEY_ID: ${ENCRYPTION_ACTIVE_KEY_ID:-k1}
+      NATIVE_GOOGLE_CLIENT_ID: ${NATIVE_GOOGLE_CLIENT_ID:-}
+      NATIVE_GOOGLE_CLIENT_SECRET: ${NATIVE_GOOGLE_CLIENT_SECRET:-}
+      NATIVE_ZOHO_CLIENT_ID: ${NATIVE_ZOHO_CLIENT_ID:-}
+      NATIVE_ZOHO_CLIENT_SECRET: ${NATIVE_ZOHO_CLIENT_SECRET:-}
+      NATIVE_SHOPIFY_CLIENT_ID: ${NATIVE_SHOPIFY_CLIENT_ID:-}
+      NATIVE_SHOPIFY_CLIENT_SECRET: ${NATIVE_SHOPIFY_CLIENT_SECRET:-}
+      WHATSAPP_SYNC_INTERVAL_HOURS: ${WHATSAPP_SYNC_INTERVAL_HOURS:-6}
+      WHATSAPP_OUTBOUND_BACKOFF_MS: ${WHATSAPP_OUTBOUND_BACKOFF_MS:-1000}
+      BILLING_RESERVATION_GRACE_MINUTES: ${BILLING_RESERVATION_GRACE_MINUTES:-360}
+      OPS_ALERT_EMAIL: ${OPS_ALERT_EMAIL:-ops@fenwira.local}
+      WEBHOOK_BACKOFF_MS: ${WEBHOOK_BACKOFF_MS:-30000}
+      WEBHOOK_MAX_RETRY_HOURS: ${WEBHOOK_MAX_RETRY_HOURS:-24}
+      WEBHOOK_DISABLE_AFTER_FAILURES: ${WEBHOOK_DISABLE_AFTER_FAILURES:-20}
+      AUTOMATION_WEBHOOK_DEV_HOSTS: ${AUTOMATION_WEBHOOK_DEV_HOSTS:-}
+    depends_on:
+      fenwira-postgres: { condition: service_healthy }
+      fenwira-redis: { condition: service_healthy }
+      fenwira-minio-init: { condition: service_completed_successfully }
+      fenwira-migrate: { condition: service_completed_successfully }
+    networks: [fenwira-network]
+
+  fenwira-web:
+    container_name: fenwira-web
+    build:
+      context: .
+      dockerfile: infrastructure/docker/web.Dockerfile
+      target: runtime
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api/v1}
+        NEXT_PUBLIC_NAV_PREVIEW: ${NEXT_PUBLIC_NAV_PREVIEW:-false}
+    image: fenwira/web:local
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://fenwira-api:4000
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      ENABLE_UI_GALLERY: ${ENABLE_UI_GALLERY:-false}
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+    depends_on:
+      fenwira-api: { condition: service_healthy }
+    networks: [fenwira-network]
+
+  # Simulated Meta Graph API for local dev connect (profile meta-mock; see docs/DEPLOYMENT.md).
+  # Point META_GRAPH_BASE_URL at http://fenwira-meta-mock:4200 to use it.
+  fenwira-meta-mock:
+    container_name: fenwira-meta-mock
+    profiles: [meta-mock]
+    build: { context: ., dockerfile: infrastructure/docker/server.Dockerfile, target: meta-mock }
+    image: fenwira/meta-mock:local
+    restart: unless-stopped
+    environment:
+      # Posts signed status webhooks after each send, like Meta (docs/DEPLOYMENT.md).
+      META_MOCK_WEBHOOK_URL: http://fenwira-api:4000/api/v1/webhooks/whatsapp
+      META_APP_SECRET: ${META_APP_SECRET:-}
+    ports:
+      # Loopback only: e2e tests seed numbers through its /__mock control routes.
+      - '127.0.0.1:${META_MOCK_PORT:-4200}:4200'
+    networks: [fenwira-network]
+
+  # Integration test runner: `pnpm test:integration` (docker compose --profile test run --rm fenwira-test).
+  fenwira-test:
+    profiles: [test]
+    build: { context: ., dockerfile: infrastructure/docker/server.Dockerfile, target: dev }
+    image: fenwira/server-dev:local
+    env_file: [.env.test]
+    environment:
+      DATABASE_URL: postgresql://fenwira_app:${FENWIRA_APP_PASSWORD}@fenwira-postgres:5432/fenwira_test
+      MIGRATION_DATABASE_URL: postgresql://fenwira_owner:${FENWIRA_OWNER_PASSWORD}@fenwira-postgres:5432/fenwira_test
+      REDIS_URL: redis://fenwira-redis:6379/1
+      SMTP_URL: smtp://fenwira-mailpit:1025
+      MAILPIT_API_URL: http://fenwira-mailpit:8025
+      S3_ENDPOINT: http://fenwira-minio:9000
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+    command:
+      - sh
+      - -c
+      - pnpm --filter @fenwira/database run db:deploy && pnpm turbo run test:integration --concurrency=1
+    depends_on:
+      fenwira-postgres: { condition: service_healthy }
+      fenwira-redis: { condition: service_healthy }
+      fenwira-mailpit: { condition: service_healthy }
+      fenwira-minio-init: { condition: service_completed_successfully }
+    networks: [fenwira-network]
+
+networks:
+  fenwira-network:
+    name: fenwira-network
+
+volumes:
+  fenwira-postgres-data:
+  fenwira-redis-data:
+  fenwira-minio-data:
+  fenwira-mailpit-data:

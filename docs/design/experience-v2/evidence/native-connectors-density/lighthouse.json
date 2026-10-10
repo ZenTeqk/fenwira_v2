@@ -1,0 +1,33 @@
+{
+  "capturedAt": "2026-10-08T14:02:25.403Z",
+  "lighthouse": "12.8.2",
+  "category": "accessibility",
+  "finalRoutesVerified": true,
+  "scores": [
+    {
+      "name": "templates",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "name": "campaigns",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "name": "automation",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "name": "analytics",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "name": "integrations",
+      "score": 100,
+      "failing": []
+    }
+  ]
+}

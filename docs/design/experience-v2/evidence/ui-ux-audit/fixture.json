@@ -1,0 +1,9 @@
+{
+  "email": "Arun-muzan7v5fxg2@fenwira.test",
+  "tenantId": "01a11ab2-9f50-73a4-bb90-5bda77f53ca9",
+  "workspaceName": "Acme Electronics",
+  "flowId": "01a11ab2-e914-75a3-a680-4f71c032f01c",
+  "templateVersionId": "01a11ab2-a3cf-7490-b6a8-94f84ab22556",
+  "simulatedOnly": true,
+  "note": "Synthetic local review workspace; mock Meta only."
+}

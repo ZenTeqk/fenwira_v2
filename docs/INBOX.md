@@ -34,6 +34,8 @@ The multi-agent shared inbox: conversation lifecycle, assignment, the service wi
 | Unassign | Assignee, or `inbox.reassign` | |
 | Auto-assign | Tenant setting `auto_assign = OFF \| ROUND_ROBIN` | On `conversation.opened`, pick the ONLINE agent with `inbox.reply` and the fewest OPEN assigned conversations (ties broken by last-assigned time). If no one is online, leave it unassigned. |
 
+Assignment is to individual users (decision I1). Teams and queues are deferred. Nothing in the API or schema assumes an individual is the only possible routing target: `assign` takes an object body, and a team would be a separate nullable column.
+
 Assignment emits `conversation.assigned` (in-app notification to the assignee) and a WS `conversation.assigned`.
 
 ### Human takeover
@@ -46,7 +48,7 @@ Assignment emits `conversation.assigned` (in-app notification to the assignee) a
 
 - The server enforces this: `MessagingService` rejects `source = AUTOMATION` unless the state is `AUTOMATION_ACTIVE` (`AUTOMATION_BLOCKED_BY_TAKEOVER`), and the automation engine checks it before each send step (`AUTOMATION_ENGINE.md`).
 - Tenant setting `takeover_auto_release_hours` (default null = never): if set, the maintenance job returns `AGENT_TAKEOVER` → `AUTOMATION_ACTIVE` when there has been no agent message for N hours and the conversation is RESOLVED.
-- UI: the takeover state shows an `info` badge in the list and an `info` banner in the thread, with the action "Return to automation".
+- UI: takeover is available in list-row details and the Takeover view. The thread shows a compact contextual state with the action "Return to automation"; automation remains server-enforced.
 
 ### Collision control (compose lock)
 
@@ -66,7 +68,7 @@ Assignment emits `conversation.assigned` (in-app notification to the assignee) a
 
 - `conversation_read_states (conversation, user)` rows are created lazily for users who have opened the conversation, and for the assignee.
 - Inbound messages increment `unread_count` for all existing read-state rows of that conversation.
-- `POST /conversations/:id/read` sets `unread_count = 0` and `last_read_message_id`. It also queues a Meta mark-as-read for the latest inbound message (and a typing indicator when the agent starts composing, subject to open question M1).
+- `POST /conversations/:id/read` sets `unread_count = 0` and `last_read_message_id`. It also queues a Meta mark-as-read for the latest inbound message. Typing indicators are optional (decision M1): they are built only if the WhatsApp API reliably supports them.
 - The list shows the current user's unread count. The nav badge is the number of conversations with unread > 0 visible to the user.
 
 ### Visibility
@@ -81,6 +83,16 @@ Built-in views: **Mine**, **Unassigned**, **All**, **Takeover** and **Resolved**
 
 - Postgres full-text search over `messages.text_search` (config `simple`, so it works across languages without stemming), plus a trigram match on contact name and a prefix match on phone.
 - The endpoint is `GET /conversations?q=…`, which returns conversations with the matching message snippet. It is tenant-scoped via RLS.
+
+### Canned replies (decisions I2 and I3, Phase 7)
+
+- **Workspace-shared** saved replies. Personal/private replies are out of the initial v2 scope.
+- Fields: `shortcut` (for example `/hello`, `/price`, `/address`, `/thanks`), `title` and a plain-text `body`. The shortcut starts with `/`, then 1–32 lowercase letters, digits, `-` or `_`, and is unique within the workspace (case-insensitive).
+- **Permissions:** OWNER, ADMIN and MANAGER create, edit, delete and use them (`inbox.canned_replies.manage` plus `inbox.reply`). AGENT uses them (`inbox.reply`). VIEWER can neither send nor modify.
+- **Using one:** typing `/` at the start of the reply box, or opening the canned-replies button, shows matching replies. Choosing one **inserts** its body into the reply box for editing. It never sends by itself, so the normal reply path (compose lock, service window, `MessagingService`) applies unchanged.
+- **Managing them:** Settings → Workspace → Canned replies.
+- Tenant-isolated under RLS, and covered by the tenant and security matrices.
+- Out of scope: variables, media, templates, folders, personal replies and analytics.
 
 ### Attachments
 
@@ -97,15 +109,44 @@ Upload through `POST /files/upload-url` (purpose `MESSAGE_MEDIA`) → PUT to Min
 
 ### Layout and colors (from `DESIGN_SYSTEM.md`)
 
-`Conversations | Chat | Contact` at 320 px / flex / 340 px. Below 1280 px the Contact pane becomes a drawer. Below 768 px there is a single pane with back navigation. Outbound bubbles are `primary-soft`, inbound are `surface` with a border, system events are a `neutral-soft` pill, the selected conversation is `primary-soft` with a `primary` left border, takeover is `info`, and internal notes are `warning`-tinted with an "Internal" label.
+Experience V2 Inbox: the global shell shares the approved Home geometry (224px expanded sidebar, 56px topbar). Following user review, the separate 176px views column is removed. Its six existing views are available from an icon menu beside the conversation-list heading at every width. `Conversations | Chat | Contact` at 320px / flex / 256px at 1440; the thread receives the freed 184px (rail plus gutter), becoming 608px. At 1024 the list remains 264px and views stay in the header menu; below 1024 the list remains 280px. Below 1280 px the Contact pane becomes a drawer. Below 768 px there is a single pane with back navigation. Outbound bubbles are `message-outbound`, inbound are `surface` with a fine border, system events are a `neutral-soft` pill, the selected conversation is `primary-soft` with a `primary` left border, takeover is `info`, and internal notes are `note-soft` with an "Internal note" label. Message/note surfaces occupy at most five-sixths of the usable thread width. These are presentation dimensions, not changes to Inbox lifecycle or authorization.
 
 ### SLA fields (display only in v2)
 
 `first_response_at` is set on the first INBOX-source outbound message after an OPEN. It feeds agent first-response-time analytics (Phase 11).
 
+## Implementation notes (Phase 7)
+
+- **Modules.** `apps/api/src/modules/inbox` owns the inbox: `InboxService` (list, thread, reply, assignment, status, takeover, notes, tags, notifications, settings), `ComposeLockService`, `PresenceService`, `InboxGateway` (`compose.heartbeat`, `presence.heartbeat`) and the worker's `InboxEventsProcessor`. Replies still go through `MessagingService`, the only send path.
+- **Reply rule.** If someone else holds the lock → 409 `COMPOSE_LOCKED` (`details.holder`). If the lock is free, the sender takes it for the send and releases it after; this also covers a non-assignee who hasn't typed yet. The first INBOX send while `AUTOMATION_ACTIVE` moves the conversation to `AGENT_TAKEOVER` and writes a `takeover` system event.
+- **Ordering.** An inbound message's `created_at` is Meta's timestamp, so a burst delivered out of order still sorts correctly. The conversation's last-message fields only move forward (a `newerMessage` guard).
+- **Unread.** `conversations.inbound_count` is the fallback for users without a read-state row, so a conversation nobody has opened is unread for everyone, with no fan-out writes. Inbound increments every existing row and inserts the assignee's row if missing.
+- **Auto-assign** runs on the `inbox.events` queue from `conversation.opened` (round robin over ONLINE members with `inbox.reply`, fewest OPEN assigned, then the oldest `assigned_at`).
+- **Maintenance.** A 60 s repeatable job calls `system.inbox_maintenance_due` (X13) and, per tenant, reopens expired snoozes (`status_changed` with `reason: snooze_ended`) and releases idle takeovers (`automation_resumed` with `reason: auto_release`).
+- **Notifications.** An in-app `notifications` table (assignment, a mention in a note) with a bell in the top bar. The payload goes to `user:{id}` as `notification.created`.
+- **Presence.** `AWAY` is accepted from the client heartbeat; the browser idle timer that sets it is not built yet. A socket disconnect marks the user OFFLINE once they have no other open sockets.
+- **Not built yet:** the `POST /messages/:id/retry` endpoint. Meta typing indicators are optional (M1) and are not built.
+
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| I1 | Are teams or queues (grouping agents) needed in v2? Assumed no: assignment is to individual users. | Product |
-| I2 | Are canned responses or saved replies needed in Phase 7? Assumed no (candidate for Phase 8+). | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Experience V2 presentation (2026-10-06)
+
+The separate view rail uses existing Mine/Unassigned/All/Takeover/Resolved queries; Unread maps to the existing server unread filter. Status filtering uses the existing status parameter. No team queues. Avatar-led rows show real assignment, unread and window state. Consecutive same-sender messages within five minutes group visually, with day separators; notes and system messages interrupt grouping. Read-only roles have no composer. The composer reuses shared Textarea/focus and displays server eligibility/connection explanations. Reconnect refreshes authorized Inbox HTTP queries after rejoining rooms. No backend/schema/lifecycle changes. See `design/FENWIRA_EXPERIENCE_V2.md`.
+
+## Inbox final visual fidelity checkpoint
+
+The `e50211a` reconstruction is not visually approved. This focused pass retains the approved Home shell and pane widths, while standard conversation rows become two-line identity/preview rows with 36px deterministic initials. Assignment/window/takeover/pending metadata is available in row details and selected-conversation header/context; existing filter queries are unchanged. Contact/conversation responses expose no supported profile photo URL, so no avatar backend or fake photos are introduced.
+
+The primary thread header uses compact assignment/Resolve/More controls and identity/status. Healthy window, conversation tags and takeover share a quiet contextual area instead of stacked banners; composer warnings for closing/closed/restricted/disconnected states remain. The warm thread has an original, decorative 5%-opacity SVG pattern and the AA-tested outbound-only emerald token. Reply/note writing grows from one line to a 160px cap, then scrolls internally; mode and toolbar remain explicit with 40px mobile controls. Customer context prioritizes identity/assignment/tags, compact server eligibility and keyboard-accessible full eligibility/consent details, then real notes/history. All domain, permission, locking, realtime/offline, draft and sending paths remain authoritative. See [final-fidelity report](design/EXPERIENCE_V2_INBOX_FINAL_FIDELITY.md); stop for visual review.
+
+## Compact view menu — user-directed refinement
+
+The user requested removal of the redundant Inbox view column. All/Mine/Unassigned/Unread/Takeover/Resolved now live in the accessible icon menu beside the list heading. The current heading and menu check/accessible current state identify the selected view; Escape restores trigger focus. Search, status/unread filters, underlying query parameters, permissions and all messaging behavior are unchanged. The 1440 thread gains 184px; the global Home shell and customer context stay unchanged. Separate review evidence: [view-menu checkpoint](design/experience-v2/evidence/inbox-view-menu/README.md).
+
+## Customer-details arrow toggle
+
+The chat header has a chevron with **Hide customer details / Show customer details** labels and tooltips. On desktop (1280px and wider), the panel starts visible; the right-pointing chevron hides it, and the left-pointing chevron restores it. Collapsing the 256px panel and its gutter gives the 1440px thread another 264px (608px → 872px). The control exposes `aria-expanded` and `aria-controls`; keyboard toggling retains focus and the current reply draft. Visibility is local to the selected conversation, with no persisted customer preference.
+
+Below 1280px the same control opens the existing accessible details drawer. Escape/close returns focus to the control. If the viewport grows to desktop while the drawer is open, the drawer closes and the inline panel resumes without leaving a modal overlay. Existing customer content, permissions, eligibility, messaging and Home remain unchanged. [Review evidence](design/experience-v2/evidence/inbox-contact-toggle/README.md).

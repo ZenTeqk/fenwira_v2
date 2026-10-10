@@ -1,0 +1,56 @@
+# Fenwira worker: every BullMQ processor (25 queues), their recurring job schedulers and the
+# outbox relay. Entry point matches infrastructure/docker/server.Dockerfile (target worker).
+# Run exactly one instance per Redis; schedulers are idempotent (upsertJobScheduler), so a second
+# instance adds consumers, never duplicate schedules. Never runs migrations.
+[Unit]
+Description=Fenwira worker (BullMQ)
+Documentation=file:///opt/fenwira/current/docs/deployment/PRODUCTION_RUNTIME.md
+After=network-online.target redis-server.service
+Wants=network-online.target
+PartOf=fenwira.target
+# Restart-loop protection: give up after 10 failures in 5 minutes (systemctl reset-failed to retry).
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=fenwira
+Group=fenwira
+WorkingDirectory=/opt/fenwira/current
+EnvironmentFile=/etc/fenwira/worker.env
+ExecStart=/usr/bin/node --enable-source-maps apps/worker/dist/main.js
+# SIGTERM: BullMQ workers stop taking jobs and wait for in-flight jobs (Worker.close()); a job
+# still running at the timeout is killed and BullMQ redelivers it after its lock expires
+# (handlers are idempotent, AGENTS.md rule 5).
+KillSignal=SIGTERM
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=5
+MemoryHigh=900M
+MemoryMax=1100M
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fenwira-worker
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+
+[Install]
+WantedBy=fenwira.target

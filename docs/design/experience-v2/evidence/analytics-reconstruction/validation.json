@@ -1,0 +1,149 @@
+{
+  "source": "Existing local textile demo APIs; no response fixtures.",
+  "checks": [
+    {
+      "view": "overview",
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "messaging",
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "campaigns",
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "inbox",
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "automations",
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "usage",
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "overview",
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "messaging",
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "campaigns",
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "inbox",
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "automations",
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "usage",
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "overview",
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "messaging",
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "campaigns",
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "inbox",
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "automations",
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "usage",
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "overview",
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "messaging",
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "campaigns",
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "inbox",
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "automations",
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    },
+    {
+      "view": "usage",
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false
+    }
+  ]
+}

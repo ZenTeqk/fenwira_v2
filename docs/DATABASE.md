@@ -29,9 +29,11 @@ Legend: **T** tenant-owned (RLS) · **G** global · **SD** soft delete · **AO**
 ## Platform (P1/P3)
 
 ```text
-outbox_events                                   T  P3
+outbox_events                                   T  P1
   id uuid pk
-  tenant_id uuid
+  tenant_id uuid null                           -- NULL = platform event (only via system.emit_platform_event, X12);
+                                                --   RLS makes NULL rows invisible to every tenant context
+                                                --   FK → tenants(id) ON DELETE CASCADE (Phase 3)
   event_type text                               -- see ARCHITECTURE.md event catalog
   aggregate_type text, aggregate_id uuid
   payload jsonb
@@ -39,8 +41,10 @@ outbox_events                                   T  P3
   status outbox_status (PENDING|DISPATCHED|FAILED) default PENDING
   attempts int default 0, available_at timestamptz default now(), last_error text null
   dispatched_at timestamptz null, created_at
-  idx (status, available_at) WHERE status='PENDING'
-  -- NOTIFY outbox_new on insert (trigger); retention: DISPATCHED rows purged after 7d
+  idx (available_at, id) WHERE status='PENDING'   -- post-migrate.sql
+  -- NOTIFY outbox_new on insert (statement trigger); relay leases rows by pushing available_at forward
+  -- retention: DISPATCHED rows purged after 7d
+  -- DB-side ids: public.fenwira_uuid_v7() (PG16 has no built-in UUIDv7)
 
 idempotency_keys                                T  P5
   id, tenant_id, key text, scope text           -- scope e.g. 'POST /conversations/:id/messages'
@@ -62,64 +66,84 @@ notifications                                   T  P7
   idx (tenant_id, user_id, read_at, created_at desc)
 ```
 
-## Identity & tenancy (P3)
+## Identity & tenancy (P3). Implemented (migration `20260924000000_identity_tenancy`)
 
 ```text
 users                                           G
-  id, email citext unique, password_hash text (argon2id), name text
-  avatar_file_id uuid null, email_verified_at timestamptz null
-  locale text default 'en', timezone text default 'Asia/Kolkata'
-  last_login_at timestamptz null, disabled_at timestamptz null, created_at, updated_at
+  id, email citext unique (stored lowercase), password_hash text (argon2id, params in the hash)
+  name text, email_verified_at null, locale default 'en', timezone default 'Asia/Kolkata'
+  last_login_at null, disabled_at null, created_at, updated_at
+  -- avatar_file_id arrives with `files` in Phase 5
 
-sessions                                        G
-  id, user_id → users, family_id uuid             -- rotation family
-  refresh_token_hash bytea unique, parent_id uuid null
-  user_agent text, ip inet, last_used_at, expires_at, revoked_at null, revoked_reason text null
+sessions                                        G   (one row per refresh token)
+  id, user_id → users, family_id uuid            -- the "session" users see; access JWT sid = family_id
+  parent_id uuid null                            -- the row this one rotated from
+  refresh_token_hash bytea unique (sha256), user_agent null, ip inet null
+  last_used_at, expires_at (30d absolute, fixed at login), revoked_at null
+  revoked_reason text null (ROTATED | REUSE_DETECTED | LOGOUT | USER_REVOKED | USER_REVOKED_ALL | PASSWORD_CHANGED | PASSWORD_RESET | EXPIRED)
   created_at
-  idx (user_id, revoked_at)
+  idx (user_id, revoked_at), (family_id)
+  -- presenting a ROTATED token → every row in the family REUSE_DETECTED
 
 email_verification_tokens / password_reset_tokens   G
-  id, user_id, token_hash bytea unique, expires_at, used_at null, created_at
+  id, user_id, token_hash bytea unique (sha256 of a 256-bit token; raw token only in the email)
+  expires_at (24h / 1h), used_at null, created_at
+  -- created by the worker; a new token marks older unused ones used
 
 two_factor_credentials                          G
-  user_id pk → users, secret_ciphertext bytea, enabled_at null
-  backup_code_hashes bytea[], created_at, updated_at
+  user_id pk → users, secret_ciphertext bytea (AES-256-GCM, v1.{kid}…)
+  enabled_at null (null = setup started, not confirmed)
+  backup_code_hashes text[] (argon2id; a used code is removed), created_at, updated_at
 
-tenants                                         root (custom RLS)  SD
-  id, name text, slug citext unique, default_country char(2) default 'IN'
-  timezone text default 'Asia/Kolkata', currency char(3) default 'INR'
-  owner_user_id uuid → users, created_at, updated_at, deleted_at
+security_events                                 G  AO   -- user-level trail (tenant actions go to audit_logs)
+  id, user_id → users, type security_event_type
+      (LOGIN_SUCCEEDED | LOGIN_FAILED | LOGOUT | PASSWORD_CHANGED | PASSWORD_RESET | EMAIL_VERIFIED |
+       TWO_FACTOR_ENABLED | TWO_FACTOR_DISABLED | BACKUP_CODE_USED | SESSION_REVOKED |
+       ALL_SESSIONS_REVOKED | REFRESH_TOKEN_REUSE)
+  ip inet null, user_agent null, metadata jsonb null, created_at
+  idx (user_id, created_at desc)
 
-roles                                           G  (seeded: OWNER, ADMIN, MANAGER, AGENT, VIEWER)
-  id, key role_key unique, name text, rank int  -- rank: OWNER 50 … VIEWER 10
+tenants                                         root (custom RLS: tenant_self + tenant_member_read)  SD
+  id, name, slug citext unique (slugified name + random suffix)
+  default_country char(2) default 'IN', timezone default 'Asia/Kolkata', currency char(3) default 'INR'
+  require_2fa boolean default false, owner_user_id → users
+  created_at, updated_at, deleted_at (soft delete → TENANT_NOT_FOUND everywhere), purge_after null (T3)
 
-permissions                                     G  (seeded; catalog in SECURITY.md)
-  id, key text unique, description text
+tenant_purges                                   (platform, no RLS; read by platform admins only)
+  tenant_id pk, started_at, completed_at null, steps jsonb   -- {step: completedAt}; resumes at the first incomplete step (T3)
 
-role_permissions                                G
-  role_id, permission_id, pk (role_id, permission_id)
+roles                                           G  read-only (seeded from @fenwira/contracts rbac.ts)
+  key role_key pk (OWNER|ADMIN|MANAGER|AGENT|VIEWER), name, rank int (50…10)
 
-memberships                                     T (+ self-read policy)
-  id, tenant_id, user_id → users, role_id → roles
-  status membership_status (ACTIVE|DEACTIVATED), joined_at, deactivated_at null
+permissions                                     G  read-only (seeded)
+  key text pk, description text
+
+role_permissions                                G  read-only (seeded; stale grants removed on migrate)
+  role_key → roles, permission_key → permissions, pk (role_key, permission_key)
+
+memberships                                     T (+ membership_self_read)
+  id, tenant_id → tenants, user_id → users, role role_key → roles.key
+  status (ACTIVE|DEACTIVATED), joined_at, deactivated_at null, updated_at
   unique (tenant_id, user_id)
-  -- exactly one ACTIVE OWNER per tenant: partial unique index on (tenant_id) WHERE role=OWNER AND status=ACTIVE
-  --   (implemented via a role_key column denormalized from roles, kept in sync by the service)
+  unique (tenant_id) WHERE role='OWNER' AND status='ACTIVE'   -- exactly one owner (post-migrate.sql)
 
 invitations                                     T
-  id, tenant_id, email citext, role_id, token_hash bytea unique
-  invited_by → users, status invitation_status (PENDING|ACCEPTED|REVOKED|EXPIRED)
-  expires_at (7d), accepted_at null, created_at
-  unique (tenant_id, email) WHERE status='PENDING'
+  id, tenant_id, email citext, role role_key → roles.key, invited_by → users
+  token_hash bytea null unique                   -- set by the worker on each (re)send; null once used/revoked
+  status (PENDING|ACCEPTED|REVOKED|EXPIRED), expires_at null (sent_at + 7d), sent_at null, accepted_at null
+  created_at, updated_at
+  unique (tenant_id, email) WHERE status='PENDING'           -- post-migrate.sql
+  idx (tenant_id, status)
 
 audit_logs                                      T  AO
   id, tenant_id, actor_type (USER|API_KEY|SYSTEM), actor_id uuid null
-  action text                                    -- e.g. 'team.member.role_changed'
-  target_type text, target_id uuid null
-  changes jsonb null                             -- {field: [old,new]}, secrets redacted
-  ip inet null, user_agent text null, correlation_id text, created_at
+  action text (e.g. 'team.member.role_changed'), target_type, target_id text null
+  changes jsonb null ({field: [old, new]}; keys matching password|token|secret|code redacted)
+  ip inet null, user_agent null, correlation_id null, created_at
   idx (tenant_id, created_at desc), (tenant_id, target_type, target_id)
 ```
+
+Differences from the original Phase 0 draft: memberships and invitations reference `roles.key` directly (no `role_id` plus denormalized key); `security_events` was added because user-level auth events have no tenant; invitation tokens are issued by the worker, so `token_hash` is nullable.
 
 ## WhatsApp accounts (P4)
 
@@ -130,36 +154,49 @@ meta_business_accounts                          T
 
 whatsapp_business_accounts                      T
   id, tenant_id, meta_business_account_id → meta_business_accounts null
-  waba_id text unique, name text, currency char(3) null, timezone_id text null
+  waba_id text, name text, currency char(3) null, timezone_id text null
   message_template_namespace text null
   status waba_status (ACTIVE|RESTRICTED|DISABLED|DISCONNECTED)
   created_at, updated_at
+  unique (tenant_id, waba_id)
 
 whatsapp_phone_numbers                          T
   id, tenant_id, waba_id → whatsapp_business_accounts
-  phone_number_id text unique                    -- global unique: one tenant per number
-  display_phone_number text, verified_name text
+  phone_number_id text
+  display_phone_number text, verified_name text, label text null
   quality_rating quality_rating (GREEN|YELLOW|RED|UNKNOWN)
   messaging_limit_tier text null                 -- as reported by Meta
-  throughput_mps int default 80
+  throughput_mps int default 80                  -- STANDARD 80, HIGH 1000
   status phone_status (PENDING|CONNECTED|FLAGGED|RESTRICTED|DISCONNECTED|ERROR)
-  status_detail text null
+  status_detail jsonb null                       -- connect steps [{key, status, error?}]
   registration_pin_ciphertext bytea null         -- 2-step verification PIN we set
-  is_default boolean default false               -- one default per tenant (partial unique)
+  is_default boolean default false
   last_synced_at null, connected_at null, disconnected_at null
   created_at, updated_at
+  unique (tenant_id, phone_number_id)
+  UNIQUE (phone_number_id) WHERE status <> 'DISCONNECTED'   -- one tenant per live number
+  UNIQUE (tenant_id) WHERE is_default                       -- one default per tenant
 
 meta_credentials                                T
   id, tenant_id, waba_id → whatsapp_business_accounts
-  token_ciphertext bytea, token_last4 text, token_type (BUSINESS_INTEGRATION|SYSTEM_USER|DEV)
+  token_ciphertext bytea null (NULL once REVOKED), token_prefix text, token_last4 text
+  token_type meta_token_type (BUSINESS_INTEGRATION|SYSTEM_USER|DEV)
   scopes text[], expires_at null, status credential_status (VALID|EXPIRING|INVALID|REVOKED)
-  rotated_at null, created_at, updated_at
-  unique (waba_id) WHERE status IN ('VALID','EXPIRING')
+  last_checked_at null, rotated_at null, created_at, updated_at
+  UNIQUE (waba_id) WHERE status IN ('VALID','EXPIRING')
 
 webhook_subscriptions                           T
-  id, tenant_id, waba_id, subscribed_fields text[]
-  status (ACTIVE|FAILED|REMOVED), last_event_at null, last_checked_at null, created_at, updated_at
+  id, tenant_id, waba_id → whatsapp_business_accounts, subscribed_fields text[]
+  status webhook_subscription_status (ACTIVE|FAILED|REMOVED)
+  last_event_at null, last_checked_at null, created_at, updated_at
+  unique (tenant_id, waba_id)
 ```
+
+Differences from the original Phase 0 draft:
+
+- `phone_number_id` is unique among **non-DISCONNECTED** rows (partial index) rather than globally. A number a tenant disconnected can be connected by another tenant, and the same tenant reconnecting reuses its row through `(tenant_id, phone_number_id)`.
+- `waba_id` is unique per tenant. Numbers, not WABAs, carry traffic, and a WABA can only live in one tenant while it has a live number there.
+- `status_detail` is `jsonb` (the step list), not text. `label` (rename) and `token_prefix`/`last_checked_at` (masked display and sync) were added.
 
 ## Messaging (P5; inbox columns P7)
 
@@ -212,6 +249,15 @@ messages                                        T
   unique (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL
   idx (tenant_id, conversation_id, created_at desc), GIN (text_search)
 ```
+
+Implemented in Phase 5 (migration `20260926000000_messaging`), with these differences from the draft above:
+
+- `messages.attempts int` counts outbound send attempts; `files.filename` keeps the original name for downloads.
+- `messages.text_search` (full-text search) was deferred to Phase 7 and is added in SQL there (see Inbox).
+- The status ladder is `public.fenwira_message_status_rank(message_status)` (CREATED 0 … READ 5; FAILED and RECEIVED −1), used by every status update's `WHERE`.
+- Partial unique indexes in `post-migrate.sql`: `contacts (tenant_id, phone_e164) WHERE deleted_at IS NULL`, `messages (tenant_id, provider_message_id)` and `messages (tenant_id, idempotency_key)` where not null.
+- `webhook_events.payload` is the normalized event plus `phoneId` (the number's row id); raw bodies are not stored (`raw_ref` dropped).
+- `contacts` has its core columns only (id, tenant, phone_e164, name, email, language, country, source, status, wa_profile_name, last_inbound_at, timestamps, deleted_at); owner and the Phase 6 tables arrive then.
 
 ## Contacts & consent (P6; `contacts` core in P5)
 
@@ -282,6 +328,15 @@ export_jobs                                     T
   file_id null, row_count int null, expires_at, created_at, updated_at
 ```
 
+Implemented in Phase 6 (migration `20260927000000_contacts_consent`), with these differences from the draft:
+
+- `contacts.marketing_consent` / `utility_consent` (`consent_state` NONE, GRANTED or REVOKED) mirror the latest `consents` row per purpose and replace the `current_consents` view.
+- `contact_property_values.value_number` is `numeric(24,6)`, and the table has `tenant_id` for RLS.
+- `import_jobs` also keeps `headers`, `sample`, `suggested_mapping`, `preview`, `new_rows`, `existing_rows`, `processed_rows` and `failure_reason`.
+- `tenants` gained `opt_out_keywords`, `opt_in_keywords` and `opt_out_reply` (see the workspace consent settings).
+- `messages.purpose consent_purpose null` (the consent purpose of outbound sends).
+- Trigram GIN indexes on `contacts.name`, `phone_e164` and `email` serve CONTAINS and quick search.
+
 ## Inbox (P7)
 
 ```text
@@ -292,7 +347,22 @@ conversation_tags                               T
   tenant_id, conversation_id, tag_id → tags, created_at, created_by; pk (conversation_id, tag_id)
 ```
 
+```text
+canned_replies                                  T   P7 (decisions I2, I3)
+  id, tenant_id, shortcut text (e.g. /hello), title text, body text, created_by → users, created_at, updated_at
+  unique (tenant_id, shortcut)   -- shortcuts are stored lowercase, so this is case-insensitive
+```
+
 Compose locks and presence live in Redis only (`INBOX.md`).
+
+Implemented in Phase 7 (migration `20260928000000_inbox`), with these differences from the draft:
+
+- `conversations.inbound_count int` (the unread fallback when a user has no read-state row) and `conversations.assigned_at` (round-robin tie-break).
+- `conversation_read_states` has an index `(tenant_id, user_id)` for the nav badge.
+- `messages.text_search` is added in `post-migrate.sql` (Prisma can't model generated columns): `to_tsvector('simple', content->>'text' || ' ' || content->>'caption')`, with a GIN index.
+- `tenants` gained `auto_assign` (`auto_assign_mode` OFF or ROUND_ROBIN), `inbox_visibility` (ALL or ASSIGNED_ONLY) and `takeover_auto_release_hours int null`.
+- `notifications` (drafted under Platform) is built as specified; the API only returns the caller's own rows.
+- An inbound message's `created_at` is Meta's timestamp, not the insert time.
 
 ## Templates (P8)
 
@@ -314,6 +384,14 @@ template_versions                               T   (immutable once submitted)
   unique (template_id, version)
 ```
 
+Implemented in Phase 8 (migration `20260930000000_templates`), with these differences from the draft:
+
+- `templates` also has `quality_score`, `created_by`; `current_version_id` is always the newest version, and `approved_version_id` the version Meta serves. The live-identity unique index `(tenant_id, waba_id, name, language) WHERE deleted_at IS NULL` is in `post-migrate.sql`.
+- `template_versions` also has `variable_samples`, `sample_file_id → files` (the media header sample), `origin template_origin (FENWIRA|META)` for versions recorded by a sync, and `last_error` (a submit that never reached Meta). A superseded approved version becomes `ARCHIVED`.
+- `whatsapp_business_accounts.templates_synced_at` drives the 6-hourly sync (X14).
+- `messages.template_version_id → template_versions` records which version a template message used.
+- Header samples are `files` with purpose `TEMPLATE_SAMPLE` in the media bucket (`{tenant}/template-samples/…`), not a separate uploads bucket.
+
 ## Campaigns (P9)
 
 ```text
@@ -322,7 +400,7 @@ campaigns                                       T SD
   template_version_id → template_versions, variable_mapping jsonb
   audience jsonb (contracts: CampaignAudience), audience_snapshot_at null
   schedule_at null, timezone text, send_window jsonb null
-  status campaign_status (DRAFT|SCHEDULED|RUNNING|PAUSED|STOPPED|COMPLETED|FAILED)
+  status campaign_status (DRAFT|SCHEDULED|RUNNING|PAUSED|PAUSED_INSUFFICIENT_FUNDS|STOPPED|COMPLETED|FAILED)
   rate_limit_per_minute int null, estimated_cost_minor bigint null, currency char(3)
   total_recipients int default 0, created_by, launched_by null
   launched_at, paused_at, stopped_at, completed_at (null)
@@ -339,6 +417,20 @@ campaign_recipients                             T
   idx (campaign_id, status)
 ```
 
+Implemented in Phase 9 (migration `20261001000000_campaigns_wallet`), with these differences from the draft:
+
+- `campaign_status` is `DRAFT|SCHEDULED|PREPARING|RUNNING|PAUSED|PAUSED_INSUFFICIENT_FUNDS|COMPLETED|CANCELLED|FAILED` (CANCELLED replaces STOPPED). `campaigns` also has `pause_reason`, `failure_reason`, `template_snapshot` (what is sent), `dispatch_generation` (resume counter), `started_at`, `cancelled_at` and `failed_at`. There is no `send_window` or cost column yet.
+- `recipient_status` is `PENDING|QUEUED|SENDING|SENT|DELIVERED|READ|FAILED|SKIPPED` (default PENDING). `campaign_recipients` has `contact_name`, `message_id` (unique) and timestamps per state, and an index `(campaign_id, status, id)`. The per-recipient idempotency key is derived (`campaign:{campaignId}:{recipientId}`), not stored.
+- The Phase 11 wallet core arrived early (B4): `wallets` (with `reserved_minor`), `wallet_transactions` (append-only, with a balance trigger), `wallet_reservations`, `usage_events` (append-only) and `price_book_entries` (global, seeded placeholders, read-only for the app).
+
+Phase 11 Step 1 (migration `20261004000000_wallet_state`): `wallets.funds_state` (`wallet_funds_state` NORMAL|LOW_BALANCE|INSUFFICIENT_FUNDS, null until first recorded; detects low-balance crossings, P11-D12); `wallet_transactions.fund_type` (`fund_type` PAID|PROMOTIONAL, default PAID; existing trial credits classified PROMOTIONAL) and `expires_at` (metadata, P11-D7); `notifications.dedupe_key` with unique `(tenant_id, user_id, dedupe_key)` so event-driven notifications are created once. System functions X17 `stale_reservations` and X18 `wallet_ledger_drift` (`MULTI_TENANCY.md`).
+
+Phase 11 Step 2 (migration `20261006000000_analytics`): `analytics_events` (append-only; `source_event_id` unique per tenant, `subject_id`, `dims`), `analytics_daily_rollups` (pk `tenant_id, day, metric, dims_key`), `analytics_conversation_episodes`, `analytics_dirty` (durable recompute marks) and `analytics_tenant_state`, as defined in `ANALYTICS.md`. New source indexes for bounded per-day scans: `messages (tenant_id, created_at)`, `automation_executions (tenant_id, started_at)`, `automation_execution_steps (tenant_id, started_at)`, `usage_events (tenant_id, occurred_at)`, and `campaign_recipients (tenant_id, contact_id, created_at desc)` for Contact → Campaigns. System functions X10 `tenants_with_activity` and `purge_analytics_events` (X9 analytics part).
+
+P11-D21 (migration `20261005000000_wallet_funding`): `wallets.funded_at` (first time the wallet had available funds; backfilled from the first positive ledger row).
+
+Phase 9 closure (migration `20261002000000_billing_modes`): `tenants.billing_mode` (`billing_mode`: FREE, TRIAL or PREPAID; default TRIAL); `campaign_status` adds `PAUSED_TEMPLATE_UNAVAILABLE`; `price_book_entries.unit_price_minor` is renamed `customer_price_minor`, with new `provider_cost_minor`, `tax_code`, `tax_bps`, `is_placeholder` and `note`; `usage_events.provider_cost_minor`.
+
 ## Automation (P10)
 
 ```text
@@ -347,7 +439,9 @@ flows                                           T SD
   status flow_status (DRAFT|ACTIVE|PAUSED|ARCHIVED)
   active_version_id uuid null, draft_version_id uuid null
   reentry_policy (ALWAYS|ONCE_PER_CONTACT|AFTER_COMPLETION) default AFTER_COMPLETION
-  webhook_token_hash bytea null unique       -- inbound webhook trigger
+  priority int not null default 100          -- AE2: lower runs first; ties by created_at, then id
+  webhook_token_hash bytea null unique       -- inbound webhook trigger (sha256 of a 256-bit token)
+  webhook_secret_ciphertext bytea null       -- HMAC key for X-Fenwira-Signature (app crypto)
   created_by, created_at, updated_at, deleted_at
 
 flow_versions                                   T   (immutable once PUBLISHED)
@@ -360,11 +454,22 @@ flow_versions                                   T   (immutable once PUBLISHED)
 
 automation_executions                           T
   id, tenant_id, flow_id, flow_version_id, contact_id, conversation_id null
-  trigger_event jsonb, status execution_status (RUNNING|WAITING|COMPLETED|FAILED|CANCELLED)
+  trigger_event jsonb, status execution_status (RUNNING|WAITING|COMPLETED|FAILED|CANCELLED|STOPPED_TAKEOVER)
   current_node_id text null, wait_until null, context jsonb (variables), step_count int
   error_code null, error_detail null, started_at, finished_at null, updated_at
-  unique (flow_id, conversation_id) WHERE status IN ('RUNNING','WAITING')   -- one active per flow+conversation
+  unique (flow_id, conversation_id) WHERE status IN ('RUNNING','WAITING') AND conversation_id IS NOT NULL
+  unique (flow_id, contact_id) WHERE status IN ('RUNNING','WAITING') AND conversation_id IS NULL
+  trigger_run_id uuid null → automation_trigger_runs
+  unique (trigger_run_id, flow_id)           -- one execution per flow per triggering event
   idx (tenant_id, flow_id, started_at desc)
+
+automation_trigger_runs                         T   (AE3: one row per triggering event)
+  id, tenant_id, event_id uuid, trigger_type, contact_id, conversation_id null
+  trigger_event jsonb   -- what executions see as trigger.* (message, webhook body, contact source)
+  plan jsonb      -- ordered [{flowId, flowName, flowVersionId, priority, status, reason null, executionId null}]
+                  -- status: PENDING|STARTED|COMPLETED|FAILED|CANCELLED|STOPPED_TAKEOVER|SKIPPED_TAKEOVER|SKIPPED|SKIPPED_ENTITLEMENT
+  unique (tenant_id, event_id)   -- a redelivered event creates no second run
+  status (RUNNING|COMPLETED|STOPPED), stop_reason text null, created_at, finished_at null
 
 automation_execution_steps                      T AO
   id, tenant_id, execution_id, seq int, node_id text, node_type text
@@ -374,28 +479,46 @@ automation_execution_steps                      T AO
   unique (execution_id, seq)
 ```
 
+Implemented in Phase 10 (migration `20261003000000_automation`). The partial uniques and X8/X16 live in `post-migrate.sql`. `messages.automation_execution_id` is not populated; automation messages are linked by their idempotency key `auto:{executionId}:{seq}` and `source = AUTOMATION`.
+
 ## Billing (P11)
 
 ```text
-plans                                           G
-  id, key plan_key (TRIAL|STARTER|GROWTH|BUSINESS) unique, name, price_minor bigint, currency, interval (MONTH|YEAR)
-  is_public boolean, sort int
+plans                                           G   (Phase 11 Step 4, migration 20261008000000_plans_subscriptions)
+  id, key text unique (STARTER|GROWTH|BUSINESS — data, never referenced in feature code; no TRIAL plan:
+  trial is a subscription status), name, is_public boolean, sort int, created_at
 
 plan_entitlements                               G
-  plan_id, key text, value jsonb; pk (plan_id, key)     -- keys: BILLING.md
+  plan_id, key text, value jsonb; pk (plan_id, key)     -- keys: BILLING.md; unset key = unlimited/enabled
+
+plan_prices                                     G
+  id, plan_id, currency char(3), interval (MONTH|YEAR), amount_minor bigint, active; unique (plan_id, currency, interval)
+  -- empty in production: prices are not approved (P11-D4)
 
 subscriptions                                   T
-  id, tenant_id unique, plan_id, status (TRIALING|ACTIVE|PAST_DUE|CANCELLED)
-  current_period_start, current_period_end, trial_ends_at null
-  provider text null, provider_ref text null, created_at, updated_at
+  id, tenant_id unique, plan_id null, requested_plan_id null, requested_at null
+  status (TRIALING|ACTIVE|EXPIRED|CANCELLED; PAST_DUE reserved), interval (MONTH)
+  trial_ends_at, current_period_start, current_period_end, cancel_at_period_end, expired_at, cancelled_at
+  notices_sent text[], over_limit_since jsonb, provider null, provider_ref null, created_at, updated_at
+  index (status, trial_ends_at)
 
 tenant_entitlement_overrides                    T
-  tenant_id, key, value jsonb, reason text, created_by; pk (tenant_id, key)
+  tenant_id, key, value jsonb, reason text, created_by null, expires_at null, created_at; pk (tenant_id, key)
+  -- an unexpired override wins over the subscription (BILLING.md → Entitlements)
 
 wallets                                         T
   id, tenant_id unique, currency char(3)
   balance_minor bigint default 0                 -- cache, maintained ONLY by ledger insert trigger; CHECK consistency job
-  low_balance_threshold_minor bigint, created_at, updated_at
+  low_balance_threshold_minor bigint
+  credit_limit_minor bigint not null default 0  -- B3: permitted credit limit; configurable per tenant later
+  reserved_minor bigint not null default 0      -- B4: sum of ACTIVE reservations
+  created_at, updated_at
+
+wallet_reservations                             T   (B4)
+  id, tenant_id, wallet_id, message_id uuid unique, amount_minor bigint (estimate)
+  status (ACTIVE|SETTLED|RELEASED), settled_transaction_id null → wallet_transactions
+  reason text null, created_at, updated_at
+  -- wallets.reserved_minor = SUM(amount_minor) of ACTIVE rows, maintained in the same transaction
 
 wallet_transactions                             T AO
   id, tenant_id, wallet_id, type (CREDIT|DEBIT|ADJUSTMENT|REFUND)
@@ -426,35 +549,56 @@ analytics_daily_rollups                         T
   tenant_id, day date, metric text, dims_key text, value numeric
   pk (tenant_id, day, metric, dims_key)
 
-api_keys                                        T
-  id, tenant_id, name, prefix text unique (8 chars), key_hash bytea (sha256 of secret, + pepper)
-  scopes text[] (permission keys), created_by, last_used_at null, expires_at null, revoked_at null, created_at
+api_keys                                        T   (implemented, migration 20261007000000_api_keys_webhooks)
+  id, tenant_id, name, prefix char(8) unique, key_hash bytea (sha256 of secret + API_KEY_PEPPER)
+  scopes text[] (permission keys, from API_KEY_SCOPES only), created_by null, last_used_at null
+  expires_at null, revoked_at null, revoked_by null, created_at
+  idx (tenant_id, revoked_at)
 
 webhook_endpoints                               T SD
-  id, tenant_id, url text, secret_ciphertext bytea, events text[], status (ACTIVE|DISABLED)
-  failure_count int, created_at, updated_at, deleted_at
+  id, tenant_id, name, url text, secret_ciphertext bytea, events text[], status (ACTIVE|DISABLED)
+  failure_count int default 0, created_by null, created_at, updated_at, deleted_at
+  idx (tenant_id, status)
 
-webhook_deliveries                              T   (retention 30d)
-  id, tenant_id, endpoint_id, event_id uuid, event_type, attempt int, status (PENDING|SUCCEEDED|FAILED)
-  response_status int null, duration_ms int null, next_attempt_at null, created_at
+webhook_deliveries                              T   (retention 30d, own purge job — not system.purge_expired)
+  id, tenant_id, endpoint_id, event_id uuid, event_type text, payload jsonb (the external payload sent)
+  attempt int default 1, status (PENDING|SUCCEEDED|FAILED)
+  response_status int null, response_body text null, duration_ms int null, error_code text null
+  next_attempt_at null, created_at
+  unique (endpoint_id, event_id)   -- idempotent fan-out: a redelivered event reuses this row
+  idx (tenant_id, endpoint_id, created_at desc)
 ```
 
 ## Retention
+
+The retention categories, and what happens to each at tenant deletion, are in `DATA_RETENTION.md`. The table below summarizes the periods.
 
 | Data | Retention | Mechanism |
 | --- | --- | --- |
 | `webhook_events` | 30 days | `system.purge_expired` |
 | `outbox_events` DISPATCHED | 7 days | `system.purge_expired` |
 | `idempotency_keys` | 24 hours | `system.purge_expired` |
-| `webhook_deliveries` | 30 days | `system.purge_expired` |
-| `analytics_events` | Per `analytics_retention` entitlement | Maintenance job |
+| `webhook_deliveries` | 30 days | Nightly worker job, per tenant: `system.tenants_with_stale_webhook_deliveries` + `system.purge_webhook_deliveries` (its own functions, not `system.purge_expired`) |
+| `analytics_events` and the other analytics projections | Per `analytics_retention` entitlement | Nightly analytics retention (`ANALYTICS.md`) |
 | `audit_logs` | ≥ 1 year | Never auto-purged in v2 |
-| Messages, contacts | Until the tenant or the contact is deleted | Tenant deletion → cascade |
+| Messages, contacts | Until the contact is deleted, or the tenant is purged | Contact soft delete; tenant purge (below) |
+| A deleted tenant's data | 30 days recoverable, then purged or anonymized (decision T2) | Tenant purge job, one tenant at a time. Per-category handling is in `DATA_RETENTION.md` (decision T3). There is no database-wide hard delete. |
 | Import/export files | 7 days | MinIO lifecycle + `files` cleanup |
 
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| D1 | Should message content be encrypted at the column level? Assumed no for v2 (disk-level encryption in production). | Security |
-| D2 | Is contact dedupe by phone only enough, or do we also need email-based merge? Assumed phone only. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Phase 11 Step 5 additions
+
+Global read-only `platform_grants`; global credential/session `platform_challenges`/`platform_sessions`; forced-RLS platform-only `platform_audit` (AO); tenant-owned forced-RLS `commercial_operations` (AO), unique `(tenant_id,idempotency_key)`. Receipts contain immutable before/after, request fingerprint, actor, reason/reference and linked results. Existing financial history is not rewritten/backfilled. Runtime cannot update/delete/truncate receipts, ledger or audit.
+
+Step 5 security binding migration adds nullable parentFamilyId to platform challenges (legacy challenges expired) and nullable JSON details to append-only platform audit. No wallet/subscription/analytics history is rewritten. Prisma models express existing grant/challenge/session/receipt foreign keys with NO ACTION; operator identity and financial history cannot be cascade-deleted.
+
+## Phase 11 closure verification
+
+Phase 11 closure adds no schema migration or financial-history backfill. Subscription lifecycle transitions acquire the existing subscription row lock to prevent concurrent duplicate notices. See [closure evidence](plans/PHASE_11_CLOSURE.md).
+
+### Native connectors — Experience V2 follow-up
+
+Additive migration `20261008000000_native_connectors` adds tenant-owned encrypted connection records, short-lived OAuth challenges, and durable transfer receipts with encrypted snapshots and leases. Forced RLS, tenant foreign keys, a composite transfer-to-connection foreign key and a partial unique index for one pending transfer per connection accompany the tables. Existing contact/import, wallet, subscription, analytics and audit history is preserved. No financial backfill is performed.

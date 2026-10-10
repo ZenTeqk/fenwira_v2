@@ -10,7 +10,7 @@
 
 1. **Conversation:**
    - status: OPEN, PENDING, SNOOZED or RESOLVED
-   - assignee_id and team (nullable)
+   - assignee_id (individual agents only; teams/queues are deferred per decision I1, and nothing may prevent adding them later)
    - unread counts per agent
    - `last_customer_message_at`, `service_window_expires_at` (the server owns these, and they are updated by the inbound worker)
    - `automation_state`: AUTOMATION_ACTIVE, AGENT_TAKEOVER or AUTOMATION_PAUSED
@@ -22,11 +22,13 @@
 6. **Presence:** online, away or offline per agent over WebSocket, backed by a Redis heartbeat.
 7. **Search:** Postgres full-text search on message text and contact name/phone, tenant-scoped.
 8. **APIs:** list with cursor and filters (status, assignee, unassigned, tag, unread, window open/closed), thread (paginated backwards), reply (text/media/template via `MessagingService`), notes, assign, tag, resolve, snooze, reopen, mark read.
+9. **Canned replies** (decisions I2 and I3): workspace-shared saved replies (`shortcut` such as `/hello`, unique per workspace; `title`; `body`) that the composer inserts for editing. They never send by themselves. OWNER, ADMIN and MANAGER manage them (`inbox.canned_replies.manage`); AGENT uses them (`inbox.reply`); VIEWER can do neither. Tenant-isolated with RLS. No personal replies, variables or media.
 
 ### Frontend: three panes `Conversations | Chat | Contact`
 
 - **List:** filters and search, unread badge, window-state indicator, assignee avatar. The selected item gets `primary-soft` plus a `primary` left border.
 - **Chat:** virtualized thread. Outbound bubbles use `primary-soft`, inbound use `surface`, and system events use a `neutral-soft` pill. Per-message status ticks come from StatusBadge semantics. Notes are visually distinct and labeled "Internal". Attachments upload through a presigned MinIO URL. There is a template picker (sending approved templates; the full builder is Phase 8). A service window countdown appears in the header, and when the window is closed the composer switches to template-only with an explanation. Takeover state shows as an `info` banner with a "Return to automation" action.
+- **Canned replies:** typing `/` in the reply box (or the canned-replies button) opens a picker that inserts the chosen reply's text. Managed in Settings → Workspace → Canned replies.
 - **Contact:** a compact Contact 360 (from Phase 6) with consent status, tags, notes and past conversations.
 - Realtime: new messages, status ticks, assignment changes and presence arrive live, with optimistic sends reconciled by idempotency key.
 - Mobile: the panes collapse to a single stack with back navigation.
@@ -38,5 +40,6 @@
 - [ ] Outside the service window, a freeform reply is blocked by the server even if the UI check is bypassed (API test).
 - [ ] During AGENT_TAKEOVER, an automation-sourced send is rejected (test).
 - [ ] An agent in Tenant A never receives WebSocket events from Tenant B (test with two sockets).
+- [ ] An agent inserts a canned reply, edits it, and sends it through the normal reply path (lock and window rules still apply). Shortcuts are unique per workspace; an AGENT can use but not modify them, and a VIEWER can do neither. Another tenant's canned replies are never visible (tenant and security matrices).
 - [ ] Search returns only the current tenant's conversations.
 - [ ] Lighthouse accessibility score of at least 90 on the inbox page.

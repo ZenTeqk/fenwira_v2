@@ -1,0 +1,102 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "sidebar": {
+    "x": 0,
+    "y": 0,
+    "width": 224,
+    "height": 1000,
+    "fontSize": "14px",
+    "padding": "12px"
+  },
+  "topbar": {
+    "x": 224,
+    "y": 0,
+    "width": 1216,
+    "height": 56,
+    "fontSize": "14px",
+    "padding": "0px 24px"
+  },
+  "home": {
+    "x": 248,
+    "y": 76,
+    "width": 1168,
+    "height": 870,
+    "fontSize": "14px",
+    "padding": "0px"
+  },
+  "greeting": {
+    "x": 248,
+    "y": 76,
+    "width": 419.828125,
+    "height": 32,
+    "fontSize": "24px",
+    "padding": "0px"
+  },
+  "attention": {
+    "x": 248,
+    "y": 152,
+    "width": 812.796875,
+    "height": 294,
+    "fontSize": "14px",
+    "padding": "0px"
+  },
+  "activity": {
+    "x": 1076.796875,
+    "y": 152,
+    "width": 339.203125,
+    "height": 294,
+    "fontSize": "14px",
+    "padding": "0px"
+  },
+  "conversations": {
+    "x": 248,
+    "y": 462,
+    "width": 510.21875,
+    "height": 336,
+    "fontSize": "14px",
+    "padding": "0px"
+  },
+  "campaign": {
+    "x": 774.21875,
+    "y": 462,
+    "width": 641.78125,
+    "height": 172,
+    "fontSize": "14px",
+    "padding": "0px"
+  },
+  "automation": {
+    "x": 248,
+    "y": 814,
+    "width": 1168,
+    "height": 98,
+    "fontSize": "14px",
+    "padding": "0px"
+  },
+  "metrics": {
+    "x": 774.21875,
+    "y": 650,
+    "width": 641.78125,
+    "height": 148,
+    "fontSize": "14px",
+    "padding": "12px"
+  },
+  "conversationRow": {
+    "x": 265,
+    "y": 512,
+    "width": 476.21875,
+    "height": 61,
+    "fontSize": "14px",
+    "padding": "0px"
+  },
+  "attentionRow": {
+    "x": 265,
+    "y": 206,
+    "width": 778.796875,
+    "height": 69,
+    "fontSize": "14px",
+    "padding": "12px 0px"
+  }
+}

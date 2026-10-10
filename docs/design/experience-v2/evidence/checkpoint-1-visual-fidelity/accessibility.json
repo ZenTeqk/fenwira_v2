@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-10-07T06:38:04.111Z",
+  "lighthouse": "12.8.2",
+  "category": "accessibility",
+  "finalUrlsVerified": true,
+  "scores": [
+    {
+      "path": "/dashboard",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/inbox",
+      "score": 100,
+      "failing": []
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-10-05",
+  "scanner": "Trivy",
+  "threshold": "fixable HIGH/CRITICAL; secrets enabled",
+  "images": [
+    {
+      "image": "fenwira/api:local",
+      "imageId": "sha256:91a67fc4e406cae00e5b303edb89924463874dd262c711e1861eff77b921d313",
+      "fixableHighCritical": 0,
+      "secrets": 0
+    },
+    {
+      "image": "fenwira/worker:local",
+      "imageId": "sha256:a70295dff95da4ee9d7650d4dc66fe3eb7a19e1c666a1c706cb1495855777f9b",
+      "fixableHighCritical": 0,
+      "secrets": 0
+    },
+    {
+      "image": "fenwira/migrate:local",
+      "imageId": "sha256:6e3afeaa687a1a9418d01d5be377ac39b399a6bebd1b584f954ab654c4aaf788",
+      "fixableHighCritical": 0,
+      "secrets": 0
+    },
+    {
+      "image": "fenwira/web:local",
+      "imageId": "sha256:f905318539080d9ebb6d593f97cedd7e594ccc21347ae9868f25930717d9411d",
+      "fixableHighCritical": 0,
+      "secrets": 0
+    }
+  ]
+}

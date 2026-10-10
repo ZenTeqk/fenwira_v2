@@ -1,0 +1,32 @@
+{
+  "sidebar": {
+    "width": 224,
+    "height": 1000,
+    "x": 0,
+    "y": 0
+  },
+  "topbar": {
+    "width": 1216,
+    "height": 56,
+    "x": 224,
+    "y": 0
+  },
+  "context": {
+    "width": 320,
+    "height": 777,
+    "x": 1096,
+    "y": 80
+  },
+  "card": {
+    "width": 260.65625,
+    "height": 218,
+    "x": 261,
+    "y": 281
+  },
+  "preview": {
+    "width": 234.65625,
+    "height": 70,
+    "x": 274,
+    "y": 348
+  }
+}

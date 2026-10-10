@@ -1,0 +1,173 @@
+'use client'
+
+import { type Contact, type ContactNote, type Conversation } from '@fenwira/contracts'
+import { Avatar, ErrorState, Skeleton } from '@fenwira/ui'
+import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
+import { TagBadges } from '@/components/contacts/tag-badges'
+import { useSession } from '@/components/session/session-provider'
+import { get } from '@/lib/api/client'
+import { keys } from '@/lib/api/keys'
+import { formatPhone } from '@/lib/phone'
+import { relativeTime } from '@/lib/relative-time'
+import { MessagingContext } from './messaging-context'
+
+type PastConversation = {
+  id: string
+  status: string
+  phoneNumber: string
+  lastMessageAt: string | null
+  lastMessagePreview: string | null
+}
+
+/** Compact Contact 360 (docs/INBOX.md → Contact pane). */
+export function ContactPane({
+  contactId,
+  conversationId,
+  assignee,
+}: {
+  contactId: string
+  conversationId: string
+  assignee?: Conversation['assignee']
+}) {
+  const { tenantId, can } = useSession()
+  const enabled = can('contacts.read')
+  const base = keys.tenant(tenantId, 'contact', contactId)
+  const contact = useQuery({
+    queryKey: base,
+    queryFn: () => get<{ data: Contact }>(`/contacts/${contactId}`).then((r) => r.data),
+    enabled,
+  })
+  const notes = useQuery({
+    queryKey: [...base, 'notes'],
+    queryFn: () => get<{ data: ContactNote[] }>(`/contacts/${contactId}/notes`).then((r) => r.data),
+    enabled,
+  })
+  const past = useQuery({
+    queryKey: [...base, 'conversations'],
+    queryFn: () =>
+      get<{ data: PastConversation[] }>(`/contacts/${contactId}/conversations`).then((r) => r.data),
+    enabled,
+  })
+  if (!enabled)
+    return <p className="p-4 text-sm text-muted">Your role can&apos;t view contact details.</p>
+  if (contact.isPending) return <Skeleton className="m-4 h-40" />
+  if (contact.isError)
+    return (
+      <ErrorState
+        title="Contact details couldn’t be loaded"
+        onRetry={() => void contact.refetch()}
+      />
+    )
+  if (!contact.data) return <p className="p-4 text-sm text-muted">Contact not found.</p>
+  const c = contact.data
+  const others = (past.data ?? []).filter((p) => p.id !== conversationId)
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      <div className="flex items-center gap-3 pb-1" aria-label="Customer identity">
+        <Avatar appearance="varied" name={c.name ?? c.waProfileName ?? c.phoneE164} size="lg" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h2 className="truncate text-base font-semibold text-slate">
+            {c.name ?? c.waProfileName ?? formatPhone(c.phoneE164)}
+          </h2>
+          <span className="text-sm text-muted tabular-nums">{formatPhone(c.phoneE164)}</span>
+          {c.email ? <span className="text-sm text-muted">{c.email}</span> : null}
+          <Link
+            href={`/contacts/${c.id}`}
+            className="text-sm text-primary-strong underline-offset-4 hover:underline"
+          >
+            Open contact
+          </Link>
+        </div>
+      </div>
+      {assignee !== undefined ? (
+        <section
+          className="flex flex-col gap-2 border-t border-border/70 pt-3"
+          aria-label="Assignment"
+        >
+          <div className="flex items-center justify-between gap-2 text-sm text-secondary">
+            <h3 className="text-sm font-semibold text-slate">Assigned to</h3>
+            <span className="flex min-w-0 items-center gap-1">
+              {assignee ? <Avatar name={assignee.name} appearance="varied" size="sm" /> : null}
+              <span className="truncate" title={assignee?.name}>
+                {assignee?.name ?? 'Unassigned'}
+              </span>
+            </span>
+          </div>
+        </section>
+      ) : null}
+      <section className="flex flex-col gap-2 border-t border-border/70 pt-3" aria-label="Tags">
+        <h3 className="text-sm font-semibold text-slate">Tags</h3>
+        <TagBadges tags={c.tags} max={10} />
+      </section>
+      <MessagingContext contact={c} conversationId={conversationId} />
+      <section
+        className="flex flex-col gap-2 border-t border-border/70 pt-3"
+        aria-label="Contact notes"
+      >
+        <h3 className="text-sm font-semibold text-slate">Notes</h3>
+        {notes.isPending ? (
+          <Skeleton className="h-20" />
+        ) : notes.isError ? (
+          <ErrorState title="Notes couldn’t be loaded" onRetry={() => void notes.refetch()} />
+        ) : notes.data?.length ? (
+          <ul className="flex flex-col gap-2">
+            {notes.data.slice(0, 5).map((n) => (
+              <li key={n.id} className="flex gap-2 rounded-md bg-note-soft p-2 text-sm text-slate">
+                <Avatar appearance="varied" name={n.authorName} size="sm" />
+                <div className="min-w-0">
+                  <p className="mb-1 text-xs text-secondary">
+                    <span className="font-medium">{n.authorName}</span> ·{' '}
+                    <time dateTime={n.createdAt}>{relativeTime(n.createdAt)}</time>
+                  </p>
+                  <p className="whitespace-pre-wrap break-words">{n.body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-secondary">No notes yet. Notes on the contact show here.</p>
+        )}
+      </section>
+      <section
+        className="flex flex-col gap-2 border-t border-border/70 pt-3"
+        aria-label="Other conversations"
+      >
+        <h3 className="text-sm font-semibold text-slate">Other conversations</h3>
+        {past.isPending ? (
+          <Skeleton className="h-20" />
+        ) : past.isError ? (
+          <ErrorState
+            title="Conversation history couldn’t be loaded"
+            onRetry={() => void past.refetch()}
+          />
+        ) : others.length ? (
+          <ul className="flex flex-col gap-2">
+            {others.map((p) => (
+              <li key={p.id}>
+                <Link
+                  href={`/inbox?c=${p.id}`}
+                  className="flex flex-col border-l-2 border-primary-soft pl-3 text-sm text-slate hover:underline"
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="size-1 shrink-0 rounded-full bg-secondary"
+                    />
+                    <span className="truncate">{p.lastMessagePreview ?? 'No messages'}</span>
+                  </span>
+                  <span className="text-xs text-muted">
+                    Via {p.phoneNumber}
+                    {p.lastMessageAt ? ` · ${relativeTime(p.lastMessageAt)}` : ''}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-secondary">No other conversations.</p>
+        )}
+      </section>
+    </div>
+  )
+}

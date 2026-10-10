@@ -1,0 +1,34 @@
+{
+  "checkedAt": "2026-10-05T09:28:07.295Z",
+  "tool": "Lighthouse 12.8.2",
+  "category": "accessibility",
+  "minimumScore": 95,
+  "protectedRouteUrlsVerified": true,
+  "scores": [
+    {
+      "path": "/platform/login",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/platform/workspaces",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/platform/billing-operations",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/platform/audit",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/platform/workspaces/:workspaceId",
+      "score": 100,
+      "failing": []
+    }
+  ]
+}

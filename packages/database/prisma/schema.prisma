@@ -1,0 +1,2344 @@
+// Source of truth for tables is docs/DATABASE.md. Things Prisma cannot express (RLS policies,
+// partial indexes, grants, SECURITY DEFINER functions, triggers) live in ../sql/post-migrate.sql,
+// which runs after every `prisma migrate deploy` (ADR-0016).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OutboxStatus {
+  PENDING
+  DISPATCHED
+  FAILED
+
+  @@map("outbox_status")
+}
+
+/// Transactional outbox (ADR-0013). tenant_id NULL = platform event, writable only through
+/// system.emit_platform_event(); tenant events are inserted inside withTenant() and RLS-checked.
+model OutboxEvent {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  tenantId      String?      @map("tenant_id") @db.Uuid
+  eventType     String       @map("event_type")
+  aggregateType String?      @map("aggregate_type")
+  aggregateId   String?      @map("aggregate_id") @db.Uuid
+  payload       Json
+  correlationId String?      @map("correlation_id")
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  availableAt   DateTime     @default(now()) @map("available_at") @db.Timestamptz(3)
+  lastError     String?      @map("last_error")
+  dispatchedAt  DateTime?    @map("dispatched_at") @db.Timestamptz(3)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("outbox_events")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Identity (Phase 3) — global tables, no tenant_id, reached only through the identity module.
+// ---------------------------------------------------------------------------------------------
+
+model User {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  email           String    @unique @db.Citext
+  passwordHash    String    @map("password_hash")
+  name            String
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  locale          String    @default("en")
+  timezone        String    @default("Asia/Kolkata")
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(3)
+  disabledAt      DateTime? @map("disabled_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  platformGrant           PlatformGrant?
+  platformChallenges      PlatformChallenge[]
+  platformSessions        PlatformSession[]
+  commercialOperations    CommercialOperation[]
+  sessions                Session[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  twoFactor               TwoFactorCredential?
+  securityEvents          SecurityEvent[]
+  memberships             Membership[]
+  ownedTenants            Tenant[]                 @relation("TenantOwner")
+  sentInvitations         Invitation[]             @relation("InvitationInviter")
+  ownedContacts           Contact[]                @relation("ContactOwner")
+  contactNotes            ContactNote[]            @relation("ContactNoteAuthor")
+  assignedConversations   Conversation[]           @relation("ConversationAssignee")
+  readStates              ConversationReadState[]  @relation("ConversationReader")
+  conversationNotes       ConversationNote[]       @relation("ConversationNoteAuthor")
+  notifications           Notification[]           @relation("NotificationRecipient")
+  cannedReplies           CannedReply[]            @relation("CannedReplyAuthor")
+  templateVersions        TemplateVersion[]        @relation("TemplateVersionAuthor")
+  apiKeysCreated          ApiKey[]                 @relation("ApiKeyCreator")
+  webhookEndpointsCreated WebhookEndpoint[]        @relation("WebhookEndpointCreator")
+  campaignsCreated        Campaign[]               @relation("CampaignCreator")
+
+  @@map("users")
+}
+
+/// One row per refresh token. Rotation creates a child row in the same family and revokes the
+/// parent (reason ROTATED); presenting a ROTATED token revokes the whole family (reuse detection).
+model Session {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  familyId         String    @map("family_id") @db.Uuid
+  parentId         String?   @map("parent_id") @db.Uuid
+  refreshTokenHash Bytes     @unique @map("refresh_token_hash")
+  userAgent        String?   @map("user_agent")
+  ip               String?   @db.Inet
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedReason    String?   @map("revoked_reason")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([familyId])
+  @@map("sessions")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash Bytes     @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash Bytes     @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model TwoFactorCredential {
+  userId           String    @id @map("user_id") @db.Uuid
+  secretCiphertext Bytes     @map("secret_ciphertext")
+  enabledAt        DateTime? @map("enabled_at") @db.Timestamptz(3)
+  backupCodeHashes String[]  @map("backup_code_hashes")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("two_factor_credentials")
+}
+
+enum SecurityEventType {
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  LOGOUT
+  PASSWORD_CHANGED
+  PASSWORD_RESET
+  EMAIL_VERIFIED
+  TWO_FACTOR_ENABLED
+  TWO_FACTOR_DISABLED
+  BACKUP_CODE_USED
+  SESSION_REVOKED
+  ALL_SESSIONS_REVOKED
+  REFRESH_TOKEN_REUSE
+
+  @@map("security_event_type")
+}
+
+/// User-level security trail (not tenant-scoped); tenant actions go to audit_logs. Append-only.
+model SecurityEvent {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  userId    String            @map("user_id") @db.Uuid
+  type      SecurityEventType
+  ip        String?           @db.Inet
+  userAgent String?           @map("user_agent")
+  metadata  Json?
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("security_events")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tenancy (Phase 3)
+// ---------------------------------------------------------------------------------------------
+
+/// Tenant root ("Workspace" in the UI). Custom RLS: visible when bound or when the current user is
+/// an ACTIVE member (post-migrate.sql → tenant_root).
+model Tenant {
+  nativeConnections        NativeConnection[]
+  nativeOauthChallenges    NativeOauthChallenge[]
+  nativeTransfers          NativeTransfer[]
+  commercialOperations     CommercialOperation[]
+  id                       String                 @id @default(uuid(7)) @db.Uuid
+  name                     String
+  slug                     String                 @unique @db.Citext
+  defaultCountry           String                 @default("IN") @map("default_country") @db.Char(2)
+  timezone                 String                 @default("Asia/Kolkata")
+  currency                 String                 @default("INR") @db.Char(3)
+  require2fa               Boolean                @default(false) @map("require_2fa")
+  /// Whole-message keywords that revoke / grant MARKETING consent (case-insensitive).
+  optOutKeywords           String[]               @default(["STOP", "UNSUBSCRIBE", "CANCEL", "STOP ALL", "OPT OUT"]) @map("opt_out_keywords")
+  optInKeywords            String[]               @default(["START", "SUBSCRIBE", "OPT IN"]) @map("opt_in_keywords")
+  /// Reply after an opt-out (a SERVICE message). Empty = no reply.
+  optOutReply              String?                @default("You're unsubscribed from marketing messages. Reply START to subscribe again.") @map("opt_out_reply")
+  autoAssign               AutoAssignMode         @default(OFF) @map("auto_assign")
+  inboxVisibility          InboxVisibility        @default(ALL) @map("inbox_visibility")
+  /// Return AGENT_TAKEOVER to automation after N idle hours on a resolved conversation (null = never).
+  takeoverAutoReleaseHours Int?                   @map("takeover_auto_release_hours")
+  /// P9-D1: FREE (never enforced), TRIAL (trial credits, enforced), PREPAID (enforced). Set by operators.
+  billingMode              BillingMode            @default(TRIAL) @map("billing_mode")
+  ownerUserId              String                 @map("owner_user_id") @db.Uuid
+  createdAt                DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt                DateTime?              @map("deleted_at") @db.Timestamptz(3)
+
+  owner                    User                           @relation("TenantOwner", fields: [ownerUserId], references: [id])
+  memberships              Membership[]
+  invitations              Invitation[]
+  auditLogs                AuditLog[]
+  outboxEvents             OutboxEvent[]
+  metaBusinessAccounts     MetaBusinessAccount[]
+  whatsappBusinessAccounts WhatsAppBusinessAccount[]
+  whatsappPhoneNumbers     WhatsAppPhoneNumber[]
+  metaCredentials          MetaCredential[]
+  webhookSubscriptions     WebhookSubscription[]
+  contacts                 Contact[]
+  conversations            Conversation[]
+  messages                 Message[]
+  webhookEvents            WebhookEvent[]
+  files                    File[]
+  idempotencyKeys          IdempotencyKey[]
+  contactPropertyDefs      ContactPropertyDefinition[]
+  contactPropertyValues    ContactPropertyValue[]
+  tags                     Tag[]
+  contactTags              ContactTag[]
+  contactNotes             ContactNote[]
+  consents                 Consent[]
+  contactActivities        ContactActivity[]
+  segments                 Segment[]
+  importJobs               ImportJob[]
+  importJobErrors          ImportJobError[]
+  exportJobs               ExportJob[]
+  readStates               ConversationReadState[]
+  conversationNotes        ConversationNote[]
+  conversationTags         ConversationTag[]
+  notifications            Notification[]
+  cannedReplies            CannedReply[]
+  templates                Template[]
+  campaigns                Campaign[]
+  campaignRecipients       CampaignRecipient[]
+  wallet                   Wallet?
+  walletTransactions       WalletTransaction[]
+  walletReservations       WalletReservation[]
+  usageEvents              UsageEvent[]
+  flows                    Flow[]
+  flowVersions             FlowVersion[]
+  automationTriggerRuns    AutomationTriggerRun[]
+  automationExecutions     AutomationExecution[]
+  automationSteps          AutomationExecutionStep[]
+  templateVersions         TemplateVersion[]
+  analyticsEvents          AnalyticsEvent[]
+  analyticsRollups         AnalyticsDailyRollup[]
+  analyticsEpisodes        AnalyticsConversationEpisode[]
+  analyticsDirty           AnalyticsDirty[]
+  analyticsState           AnalyticsTenantState?
+  apiKeys                  ApiKey[]
+  webhookEndpoints         WebhookEndpoint[]
+  webhookDeliveries        WebhookDelivery[]
+  subscription             Subscription?
+  entitlementOverrides     TenantEntitlementOverride[]
+
+  @@map("tenants")
+}
+
+enum RoleKey {
+  OWNER
+  ADMIN
+  MANAGER
+  AGENT
+  VIEWER
+
+  @@map("role_key")
+}
+
+/// Seeded from @fenwira/contracts (rbac.ts) by the migrate step; read-only for fenwira_app.
+model Role {
+  key         RoleKey          @id
+  name        String
+  rank        Int
+  permissions RolePermission[]
+  memberships Membership[]
+  invitations Invitation[]
+
+  @@map("roles")
+}
+
+model Permission {
+  key         String           @id
+  description String
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleKey       RoleKey @map("role_key")
+  permissionKey String  @map("permission_key")
+
+  role       Role       @relation(fields: [roleKey], references: [key], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([roleKey, permissionKey])
+  @@map("role_permissions")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  DEACTIVATED
+
+  @@map("membership_status")
+}
+
+/// Exactly one ACTIVE OWNER per tenant (partial unique index in post-migrate.sql).
+model Membership {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  tenantId      String           @map("tenant_id") @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  role          RoleKey
+  status        MembershipStatus @default(ACTIVE)
+  joinedAt      DateTime         @default(now()) @map("joined_at") @db.Timestamptz(3)
+  deactivatedAt DateTime?        @map("deactivated_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleRef Role   @relation(fields: [role], references: [key])
+
+  @@unique([tenantId, userId])
+  @@index([userId, status])
+  @@map("memberships")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+
+  @@map("invitation_status")
+}
+
+/// token_hash is set by the worker when it (re)sends the email; the raw token exists only in the
+/// email. One PENDING invitation per (tenant, email) — partial unique index in post-migrate.sql.
+model Invitation {
+  id          String           @id @default(uuid(7)) @db.Uuid
+  tenantId    String           @map("tenant_id") @db.Uuid
+  email       String           @db.Citext
+  role        RoleKey
+  tokenHash   Bytes?           @unique @map("token_hash")
+  invitedById String           @map("invited_by") @db.Uuid
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime?        @map("expires_at") @db.Timestamptz(3)
+  sentAt      DateTime?        @map("sent_at") @db.Timestamptz(3)
+  acceptedAt  DateTime?        @map("accepted_at") @db.Timestamptz(3)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("InvitationInviter", fields: [invitedById], references: [id])
+  roleRef   Role   @relation(fields: [role], references: [key])
+
+  @@index([tenantId, status])
+  @@map("invitations")
+}
+
+enum ActorType {
+  PLATFORM_OPERATOR
+  USER
+  API_KEY
+  SYSTEM
+
+  @@map("actor_type")
+}
+
+/// Tenant audit trail. Append-only: UPDATE/DELETE/TRUNCATE revoked from fenwira_app.
+model AuditLog {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  actorType     ActorType @map("actor_type")
+  actorId       String?   @map("actor_id") @db.Uuid
+  action        String
+  targetType    String    @map("target_type")
+  targetId      String?   @map("target_id")
+  changes       Json?
+  ip            String?   @db.Inet
+  userAgent     String?   @map("user_agent")
+  correlationId String?   @map("correlation_id")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, targetType, targetId])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------------------------
+// WhatsApp accounts (Phase 4, docs/META_INTEGRATION.md). Tokens and PINs are AES-256-GCM
+// ciphertext (@fenwira/config encryptSecret) and are decrypted only right before a Graph call.
+// ---------------------------------------------------------------------------------------------
+
+model MetaBusinessAccount {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  metaBusinessId String   @map("meta_business_id")
+  name           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  wabas  WhatsAppBusinessAccount[]
+
+  @@unique([tenantId, metaBusinessId])
+  @@map("meta_business_accounts")
+}
+
+enum WabaStatus {
+  ACTIVE
+  RESTRICTED
+  DISABLED
+  DISCONNECTED
+
+  @@map("waba_status")
+}
+
+/// One row per (tenant, WABA). A WABA in several tenants is prevented through its phone numbers
+/// (whatsapp_phone_numbers_active_number_unique), which is what actually carries traffic.
+model WhatsAppBusinessAccount {
+  id                       String     @id @default(uuid(7)) @db.Uuid
+  tenantId                 String     @map("tenant_id") @db.Uuid
+  metaBusinessAccountId    String?    @map("meta_business_account_id") @db.Uuid
+  wabaId                   String     @map("waba_id")
+  name                     String
+  currency                 String?    @db.Char(3)
+  timezoneId               String?    @map("timezone_id")
+  messageTemplateNamespace String?    @map("message_template_namespace")
+  status                   WabaStatus @default(ACTIVE)
+  /// Last successful template sync from Meta (docs/TEMPLATE_ENGINE.md → Sync from Meta).
+  templatesSyncedAt        DateTime?  @map("templates_synced_at") @db.Timestamptz(3)
+  createdAt                DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  metaBusinessAccount  MetaBusinessAccount?  @relation(fields: [metaBusinessAccountId], references: [id], onDelete: SetNull)
+  phoneNumbers         WhatsAppPhoneNumber[]
+  credentials          MetaCredential[]
+  webhookSubscriptions WebhookSubscription[]
+  templates            Template[]
+
+  @@unique([tenantId, wabaId])
+  @@map("whatsapp_business_accounts")
+}
+
+enum QualityRating {
+  GREEN
+  YELLOW
+  RED
+  UNKNOWN
+
+  @@map("quality_rating")
+}
+
+enum PhoneStatus {
+  PENDING
+  CONNECTED
+  FLAGGED
+  RESTRICTED
+  DISCONNECTED
+  ERROR
+
+  @@map("phone_status")
+}
+
+/// status_detail holds the connection steps [{key, status, error?}] (resumable connect flow).
+/// One non-DISCONNECTED row per phone_number_id across all tenants and one default per tenant
+/// (partial unique indexes in post-migrate.sql).
+model WhatsAppPhoneNumber {
+  id                        String        @id @default(uuid(7)) @db.Uuid
+  tenantId                  String        @map("tenant_id") @db.Uuid
+  wabaId                    String        @map("waba_id") @db.Uuid
+  phoneNumberId             String        @map("phone_number_id")
+  displayPhoneNumber        String        @map("display_phone_number")
+  verifiedName              String        @map("verified_name")
+  label                     String?
+  qualityRating             QualityRating @default(UNKNOWN) @map("quality_rating")
+  messagingLimitTier        String?       @map("messaging_limit_tier")
+  throughputMps             Int           @default(80) @map("throughput_mps")
+  status                    PhoneStatus   @default(PENDING)
+  statusDetail              Json?         @map("status_detail")
+  registrationPinCiphertext Bytes?        @map("registration_pin_ciphertext")
+  isDefault                 Boolean       @default(false) @map("is_default")
+  lastSyncedAt              DateTime?     @map("last_synced_at") @db.Timestamptz(3)
+  connectedAt               DateTime?     @map("connected_at") @db.Timestamptz(3)
+  disconnectedAt            DateTime?     @map("disconnected_at") @db.Timestamptz(3)
+  createdAt                 DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba          WhatsAppBusinessAccount @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@unique([tenantId, phoneNumberId])
+  @@index([tenantId, status])
+  @@map("whatsapp_phone_numbers")
+}
+
+enum MetaTokenType {
+  BUSINESS_INTEGRATION
+  SYSTEM_USER
+  DEV
+
+  @@map("meta_token_type")
+}
+
+enum CredentialStatus {
+  VALID
+  EXPIRING
+  INVALID
+  REVOKED
+
+  @@map("credential_status")
+}
+
+/// One live (VALID|EXPIRING) credential per WABA (partial unique in post-migrate.sql). Disconnect
+/// and rotation set the old row REVOKED and wipe token_ciphertext.
+model MetaCredential {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  tenantId        String           @map("tenant_id") @db.Uuid
+  wabaId          String           @map("waba_id") @db.Uuid
+  tokenCiphertext Bytes?           @map("token_ciphertext")
+  tokenLast4      String           @map("token_last4")
+  tokenPrefix     String           @map("token_prefix")
+  tokenType       MetaTokenType    @map("token_type")
+  scopes          String[]
+  expiresAt       DateTime?        @map("expires_at") @db.Timestamptz(3)
+  status          CredentialStatus @default(VALID)
+  lastCheckedAt   DateTime?        @map("last_checked_at") @db.Timestamptz(3)
+  rotatedAt       DateTime?        @map("rotated_at") @db.Timestamptz(3)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba   WhatsAppBusinessAccount @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, wabaId])
+  @@map("meta_credentials")
+}
+
+enum WebhookSubscriptionStatus {
+  ACTIVE
+  FAILED
+  REMOVED
+
+  @@map("webhook_subscription_status")
+}
+
+model WebhookSubscription {
+  id               String                    @id @default(uuid(7)) @db.Uuid
+  tenantId         String                    @map("tenant_id") @db.Uuid
+  wabaId           String                    @map("waba_id") @db.Uuid
+  subscribedFields String[]                  @map("subscribed_fields")
+  status           WebhookSubscriptionStatus @default(ACTIVE)
+  lastEventAt      DateTime?                 @map("last_event_at") @db.Timestamptz(3)
+  lastCheckedAt    DateTime?                 @map("last_checked_at") @db.Timestamptz(3)
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba   WhatsAppBusinessAccount @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, wabaId])
+  @@map("webhook_subscriptions")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Messaging (Phase 5, docs/MESSAGING_ENGINE.md). Contacts get their core columns now; consent,
+// tags and properties arrive in Phase 6, inbox columns in Phase 7.
+// ---------------------------------------------------------------------------------------------
+
+enum ContactSource {
+  INBOUND
+  MANUAL
+  IMPORT
+  API
+  CAMPAIGN
+  AUTOMATION
+
+  @@map("contact_source")
+}
+
+enum ContactStatus {
+  ACTIVE
+  BLOCKED
+
+  @@map("contact_status")
+}
+
+/// One live contact per (tenant, phone_e164) — partial unique index in post-migrate.sql.
+model Contact {
+  id               String        @id @default(uuid(7)) @db.Uuid
+  tenantId         String        @map("tenant_id") @db.Uuid
+  phoneE164        String        @map("phone_e164")
+  name             String?
+  email            String?       @db.Citext
+  language         String?
+  country          String?       @db.Char(2)
+  source           ContactSource
+  status           ContactStatus @default(ACTIVE)
+  waProfileName    String?       @map("wa_profile_name")
+  ownerId          String?       @map("owner_id") @db.Uuid
+  /// Current consent per purpose, kept in step with the latest `consents` row (same transaction).
+  marketingConsent ConsentState  @default(NONE) @map("marketing_consent")
+  utilityConsent   ConsentState  @default(NONE) @map("utility_consent")
+  lastInboundAt    DateTime?     @map("last_inbound_at") @db.Timestamptz(3)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?     @map("deleted_at") @db.Timestamptz(3)
+
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner          User?                  @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  conversations  Conversation[]
+  messages       Message[]
+  tags           ContactTag[]
+  notes          ContactNote[]
+  consents       Consent[]
+  activities     ContactActivity[]
+  propertyValues ContactPropertyValue[]
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, marketingConsent])
+  @@map("contacts")
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  SNOOZED
+  RESOLVED
+
+  @@map("conversation_status")
+}
+
+enum AutomationState {
+  AUTOMATION_ACTIVE
+  AGENT_TAKEOVER
+  AUTOMATION_PAUSED
+
+  @@map("automation_state")
+}
+
+/// One thread per contact per number. service_window_expires_at = last inbound + 24 h.
+model Conversation {
+  id                       String             @id @default(uuid(7)) @db.Uuid
+  tenantId                 String             @map("tenant_id") @db.Uuid
+  contactId                String             @map("contact_id") @db.Uuid
+  phoneNumberId            String             @map("phone_number_id") @db.Uuid
+  status                   ConversationStatus @default(OPEN)
+  assigneeId               String?            @map("assignee_id") @db.Uuid
+  assignedAt               DateTime?          @map("assigned_at") @db.Timestamptz(3)
+  /// Inbound messages ever received; unread for a user with no read-state row.
+  inboundCount             Int                @default(0) @map("inbound_count")
+  automationState          AutomationState    @default(AUTOMATION_ACTIVE) @map("automation_state")
+  automationStateChangedAt DateTime?          @map("automation_state_changed_at") @db.Timestamptz(3)
+  automationStateChangedBy String?            @map("automation_state_changed_by") @db.Uuid
+  lastMessageId            String?            @map("last_message_id") @db.Uuid
+  lastMessageAt            DateTime?          @map("last_message_at") @db.Timestamptz(3)
+  lastMessagePreview       String?            @map("last_message_preview")
+  lastCustomerMessageAt    DateTime?          @map("last_customer_message_at") @db.Timestamptz(3)
+  serviceWindowExpiresAt   DateTime?          @map("service_window_expires_at") @db.Timestamptz(3)
+  firstResponseAt          DateTime?          @map("first_response_at") @db.Timestamptz(3)
+  resolvedAt               DateTime?          @map("resolved_at") @db.Timestamptz(3)
+  snoozedUntil             DateTime?          @map("snoozed_until") @db.Timestamptz(3)
+  createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact     Contact                 @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  phoneNumber WhatsAppPhoneNumber     @relation(fields: [phoneNumberId], references: [id], onDelete: Cascade)
+  assignee    User?                   @relation("ConversationAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages    Message[]
+  readStates  ConversationReadState[]
+  notes       ConversationNote[]
+  tags        ConversationTag[]
+
+  @@unique([tenantId, contactId, phoneNumberId])
+  @@index([tenantId, status, lastMessageAt(sort: Desc)])
+  @@index([tenantId, assigneeId, status])
+  @@map("conversations")
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+  SYSTEM
+
+  @@map("message_direction")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  DOCUMENT
+  AUDIO
+  VIDEO
+  STICKER
+  LOCATION
+  CONTACTS
+  TEMPLATE
+  INTERACTIVE
+  REACTION
+  SYSTEM_EVENT
+  UNSUPPORTED
+
+  @@map("message_type")
+}
+
+enum MessageStatus {
+  RECEIVED
+  CREATED
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+
+  @@map("message_status")
+}
+
+enum MessageSource {
+  CUSTOMER
+  INBOX
+  CAMPAIGN
+  AUTOMATION
+  SYSTEM
+  API
+
+  @@map("message_source")
+}
+
+/// Outbound rows follow the state machine in docs/MESSAGING_ENGINE.md; status only moves forward
+/// (fenwira_message_status_rank). Partial unique indexes on provider_message_id and
+/// idempotency_key live in post-migrate.sql.
+model Message {
+  id                    String           @id @default(uuid(7)) @db.Uuid
+  tenantId              String           @map("tenant_id") @db.Uuid
+  conversationId        String           @map("conversation_id") @db.Uuid
+  contactId             String           @map("contact_id") @db.Uuid
+  direction             MessageDirection
+  type                  MessageType
+  status                MessageStatus
+  source                MessageSource
+  /// Consent purpose checked at accept and again at send time (outbound only).
+  purpose               ConsentPurpose?
+  content               Json
+  fileId                String?          @map("file_id") @db.Uuid
+  providerMessageId     String?          @map("provider_message_id")
+  replyToMessageId      String?          @map("reply_to_message_id") @db.Uuid
+  idempotencyKey        String?          @map("idempotency_key")
+  sentByUserId          String?          @map("sent_by_user_id") @db.Uuid
+  campaignId            String?          @map("campaign_id") @db.Uuid
+  automationExecutionId String?          @map("automation_execution_id") @db.Uuid
+  templateVersionId     String?          @map("template_version_id") @db.Uuid
+  attempts              Int              @default(0)
+  errorCode             String?          @map("error_code")
+  errorDetail           String?          @map("error_detail")
+  queuedAt              DateTime?        @map("queued_at") @db.Timestamptz(3)
+  sendingAt             DateTime?        @map("sending_at") @db.Timestamptz(3)
+  sentAt                DateTime?        @map("sent_at") @db.Timestamptz(3)
+  deliveredAt           DateTime?        @map("delivered_at") @db.Timestamptz(3)
+  readAt                DateTime?        @map("read_at") @db.Timestamptz(3)
+  failedAt              DateTime?        @map("failed_at") @db.Timestamptz(3)
+  providerTimestamp     DateTime?        @map("provider_timestamp") @db.Timestamptz(3)
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation    Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  contact         Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  file            File?            @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  templateVersion TemplateVersion? @relation(fields: [templateVersionId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, conversationId, createdAt(sort: Desc)])
+  /// Analytics: bounded per-day scans (docs/ANALYTICS.md).
+  @@index([tenantId, createdAt])
+  @@map("messages")
+}
+
+enum WebhookEventKind {
+  MESSAGE
+  STATUS
+  TEMPLATE_STATUS
+  TEMPLATE_QUALITY
+  TEMPLATE_CATEGORY
+  PHONE_QUALITY
+  ACCOUNT_UPDATE
+
+  @@map("webhook_event_kind")
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  IGNORED
+
+  @@map("webhook_event_status")
+}
+
+/// Every accepted webhook event, deduplicated per tenant. Retention 30 days.
+model WebhookEvent {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  tenantId      String             @map("tenant_id") @db.Uuid
+  dedupeKey     String             @map("dedupe_key")
+  kind          WebhookEventKind
+  phoneNumberId String?            @map("phone_number_id")
+  payload       Json
+  status        WebhookEventStatus @default(RECEIVED)
+  attempts      Int                @default(0)
+  lastError     String?            @map("last_error")
+  receivedAt    DateTime           @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt   DateTime?          @map("processed_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, dedupeKey])
+  @@index([tenantId, receivedAt(sort: Desc)])
+  @@map("webhook_events")
+}
+
+enum FilePurpose {
+  MESSAGE_MEDIA
+  IMPORT
+  EXPORT
+  AVATAR
+  TEMPLATE_SAMPLE
+
+  @@map("file_purpose")
+}
+
+enum FileStatus {
+  PENDING_UPLOAD
+  READY
+  REJECTED
+
+  @@map("file_status")
+}
+
+/// Objects in MinIO/S3. Browsers upload with presigned URLs; READY after the server checks it.
+model File {
+  id         String      @id @default(uuid(7)) @db.Uuid
+  tenantId   String      @map("tenant_id") @db.Uuid
+  bucket     String
+  objectKey  String      @map("object_key")
+  mimeType   String      @map("mime_type")
+  sizeBytes  BigInt      @map("size_bytes")
+  filename   String?
+  sha256     Bytes?
+  purpose    FilePurpose
+  status     FileStatus  @default(PENDING_UPLOAD)
+  uploadedBy String?     @map("uploaded_by") @db.Uuid
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages        Message[]
+  importJobs      ImportJob[]       @relation("ImportFile")
+  templateSamples TemplateVersion[] @relation("TemplateSampleFile")
+
+  @@unique([bucket, objectKey])
+  @@map("files")
+}
+
+/// HTTP Idempotency-Key records (docs/API_SPEC.md → Idempotency). Expire after 24 h.
+model IdempotencyKey {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  key            String
+  scope          String
+  requestHash    Bytes     @map("request_hash")
+  responseStatus Int?      @map("response_status")
+  responseBody   Json?     @map("response_body")
+  lockedUntil    DateTime? @map("locked_until") @db.Timestamptz(3)
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scope, key])
+  @@map("idempotency_keys")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Contacts & consent (Phase 6, docs/CONTACTS_AND_CONSENT.md)
+// ---------------------------------------------------------------------------------------------
+
+enum ConsentState {
+  NONE
+  GRANTED
+  REVOKED
+
+  @@map("consent_state")
+}
+
+enum PropertyType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+
+  @@map("property_type")
+}
+
+/// Tenant-defined custom fields. Keys are immutable snake_case; archiving hides but keeps values.
+model ContactPropertyDefinition {
+  id         String       @id @default(uuid(7)) @db.Uuid
+  tenantId   String       @map("tenant_id") @db.Uuid
+  key        String
+  label      String
+  type       PropertyType
+  options    Json?
+  required   Boolean      @default(false)
+  archivedAt DateTime?    @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  values ContactPropertyValue[]
+
+  @@unique([tenantId, key])
+  @@map("contact_property_definitions")
+}
+
+model ContactPropertyValue {
+  tenantId     String    @map("tenant_id") @db.Uuid
+  contactId    String    @map("contact_id") @db.Uuid
+  definitionId String    @map("definition_id") @db.Uuid
+  valueText    String?   @map("value_text")
+  valueNumber  Decimal?  @map("value_number") @db.Decimal(24, 6)
+  valueDate    DateTime? @map("value_date") @db.Date
+  valueBool    Boolean?  @map("value_bool")
+
+  tenant     Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact    Contact                   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  definition ContactPropertyDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, definitionId])
+  @@index([tenantId, definitionId, valueText])
+  @@index([tenantId, definitionId, valueNumber])
+  @@index([tenantId, definitionId, valueDate])
+  @@map("contact_property_values")
+}
+
+enum TagColor {
+  NEUTRAL
+  PRIMARY
+  INFO
+  WARNING
+  DANGER
+  SUCCESS
+
+  @@map("tag_color")
+}
+
+/// Shared by contact tags and (Phase 7) conversation tags. Names are case-insensitive unique.
+model Tag {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String   @db.Citext
+  color     TagColor @default(NEUTRAL)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contacts      ContactTag[]
+  conversations ConversationTag[]
+
+  @@unique([tenantId, name])
+  @@map("tags")
+}
+
+model ContactTag {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  contactId String   @map("contact_id") @db.Uuid
+  tagId     String   @map("tag_id") @db.Uuid
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+  @@index([tenantId, tagId])
+  @@map("contact_tags")
+}
+
+model ContactNote {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  contactId String    @map("contact_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  body      String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  author  User    @relation("ContactNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([tenantId, contactId, createdAt(sort: Desc)])
+  @@map("contact_notes")
+}
+
+enum ConsentChannel {
+  WHATSAPP
+
+  @@map("consent_channel")
+}
+
+enum ConsentPurpose {
+  MARKETING
+  UTILITY
+  SERVICE
+
+  @@map("consent_purpose")
+}
+
+enum ConsentStatus {
+  GRANTED
+  REVOKED
+
+  @@map("consent_status")
+}
+
+enum ConsentSource {
+  INBOUND_KEYWORD
+  MANUAL
+  IMPORT
+  API
+  FORM
+  META_OPT_OUT
+
+  @@map("consent_source")
+}
+
+/// Consent history: one row per change. Only revoked_at/revoke_source of the latest GRANTED row
+/// are ever updated. The contact's *_consent columns mirror the latest row per purpose.
+model Consent {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  tenantId     String         @map("tenant_id") @db.Uuid
+  contactId    String         @map("contact_id") @db.Uuid
+  channel      ConsentChannel @default(WHATSAPP)
+  purpose      ConsentPurpose
+  status       ConsentStatus
+  source       ConsentSource
+  capturedAt   DateTime       @default(now()) @map("captured_at") @db.Timestamptz(3)
+  revokedAt    DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  revokeSource ConsentSource? @map("revoke_source")
+  evidence     Json
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, contactId, channel, purpose, capturedAt(sort: Desc)])
+  @@map("consents")
+}
+
+/// Contact timeline. Append-only (UPDATE/DELETE revoked from fenwira_app).
+model ContactActivity {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  contactId  String    @map("contact_id") @db.Uuid
+  type       String
+  actorType  ActorType @map("actor_type")
+  actorId    String?   @map("actor_id") @db.Uuid
+  data       Json
+  occurredAt DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, contactId, occurredAt(sort: Desc)])
+  @@map("contact_activities")
+}
+
+/// Saved named filters (dynamic). cached_count is advisory ("≈").
+model Segment {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  name          String
+  filter        Json
+  createdBy     String    @map("created_by") @db.Uuid
+  cachedCount   Int?      @map("cached_count")
+  cachedCountAt DateTime? @map("cached_count_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("segments")
+}
+
+enum ImportStatus {
+  UPLOADED
+  MAPPING
+  VALIDATING
+  PREVIEW_READY
+  IMPORTING
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@map("import_status")
+}
+
+enum ImportDuplicatePolicy {
+  SKIP
+  UPDATE
+
+  @@map("import_duplicate_policy")
+}
+
+model ImportJob {
+  id                  String                @id @default(uuid(7)) @db.Uuid
+  tenantId            String                @map("tenant_id") @db.Uuid
+  fileId              String                @map("file_id") @db.Uuid
+  createdBy           String                @map("created_by") @db.Uuid
+  status              ImportStatus          @default(UPLOADED)
+  headers             Json?
+  sample              Json?
+  suggestedMapping    Json?                 @map("suggested_mapping")
+  columnMapping       Json?                 @map("column_mapping")
+  duplicatePolicy     ImportDuplicatePolicy @default(SKIP) @map("duplicate_policy")
+  defaultConsent      Json?                 @map("default_consent")
+  suppressAutomations Boolean               @default(true) @map("suppress_automations")
+  preview             Json?
+  totalRows           Int                   @default(0) @map("total_rows")
+  validRows           Int                   @default(0) @map("valid_rows")
+  invalidRows         Int                   @default(0) @map("invalid_rows")
+  newRows             Int                   @default(0) @map("new_rows")
+  existingRows        Int                   @default(0) @map("existing_rows")
+  processedRows       Int                   @default(0) @map("processed_rows")
+  createdCount        Int                   @default(0) @map("created_count")
+  updatedCount        Int                   @default(0) @map("updated_count")
+  skippedCount        Int                   @default(0) @map("skipped_count")
+  errorFileId         String?               @map("error_file_id") @db.Uuid
+  failureReason       String?               @map("failure_reason")
+  startedAt           DateTime?             @map("started_at") @db.Timestamptz(3)
+  completedAt         DateTime?             @map("completed_at") @db.Timestamptz(3)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  file   File             @relation("ImportFile", fields: [fileId], references: [id])
+  errors ImportJobError[]
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("import_jobs")
+}
+
+model ImportJobError {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  tenantId    String  @map("tenant_id") @db.Uuid
+  importJobId String  @map("import_job_id") @db.Uuid
+  rowNumber   Int     @map("row_number")
+  field       String?
+  code        String
+  message     String
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([importJobId, rowNumber])
+  @@map("import_job_errors")
+}
+
+enum ExportStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  EXPIRED
+
+  @@map("export_status")
+}
+
+model ExportJob {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  tenantId  String       @map("tenant_id") @db.Uuid
+  createdBy String       @map("created_by") @db.Uuid
+  filter    Json
+  status    ExportStatus @default(QUEUED)
+  fileId    String?      @map("file_id") @db.Uuid
+  rowCount  Int?         @map("row_count")
+  expiresAt DateTime     @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("export_jobs")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Inbox (Phase 7, docs/INBOX.md). Compose locks and presence live in Redis only.
+// ---------------------------------------------------------------------------------------------
+
+/// Per-user unread tracking, created lazily when a user opens a conversation (and for the assignee).
+model ConversationReadState {
+  tenantId          String   @map("tenant_id") @db.Uuid
+  conversationId    String   @map("conversation_id") @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  lastReadMessageId String?  @map("last_read_message_id") @db.Uuid
+  unreadCount       Int      @default(0) @map("unread_count")
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation("ConversationReader", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([tenantId, userId])
+  @@map("conversation_read_states")
+}
+
+/// Internal notes; never sent to the customer.
+model ConversationNote {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  conversationId String    @map("conversation_id") @db.Uuid
+  authorId       String    @map("author_id") @db.Uuid
+  body           String
+  mentions       String[]  @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User         @relation("ConversationNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([tenantId, conversationId, createdAt])
+  @@map("conversation_notes")
+}
+
+model ConversationTag {
+  tenantId       String   @map("tenant_id") @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  tagId          String   @map("tag_id") @db.Uuid
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tag          Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, tagId])
+  @@index([tenantId, tagId])
+  @@map("conversation_tags")
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  CRITICAL
+
+  @@map("notification_severity")
+}
+
+/// In-app notifications (bell). One row per recipient.
+model Notification {
+  id        String               @id @default(uuid(7)) @db.Uuid
+  tenantId  String               @map("tenant_id") @db.Uuid
+  userId    String               @map("user_id") @db.Uuid
+  type      String
+  severity  NotificationSeverity @default(INFO)
+  title     String
+  body      String
+  link      String?
+  /// Set by event-driven notifications so a redelivered event never notifies twice.
+  dedupeKey String?              @map("dedupe_key")
+  readAt    DateTime?            @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, dedupeKey])
+  @@index([tenantId, userId, readAt, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+enum AutoAssignMode {
+  OFF
+  ROUND_ROBIN
+
+  @@map("auto_assign_mode")
+}
+
+enum InboxVisibility {
+  ALL
+  ASSIGNED_ONLY
+
+  @@map("inbox_visibility")
+}
+
+/// Workspace-shared saved replies for the inbox composer (docs/INBOX.md → Canned replies).
+/// The shortcut is stored lowercase, so the unique index is case-insensitive.
+model CannedReply {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  shortcut  String
+  title     String
+  body      String
+  createdBy String   @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  author User   @relation("CannedReplyAuthor", fields: [createdBy], references: [id])
+
+  @@unique([tenantId, shortcut])
+  @@map("canned_replies")
+}
+
+enum TemplateCategory {
+  MARKETING
+  UTILITY
+  AUTHENTICATION
+
+  @@map("template_category")
+}
+
+enum TemplateStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PAUSED
+  DISABLED
+  ARCHIVED
+
+  @@map("template_status")
+}
+
+enum TemplateOrigin {
+  FENWIRA
+  META
+
+  @@map("template_origin")
+}
+
+/// A WhatsApp message template, identified like Meta: (WABA, name, language) (docs/TEMPLATE_ENGINE.md).
+model Template {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  tenantId          String           @map("tenant_id") @db.Uuid
+  wabaId            String           @map("waba_id") @db.Uuid
+  name              String
+  language          String
+  category          TemplateCategory
+  /// Mirrors the current version's status.
+  status            TemplateStatus   @default(DRAFT)
+  currentVersionId  String?          @map("current_version_id") @db.Uuid
+  approvedVersionId String?          @map("approved_version_id") @db.Uuid
+  qualityScore      String?          @map("quality_score")
+  createdBy         String?          @map("created_by") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?        @map("deleted_at") @db.Timestamptz(3)
+
+  tenant   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba     WhatsAppBusinessAccount @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+  versions TemplateVersion[]       @relation("TemplateVersions")
+
+  @@index([tenantId, status])
+  @@map("templates")
+}
+
+/// Immutable once submitted; editing an approved/rejected template creates version N+1.
+model TemplateVersion {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  tenantId        String         @map("tenant_id") @db.Uuid
+  templateId      String         @map("template_id") @db.Uuid
+  version         Int
+  components      Json
+  variableSamples Json           @map("variable_samples")
+  sampleFileId    String?        @map("sample_file_id") @db.Uuid
+  metaTemplateId  String?        @map("meta_template_id")
+  status          TemplateStatus @default(DRAFT)
+  origin          TemplateOrigin @default(FENWIRA)
+  qualityScore    String?        @map("quality_score")
+  rejectionReason String?        @map("rejection_reason")
+  lastError       String?        @map("last_error")
+  submittedAt     DateTime?      @map("submitted_at") @db.Timestamptz(3)
+  decidedAt       DateTime?      @map("decided_at") @db.Timestamptz(3)
+  createdBy       String?        @map("created_by") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template   Template   @relation("TemplateVersions", fields: [templateId], references: [id], onDelete: Cascade)
+  sampleFile File?      @relation("TemplateSampleFile", fields: [sampleFileId], references: [id], onDelete: SetNull)
+  author     User?      @relation("TemplateVersionAuthor", fields: [createdBy], references: [id], onDelete: SetNull)
+  messages   Message[]
+  campaigns  Campaign[]
+
+  @@unique([templateId, version])
+  @@index([tenantId, metaTemplateId])
+  @@map("template_versions")
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  PREPARING
+  RUNNING
+  PAUSED
+  PAUSED_INSUFFICIENT_FUNDS
+  PAUSED_TEMPLATE_UNAVAILABLE
+  COMPLETED
+  CANCELLED
+  FAILED
+
+  @@map("campaign_status")
+}
+
+enum RecipientStatus {
+  PENDING
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SKIPPED
+
+  @@map("recipient_status")
+}
+
+/// A broadcast of one approved template to an audience (docs/CAMPAIGN_ENGINE.md).
+model Campaign {
+  id                 String         @id @default(uuid(7)) @db.Uuid
+  tenantId           String         @map("tenant_id") @db.Uuid
+  name               String
+  status             CampaignStatus @default(DRAFT)
+  pauseReason        String?        @map("pause_reason")
+  failureReason      String?        @map("failure_reason")
+  phoneNumberId      String?        @map("phone_number_id") @db.Uuid
+  templateVersionId  String?        @map("template_version_id") @db.Uuid
+  /// Frozen at launch: name, language, category and components actually sent.
+  templateSnapshot   Json?          @map("template_snapshot")
+  audience           Json
+  variableMapping    Json           @map("variable_mapping")
+  scheduleAt         DateTime?      @map("schedule_at") @db.Timestamptz(3)
+  timezone           String         @default("Asia/Kolkata")
+  rateLimitPerMinute Int?           @map("rate_limit_per_minute")
+  totalRecipients    Int            @default(0) @map("total_recipients")
+  audienceSnapshotAt DateTime?      @map("audience_snapshot_at") @db.Timestamptz(3)
+  /// Resume counter: dispatch job ids include it, so a resume starts a fresh chain.
+  dispatchGeneration Int            @default(0) @map("dispatch_generation")
+  createdBy          String?        @map("created_by") @db.Uuid
+  launchedBy         String?        @map("launched_by") @db.Uuid
+  launchedAt         DateTime?      @map("launched_at") @db.Timestamptz(3)
+  startedAt          DateTime?      @map("started_at") @db.Timestamptz(3)
+  pausedAt           DateTime?      @map("paused_at") @db.Timestamptz(3)
+  completedAt        DateTime?      @map("completed_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  failedAt           DateTime?      @map("failed_at") @db.Timestamptz(3)
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?      @map("deleted_at") @db.Timestamptz(3)
+
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateVersion TemplateVersion?    @relation(fields: [templateVersionId], references: [id], onDelete: SetNull)
+  creator         User?               @relation("CampaignCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  recipients      CampaignRecipient[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("campaigns")
+}
+
+/// One intended recipient with its own auditable lifecycle; variables are resolved at snapshot.
+model CampaignRecipient {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  tenantId    String          @map("tenant_id") @db.Uuid
+  campaignId  String          @map("campaign_id") @db.Uuid
+  contactId   String          @map("contact_id") @db.Uuid
+  phoneE164   String          @map("phone_e164")
+  contactName String?         @map("contact_name")
+  variables   Json
+  status      RecipientStatus @default(PENDING)
+  skipReason  String?         @map("skip_reason")
+  errorCode   String?         @map("error_code")
+  messageId   String?         @unique @map("message_id") @db.Uuid
+  attempts    Int             @default(0)
+  queuedAt    DateTime?       @map("queued_at") @db.Timestamptz(3)
+  sentAt      DateTime?       @map("sent_at") @db.Timestamptz(3)
+  deliveredAt DateTime?       @map("delivered_at") @db.Timestamptz(3)
+  readAt      DateTime?       @map("read_at") @db.Timestamptz(3)
+  failedAt    DateTime?       @map("failed_at") @db.Timestamptz(3)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, contactId])
+  @@index([campaignId, status, id])
+  /// Contact → Campaigns.
+  @@index([tenantId, contactId, createdAt(sort: Desc)])
+  @@map("campaign_recipients")
+}
+
+enum WalletTransactionType {
+  CREDIT
+  DEBIT
+  ADJUSTMENT
+  REFUND
+
+  @@map("wallet_transaction_type")
+}
+
+enum FundType {
+  PAID
+  PROMOTIONAL
+
+  @@map("fund_type")
+}
+
+/// P11-D12 wallet funds states (NOT_ENFORCED is computed, never stored).
+enum WalletFundsState {
+  NORMAL
+  LOW_BALANCE
+  INSUFFICIENT_FUNDS
+
+  @@map("wallet_funds_state")
+}
+
+enum ReservationStatus {
+  ACTIVE
+  SETTLED
+  RELEASED
+
+  @@map("reservation_status")
+}
+
+/// Prepaid credits (docs/BILLING.md → Wallet). balance_minor is maintained by the ledger trigger.
+model Wallet {
+  id                       String            @id @default(uuid(7)) @db.Uuid
+  tenantId                 String            @unique @map("tenant_id") @db.Uuid
+  currency                 String            @default("INR") @db.Char(3)
+  balanceMinor             BigInt            @default(0) @map("balance_minor")
+  creditLimitMinor         BigInt            @default(0) @map("credit_limit_minor")
+  reservedMinor            BigInt            @default(0) @map("reserved_minor")
+  lowBalanceThresholdMinor BigInt?           @map("low_balance_threshold_minor")
+  /// Funds state last recorded by a wallet change (P11-D12). Only detects crossings; reads
+  /// compute the live state. NULL until the first change after creation.
+  fundsState               WalletFundsState? @map("funds_state")
+  /// P11-D21: when the wallet first had available funds. Null = never funded, so the first
+  /// credit is initial funding (`wallet.funded`), not a recovery.
+  fundedAt                 DateTime?         @map("funded_at") @db.Timestamptz(3)
+  createdAt                DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+  reservations WalletReservation[]
+
+  @@map("wallets")
+}
+
+/// Append-only ledger: UPDATE and DELETE are revoked from fenwira_app.
+model WalletTransaction {
+  id                String                @id @default(uuid(7)) @db.Uuid
+  tenantId          String                @map("tenant_id") @db.Uuid
+  walletId          String                @map("wallet_id") @db.Uuid
+  type              WalletTransactionType
+  amountMinor       BigInt                @map("amount_minor")
+  balanceAfterMinor BigInt                @map("balance_after_minor")
+  reason            String
+  referenceType     String?               @map("reference_type")
+  referenceId       String?               @map("reference_id")
+  idempotencyKey    String                @map("idempotency_key")
+  /// P11-D7: paid funds vs promotional/trial credits.
+  fundType          FundType              @default(PAID) @map("fund_type")
+  /// P11-D7: expiry metadata for promotional credits. No expiry policy is applied (P11-Q23).
+  expiresAt         DateTime?             @map("expires_at") @db.Timestamptz(3)
+  createdBy         String?               @map("created_by") @db.Uuid
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  wallet       Wallet              @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  reservations WalletReservation[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([walletId, createdAt(sort: Desc)])
+  @@map("wallet_transactions")
+}
+
+/// B4: funds held for an accepted billable message until Meta prices it.
+model WalletReservation {
+  id                   String            @id @default(uuid(7)) @db.Uuid
+  tenantId             String            @map("tenant_id") @db.Uuid
+  walletId             String            @map("wallet_id") @db.Uuid
+  messageId            String            @unique @map("message_id") @db.Uuid
+  amountMinor          BigInt            @map("amount_minor")
+  status               ReservationStatus @default(ACTIVE)
+  settledTransactionId String?           @map("settled_transaction_id") @db.Uuid
+  reason               String?
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  wallet             Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  settledTransaction WalletTransaction? @relation(fields: [settledTransactionId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, status])
+  @@map("wallet_reservations")
+}
+
+/// Append-only record of each billable message Meta priced.
+model UsageEvent {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  type              String
+  messageId         String?  @map("message_id") @db.Uuid
+  category          String
+  country           String?  @db.Char(2)
+  quantity          Int      @default(1)
+  unitPriceMinor    BigInt   @map("unit_price_minor")
+  amountMinor       BigInt   @map("amount_minor")
+  /// Meta's cost for this message when the price book knows it (margin reporting).
+  providerCostMinor BigInt?  @map("provider_cost_minor")
+  currency          String   @db.Char(3)
+  pricingRef        Json?    @map("pricing_ref")
+  occurredAt        DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type, messageId])
+  @@index([tenantId, occurredAt])
+  @@map("usage_events")
+}
+
+/// Phase 11 Step 4 (docs/BILLING.md → Plans): plans are data — keys, names and entitlements are
+/// rows, never referenced by key in feature code.
+model Plan {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  key       String   @unique
+  name      String
+  isPublic  Boolean  @default(true) @map("is_public")
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  entitlements  PlanEntitlement[]
+  prices        PlanPrice[]
+  subscriptions Subscription[]    @relation("SubscriptionPlan")
+  requested     Subscription[]    @relation("SubscriptionRequestedPlan")
+
+  @@map("plans")
+}
+
+/// value: boolean for capabilities, number or null (unlimited) for limits.
+model PlanEntitlement {
+  planId String @map("plan_id") @db.Uuid
+  key    String
+  value  Json
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@id([planId, key])
+  @@map("plan_entitlements")
+}
+
+enum BillingInterval {
+  MONTH
+  YEAR
+
+  @@map("billing_interval")
+}
+
+/// Prices are not approved (P11-D4): this table exists so they can be configured later; empty at launch.
+model PlanPrice {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  planId      String          @map("plan_id") @db.Uuid
+  currency    String          @db.Char(3)
+  interval    BillingInterval
+  amountMinor BigInt          @map("amount_minor")
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, currency, interval])
+  @@map("plan_prices")
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+
+  @@map("subscription_status")
+}
+
+/// One per tenant. Independent of tenants.billing_mode and of the wallet (P11-D9).
+model Subscription {
+  id                 String             @id @default(uuid(7)) @db.Uuid
+  tenantId           String             @unique @map("tenant_id") @db.Uuid
+  /// Kept after expiry/cancel: the expired profile reuses its limits (nothing turns over-limit by expiring).
+  planId             String?            @map("plan_id") @db.Uuid
+  /// P11-D24: the OWNER requests a plan; an operator activates it.
+  requestedPlanId    String?            @map("requested_plan_id") @db.Uuid
+  requestedAt        DateTime?          @map("requested_at") @db.Timestamptz(3)
+  status             SubscriptionStatus @default(TRIALING)
+  interval           BillingInterval    @default(MONTH)
+  trialEndsAt        DateTime?          @map("trial_ends_at") @db.Timestamptz(3)
+  currentPeriodStart DateTime?          @map("current_period_start") @db.Timestamptz(3)
+  currentPeriodEnd   DateTime?          @map("current_period_end") @db.Timestamptz(3)
+  cancelAtPeriodEnd  Boolean            @default(false) @map("cancel_at_period_end")
+  expiredAt          DateTime?          @map("expired_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?          @map("cancelled_at") @db.Timestamptz(3)
+  /// Trial-ending notices already sent: e.g. ["T-3","T-1"].
+  noticesSent        String[]           @default([]) @map("notices_sent")
+  /// key → ISO time it first went over limit (daily snapshot; never changes data).
+  overLimitSince     Json               @default("{}") @map("over_limit_since")
+  provider           String?
+  providerRef        String?            @map("provider_ref")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan          Plan?  @relation("SubscriptionPlan", fields: [planId], references: [id])
+  requestedPlan Plan?  @relation("SubscriptionRequestedPlan", fields: [requestedPlanId], references: [id])
+
+  @@index([status, trialEndsAt])
+  @@map("subscriptions")
+}
+
+/// Per-tenant entitlement override; wins over the plan/trial profile until expires_at.
+model TenantEntitlementOverride {
+  tenantId  String    @map("tenant_id") @db.Uuid
+  key       String
+  value     Json
+  reason    String
+  createdBy String?   @map("created_by") @db.Uuid
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, key])
+  @@map("tenant_entitlement_overrides")
+}
+
+/// Platform configuration (decision B1): per-message prices by category and country.
+model PriceBookEntry {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  category           String
+  /// null = default for every country without its own row.
+  country            String?   @db.Char(2)
+  currency           String    @db.Char(3)
+  /// What Fenwira charges the tenant per message (the ledger debit). Commercial: Phase 11.
+  customerPriceMinor BigInt    @map("customer_price_minor")
+  /// What Meta charges Fenwira (reporting and margin); null when unknown.
+  providerCostMinor  BigInt?   @map("provider_cost_minor")
+  markupBps          Int       @default(0) @map("markup_bps")
+  /// Tax/adjustment metadata (e.g. GST treatment); interpreted by Phase 11 invoicing.
+  taxCode            String?   @map("tax_code")
+  taxBps             Int?      @map("tax_bps")
+  /// P9-D2: development placeholder values, not commercial pricing.
+  isPlaceholder      Boolean   @default(false) @map("is_placeholder")
+  note               String?
+  effectiveFrom      DateTime  @default(now()) @map("effective_from") @db.Timestamptz(3)
+  effectiveTo        DateTime? @map("effective_to") @db.Timestamptz(3)
+
+  @@index([category, country, effectiveFrom])
+  @@map("price_book_entries")
+}
+
+enum BillingMode {
+  FREE
+  TRIAL
+  PREPAID
+
+  @@map("billing_mode")
+}
+
+enum FlowStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+
+  @@map("flow_status")
+}
+
+enum FlowVersionState {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("flow_version_state")
+}
+
+enum ReentryPolicy {
+  ALWAYS
+  ONCE_PER_CONTACT
+  AFTER_COMPLETION
+
+  @@map("reentry_policy")
+}
+
+enum ExecutionStatus {
+  RUNNING
+  WAITING
+  COMPLETED
+  FAILED
+  CANCELLED
+  STOPPED_TAKEOVER
+
+  @@map("execution_status")
+}
+
+enum StepStatus {
+  SUCCEEDED
+  FAILED
+  SKIPPED
+  WAITING
+
+  @@map("step_status")
+}
+
+enum TriggerRunStatus {
+  RUNNING
+  COMPLETED
+  STOPPED
+
+  @@map("trigger_run_status")
+}
+
+/// An automation (docs/AUTOMATION_ENGINE.md). Executions pin the version they started with.
+model Flow {
+  id                      String        @id @default(uuid(7)) @db.Uuid
+  tenantId                String        @map("tenant_id") @db.Uuid
+  name                    String
+  description             String?
+  status                  FlowStatus    @default(DRAFT)
+  activeVersionId         String?       @map("active_version_id") @db.Uuid
+  draftVersionId          String?       @map("draft_version_id") @db.Uuid
+  reentryPolicy           ReentryPolicy @default(AFTER_COMPLETION) @map("reentry_policy")
+  /// AE2: lower runs first; ties by created_at, then id.
+  priority                Int           @default(100)
+  webhookTokenHash        Bytes?        @unique @map("webhook_token_hash")
+  webhookSecretCiphertext Bytes?        @map("webhook_secret_ciphertext")
+  createdBy               String?       @map("created_by") @db.Uuid
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt               DateTime?     @map("deleted_at") @db.Timestamptz(3)
+
+  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  versions   FlowVersion[]
+  executions AutomationExecution[]
+
+  @@index([tenantId, status])
+  @@map("flows")
+}
+
+/// Immutable once PUBLISHED. `graph` is the executable definition; its `layout` is editor-only.
+model FlowVersion {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  flowId           String           @map("flow_id") @db.Uuid
+  version          Int
+  graph            Json
+  triggerType      String?          @map("trigger_type")
+  triggerConfig    Json?            @map("trigger_config")
+  state            FlowVersionState @default(DRAFT)
+  validationErrors Json?            @map("validation_errors")
+  publishedBy      String?          @map("published_by") @db.Uuid
+  publishedAt      DateTime?        @map("published_at") @db.Timestamptz(3)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  flow       Flow                  @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  executions AutomationExecution[]
+
+  @@unique([flowId, version])
+  @@index([tenantId, triggerType, state])
+  @@map("flow_versions")
+}
+
+/// One triggering event: the ordered plan of matched flows and each one's outcome (AE3).
+model AutomationTriggerRun {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  tenantId       String           @map("tenant_id") @db.Uuid
+  eventId        String           @map("event_id") @db.Uuid
+  triggerType    String           @map("trigger_type")
+  contactId      String           @map("contact_id") @db.Uuid
+  conversationId String?          @map("conversation_id") @db.Uuid
+  /// What executions of this run see as `trigger.*` (message, webhook body, contact source).
+  triggerEvent   Json             @map("trigger_event")
+  plan           Json
+  status         TriggerRunStatus @default(RUNNING)
+  stopReason     String?          @map("stop_reason")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  finishedAt     DateTime?        @map("finished_at") @db.Timestamptz(3)
+
+  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  executions AutomationExecution[]
+
+  @@unique([tenantId, eventId])
+  @@map("automation_trigger_runs")
+}
+
+model AutomationExecution {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  tenantId       String          @map("tenant_id") @db.Uuid
+  flowId         String          @map("flow_id") @db.Uuid
+  flowVersionId  String          @map("flow_version_id") @db.Uuid
+  triggerRunId   String?         @map("trigger_run_id") @db.Uuid
+  contactId      String          @map("contact_id") @db.Uuid
+  conversationId String?         @map("conversation_id") @db.Uuid
+  triggerEvent   Json            @map("trigger_event")
+  status         ExecutionStatus @default(RUNNING)
+  currentNodeId  String?         @map("current_node_id")
+  waitUntil      DateTime?       @map("wait_until") @db.Timestamptz(3)
+  /// Variables saved by steps (webhook responses): `vars`.
+  context        Json            @default("{}")
+  stepCount      Int             @default(0) @map("step_count")
+  errorCode      String?         @map("error_code")
+  errorDetail    String?         @map("error_detail")
+  startedAt      DateTime        @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt     DateTime?       @map("finished_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  flow        Flow                      @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  flowVersion FlowVersion               @relation(fields: [flowVersionId], references: [id], onDelete: Cascade)
+  triggerRun  AutomationTriggerRun?     @relation(fields: [triggerRunId], references: [id], onDelete: SetNull)
+  steps       AutomationExecutionStep[]
+
+  /// One execution per flow per triggering event (redelivered events and retries can't add one).
+  @@unique([triggerRunId, flowId])
+  @@index([tenantId, flowId, startedAt(sort: Desc)])
+  @@index([tenantId, conversationId, status])
+  @@index([tenantId, startedAt])
+  @@map("automation_executions")
+}
+
+/// Append-only step history (UPDATE/DELETE revoked). One row per executed node.
+model AutomationExecutionStep {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  tenantId    String     @map("tenant_id") @db.Uuid
+  executionId String     @map("execution_id") @db.Uuid
+  seq         Int
+  nodeId      String     @map("node_id")
+  nodeType    String     @map("node_type")
+  status      StepStatus
+  input       Json       @default("{}")
+  output      Json       @default("{}")
+  errorCode   String?    @map("error_code")
+  errorDetail String?    @map("error_detail")
+  startedAt   DateTime   @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt  DateTime?  @map("finished_at") @db.Timestamptz(3)
+
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  execution AutomationExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@unique([executionId, seq])
+  @@index([tenantId, startedAt])
+  @@map("automation_execution_steps")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Analytics (Phase 11 Step 2, docs/ANALYTICS.md). Derived projections only: operational tables,
+// the ledger and usage_events stay authoritative, and every projection can be rebuilt.
+// ---------------------------------------------------------------------------------------------
+
+/// Append-only log of the domain events analytics consumed; unique per source event, so a
+/// redelivered event is recorded (and counted) once. Purged by analytics retention (P11-D15).
+model AnalyticsEvent {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  /// The outbox event id (the deduplication identity).
+  sourceEventId String   @map("source_event_id") @db.Uuid
+  eventType     String   @map("event_type")
+  /// When it happened (for conversation.opened: the customer's message time).
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  /// The message, conversation, campaign or execution the event is about.
+  subjectId     String?  @map("subject_id") @db.Uuid
+  dims          Json     @default("{}")
+  recordedAt    DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sourceEventId])
+  @@index([tenantId, eventType, occurredAt])
+  @@map("analytics_events")
+}
+
+/// Daily aggregates per workspace-local day. Recomputed (never incremented) from source data.
+model AnalyticsDailyRollup {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  day       DateTime @db.Date
+  metric    String
+  /// "" for the total, or "dimension:value" (for example "category:UTILITY").
+  dimsKey   String   @default("") @map("dims_key")
+  value     BigInt
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, day, metric, dimsKey])
+  @@index([tenantId, metric, day])
+  @@map("analytics_daily_rollups")
+}
+
+/// One customer-opened conversation episode (a conversation.opened event), with its first human
+/// reply and resolution derived from message history (docs/ANALYTICS.md → Inbox).
+model AnalyticsConversationEpisode {
+  /// The conversation.opened source event id.
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  conversationId   String    @map("conversation_id") @db.Uuid
+  openedAt         DateTime  @map("opened_at") @db.Timestamptz(3)
+  day              DateTime  @db.Date
+  firstResponseAt  DateTime? @map("first_response_at") @db.Timestamptz(3)
+  firstResponderId String?   @map("first_responder_id") @db.Uuid
+  resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(3)
+  resolvedBy       String?   @map("resolved_by") @db.Uuid
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, day])
+  @@index([tenantId, conversationId, openedAt])
+  @@map("analytics_conversation_episodes")
+}
+
+/// Work queue for the rollup pass: a day (scope "day", key YYYY-MM-DD) or a campaign (scope
+/// "campaign", key id) whose aggregates must be recomputed. Durable, so Redis loss loses nothing.
+model AnalyticsDirty {
+  tenantId String   @map("tenant_id") @db.Uuid
+  scope    String
+  key      String
+  markedAt DateTime @default(now()) @map("marked_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, scope, key])
+  @@map("analytics_dirty")
+}
+
+/// Projection health per workspace: freshness, failures, and the timezone/retention the
+/// rollups were built with (a change triggers a rebuild).
+model AnalyticsTenantState {
+  tenantId      String    @id @map("tenant_id") @db.Uuid
+  timezone      String?
+  retentionDays Int?      @map("retention_days")
+  backfilledAt  DateTime? @map("backfilled_at") @db.Timestamptz(3)
+  lastEventAt   DateTime? @map("last_event_at") @db.Timestamptz(3)
+  lastRollupAt  DateTime? @map("last_rollup_at") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  lastErrorAt   DateTime? @map("last_error_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("analytics_tenant_state")
+}
+
+// ---------------------------------------------------------------------------------------------
+// API keys and outbound webhooks (Phase 11 Step 3, docs/API_KEYS.md, docs/WEBHOOKS.md).
+// ---------------------------------------------------------------------------------------------
+
+/// A tenant-scoped API key (decision P11-D18). Only `keyHash` (sha256 of the secret + a server
+/// pepper) is stored; the secret itself is shown once, at creation, and never again.
+model ApiKey {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  name       String
+  /// 8 chars, unique platform-wide: looked up via X7 before the tenant is known.
+  prefix     String    @unique @db.Char(8)
+  keyHash    Bytes     @map("key_hash")
+  /// Permission keys from API_KEY_SCOPES only; a subset of the creator's own permissions at
+  /// creation time (P11-D18, P11-D22). Never a source of authority beyond RBAC.
+  scopes     String[]
+  createdBy  String?   @map("created_by") @db.Uuid
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedBy  String?   @map("revoked_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator User?  @relation("ApiKeyCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, revokedAt])
+  @@map("api_keys")
+}
+
+enum WebhookEndpointStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("webhook_endpoint_status")
+}
+
+/// A customer-configured outbound webhook destination (docs/WEBHOOKS.md). `secretCiphertext` is
+/// AES-256-GCM (the shared keyRing); the plaintext secret is shown once, at creation/rotation.
+model WebhookEndpoint {
+  id               String                @id @default(uuid(7)) @db.Uuid
+  tenantId         String                @map("tenant_id") @db.Uuid
+  name             String
+  url              String
+  secretCiphertext Bytes                 @map("secret_ciphertext")
+  /// Event types from WEBHOOK_EVENTS only (an explicit allowlist, never every internal event).
+  events           String[]
+  status           WebhookEndpointStatus @default(ACTIVE)
+  /// Consecutive delivery failures since the last success; disables the endpoint past a threshold.
+  failureCount     Int                   @default(0) @map("failure_count")
+  createdBy        String?               @map("created_by") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?             @map("deleted_at") @db.Timestamptz(3)
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator    User?             @relation("WebhookEndpointCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  deliveries WebhookDelivery[]
+
+  @@index([tenantId, status])
+  @@map("webhook_endpoints")
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+
+  @@map("webhook_delivery_status")
+}
+
+/// One delivery attempt history entry (retention 30 days, docs/WEBHOOKS.md). `eventId` is the
+/// source domain event id: redelivery of the same event reuses the same row set (idempotent).
+model WebhookDelivery {
+  id             String                @id @default(uuid(7)) @db.Uuid
+  tenantId       String                @map("tenant_id") @db.Uuid
+  endpointId     String                @map("endpoint_id") @db.Uuid
+  eventId        String                @map("event_id") @db.Uuid
+  eventType      String                @map("event_type")
+  /// The exact payload sent (the versioned external contract), for redelivery and audit.
+  payload        Json
+  attempt        Int                   @default(1)
+  status         WebhookDeliveryStatus @default(PENDING)
+  responseStatus Int?                  @map("response_status")
+  responseBody   String?               @map("response_body")
+  durationMs     Int?                  @map("duration_ms")
+  errorCode      String?               @map("error_code")
+  nextAttemptAt  DateTime?             @map("next_attempt_at") @db.Timestamptz(3)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([endpointId, eventId])
+  @@index([tenantId, endpointId, createdAt(sort: Desc)])
+  @@map("webhook_deliveries")
+}
+
+/// Global authorization; writable only with migration credentials by restricted CLI.
+model PlatformGrant {
+  user      User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId    String    @id @map("user_id") @db.Uuid
+  role      String    @default("PLATFORM_OPERATOR")
+  version   Int       @default(1)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  reason    String
+  grantedBy String    @map("granted_by")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("platform_grants")
+}
+
+/// Immutable platform security/access trail. No customer content or credentials.
+model PlatformAudit {
+  details       Json?
+  id            String   @id @default(uuid(7)) @db.Uuid
+  operatorId    String?  @map("operator_id") @db.Uuid
+  workspaceId   String?  @map("workspace_id") @db.Uuid
+  action        String
+  outcome       String
+  correlationId String?  @map("correlation_id")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([createdAt(sort: Desc), id])
+  @@map("platform_audit")
+}
+
+model PlatformChallenge {
+  user           User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentFamilyId String?   @map("parent_family_id") @db.Uuid
+  id             String    @id @default(uuid(7)) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  tokenHash      Bytes     @unique @map("token_hash")
+  grantVersion   Int       @map("grant_version")
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt     DateTime? @map("consumed_at") @db.Timestamptz(3)
+
+  @@map("platform_challenges")
+}
+
+model PlatformSession {
+  user           User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id             String    @id @default(uuid(7)) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  parentFamilyId String    @map("parent_family_id") @db.Uuid
+  tokenHash      Bytes     @unique @map("token_hash")
+  csrfHash       Bytes     @map("csrf_hash")
+  grantVersion   Int       @map("grant_version")
+  mfaAt          DateTime  @map("mfa_at") @db.Timestamptz(3)
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt     DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("platform_sessions")
+}
+
+/// Tenant-owned immutable commercial receipt, created atomically with domain mutations.
+model CommercialOperation {
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  operator       User     @relation(fields: [operatorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id             String   @id @default(uuid(7)) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  operatorId     String   @map("operator_id") @db.Uuid
+  operation      String
+  amountMinor    BigInt?  @map("amount_minor")
+  currency       String?  @db.Char(3)
+  reason         String
+  reference      String
+  idempotencyKey String   @map("idempotency_key")
+  requestHash    String   @map("request_hash")
+  before         Json
+  after          Json
+  result         Json
+  correlationId  String?  @map("correlation_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, createdAt(sort: Desc), id])
+  @@map("commercial_operations")
+}
+
+/// Native connector credentials never appear in public DTOs.
+model NativeConnection {
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transfers        NativeTransfer[]
+  id               String           @id @default(uuid(7)) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  provider         String
+  label            String
+  site             String?
+  region           String           @default("com")
+  secretCiphertext Bytes?           @map("secret_ciphertext")
+  status           String           @default("ACTIVE")
+  revision         Int              @default(0)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, createdAt])
+  @@map("native_connections")
+}
+
+model NativeOauthChallenge {
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  stateHash          Bytes     @unique @map("state_hash")
+  userId             String    @map("user_id") @db.Uuid
+  sessionId          String    @map("session_id") @db.Uuid
+  provider           String
+  label              String
+  site               String?
+  region             String
+  verifierCiphertext Bytes     @map("verifier_ciphertext")
+  expiresAt          DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt         DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([tenantId, expiresAt])
+  @@map("native_oauth_challenges")
+}
+
+/// Durable transfer receipt; contact snapshots are encrypted, not logged or audited.
+model NativeTransfer {
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connection         NativeConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Cascade)
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  tenantId           String           @map("tenant_id") @db.Uuid
+  connectionId       String           @map("connection_id") @db.Uuid
+  idempotencyKey     String           @map("idempotency_key") @db.Uuid
+  requestHash        String           @map("request_hash")
+  actorId            String           @map("actor_id") @db.Uuid
+  request            Json
+  leaseUntil         DateTime?        @map("lease_until") @db.Timestamptz(3)
+  leaseToken         String?          @map("lease_token") @db.Uuid
+  status             String           @default("PENDING")
+  rows               Int              @default(0)
+  snapshotCiphertext Bytes?           @map("snapshot_ciphertext")
+  importJobId        String?          @map("import_job_id") @db.Uuid
+  errorCode          String?          @map("error_code")
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, connectionId, createdAt])
+  @@map("native_transfers")
+}

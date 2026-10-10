@@ -1,0 +1,34 @@
+{
+  "capturedAt": "2026-10-08T03:50:22.704Z",
+  "flowId": "01a11997-da14-7cd3-bc72-275466be042d",
+  "simulatedOnly": true,
+  "published": false,
+  "minimapNodes": 7,
+  "viewportHeight": 1000,
+  "widths": [
+    {
+      "width": 1440,
+      "axeViolations": 0,
+      "documentOverflow": false,
+      "focusReturned": null
+    },
+    {
+      "width": 1024,
+      "axeViolations": 0,
+      "documentOverflow": false,
+      "focusReturned": true
+    },
+    {
+      "width": 768,
+      "axeViolations": 0,
+      "documentOverflow": false,
+      "focusReturned": true
+    },
+    {
+      "width": 375,
+      "axeViolations": 0,
+      "documentOverflow": false,
+      "focusReturned": true
+    }
+  ]
+}

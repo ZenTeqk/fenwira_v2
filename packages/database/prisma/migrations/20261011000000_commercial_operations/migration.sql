@@ -1,0 +1,3 @@
+CREATE TABLE commercial_operations (id uuid PRIMARY KEY, tenant_id uuid NOT NULL REFERENCES tenants(id), operator_id uuid NOT NULL REFERENCES users(id), operation text NOT NULL, amount_minor bigint, currency char(3), reason text NOT NULL, reference text NOT NULL, idempotency_key text NOT NULL, request_hash text NOT NULL, before jsonb NOT NULL, after jsonb NOT NULL, result jsonb NOT NULL, correlation_id text, created_at timestamptz(3) NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX commercial_operations_tenant_id_idempotency_key_key ON commercial_operations(tenant_id,idempotency_key);
+CREATE INDEX commercial_operations_tenant_id_created_at_id_idx ON commercial_operations(tenant_id,created_at DESC,id);

@@ -1,0 +1,56 @@
+{
+  "workspace": "Acme Electronics — Campaign Demo",
+  "email": "campaign-visual-demo-muyf2ule5g0m@fenwira.test",
+  "tenantId": "01a11789-9fd5-73b6-a658-483c0b2bccee",
+  "campaigns": [
+    {
+      "name": "Year End Preview",
+      "status": "DRAFT"
+    },
+    {
+      "name": "Loyalty Rewards",
+      "status": "CANCELLED"
+    },
+    {
+      "name": "Service Reminder",
+      "status": "COMPLETED"
+    },
+    {
+      "name": "New Arrivals",
+      "status": "COMPLETED"
+    },
+    {
+      "name": "Customer Appreciation",
+      "status": "COMPLETED"
+    },
+    {
+      "name": "Festive Reminder",
+      "status": "COMPLETED"
+    },
+    {
+      "name": "Back to School",
+      "status": "COMPLETED"
+    },
+    {
+      "name": "Payment Reminder",
+      "status": "COMPLETED"
+    },
+    {
+      "name": "Product Launch",
+      "status": "COMPLETED"
+    },
+    {
+      "name": "October Offers",
+      "status": "COMPLETED"
+    },
+    {
+      "name": "Weekend Sale",
+      "status": "SCHEDULED"
+    },
+    {
+      "name": "Diwali Electronics Offer",
+      "status": "RUNNING"
+    }
+  ],
+  "simulatedOnly": true
+}

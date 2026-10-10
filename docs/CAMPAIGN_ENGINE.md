@@ -9,17 +9,24 @@ Broadcast campaigns: audience definition and snapshot, variable mapping, schedul
 ### Campaign states
 
 ```text
-DRAFT ──launch(now)──► RUNNING ──all recipients terminal──► COMPLETED
-  │                     │  ▲
-  │                     │  └──resume──┐
-  │                     └──pause──► PAUSED
-  ├──launch(schedule)──► SCHEDULED ──schedule_at reached──► RUNNING
-  │                          └──cancel──► DRAFT
-  └── any of SCHEDULED/RUNNING/PAUSED ──stop──► STOPPED (terminal)
-RUNNING ──fatal (e.g. number disconnected, template disabled)──► FAILED (terminal; remaining recipients stay QUEUED→ SKIPPED)
+DRAFT ──launch(now)──► PREPARING ──snapshot done──► RUNNING ──nothing pending or awaiting Meta──► COMPLETED
+  │                        │                         │  ▲
+  │                        │                         │  └──resume──┐
+  │                        │                         ├──pause──► PAUSED (reason MANUAL | NUMBER_UNAVAILABLE)
+  │                        │                         ├──a recipient can't be funded──► PAUSED_INSUFFICIENT_FUNDS
+  │                        │                         └──template paused/disabled/deleted/changed──► PAUSED_TEMPLATE_UNAVAILABLE
+  ├──launch(schedule)──► SCHEDULED ──schedule_at reached──► PREPARING
+  │                          └──unschedule──► DRAFT
+  └── SCHEDULED / PREPARING / RUNNING / any PAUSED_* ──cancel──► CANCELLED (terminal)
 ```
 
-Only DRAFT campaigns can be edited. SCHEDULED campaigns can be cancelled back to DRAFT.
+Only DRAFT campaigns can be edited or deleted. FAILED is only for campaign-level faults unrelated to Meta's template state; recipient-level failures never fail the campaign.
+
+**Template unavailable (decision P9-D3).** When the template is paused, disabled, deleted or superseded during a run, the campaign moves to `PAUSED_TEMPLATE_UNAVAILABLE`. Processed recipients keep their states; the rest stay PENDING and are not sent. Resume works only when the same frozen template version is sendable again. A campaign never switches templates: for another template or version, cancel it and create a new campaign for the remaining audience. `template_snapshot` and `messages.template_version_id` record what was sent.
+
+### Recipient states
+
+`PENDING` (snapshotted, not yet handed to MessagingService) → `QUEUED` (message accepted) → `SENDING` → `SENT` → `DELIVERED` → `READ`, or `FAILED`, or `SKIPPED` with a machine-readable reason: `NO_MARKETING_CONSENT`, `OPTED_OUT`, `INVALID_PHONE`, `BLOCKED`, `TEMPLATE_UNAVAILABLE`, `TEMPLATE_NOT_APPROVED`, `MISSING_VARIABLE`, `OTHER_POLICY_RESTRICTION` or `CANCELLED`. Transitions only move forward (duplicate and late webhooks are no-ops), and FAILED and SKIPPED are terminal.
 
 ### Audience definition (`packages/contracts/src/campaigns/audience.ts`)
 
@@ -50,42 +57,55 @@ The union of the `include` entries, minus the `exclude` entries, then deduped by
 
 ### Launch
 
-1. Checks: `campaigns.launch` permission, status DRAFT or SCHEDULED-due, template version APPROVED, phone number CONNECTED, variable mapping complete, audience non-empty. For MARKETING templates in Phase 11+, the wallet balance must be at least the minimum.
-2. Set status RUNNING (or SCHEDULED if `schedule_at` is in the future), set `launched_by`/`launched_at`, write outbox `campaign.launched`, and audit it. (`Idempotency-Key` is required.)
+1. Checks: `campaigns.launch` permission, status DRAFT or SCHEDULED-due, template version APPROVED, phone number CONNECTED, variable mapping complete, audience non-empty. From Phase 11, each billable send also reserves its estimated cost (decisions B3 and B4, `BILLING.md` → Reservations).
+2. Set status PREPARING (or SCHEDULED if `schedule_at` is in the future), freeze `template_snapshot`, set `launched_by`/`launched_at`, write outbox `campaign.launched`, and audit it. (`Idempotency-Key` is required.)
 3. The `campaign.dispatch` processor handles `campaign.launched`:
    - **Snapshot:** evaluate the audience in pages of 1,000 contacts, and insert `campaign_recipients` rows (`ON CONFLICT (campaign_id, contact_id) DO NOTHING`) with the `phone_e164` snapshot and the **resolved variables**. Set `audience_snapshot_at` and `total_recipients`. The snapshot is resumable: it restarts after the last inserted contact ID.
    - **Validation at snapshot:** mark SKIPPED with `skip_reason` for NO_CONSENT (MARKETING category without GRANTED), OPTED_OUT (revoked), BLOCKED, INVALID_PHONE and MISSING_VARIABLE (a mapping resolved empty with no fallback). Recipients are deduped by phone (DUPLICATE).
-   - **Dispatch:** enqueue `campaign.dispatch` jobs of type `batch` for QUEUED recipients in pages of 500 (by recipient ID order), with `jobId = batch:{campaignId}:{firstRecipientId}`.
+   - **Dispatch:** the campaign becomes RUNNING and a chain of `campaign-dispatch` jobs takes PENDING recipients in batches by id (see Implementation notes).
 
 ### Batch processing
 
-For each recipient in the batch, still QUEUED and not yet dispatched:
+For each recipient in the batch, still PENDING:
 
 - Call `MessagingService.send({source: CAMPAIGN, target: {contactId, phoneNumberId}, content: TEMPLATE, idempotencyKey: recipient.idempotency_key, links: {campaignId}})`.
-- Set `dispatched_at` and link `message_id`.
-- The campaign's status is checked **before each recipient**. If it is PAUSED or STOPPED, exit the batch early (the remaining recipients stay QUEUED and undispatched).
+- Set status QUEUED, `queued_at` and link `message_id`.
+- The campaign's status is checked **before each chunk of parallel sends**. If it is no longer RUNNING, the batch exits early and the remaining recipients stay PENDING.
 - Rate limiting has two layers:
   1. Campaign pacing: `rate_limit_per_minute` (optional, per campaign), enforced by a BullMQ group limiter keyed on the campaign.
   2. The per-number token bucket in the outbound worker (a hard limit shared with inbox traffic). Inbox and automation sends get priority: outbound jobs from campaigns get `priority: 10` (lower priority), and inbox gets `priority: 1`.
 
 ### Recipient status
 
-`QUEUED → SENT → DELIVERED → READ`, or `FAILED`, or `SKIPPED` (set at snapshot only).
+`PENDING → QUEUED → SENT → DELIVERED → READ`, or `FAILED`, or `SKIPPED` (at snapshot, or at send time when MessagingService refuses that recipient).
 
 - Recipient status is **derived from message status** by the `campaign.events` processor on `message.status.changed` (where `message.campaign_id` is set). It uses the same ordering rule as messages.
-- A `MessagingService.send` rejection at dispatch time (for example consent revoked since the snapshot) marks the recipient FAILED with that error code.
+- A `MessagingService.send` refusal at dispatch time (for example consent revoked since the snapshot) marks the recipient SKIPPED with the reason and the error code.
 
 ### Completion
 
-The `campaign.events` processor checks after each terminal recipient update, debounced to once per 5 s per campaign, and the maintenance job checks too. When no recipient is QUEUED with `dispatched_at` null **and** no dispatched recipient's message is in a pre-SENT state, the campaign becomes COMPLETED and emits `campaign.completed`. DELIVERED and READ keep updating after completion. Stats stay live.
+The `campaign.events` processor checks after each terminal recipient update, debounced to once per 5 s per campaign, and the maintenance job checks too. When no recipient is PENDING, QUEUED or SENDING, the campaign becomes COMPLETED and emits `campaign.completed`. DELIVERED and READ keep updating after completion. Stats stay live.
+
+### Insufficient funds (decision B4)
+
+When a running campaign reaches a recipient whose reservation is refused (`INSUFFICIENT_BALANCE`):
+
+1. The campaign is **not** failed.
+2. No further billable recipients are handed to MessagingService. The dispatcher stops at that recipient, which stays PENDING.
+3. The status becomes `PAUSED_INSUFFICIENT_FUNDS`, with an audit entry and a `campaign.progress` event.
+4. Recipients already sent or completed keep their states.
+5. Remaining unsent recipients are preserved as PENDING.
+6. The UI shows a `danger` banner on the campaign ("Paused: not enough credits. Add credits, then resume."), and the list shows the status badge.
+7. **Resume** is allowed once the available funds cover at least the next recipient. It re-enqueues from the preserved recipients. If funds still fall short, the resume is refused with `INSUFFICIENT_BALANCE`.
 
 ### Controls
 
 | Action | Effect |
 | --- | --- |
 | Pause | Status PAUSED. Batches stop at the next recipient. Messages already created (≥ CREATED) continue to Meta. |
-| Resume | Status RUNNING. Re-enqueue dispatch batches for QUEUED recipients without `dispatched_at`. |
-| Stop | Status STOPPED (terminal). Undispatched QUEUED recipients → SKIPPED (`STOPPED`). |
+| Resume | From PAUSED or PAUSED_INSUFFICIENT_FUNDS: status RUNNING. Re-enqueue dispatch batches for QUEUED recipients without `dispatched_at`. |
+| Cancel | Status CANCELLED (terminal). Recipients still PENDING → SKIPPED (`CANCELLED`). |
+| Unschedule | SCHEDULED → DRAFT. |
 | Retry failed | Only when COMPLETED/PAUSED/RUNNING. Recipients FAILED with a **retryable** error code are reset to QUEUED (`attempts++`, new idempotency key suffix `:r{attempts}`) and re-dispatched. Permanent failures are never retried. |
 
 All controls are audited and emit WS `campaign.progress`.
@@ -119,9 +139,48 @@ type VariableSource =
 - The dashboard shows Recipients, Sent, Delivered, Read, Failed and Skipped (with rates against the sendable count), plus a funnel, failure reasons grouped by `error_code` with human titles, and skip reasons.
 - The recipient table supports status and skip-reason filters and CSV export (`contacts.export`).
 
+### Implementation notes (Phase 9)
+
+- **Code map.** `apps/api/src/modules/campaigns`: `CampaignsService` (drafts, estimate, launch, controls, stats, recipients, CSV export), `campaigns.core.ts` (audience → Prisma where, keyset pages, variable resolution, classification, stats), `CampaignDispatchProcessor` (queue `campaign.dispatch`: prepare, dispatch, scheduler, recovery, completion) and `CampaignEventsProcessor` (queue `campaign.events`: recipient status from `message.status.changed`). Contracts: `packages/contracts/src/campaigns/campaigns.ts`.
+- **Every send goes through `MessagingService`** with `source CAMPAIGN`, `campaignId`, the approved template version, the recipient's stored variables, and the idempotency key `campaign:{campaignId}:{recipientId}`. Retries, duplicate jobs and a worker crash can therefore never send twice.
+- **Snapshot.** Launch freezes the template (`template_snapshot`) and the audience cut-off (`audience_snapshot_at`). `prepare` pages contacts by id (1,000 per transaction) that were created up to the cut-off, resolves variables, and classifies each contact with the same `evaluateEligibility` rules the send uses. The consent/opt-out distinction comes from MessageEligibilityService's `optedOut`, and phone validity and missing values are checked too. Recipients are inserted with `ON CONFLICT DO NOTHING`, so a crashed snapshot resumes after the last contact id.
+- **Dispatch.** Jobs take `CAMPAIGN_BATCH_SIZE` (default 50) PENDING recipients by id. They send in parallel chunks of 10, re-checking the campaign status before each chunk; a pause stops at most one chunk of in-flight sends. The next batch is delayed to respect `rate_limit_per_minute`, and the outbound worker's per-number token bucket still applies. A resume increments `dispatch_generation`, which starts a fresh job chain. Stale chains exit.
+- **Refusals.** At send time, `INSUFFICIENT_BALANCE` → PAUSED_INSUFFICIENT_FUNDS, `NO_CONNECTED_NUMBER` → PAUSED (NUMBER_UNAVAILABLE), and `TEMPLATE_NOT_APPROVED` → PAUSED_TEMPLATE_UNAVAILABLE (P9-D3). Any other refusal (for example consent revoked after the snapshot) skips just that recipient, with its reason.
+- **Scheduling and recovery.** Every 30 s, X4 lists due campaigns, and a conditional `SCHEDULED → PREPARING` update plus the outbox event (one transaction) make exactly one scheduler win. Every 60 s, X15 lists PREPARING/RUNNING campaigns: recovery re-drives them, reconciles QUEUED recipients from their messages (a missed webhook), and completes finished campaigns. A debounced check also runs after each recipient update.
+- **Stats.** Grouped counts per status, skip reason and error code. Delivery rate = delivered or read ÷ (sent + failed); read rate = read ÷ delivered or read; failure rate = failed ÷ (sent + failed). The detail page keeps refreshing for an hour after completion, because receipts keep arriving.
+- **Metrics** (no tenant labels): `campaign_recipients_total{outcome}`, `campaign_dispatch_batches_total{result}`, `campaign_job_retries_total`, `campaign_duration_seconds`, plus `queue_depth{queue="campaign.dispatch"|"campaign.events"}`.
+- **Measured:** a 2,000-recipient campaign completes in about 115 s against the local mock (batch size 10 in the test, Docker on a laptop), which is roughly 17 recipients per second. Per-batch overhead dominates; see ROADMAP known limitations.
+- **Backlog** (`PRODUCT.md`): send windows, retrying failed recipients, individual-contact selection in the UI, inbox priority over campaigns, throughput optimization, template replacement/migration.
+
+### Scope boundaries (decisions)
+
+- Campaigns are **immediate or one-time scheduled** (`schedule_at`). No recurring campaigns in v2 (CE2).
+- No A/B testing or split templates in v2 (CE1).
+
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| CE1 | Is A/B testing (split templates) needed in v2? Assumed no. | Product |
-| CE2 | Should recurring campaigns exist? Assumed no; use automations. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Experience V2 campaign operations
+
+Campaigns prioritize active/scheduled/paused communications and then focused history/drafts. Cards and rows use existing inclusive counts and server-defined rates; unknown denominators remain “—”. Audience-source summaries do not invent names from stored IDs. Snapshot-free campaigns explain that the audience is prepared at launch. Funding and template pauses link to existing recovery workflows without changing remaining recipients or the frozen template. The detail route retains controls, recipient results and export. See [Batch 2 evidence](design/EXPERIENCE_V2_BATCH_2.md) for responsive, keyboard, accessibility and operational regression results.
+
+## Experience V2 Campaigns checkpoint (2026-10-07)
+
+Campaigns now uses the approved workspace shell, compact status views and loaded-record filters, active/scheduled communication cards and an explicit sent/delivered/read history. Create Campaign retains the five saved steps, arranged as one working surface beside the recipient mobile preview, with a separate action footer. Recipient samples come from the matching saved server estimate; otherwise the preview uses stored template examples. Missing wallet/charge values remain unavailable.
+
+This presentation change does not alter campaign APIs, snapshot/frozen-version authority, consent, fallback handling, one-time scheduling/timezones, wallet reservations, pause recovery or launch idempotency. Loaded-record counts/filtering are not server-wide pagination. See [review evidence](design/experience-v2/evidence/campaigns-reconstruction/README.md). Ready for visual review; no Automations reconstruction is included.
+
+### Populated Campaigns visual fidelity correction
+
+Operations now displays existing frozen template image samples as campaign thumbnails, authorized current tag/segment labels as audience names, actual message text as the short content summary, and supported View campaign menus. Missing media/catalog names retain semantic fallbacks; no new campaign description/artwork field exists. The history order is Campaign/Audience/Status/Sent/Delivered/Read/Date/actions, with five-row local pagination over loaded records. No bulk operation or campaign-attributed Replies metric is invented. Running campaigns lead the featured pair; additional active/paused records remain available through Show more and their status views.
+
+A localhost-only review fixture creates two featured campaigns and ten additional persisted demo campaigns through existing APIs, including actual template sample uploads and simulated Meta approval/sending. Its synthetic account remains in the local stack for review; running/scheduled statuses evolve through the real domain. [Populated comparison and validation](design/experience-v2/evidence/campaigns-final-fidelity/README.md).
+
+The API-driven visual follow-up separates card/history/artwork/filter presentation from page query orchestration. Campaign context gives RUNNING a successful status tone without changing lifecycle status or other modules' default badges. Search/date/status/audience selection and five-row history navigation still operate on the existing GET collection (currently capped at 200). Scheduled navigation opens the existing detail route. Missing snapshots/rates remain unavailable; raw list API diagnostics are not displayed. No domain behavior or backend route changes. [Current review evidence](design/experience-v2/evidence/campaigns-data-driven/README.md).
+
+### Graphical campaign detail
+
+Non-draft detail uses the shared DetailPage, compact metric cards and an accessible delivery funnel. Sent/Delivered/Read share the frozen eligible audience denominator and remain inclusive counters: read is already included in delivered and sent. Server delivery/read/failure rates retain their own denominators. Waiting includes pending plus queued/sending recipients. Unprepared audiences show explanatory copy instead of zero progress; zero eligible audiences have no percentage bar. Stats errors expose retry rather than fabricated results.
+
+The contextual audience/timing summary and timeline use only existing created, launched, started, completed and cancelled timestamps. There is no inferred pause/failure timestamp or campaign reply count. The frozen message uses the existing WhatsApp phone preview and permission-gated signed header sample; unresolved variable markers stay visible, with actual recipient-specific values in the report. Existing draft editing, controls, confirmations, CSV export and recipient permissions are preserved. [Graphical detail validation](design/experience-v2/evidence/campaign-detail-visual/README.md).

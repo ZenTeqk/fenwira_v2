@@ -1,0 +1,23 @@
+{
+  "capturedAt": "2026-10-07T17:29:01.904Z",
+  "lighthouse": "12.8.2",
+  "category": "accessibility",
+  "finalUrlsVerified": true,
+  "scores": [
+    {
+      "path": "/campaigns",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/campaigns/new",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/campaigns/:id (draft)",
+      "score": 100,
+      "failing": []
+    }
+  ]
+}

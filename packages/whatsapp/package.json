@@ -1,0 +1,40 @@
+{
+  "name": "@fenwira/whatsapp",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./send": {
+      "types": "./dist/send.d.ts",
+      "default": "./dist/send.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "start:mock": "node dist/testing/server.js"
+  },
+  "devDependencies": {
+    "@fenwira/config": "workspace:*",
+    "vitest": "3.2.7"
+  },
+  "dependencies": {
+    "@fenwira/contracts": "workspace:*"
+  }
+}

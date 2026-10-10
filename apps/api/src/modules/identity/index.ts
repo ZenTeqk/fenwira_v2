@@ -1,0 +1,10 @@
+export { currentActorId, currentApiKey, currentAuth, AuthGuard } from './auth.guard'
+export { IdentityModule, IdentityWorkerModule } from './identity.module'
+export { IDENTITY_OPTIONS, type IdentityOptions } from './identity.options'
+export { IdentityProcessor } from './identity.processor'
+export { IdentityService, type SessionTokens, toUserDto } from './identity.service'
+export { JwtService } from './jwt.service'
+export { SessionService } from './session.service'
+export { generateBackupCodes, totpAt, verifyTotp } from './totp'
+
+export { PasswordService } from './password.service'

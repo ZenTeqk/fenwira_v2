@@ -1,0 +1,97 @@
+name: CI
+
+# Checks only; never deploys (deployment is .github/workflows/deploy.yml, main only).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PRISMA_HIDE_UPDATE_MESSAGE: '1'
+  NEXT_TELEMETRY_DISABLED: '1'
+  TURBO_TELEMETRY_DISABLED: '1'
+
+jobs:
+  verify:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Lint (ESLint + module boundaries)
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Unit tests
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+      - name: OpenAPI document is current (decision API1)
+        run: node apps/api/scripts/openapi.mjs --check
+      - name: Prettier
+        run: pnpm format:check
+
+  release:
+    name: Production release build (Ubuntu x86_64, verify-build)
+    # Same build as the deploy workflow, without AWS credentials or upload.
+    runs-on: ubuntu-24.04
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Build and verify the release
+        env:
+          NEXT_PUBLIC_API_URL: https://api.fenwira.zenteqk.com/api/v1
+        run: deploy/scripts/build-release.sh HEAD "$RUNNER_TEMP/release"
+      - name: Deployment templates (systemd, nginx -t)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends nginx-core >/dev/null
+          # nginx -t binds the configured ports (80/443), which needs root on the runner.
+          sudo deploy/scripts/validate-templates.sh "$RUNNER_TEMP/release"
+
+  integration:
+    name: Integration tests (Postgres + Redis, as fenwira_app)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - name: Run integration suite in the fenwira-test container
+        run: docker compose --profile test run --rm --build fenwira-test
+      - if: failure()
+        run: docker compose --profile test logs --no-color
+      - if: always()
+        run: docker compose --profile test down -v
+
+  security:
+    name: Secret and dependency scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks (full history)
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest git /repo --redact --verbose
+      - uses: pnpm/action-setup@v4
+      # No `cache: pnpm` here: this job never runs `pnpm install` (pnpm audit reads
+      # pnpm-lock.yaml directly), so there is no pnpm store to cache or restore.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Dependency audit (production deps, high+)
+        run: pnpm audit --prod --audit-level high

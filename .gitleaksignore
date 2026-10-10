@@ -1,0 +1,12 @@
+# Confirmed false positives only — see the commit that adds an entry here for the verification.
+# Format: one gitleaks finding Fingerprint per line (commit:file:rule:line).
+
+# docs/SECURITY.md documents the ENCRYPTION_KEYS env var's *format* with literal placeholder
+# text ("k1:base64key,k2:base64key"), not a real key. Confirmed via `gitleaks git .` locally and
+# by reading the surrounding documentation before adding this entry.
+65b36dec36b14f5523371890a387cf1bafbe52a2:docs/SECURITY.md:generic-api-key:92
+
+# docs/API_KEYS.md (commit 672f8f2) carried a fabricated example token in its curl and
+# create-key examples — never a real key; replaced with `fw_<prefix>_<secret>` afterwards.
+672f8f2adeed853d11ab684378adeb64e1c608a5:docs/API_KEYS.md:curl-auth-header:132
+672f8f2adeed853d11ab684378adeb64e1c608a5:docs/API_KEYS.md:generic-api-key:172

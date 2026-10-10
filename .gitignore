@@ -17,3 +17,13 @@ coverage/
 backups/
 playwright-report/
 test-results/
+next-env.d.ts
+.vscode/
+.idea/
+*.swp
+
+# Native production env files (deploy/env/*.env.example are the committed templates)
+deploy/env/*.env
+
+# Python bytecode (deploy/scripts/render-env-from-ssm.py)
+__pycache__/

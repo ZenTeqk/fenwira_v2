@@ -1,0 +1,50 @@
+{
+  "name": "@fenwira/worker",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json && concurrently -k -n tsc,worker \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --watch --enable-source-maps dist/main.js\"",
+    "start": "node --enable-source-maps dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --exclude '**/*.int.test.ts'",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "dlq": "node dist/cli/replay-dlq.js",
+    "wallet:credit": "node dist/cli/wallet-credit.js",
+    "subscription:activate": "node dist/cli/subscription-activate.js",
+    "entitlement:override": "node dist/cli/entitlement-override.js",
+    "billing:mode": "node dist/cli/billing-mode.js"
+  },
+  "dependencies": {
+    "@fenwira/api": "workspace:*",
+    "@fenwira/config": "workspace:*",
+    "@fenwira/contracts": "workspace:*",
+    "@fenwira/database": "workspace:*",
+    "@fenwira/queue": "workspace:*",
+    "@fenwira/whatsapp": "workspace:*",
+    "@nestjs/common": "11.2.6",
+    "@nestjs/core": "11.2.6",
+    "@nestjs/platform-express": "11.2.6",
+    "bullmq": "5.81.5",
+    "ioredis": "5.11.1",
+    "nestjs-pino": "4.6.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@fenwira/contracts": "workspace:*",
+    "@nestjs/testing": "11.2.6",
+    "@swc/core": "1.16.2",
+    "@types/papaparse": "5.5.2",
+    "@types/supertest": "6.0.3",
+    "concurrently": "9.2.4",
+    "fast-check": "4.10.2",
+    "papaparse": "5.7.0",
+    "socket.io-client": "4.8.3",
+    "supertest": "7.3.0",
+    "unplugin-swc": "1.6.0",
+    "vitest": "3.2.7"
+  }
+}

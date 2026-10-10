@@ -1,0 +1,30 @@
+{
+  "capturedAt": "2026-10-08T14:38:53.479Z",
+  "source": "Actual persisted local textile workspace; no financial history changed",
+  "checks": [
+    {
+      "width": 1440,
+      "overflow": false,
+      "heading": "20px",
+      "violations": []
+    },
+    {
+      "width": 1024,
+      "overflow": false,
+      "heading": "20px",
+      "violations": []
+    },
+    {
+      "width": 768,
+      "overflow": false,
+      "heading": "20px",
+      "violations": []
+    },
+    {
+      "width": 375,
+      "overflow": false,
+      "heading": "20px",
+      "violations": []
+    }
+  ]
+}

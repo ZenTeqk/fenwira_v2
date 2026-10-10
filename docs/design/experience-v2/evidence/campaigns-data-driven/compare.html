@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Campaigns — reference and implementation review</title>
+    <style>
+      body { margin: 24px; font-family: system-ui, sans-serif; }
+      main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+      img { width: 100%; height: auto; border: 1px solid #ddd; }
+      @media (max-width: 768px) { main { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <h1>Campaigns visual review</h1>
+    <p>Reference-led layout using actual API records. Names, dates, metrics and supported actions differ with real product data. This comparison does not declare visual approval.</p>
+    <main>
+      <section><h2>Supplied reference</h2><img src="../../06-Campaign-studio.png" alt="Supplied Campaigns design" /></section>
+      <section><h2>Final implementation — 1440 × 1000 viewport</h2><img src="campaigns-populated-1440.png" alt="Populated API-driven Campaigns page" /></section>
+    </main>
+    <p><a href="before-1440.png">Before</a> · <a href="first-pass/campaigns-populated-1440.png">First pass</a> · <a href="campaigns-populated-1024.png">1024px</a> · <a href="campaigns-populated-768.png">768px</a> · <a href="campaigns-populated-375.png">375px</a> · <a href="campaigns-history-page-2.png">History page 2</a></p>
+  </body>
+</html>

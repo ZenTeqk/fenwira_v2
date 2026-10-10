@@ -1,0 +1,47 @@
+#!/bin/bash
+# SSM deploy entry point (document ${document_name}). {{ release }} and {{ sha256 }} are validated by
+# the document's allowedPattern before substitution. Downloads the artifact uploaded by
+# .github/workflows/deploy.yml, verifies its checksum, extracts it into an immutable release
+# directory and hands over to the release's own deploy/scripts/deploy-release.sh.
+set -euo pipefail
+export PATH=/snap/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin AWS_REGION=${region}
+REL='{{ release }}'
+SUM='{{ sha256 }}'
+SRC="s3://${bucket}/${prefix}/$REL.tar.gz"
+DEST="/opt/fenwira/releases/$REL"
+TMP="$(mktemp -d /var/tmp/fenwira-deploy.XXXXXX)"
+trap 'rm -rf "$TMP"' EXIT
+echo "[fenwira-deploy] release $REL"
+if [ -d "$DEST" ]; then
+  echo "[fenwira-deploy] $DEST already exists (releases are immutable): reusing it"
+else
+  aws s3 cp --only-show-errors "$SRC" "$TMP/release.tar.gz"
+  echo "$SUM  $TMP/release.tar.gz" | sha256sum --check --strict --quiet
+  echo "[fenwira-deploy] checksum verified"
+  mkdir "$TMP/x"
+  # Safe extraction with Python's tarfile 'data' filter: refuses absolute paths, '..' components,
+  # symbolic or hard links that point outside the destination, and device/special files; strips
+  # setuid/setgid and group/other write bits. Every member must also live under "<release>/".
+  python3 - "$TMP/release.tar.gz" "$TMP/x" "$REL" <<'FENWIRA_EXTRACT_EOF'
+import sys
+import tarfile
+
+src, dest, rel = sys.argv[1:4]
+with tarfile.open(src, "r:gz") as archive:
+    members = archive.getmembers()
+    outside = [m.name for m in members if m.name != rel and not m.name.startswith(rel + "/")]
+    if outside:
+        sys.exit(f"[fenwira-deploy] ERROR: {len(outside)} archive member(s) outside {rel}/: {outside[0]!r}")
+    archive.extractall(dest, members=members, filter="data")
+print(f"[fenwira-deploy] extracted {len(members)} members (safe filter)")
+FENWIRA_EXTRACT_EOF
+  [ "$(cat "$TMP/x/$REL/RELEASE" 2>/dev/null)" = "$REL" ] || { echo "[fenwira-deploy] ERROR: artifact is not release $REL"; exit 1; }
+  chown -R root:root "$TMP/x/$REL"
+  chmod -R go-w "$TMP/x/$REL"
+  chown fenwira:fenwira "$TMP/x/$REL/apps/web/.next/standalone/apps/web/.next/cache"
+  mv "$TMP/x/$REL" "$DEST"
+  echo "[fenwira-deploy] extracted to $DEST"
+fi
+rc=0
+"$DEST/deploy/scripts/deploy-release.sh" "$REL" || rc=$?
+exit "$rc"

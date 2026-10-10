@@ -1,0 +1,50 @@
+{
+  "sidebar": {
+    "x": 0,
+    "y": 0,
+    "width": 224,
+    "height": 1000
+  },
+  "topbar": {
+    "x": 224,
+    "y": 0,
+    "width": 1216,
+    "height": 56
+  },
+  "row": {
+    "x": 249,
+    "y": 371.5,
+    "width": 862,
+    "height": 57
+  },
+  "selectedRow": {
+    "x": 249,
+    "y": 310.5,
+    "width": 862,
+    "height": 61
+  },
+  "avatar": {
+    "x": 305,
+    "y": 323,
+    "width": 36,
+    "height": 36
+  },
+  "context": {
+    "x": 1128,
+    "y": 80,
+    "width": 288,
+    "height": 1000
+  },
+  "header": {
+    "x": 248,
+    "y": 80,
+    "width": 864,
+    "height": 56
+  },
+  "directory": {
+    "x": 248,
+    "y": 208,
+    "width": 864,
+    "height": 734
+  }
+}

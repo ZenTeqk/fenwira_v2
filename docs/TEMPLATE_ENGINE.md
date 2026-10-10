@@ -90,9 +90,37 @@ Campaigns resolve variables from mapping expressions (`CAMPAIGN_ENGINE.md`) befo
 
 Two panes: the editor (category, language, name, header, body with a "+ Variable" inserter, footer, buttons, samples) and a live WhatsApp-style preview (phone frame, bubble, buttons). Variables render as `primary-soft` chips with `primary` text in both the editor and the preview (the preview shows the sample value on hover). The Version history tab lists versions with status, submitted and decided times, and the rejection reason.
 
+### Implementation notes (Phase 8)
+
+- **Code map.** `packages/contracts/src/templates/components.ts`: the component model and `validateTemplate` (used by the builder and the API). `packages/whatsapp/src/template-payload.ts`: Fenwira ↔ Meta mapping (create/edit payload, sync parsing, send parameters). `apps/api/src/modules/templates`: `TemplatesService` (drafts, versions, submit, delete, sync, samples), `TemplateSyncService`, `templates.core.ts` (`resolveTemplateForSend`, `transitionVersion`, `applyTemplateEvent`) and `TemplatesSyncProcessor` (queue `templates.sync`).
+- **Status transitions** go through one function, which keeps the template's status equal to its current version's, advances `approved_version_id` only on approval (older approved versions become ARCHIVED), applies pause/disable/reinstate to the version Meta serves even while an edit is under review, emits `template.status.changed` and notifies the creator plus owners and admins.
+- **Submit robustness.** Meta calls run outside DB transactions. A submit whose response was lost is adopted on retry (Meta's "already exists" subcodes 2388023/2388024 → look the template up by name and language) instead of being duplicated or rejected.
+- **Sync** runs on connect (`whatsapp.connection.changed` → `templates.sync`), every 6 hours (X14 fan-out every 15 minutes), on `POST /templates/sync`, and after a send fails with a Meta template error. Content is compared without sample file ids; a template deleted in WhatsApp Manager becomes DISABLED with `last_error`.
+- **Authentication templates** support Meta's COPY_CODE OTP only; one-tap/zero-tap (Android app hashes) are not built.
+- **Archive** (Fenwira-only hiding) is not exposed in the UI; deletion is.
+- **Local development:** the meta-mock reviews templates (approve after 4 s in the container; `POST /__mock/template-review` changes the outcome), serves the resumable upload, and `POST /__mock/template-event` simulates pause, quality and category changes.
+
+### Scope boundaries (decisions)
+
+- Each template and language is managed independently. There is no multi-language grouping in the initial v2 (TE1).
+- Carousel and limited-time-offer (LTO) template building are out of the initial v2 scope (TE2).
+
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| TE1 | Do we need multi-language template groups (one logical template, many languages) in the UI? Assumed each language is a separate template in v2. | Product |
-| TE2 | Carousel and limited-time-offer templates: assumed out of scope for v2. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Experience V2 message library
+
+Templates are presented as reusable WhatsApp message objects with current stored content, status/quality, category/language and updated information. Quick preview reuses the existing message renderer and signed media sample service; the authoritative approved-version picker determines sending availability. Existing editor, version history, review, resubmission, sync and delete routes remain the lifecycle authority. If draft creation succeeds but submission fails, the editor opens the saved draft so retry updates that identity. See [Batch 2 evidence](design/EXPERIENCE_V2_BATCH_2.md) for the reproduced regression and responsive/accessibility validation.
+
+### Templates reconstruction checkpoint
+
+The library now uses the visually approved Home/Inbox/Contacts shell scale and the Templates reference composition. At 1280px and above, Preview opens a 320px inline context with a selected card; smaller widths use the existing accessible drawer. Cards prioritize actual message content, category/language/status and updates. Search/category/language/status use existing query support. Status tabs group actual lifecycle states; their counts describe the currently queried library. Needs attention also includes stored submission failures, without changing the draft's domain status.
+
+Create template and Sync with WhatsApp retain the existing APIs. Current-message preview and stored variable samples are distinguished from sending: Use in campaign/Open Inbox appear only when the existing approved-version endpoint reports availability and the member has the corresponding permission. Open template/Open editor reaches the existing lifecycle page for editing/new versions, submission/retry, version history and confirmed deletion. No last-sync timestamp, usage metric, semantic variable field, fake customer data or new sending path is introduced. Library-only rendering opts into compact message scale; existing builder/Inbox/Campaign previews keep their presentation. [Reference decomposition and review evidence](design/EXPERIENCE_V2_TEMPLATES_RECONSTRUCTION.md). Stop for visual review before Campaigns.
+
+### Recipient mobile preview refinement
+
+The template library context, full record and live editor now share a WhatsApp-style mobile conversation preview. It uses the selected account name, an incoming white message bubble, actual header/body/footer, sample-variable substitution without editor chips, and integrated template-button rows. The phone chrome, time, wallpaper and composer are decorative and do not perform calls, navigation or sends. No verification badge, customer identity or delivery state is invented. Missing sample values remain visible as placeholders; edit the existing sample fields to inspect personalization.
+
+Recipient text supports basic bold, italic, strikethrough and monospace markers using escaped React text nodes. Stored image samples retain their complete aspect ratio; stored video samples use native playback without autoplay; absent/document samples remain explicitly labelled placeholders. This is a browser simulation, not an embedded WhatsApp client: device-specific layout, complex/nested formatting and document presentation can differ. Actual sending still uses the existing approved-version and server eligibility paths. Compact library cards, Inbox and Campaigns retain the existing compact/editor presentation.

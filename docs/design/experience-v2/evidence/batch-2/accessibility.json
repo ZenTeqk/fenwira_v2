@@ -1,0 +1,33 @@
+{
+  "capturedAt": "2026-10-07T06:05:50.850Z",
+  "lighthouse": "12.8.2",
+  "category": "accessibility",
+  "finalUrlsVerified": true,
+  "scores": [
+    {
+      "path": "/contacts",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/templates",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/campaigns",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/campaigns/new",
+      "score": 100,
+      "failing": []
+    },
+    {
+      "path": "/campaigns/:id (draft)",
+      "score": 100,
+      "failing": []
+    }
+  ]
+}

@@ -4,6 +4,14 @@
 
 The contact model, phone normalization, dedupe, custom properties, tags, the filter DSL shared by lists, segments and campaigns, consent tracking and enforcement, CSV import and export, and the Contact 360 view.
 
+## Experience V2 directory
+
+The `/contacts` directory follows the approved Home/Inbox scale and Contacts reference: heading/actions → All contacts/Segments/Tags/Imports contextual links → one compact working surface. The existing shell variant is reused only for this route; Home/Inbox and the global navigation are unchanged. Ordinary desktop rows use 36px varied initials, compact stored tags and purpose-specific server eligibility labels. `lastInboundAt` is labelled **Last incoming**, not presented as a last-conversation date. Owner names resolve only through the authorized existing team read, with a teammate fallback when names are unavailable.
+
+Tag and assignment shortcuts edit the same root filter rules as the advanced builder, retaining its AND/OR mode and nesting limit. Search/count, saved segments and exports use that existing DSL. The Columns menu preserves the **Export filtered contacts** action; this exports the current query, not the selected rows. Bulk selection supports existing tag/untag/delete operations only. No bulk assignment, blanket eligibility filter, CRM field or favourite has been added.
+
+Selecting a contact opens a 288px inline desktop context at 1280px and wider; below that it opens the existing accessible drawer. It prioritizes identity, actual contact fields, stored tags, WhatsApp service/marketing verdicts, owner and real recent activity. The full centralized eligibility and consent details remain accessible through a keyboard disclosure. Message links to an existing conversation only; More retains editing and the full profile route. The compact timeline shows the latest three real activity records, with the full history retained on the contact profile. Escape returns focus to the initiating identity/action control. At mobile widths the directory uses contact cards rather than a miniature table. See [reconstruction and review evidence](design/EXPERIENCE_V2_CONTACTS_RECONSTRUCTION.md).
+
 ## Decisions
 
 ### Contact identity
@@ -57,6 +65,11 @@ Operator (valid per field type):
 - Invalid field/operator combinations are rejected by the Zod schema. Unknown `property.*` keys return `VALIDATION_FAILED`.
 - A property-based test (fast-check) generates filters and asserts `count(filter) == search(filter).length` over a seeded dataset.
 
+### Identity and duplicates
+
+- A contact's identity within a tenant is its normalized E.164 phone number (decision D2), enforced by a partial unique index. There is no fuzzy deduplication (name or email similarity).
+- There is no manual contact merge in v2 (decision C2). Duplicates are prevented at creation and import by the phone number.
+
 ### Segments
 
 - Saved named filters. They are dynamic: membership is evaluated at query time.
@@ -73,13 +86,27 @@ Operator (valid per field type):
 | Evidence | Every row stores `source` plus `evidence` JSON (actor, IP, message ID, import job ID, file ID, note). Rows are never updated except to set `revoked_at`/`revoke_source` on the latest row. |
 | History | The Consent tab shows every row, newest first, with its evidence. |
 
-**Enforcement** (in `MessagingService`, see `MESSAGING_ENGINE.md`):
+**Eligibility** (decisions C1 and C3). Every outbound message passes through `MessageEligibilityService`, the one place that decides whether a message may be sent. `MessagingService` calls it at accept time, and the outbound worker calls it again at send time. The inbox, campaigns, automation and messaging modules never make this decision themselves. It can consider:
 
-| Purpose | Requirement |
+- the message category (template category from Phase 8) and purpose;
+- the contact's consent and opt-out state;
+- the WhatsApp service window and conversation context;
+- applicable Meta messaging requirements;
+- tenant policy;
+- suppression and block state;
+- other applicable messaging restrictions.
+
+It returns `{allowed, code, reason, rule}`, where `rule` names the rule that decided, so audits and tests can see it.
+
+| Purpose / category | Rule |
 | --- | --- |
-| MARKETING | Current consent must be `GRANTED` |
-| UTILITY | Allowed unless the current UTILITY consent is `REVOKED` (Meta requires opt-in for business-initiated messages; tenants attest to this at connect time, and an explicit revocation always blocks) |
-| SERVICE | Always allowed inside the service window (the customer initiated) |
+| MARKETING | **Permanent:** requires recorded marketing consent (`GRANTED`). |
+| UTILITY | **Temporary** (`TEMP_UTILITY_BLOCK_ON_REVOKED`): blocked when UTILITY consent is `REVOKED`, otherwise allowed. |
+| AUTHENTICATION | **Temporary** (`TEMP_AUTHENTICATION_BLOCK_ON_REVOKED`): the same as UTILITY until the policy matrix exists. |
+| SERVICE | Allowed inside the customer-initiated service window. |
+| Any | A blocked or deleted contact is never eligible (suppression). Non-template content needs an open service window. |
+
+**Temporary rules** are listed in the service's `TEMPORARY_RULES` export, and tests pin their behavior. They are not business rules: the final UTILITY/AUTHENTICATION policy matrix replaces them, and no other code may depend on them.
 
 **How consent changes**
 
@@ -130,9 +157,21 @@ A header with name, phone (monospace), status, owner, tags and quick actions (me
 | Consent | Full history with evidence |
 | Notes | Contact notes |
 
+## Implementation notes (Phase 6)
+
+- **Code map.** `apps/api/src/modules/contacts`: `ContactsService` (CRUD, search, count, bulk, notes, consent, timeline), `ContactCatalogService` (tags, properties, segments, keyword settings), `filter/compile.ts` (`FilterCompiler`, the only DSL → Prisma compiler), `consent.ts` (`recordConsent`, `addActivity`), `imports/` (CSV reader, row validator, `ImportsService`, `ImportProcessor`), `exports.ts`, and `ContactsEventsProcessor` (keywords, 131050). The DSL lives in `packages/contracts/src/contacts/filter.ts`.
+- **Current consent** is stored on the contact (`marketing_consent`, `utility_consent`: NONE, GRANTED or REVOKED) and updated in the same transaction as each `consents` history row, instead of a `current_consents` view. Filters, segments and campaign audiences then use a plain indexed column. `recordConsent` is a no-op when the state doesn't change, which makes keyword handling idempotent.
+- **Compiler semantics.** Negative operators (NOT_EQUALS, NOT_CONTAINS, NOT_IN, NOT_IN_LAST_DAYS, HAS_NONE) match contacts that have no value, so `A` and `NOT A` partition the contacts. "Match everything" is an explicit `deleted_at IS NULL`, never `{}`, because Prisma silently drops `{}` inside `OR`. The property-based test caught this. A `segment` rule inlines that segment's filter, one level only. A foreign or deleted segment is a 400.
+- **Verification.** `apps/worker/test/contacts.int.test.ts` generates 40 random filters (depth ≤ 3, over text, tags, consent, and number and select properties) with fast-check. For each, the API's search IDs, count and segment count must equal an independent in-memory evaluator of the DSL over 60 seeded contacts.
+- **Imports.** `POST /imports/upload-url` (presigned PUT to `fenwira-imports`) → `POST /imports {fileId}` verifies size and text content, then **analyze** (headers, first 50 rows, total ≤ 100k, suggested mapping) → `PATCH /imports/:id` (mapping, SKIP/UPDATE, default consent) → **validate** (per-row errors, in-file duplicates, existing phones, 50-row preview) → `POST /imports/:id/confirm` → **import** (1,000-row transactions, `import.progress` events, cancellable between batches) → an error CSV (original columns plus `error_row`, `error_field`, `error_code`, `error_message`). Every step streams the file from MinIO. A 50k-row file with 5 % invalid rows and 10 % existing phones validates and imports in under a minute locally. `contact.created` events are only emitted when `suppressAutomations` is false.
+- **Consolidation (decision C1).** The Phase 6 checks that lived in `MessagingService` step 4 and in the outbound worker's send-time guard now call `MessageEligibilityService` (`apps/api/src/modules/messaging/eligibility.ts`).
+- **Messaging.** `MessagingService.send` takes `purpose` (default UTILITY for templates, SERVICE otherwise). It is stored on `messages.purpose` and re-checked by the outbound worker at send time. A permanent send failure emits `message.status.changed` with the error code, so an outbound 131050 revokes marketing consent the same way a status webhook does.
+- **Workspace settings.** `GET/PATCH /workspace/consent-settings` (opt-out and opt-in keywords, which may not overlap, and the reply text). Custom fields are managed in Settings → Workspace → Contact fields.
+
 ## Open questions
 
-| # | Question | Owner |
-| --- | --- | --- |
-| C1 | Is the UTILITY consent rule acceptable to legal: allowed unless explicitly revoked? | Legal |
-| C2 | Is merging contacts (two contacts → one) needed in v2? Assumed no. | Product |
+None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
+
+## Experience V2 contact presentation
+
+The contact list emphasizes identity, phone, tags, purpose-specific server eligibility, last incoming message and actual assignment. Quick context reuses existing conversation/activity/campaign reads; the full profile retains consent, notes and lifecycle operations. Owner IDs without display names are shown as assigned/unassigned, with “You” for the current user. The UI never derives messaging eligibility from consent alone. See [Batch 2 evidence](design/EXPERIENCE_V2_BATCH_2.md) for responsive, keyboard and accessibility validation.

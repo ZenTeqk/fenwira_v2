@@ -1,0 +1,74 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalDependencies": ["packages/config/tsconfig/*.json", ".env.test"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "generated/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": [
+        "NODE_ENV",
+        "APP_VERSION",
+        "LOG_LEVEL",
+        "DATABASE_URL",
+        "MIGRATION_DATABASE_URL",
+        "DB_POOL_SIZE",
+        "REDIS_URL",
+        "WEB_ORIGIN",
+        "SYSTEM_PING_ENABLED",
+        "OUTBOX_POLL_INTERVAL_MS",
+        "ENCRYPTION_KEYS",
+        "ENCRYPTION_ACTIVE_KEY_ID",
+        "JWT_PRIVATE_KEY",
+        "JWT_PUBLIC_KEY",
+        "COOKIE_SECURE",
+        "SMTP_URL",
+        "MAIL_FROM",
+        "MAILPIT_API_URL",
+        "META_APP_ID",
+        "META_APP_SECRET",
+        "META_ES_CONFIG_ID",
+        "META_WEBHOOK_VERIFY_TOKEN",
+        "META_GRAPH_API_VERSION",
+        "META_GRAPH_BASE_URL",
+        "WHATSAPP_DEV_CONNECT",
+        "WHATSAPP_SYNC_INTERVAL_HOURS",
+        "PUBLIC_API_URL",
+        "TEST_LOG_LEVEL",
+        "S3_ENDPOINT",
+        "S3_PUBLIC_ENDPOINT",
+        "S3_REGION",
+        "S3_ACCESS_KEY_ID",
+        "S3_SECRET_ACCESS_KEY",
+        "S3_FORCE_PATH_STYLE",
+        "S3_BUCKET_MEDIA",
+        "S3_BUCKET_UPLOADS",
+        "S3_BUCKET_IMPORTS",
+        "S3_BUCKET_EXPORTS"
+      ]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "watch": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

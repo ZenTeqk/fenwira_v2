@@ -1,0 +1,42 @@
+import { cva, type VariantProps } from 'class-variance-authority'
+import { type ComponentProps, type ReactNode } from 'react'
+import { cn } from '../lib/cn'
+
+/**
+ * Soft tint background + slate text (AA on every tint) + tone-colored icon/dot.
+ * Tone color never carries the meaning alone: the label always does (FENWIRA_DESIGN_SYSTEM → Status).
+ */
+export const badgeVariants = cva(
+  'inline-flex w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium text-slate [&_svg]:size-3.5',
+  {
+    variants: {
+      tone: {
+        neutral: 'bg-neutral-soft [&_[data-tone-icon]]:text-muted',
+        primary: 'bg-primary-soft [&_[data-tone-icon]]:text-primary-strong',
+        success: 'bg-success-soft [&_[data-tone-icon]]:text-success-strong',
+        warning: 'bg-warning-soft [&_[data-tone-icon]]:text-warning-strong',
+        danger: 'bg-danger-soft [&_[data-tone-icon]]:text-danger-strong',
+        info: 'bg-info-soft [&_[data-tone-icon]]:text-info-strong',
+      },
+    },
+    defaultVariants: { tone: 'neutral' },
+  },
+)
+
+export type BadgeTone = NonNullable<VariantProps<typeof badgeVariants>['tone']>
+
+export type BadgeProps = ComponentProps<'span'> &
+  VariantProps<typeof badgeVariants> & { icon?: ReactNode }
+
+export function Badge({ className, tone, icon, children, ...props }: BadgeProps) {
+  return (
+    <span data-slot="badge" className={cn(badgeVariants({ tone }), className)} {...props}>
+      {icon ? (
+        <span data-tone-icon="" className="inline-flex" aria-hidden="true">
+          {icon}
+        </span>
+      ) : null}
+      {children}
+    </span>
+  )
+}

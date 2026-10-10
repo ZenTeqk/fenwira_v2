@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# Fenwira v2 app server bootstrap (cloud-init user data, rendered by Terraform).
+# Contains NO secrets. Idempotent: safe to re-run with
+#   sudo bash /var/lib/cloud/instance/scripts/part-001
+# It prepares the host only; it never starts the Fenwira services (no release or env files yet).
+set -euo pipefail
+exec > >(tee -a /var/log/fenwira-bootstrap.log) 2>&1
+echo "[fenwira-bootstrap] start $(date -u +%FT%TZ)"
+export DEBIAN_FRONTEND=noninteractive
+
+# ---- Packages --------------------------------------------------------------------------------
+apt-get update -q
+apt-get install -y -q ca-certificates curl gnupg jq unzip nginx redis-server postgresql-client \
+  rsyslog logrotate certbot python3-certbot-dns-route53
+
+# Node.js ${node_major}.x from NodeSource's signed apt repository (no piped install script).
+install -d -m 0755 /etc/apt/keyrings
+if [[ ! -f /etc/apt/keyrings/nodesource.gpg ]]; then
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+fi
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${node_major}.x nodistro main" \
+  >/etc/apt/sources.list.d/nodesource.list
+apt-get update -q
+apt-get install -y -q nodejs
+node -v
+# pnpm only for emergency on-host builds; releases are normally built off-instance.
+npm install -g pnpm@${pnpm_version} >/dev/null 2>&1 || echo "[fenwira-bootstrap] WARN: pnpm install failed (non-fatal)"
+
+# AWS CLI v2 (Canonical-signed snap): reads /fenwira/prod/* parameters when rendering env files.
+snap list aws-cli >/dev/null 2>&1 || snap install aws-cli --classic
+
+# ---- Service user and directories -------------------------------------------------------------
+id fenwira >/dev/null 2>&1 || useradd --system --home /opt/fenwira --shell /usr/sbin/nologin fenwira
+install -d -m 0755 -o root -g root /opt/fenwira /opt/fenwira/releases
+install -d -m 0750 -o root -g fenwira /etc/fenwira
+install -d -m 0755 /var/www/letsencrypt
+# rsyslog runs as syslog (PrivDropToUser) and writes the per-service files; cwagent reads them via adm.
+install -d -o syslog -g adm -m 0750 /var/log/fenwira
+
+# ---- Swap ------------------------------------------------------------------------------------
+if [[ ! -f /swapfile ]]; then
+  fallocate -l ${swap_size_gb}G /swapfile
+  chmod 0600 /swapfile
+  mkswap /swapfile
+fi
+swapon --show | grep -q /swapfile || swapon /swapfile
+grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >>/etc/fstab
+echo 'vm.swappiness=10' >/etc/sysctl.d/90-fenwira.conf
+sysctl -q --system
+
+# ---- RDS CA bundle (verified TLS: sslcert + sslrootcert in DATABASE_URL) ----------------------
+curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -o /etc/fenwira/rds-global-bundle.pem.new
+grep -q 'BEGIN CERTIFICATE' /etc/fenwira/rds-global-bundle.pem.new
+mv /etc/fenwira/rds-global-bundle.pem.new /etc/fenwira/rds-global-bundle.pem
+chmod 0644 /etc/fenwira/rds-global-bundle.pem
+# Prisma's sslcert loads only the FIRST certificate of a PEM file, so it gets the one root that
+# signs this region's RDS instances (ca_cert_identifier rds-ca-rsa2048-g1); node-postgres keeps the
+# full bundle through sslrootcert.
+rds_root_dir=$(mktemp -d)
+awk -v d="$rds_root_dir" '/BEGIN CERTIFICATE/{n++} n{print > (d "/c" n ".pem")}' /etc/fenwira/rds-global-bundle.pem
+for c in "$rds_root_dir"/c*.pem; do
+  if openssl x509 -in "$c" -noout -subject -nameopt oneline | grep -q 'CN = Amazon RDS ${region} Root CA RSA2048 G1,'; then
+    install -m 0644 "$c" /etc/fenwira/rds-ca-${region}-rsa2048-g1.pem
+  fi
+done
+rm -rf "$rds_root_dir"
+test "$(grep -c 'BEGIN CERTIFICATE' /etc/fenwira/rds-ca-${region}-rsa2048-g1.pem)" -eq 1
+
+# ---- Redis (deploy/redis/fenwira-redis.conf: loopback, noeviction, AOF) -----------------------
+cat >/etc/redis/fenwira-redis.conf <<'FENWIRA_REDIS_EOF'
+${redis_conf}
+FENWIRA_REDIS_EOF
+chmod 0644 /etc/redis/fenwira-redis.conf
+grep -q '^include /etc/redis/fenwira-redis.conf' /etc/redis/redis.conf ||
+  echo 'include /etc/redis/fenwira-redis.conf' >>/etc/redis/redis.conf
+systemctl enable redis-server
+systemctl restart redis-server
+
+# ---- Logging: journald cap, per-service files for the CloudWatch agent ------------------------
+install -d /etc/systemd/journald.conf.d
+printf '[Journal]\nSystemMaxUse=500M\n' >/etc/systemd/journald.conf.d/90-fenwira.conf
+systemctl restart systemd-journald
+cat >/etc/rsyslog.d/30-fenwira.conf <<'FENWIRA_RSYSLOG_EOF'
+# Fenwira services log JSON to journald (SyslogIdentifier=fenwira-*); copy each to its own file.
+:programname, isequal, "fenwira-api"    /var/log/fenwira/api.log
+& stop
+:programname, isequal, "fenwira-worker" /var/log/fenwira/worker.log
+& stop
+:programname, isequal, "fenwira-web"    /var/log/fenwira/web.log
+& stop
+FENWIRA_RSYSLOG_EOF
+cat >/etc/logrotate.d/fenwira <<'FENWIRA_LOGROTATE_EOF'
+/var/log/fenwira/*.log {
+  daily
+  rotate 7
+  compress
+  delaycompress
+  missingok
+  notifempty
+  su syslog adm
+  postrotate
+    /usr/lib/rsyslog/rsyslog-rotate
+  endscript
+}
+FENWIRA_LOGROTATE_EOF
+systemctl restart rsyslog
+
+# ---- systemd units from deploy/systemd (installed, NOT enabled or started) --------------------
+%{ for name, content in units ~}
+cat >/etc/systemd/system/${name} <<'FENWIRA_UNIT_EOF'
+${content}
+FENWIRA_UNIT_EOF
+%{ endfor ~}
+systemctl daemon-reload
+
+# ---- nginx: shared snippets installed; Fenwira sites are rendered after certificates exist ----
+%{ for name, content in nginx_snippets ~}
+cat >/etc/nginx/snippets/${name} <<'FENWIRA_NGINX_EOF'
+${content}
+FENWIRA_NGINX_EOF
+%{ endfor ~}
+cat >/etc/nginx/conf.d/fenwira-upgrade-map.conf <<'FENWIRA_NGINX_EOF'
+${nginx_upgrade_map}
+FENWIRA_NGINX_EOF
+rm -f /etc/nginx/sites-enabled/default
+# Catch-all site (deploy/nginx/fenwira-default.conf): ACME on port 80, everything else refused.
+# Needs no certificate, so it is safe before the Fenwira sites are installed.
+cat >/etc/nginx/sites-available/fenwira-default.conf <<'FENWIRA_NGINX_EOF'
+${nginx_default_site}
+FENWIRA_NGINX_EOF
+ln -sf /etc/nginx/sites-available/fenwira-default.conf /etc/nginx/sites-enabled/fenwira-default.conf
+nginx -t
+systemctl enable nginx
+systemctl reload nginx || systemctl restart nginx
+
+# ---- Redis metrics timer (deploy/monitoring/redis-metrics.sh → CloudWatch EMF) ------------------
+install -d -m 0755 /usr/local/lib/fenwira
+cat >/usr/local/lib/fenwira/redis-metrics.sh <<'FENWIRA_MON_EOF'
+${redis_metrics_script}
+FENWIRA_MON_EOF
+chmod 0755 /usr/local/lib/fenwira/redis-metrics.sh
+%{ for name, content in monitoring_units ~}
+cat >/etc/systemd/system/${name} <<'FENWIRA_UNIT_EOF'
+${content}
+FENWIRA_UNIT_EOF
+%{ endfor ~}
+systemctl daemon-reload
+systemctl enable --now fenwira-redis-metrics.timer
+
+# ---- CloudWatch agent (config from SSM ${cw_agent_parameter}) ----------------------------------
+if ! command -v /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl >/dev/null 2>&1; then
+  curl -fsSL "https://amazoncloudwatch-agent-${region}.s3.${region}.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb" \
+    -o /tmp/amazon-cloudwatch-agent.deb
+  dpkg -i -E /tmp/amazon-cloudwatch-agent.deb
+  rm -f /tmp/amazon-cloudwatch-agent.deb
+fi
+id cwagent >/dev/null 2>&1 && usermod -aG adm cwagent
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s \
+  -c "ssm:${cw_agent_parameter}"
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a append-config -m ec2 -s \
+  -c "ssm:${cw_agent_extra_parameter}"
+
+# ---- SSH off: administration is SSM Session Manager only (no port 22 in the security group) ---
+systemctl disable --now ssh.socket ssh.service 2>/dev/null || true
+
+# ---- Session Manager agent ships with Canonical's AMI (snap) -----------------------------------
+snap list amazon-ssm-agent >/dev/null 2>&1 && snap start --enable amazon-ssm-agent || true
+
+echo "[fenwira-bootstrap] done $(date -u +%FT%TZ). Fenwira services are installed but not started."

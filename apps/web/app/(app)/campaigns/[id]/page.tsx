@@ -1,0 +1,365 @@
+'use client'
+
+import { type CampaignRecipient, RECIPIENT_STATUSES } from '@fenwira/contracts'
+import {
+  Alert,
+  Button,
+  type ColumnDef,
+  DataTable,
+  DetailPage,
+  ErrorState,
+  PageHeader,
+  PermissionState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Skeleton,
+  StatusBadge,
+  toast,
+  useConfirm,
+} from '@fenwira/ui'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { useId, useState } from 'react'
+import { CampaignPerformance } from '@/components/campaigns/campaign-performance'
+import { CampaignContext } from '@/components/campaigns/campaign-context'
+import { CampaignMessagePreview } from '@/components/campaigns/campaign-message-preview'
+import { CampaignWizard } from '@/components/campaigns/campaign-wizard'
+import { useSession } from '@/components/session/session-provider'
+import { ApiError, post } from '@/lib/api/client'
+import {
+  ACTIVE_STATUSES,
+  campaignsKey,
+  formatInZone,
+  PAUSE_LABEL,
+  skipLabel,
+  useCampaign,
+  useCampaignStats,
+  useRecipients,
+} from '@/lib/campaigns'
+
+const ALL = 'ALL'
+
+function Recipients({ id, live, timezone }: { id: string; live: boolean; timezone: string }) {
+  const [status, setStatus] = useState(ALL)
+  const selectId = useId()
+  const recipients = useRecipients(id, status === ALL ? '' : status, live)
+  const rows = recipients.data?.pages.flatMap((p) => p.data) ?? []
+  const columns: Array<ColumnDef<CampaignRecipient>> = [
+    { id: 'contact', header: 'Contact', cell: ({ row }) => row.original.contactName ?? '—' },
+    {
+      id: 'phone',
+      header: 'Phone',
+      cell: ({ row }) => <span className="font-mono text-sm">{row.original.phoneE164}</span>,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    },
+    {
+      id: 'reason',
+      header: 'Reason',
+      cell: ({ row }) =>
+        row.original.skipReason
+          ? skipLabel(row.original.skipReason)
+          : (row.original.errorCode ?? '—'),
+    },
+    {
+      id: 'updated',
+      header: 'Last update',
+      cell: ({ row }) => {
+        const r = row.original
+        const at = r.readAt ?? r.deliveredAt ?? r.sentAt ?? r.failedAt ?? r.queuedAt
+        return at ? formatInZone(at, timezone) : '—'
+      },
+    },
+  ]
+  return (
+    <section aria-labelledby="recipients-heading" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 id="recipients-heading" className="text-lg font-semibold text-slate">
+          Recipients
+        </h2>
+        <div className="flex flex-col gap-1.5">
+          <span id={selectId} className="text-sm font-medium text-slate">
+            Status
+          </span>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger aria-labelledby={selectId} className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All</SelectItem>
+              {RECIPIENT_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s.charAt(0) + s.slice(1).toLowerCase()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <DataTable
+        label="Recipients"
+        columns={columns}
+        data={rows}
+        getRowId={(r) => r.id}
+        loading={recipients.isPending}
+        error={recipients.isError ? { onRetry: () => void recipients.refetch() } : undefined}
+        empty={{
+          title: 'No recipients here',
+          description: 'Recipients appear once the audience is prepared.',
+        }}
+      />
+      {recipients.hasNextPage ? (
+        <Button
+          variant="secondary"
+          className="self-start"
+          loading={recipients.isFetchingNextPage}
+          onClick={() => void recipients.fetchNextPage()}
+        >
+          Load more
+        </Button>
+      ) : null}
+    </section>
+  )
+}
+
+/** Campaign detail: controls, funding state, operational stats and recipient results. */
+export default function CampaignPage() {
+  const { id } = useParams<{ id: string }>()
+  const { tenantId, can } = useSession()
+  const queryClient = useQueryClient()
+  const confirm = useConfirm()
+  const campaign = useCampaign(id)
+  const c = campaign.data
+  // Delivered and read receipts keep arriving after completion: keep refreshing for an hour.
+  const live = c
+    ? ACTIVE_STATUSES.includes(c.status) ||
+      Boolean(c.completedAt && Date.now() - new Date(c.completedAt).getTime() < 3600_000)
+    : false
+  const stats = useCampaignStats(id, live)
+  const action = useMutation({
+    mutationFn: (name: 'pause' | 'resume' | 'cancel' | 'unschedule') =>
+      post(`/campaigns/${id}/${name}`),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: campaignsKey(tenantId) }),
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : 'That didn’t work.'),
+  })
+  const exportCsv = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/v1/campaigns/${id}/recipients/export`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'X-Tenant-Id': tenantId,
+          'X-CSRF-Token': document.cookie.match(/fw_csrf=([^;]+)/)?.[1] ?? '',
+        },
+      })
+      if (!res.ok) throw new Error('The export failed.')
+      const url = URL.createObjectURL(await res.blob())
+      const a = Object.assign(document.createElement('a'), {
+        href: url,
+        download: `campaign-${id}.csv`,
+      })
+      a.click()
+      URL.revokeObjectURL(url)
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'The export failed.'),
+  })
+
+  if (!can('campaigns.read')) return <PermissionState what="campaigns" />
+  if (campaign.isPending) return <Skeleton className="h-96" />
+  if (campaign.isError || !c) return <ErrorState onRetry={() => void campaign.refetch()} />
+  if (c.status === 'DRAFT' && can('campaigns.write'))
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title={c.name}
+          breadcrumbs={[{ label: 'Campaigns', href: '/campaigns' }, { label: c.name }]}
+          linkAs={Link}
+        />
+        <CampaignWizard campaign={c} />
+      </div>
+    )
+  const s = stats.data
+  const control = can('campaigns.launch')
+  return (
+    <DetailPage
+      className="gap-4"
+      header={{
+        title: c.name,
+        description: `${c.template?.name ?? 'No template'} · ${c.phoneNumberDisplay ?? ''}`,
+        breadcrumbs: [{ label: 'Campaigns', href: '/campaigns' }, { label: c.name }],
+        linkAs: Link,
+        actions: (
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={c.status} context="campaign" />
+            {control && (c.status === 'RUNNING' || c.status === 'PREPARING') ? (
+              <Button
+                variant="secondary"
+                loading={action.isPending}
+                onClick={() => action.mutate('pause')}
+              >
+                Pause
+              </Button>
+            ) : null}
+            {control &&
+            ['PAUSED', 'PAUSED_INSUFFICIENT_FUNDS', 'PAUSED_TEMPLATE_UNAVAILABLE'].includes(
+              c.status,
+            ) ? (
+              <Button loading={action.isPending} onClick={() => action.mutate('resume')}>
+                Resume
+              </Button>
+            ) : null}
+            {control && c.status === 'SCHEDULED' ? (
+              <Button variant="secondary" onClick={() => action.mutate('unschedule')}>
+                Unschedule
+              </Button>
+            ) : null}
+            {control &&
+            [
+              'SCHEDULED',
+              'PREPARING',
+              'RUNNING',
+              'PAUSED',
+              'PAUSED_INSUFFICIENT_FUNDS',
+              'PAUSED_TEMPLATE_UNAVAILABLE',
+            ].includes(c.status) ? (
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  if (
+                    await confirm({
+                      title: `Cancel ${c.name}?`,
+                      description: 'Cancelling can’t be undone.',
+                      impact: [
+                        'Recipients not sent yet won’t receive it.',
+                        'Messages already sent stay sent; WhatsApp can’t recall them.',
+                        'Results so far stay in the report.',
+                      ],
+                      confirmLabel: 'Cancel campaign',
+                      cancelLabel: 'Keep it',
+                      destructive: true,
+                    })
+                  )
+                    action.mutate('cancel')
+                }}
+              >
+                Cancel campaign
+              </Button>
+            ) : null}
+          </div>
+        ),
+      }}
+    >
+      {c.status === 'PAUSED_INSUFFICIENT_FUNDS' ? (
+        <Alert
+          tone="danger"
+          title="Paused: not enough credits"
+          action={
+            can('billing.read') ? (
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/billing/wallet">Open wallet</Link>
+              </Button>
+            ) : undefined
+          }
+        >
+          Add credits, then resume. Recipients already sent keep their results; the rest are
+          waiting.
+        </Alert>
+      ) : null}
+      {c.status === 'PAUSED_TEMPLATE_UNAVAILABLE' ? (
+        <Alert tone="warning" title="Paused: the template is unavailable">
+          Meta paused or disabled {c.template?.name ?? 'the template'} (or it was changed or
+          deleted). Recipients already sent keep their results; the rest are waiting and won’t be
+          sent. Resume once Meta approves this same template again, or cancel and create a new
+          campaign with another template for the remaining audience.
+        </Alert>
+      ) : null}
+      {c.status === 'PAUSED' && c.pauseReason ? (
+        <Alert tone="warning" title="Paused">
+          {PAUSE_LABEL[c.pauseReason] ?? c.pauseReason}
+        </Alert>
+      ) : null}
+      {c.status === 'FAILED' ? (
+        <Alert tone="danger" title="The campaign stopped">
+          {c.failureReason}
+        </Alert>
+      ) : null}
+      {c.status === 'SCHEDULED' && c.scheduleAt ? (
+        <Alert tone="info" title="Scheduled">
+          Sends on {formatInZone(c.scheduleAt, c.timezone)} ({c.timezone}).
+        </Alert>
+      ) : null}
+
+      <div className="grid items-start gap-4 xl:grid-cols-3">
+        <div className="min-w-0 xl:col-span-2">
+          {s ? (
+            <CampaignPerformance campaign={c} stats={s} />
+          ) : stats.isError ? (
+            <ErrorState
+              title="Campaign results couldn’t be loaded"
+              onRetry={() => void stats.refetch()}
+            />
+          ) : (
+            <Skeleton className="h-64" />
+          )}
+        </div>
+        <CampaignMessagePreview campaign={c} />
+      </div>
+      <CampaignContext campaign={c} />
+      {s ? (
+        <>
+          {Object.keys(s.skipReasons).length || Object.keys(s.failureCodes).length ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {Object.keys(s.skipReasons).length ? (
+                <section aria-labelledby="skip-heading">
+                  <h2 id="skip-heading" className="mb-2 text-base font-semibold text-slate">
+                    Why recipients were skipped
+                  </h2>
+                  <ul className="flex flex-col gap-1 text-sm text-slate">
+                    {Object.entries(s.skipReasons).map(([r, n]) => (
+                      <li key={r}>
+                        {skipLabel(r)}: {n.toLocaleString('en-IN')}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {Object.keys(s.failureCodes).length ? (
+                <section aria-labelledby="fail-heading">
+                  <h2 id="fail-heading" className="mb-2 text-base font-semibold text-slate">
+                    Failures
+                  </h2>
+                  <ul className="flex flex-col gap-1 text-sm text-slate">
+                    {Object.entries(s.failureCodes).map(([code, n]) => (
+                      <li key={code}>
+                        <span className="font-mono">{code}</span>: {n.toLocaleString('en-IN')}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      ) : null}
+
+      {can('contacts.export') ? (
+        <Button
+          variant="secondary"
+          className="self-start"
+          loading={exportCsv.isPending}
+          onClick={() => exportCsv.mutate()}
+        >
+          Export recipients (CSV)
+        </Button>
+      ) : null}
+      <Recipients id={id} live={live} timezone={c.timezone} />
+    </DetailPage>
+  )
+}

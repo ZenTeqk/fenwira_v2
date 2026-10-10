@@ -1,0 +1,44 @@
+{
+  "name": "fenwira",
+  "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22.12 <23 || >=24"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
+    "lint": "turbo run lint && pnpm run lint:deps && pnpm run lint:design",
+    "lint:deps": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "openapi": "pnpm --filter @fenwira/api build && node apps/api/scripts/openapi.mjs",
+    "openapi:check": "pnpm --filter @fenwira/api build && node apps/api/scripts/openapi.mjs --check",
+    "test:integration": "docker compose --profile test run --rm --build fenwira-test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "smoke": "bash scripts/smoke.sh",
+    "setup:env": "node scripts/setup-env.mjs",
+    "lint:design": "node scripts/check-design-tokens.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "22.20.4",
+    "concurrently": "9.2.4",
+    "dependency-cruiser": "17.4.3",
+    "eslint": "9.39.5",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.12.0",
+    "prettier": "3.9.9",
+    "turbo": "2.11.3",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "deepmerge-ts@<8.0.0": ">=8.0.0",
+      "source-map-js@<1.2.2": "1.2.2",
+      "sharp@<0.35.5": "0.35.5"
+    }
+  }
+}
