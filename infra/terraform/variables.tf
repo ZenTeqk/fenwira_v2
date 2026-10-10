@@ -61,6 +61,12 @@ variable "manage_dns" {
   default     = false
 }
 
+variable "dns_ttl" {
+  description = "TTL (seconds) of the app/api A records. 60 during the cutover window for fast rollback; raise (e.g. 300) once stable."
+  type        = number
+  default     = 60
+}
+
 variable "route53_zone_name" {
   description = "Existing Route 53 public hosted zone holding app_domain/api_domain (read only; also scopes the certbot DNS-01 permission)."
   type        = string

@@ -19,7 +19,22 @@ else
   echo "$SUM  $TMP/release.tar.gz" | sha256sum --check --strict --quiet
   echo "[fenwira-deploy] checksum verified"
   mkdir "$TMP/x"
-  tar -xzf "$TMP/release.tar.gz" -C "$TMP/x"
+  # Safe extraction with Python's tarfile 'data' filter: refuses absolute paths, '..' components,
+  # symbolic or hard links that point outside the destination, and device/special files; strips
+  # setuid/setgid and group/other write bits. Every member must also live under "<release>/".
+  python3 - "$TMP/release.tar.gz" "$TMP/x" "$REL" <<'FENWIRA_EXTRACT_EOF'
+import sys
+import tarfile
+
+src, dest, rel = sys.argv[1:4]
+with tarfile.open(src, "r:gz") as archive:
+    members = archive.getmembers()
+    outside = [m.name for m in members if m.name != rel and not m.name.startswith(rel + "/")]
+    if outside:
+        sys.exit(f"[fenwira-deploy] ERROR: {len(outside)} archive member(s) outside {rel}/: {outside[0]!r}")
+    archive.extractall(dest, members=members, filter="data")
+print(f"[fenwira-deploy] extracted {len(members)} members (safe filter)")
+FENWIRA_EXTRACT_EOF
   [ "$(cat "$TMP/x/$REL/RELEASE" 2>/dev/null)" = "$REL" ] || { echo "[fenwira-deploy] ERROR: artifact is not release $REL"; exit 1; }
   chown -R root:root "$TMP/x/$REL"
   chmod -R go-w "$TMP/x/$REL"

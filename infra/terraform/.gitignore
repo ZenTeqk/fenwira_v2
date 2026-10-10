@@ -7,3 +7,5 @@ crash.log
 *.tfvars
 !terraform.tfvars.example
 .terraform.tfstate.lock.info
+# Human-readable plan output (terraform show -no-color <plan> > <name>-plan.txt)
+*-plan.txt

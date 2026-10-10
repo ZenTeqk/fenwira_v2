@@ -20,7 +20,7 @@ resource "aws_route53_record" "app" {
   zone_id         = data.aws_route53_zone.this.zone_id
   name            = var.app_domain
   type            = "A"
-  ttl             = 300
+  ttl             = var.dns_ttl
   records         = [aws_eip.app.public_ip]
   allow_overwrite = false
 }
@@ -30,7 +30,7 @@ resource "aws_route53_record" "api" {
   zone_id         = data.aws_route53_zone.this.zone_id
   name            = var.api_domain
   type            = "A"
-  ttl             = 300
+  ttl             = var.dns_ttl
   records         = [aws_eip.app.public_ip]
   allow_overwrite = false
 }
