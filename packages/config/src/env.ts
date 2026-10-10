@@ -90,14 +90,34 @@ const storageEnv = {
   /** What browsers use for presigned URLs (the published MinIO port locally). */
   S3_PUBLIC_ENDPOINT: z.url().optional(),
   S3_REGION: z.string().min(1).default('us-east-1'),
-  S3_ACCESS_KEY_ID: z.string().min(1),
-  S3_SECRET_ACCESS_KEY: z.string().min(1),
+  /**
+   * Static credentials (MinIO locally). Leave both unset on AWS to use the SDK default credential
+   * chain, e.g. an EC2 instance role (docs/deployment/ENVIRONMENT_VARIABLES.md).
+   */
+  S3_ACCESS_KEY_ID: optionalString,
+  S3_SECRET_ACCESS_KEY: optionalString,
   S3_FORCE_PATH_STYLE: booleanString.default(true),
   S3_BUCKET_MEDIA: z.string().min(3).default('fenwira-media'),
   S3_BUCKET_UPLOADS: z.string().min(3).default('fenwira-uploads'),
   S3_BUCKET_IMPORTS: z.string().min(3).default('fenwira-imports'),
   S3_BUCKET_EXPORTS: z.string().min(3).default('fenwira-exports'),
 }
+
+/** Static S3 credentials come as a pair, or not at all (default credential chain). */
+function checkStorageCredentials(
+  env: { S3_ACCESS_KEY_ID?: string; S3_SECRET_ACCESS_KEY?: string },
+  ctx: z.RefinementCtx,
+): void {
+  if (Boolean(env.S3_ACCESS_KEY_ID) !== Boolean(env.S3_SECRET_ACCESS_KEY))
+    ctx.addIssue({
+      code: 'custom',
+      path: [env.S3_ACCESS_KEY_ID ? 'S3_SECRET_ACCESS_KEY' : 'S3_ACCESS_KEY_ID'],
+      message: 'set both S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, or neither',
+    })
+}
+
+/** Listen address. 0.0.0.0 inside containers; 127.0.0.1 behind a local reverse proxy. */
+const listenHost = z.string().trim().min(1).default('0.0.0.0')
 
 const optionalPem = z
   .string()
@@ -107,6 +127,7 @@ const optionalPem = z
 export const apiEnvSchema = baseEnvSchema
   .extend({
     PORT: z.coerce.number().int().positive().default(4000),
+    HOST: listenHost,
     WEB_ORIGIN: z.url(),
     DATABASE_URL: postgresUrl,
     DB_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
@@ -137,6 +158,7 @@ export const apiEnvSchema = baseEnvSchema
     ...storageEnv,
     /** Internal Prometheus listener (docs/OBSERVABILITY.md); compose doesn't publish it. */
     METRICS_PORT: z.coerce.number().int().positive().optional(),
+    METRICS_HOST: listenHost,
     /**
      * P10-D4 development exception, also used for webhook-endpoint URL validation at creation
      * time (Phase 11 Step 3): comma-separated host names allowed over http:/private addresses
@@ -161,6 +183,7 @@ export const apiEnvSchema = baseEnvSchema
     API_KEY_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(6000).default(120),
   })
   .superRefine((env, ctx) => {
+    checkStorageCredentials(env, ctx)
     if (env.NODE_ENV !== 'production') return
     const fail = (path: string, message: string) =>
       ctx.addIssue({ code: 'custom', path: [path], message })
@@ -179,6 +202,7 @@ export type ApiEnv = z.infer<typeof apiEnvSchema>
 export const workerEnvSchema = baseEnvSchema
   .extend({
     WORKER_HEALTH_PORT: z.coerce.number().int().positive().default(4100),
+    WORKER_HEALTH_HOST: listenHost,
     DATABASE_URL: postgresUrl,
     DB_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
     REDIS_URL: redisUrl,
@@ -230,6 +254,7 @@ export const workerEnvSchema = baseEnvSchema
     ...storageEnv,
   })
   .superRefine((env, ctx) => {
+    checkStorageCredentials(env, ctx)
     if (env.NODE_ENV === 'production' && env.AUTOMATION_WEBHOOK_DEV_HOSTS.length)
       ctx.addIssue({
         code: 'custom',

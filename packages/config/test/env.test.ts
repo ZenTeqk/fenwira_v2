@@ -81,4 +81,35 @@ describe('loadEnv', () => {
       }),
     ).toThrow(/AUTOMATION_WEBHOOK_DEV_HOSTS: must be empty in production/)
   })
+
+  it('binds every listener to 0.0.0.0 unless a host is configured (D1)', () => {
+    const worker = { ...valid, SMTP_URL: 'smtp://mail:1025', MAIL_FROM: 'a@b.c' }
+    const api = loadEnv(apiEnvSchema, valid)
+    expect(api.HOST).toBe('0.0.0.0')
+    expect(api.METRICS_HOST).toBe('0.0.0.0')
+    expect(loadEnv(workerEnvSchema, worker).WORKER_HEALTH_HOST).toBe('0.0.0.0')
+
+    const native = loadEnv(apiEnvSchema, { ...valid, HOST: '127.0.0.1', METRICS_HOST: '127.0.0.1' })
+    expect(native.HOST).toBe('127.0.0.1')
+    expect(native.METRICS_HOST).toBe('127.0.0.1')
+    expect(
+      loadEnv(workerEnvSchema, { ...worker, WORKER_HEALTH_HOST: '127.0.0.1' }).WORKER_HEALTH_HOST,
+    ).toBe('127.0.0.1')
+  })
+
+  it('accepts S3 static credentials as a pair or not at all (D1)', () => {
+    const worker = { ...valid, SMTP_URL: 'smtp://mail:1025', MAIL_FROM: 'a@b.c' }
+    const roleBased = { ...valid, S3_ACCESS_KEY_ID: undefined, S3_SECRET_ACCESS_KEY: '' }
+    const api = loadEnv(apiEnvSchema, roleBased)
+    expect(api.S3_ACCESS_KEY_ID).toBeUndefined()
+    expect(api.S3_SECRET_ACCESS_KEY).toBeUndefined()
+    expect(loadEnv(workerEnvSchema, { ...worker, ...roleBased }).S3_ACCESS_KEY_ID).toBeUndefined()
+
+    expect(() => loadEnv(apiEnvSchema, { ...valid, S3_SECRET_ACCESS_KEY: undefined })).toThrow(
+      /S3_SECRET_ACCESS_KEY: set both S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, or neither/,
+    )
+    expect(() => loadEnv(workerEnvSchema, { ...worker, S3_ACCESS_KEY_ID: undefined })).toThrow(
+      /S3_ACCESS_KEY_ID: set both S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, or neither/,
+    )
+  })
 })

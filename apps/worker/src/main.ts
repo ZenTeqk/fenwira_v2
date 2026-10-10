@@ -5,7 +5,7 @@ import { createWorkerApp } from './bootstrap'
 async function main(): Promise<void> {
   const env = loadEnv(workerEnvSchema)
   const app = await createWorkerApp(env)
-  await app.listen(env.WORKER_HEALTH_PORT, '0.0.0.0')
+  await app.listen(env.WORKER_HEALTH_PORT, env.WORKER_HEALTH_HOST)
 }
 
 main().catch((err: unknown) => {

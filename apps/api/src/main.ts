@@ -5,7 +5,7 @@ import { createApiApp } from './bootstrap'
 async function main(): Promise<void> {
   const env = loadEnv(apiEnvSchema)
   const app = await createApiApp(env)
-  await app.listen(env.PORT, '0.0.0.0')
+  await app.listen(env.PORT, env.HOST)
 }
 
 main().catch((err: unknown) => {

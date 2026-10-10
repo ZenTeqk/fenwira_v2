@@ -271,7 +271,7 @@ export class MetricsService implements OnApplicationBootstrap, OnApplicationShut
         .then((body) => res.writeHead(200, { 'Content-Type': this.contentType }).end(body))
         .catch(() => res.writeHead(500).end())
     })
-    this.server.listen(this.config.metricsPort, '0.0.0.0')
+    this.server.listen(this.config.metricsPort, this.config.metricsHost ?? '0.0.0.0')
   }
 
   onApplicationShutdown(): void {

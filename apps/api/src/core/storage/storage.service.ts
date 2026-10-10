@@ -11,8 +11,8 @@ export function storageConfigFromEnv(env: {
   S3_ENDPOINT: string
   S3_PUBLIC_ENDPOINT?: string
   S3_REGION: string
-  S3_ACCESS_KEY_ID: string
-  S3_SECRET_ACCESS_KEY: string
+  S3_ACCESS_KEY_ID?: string
+  S3_SECRET_ACCESS_KEY?: string
   S3_FORCE_PATH_STYLE: boolean
   S3_BUCKET_MEDIA: string
   S3_BUCKET_IMPORTS: string
@@ -49,7 +49,10 @@ export class StorageService implements OnApplicationShutdown {
     const base = {
       region: s.region,
       forcePathStyle: s.forcePathStyle,
-      credentials: { accessKeyId: s.accessKeyId, secretAccessKey: s.secretAccessKey },
+      // No static keys = the SDK default credential chain (EC2 instance role on AWS).
+      ...(s.accessKeyId && s.secretAccessKey
+        ? { credentials: { accessKeyId: s.accessKeyId, secretAccessKey: s.secretAccessKey } }
+        : {}),
     }
     this.internal = new S3Client({ ...base, endpoint: s.endpoint })
     this.publicClient = new S3Client({ ...base, endpoint: s.publicEndpoint ?? s.endpoint })
