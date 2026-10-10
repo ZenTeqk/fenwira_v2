@@ -1,0 +1,62 @@
+# api.fenwira.zenteqk.com → NestJS on 127.0.0.1:4000 (REST /api/v1, Socket.IO /ws, /health/live, Meta webhooks).
+# Rendered by deploy/scripts/render-nginx.sh: @@API_DOMAIN@@, @@TLS_CERT@@, @@TLS_KEY@@.
+# Security headers come from the API itself (helmet); nginx adds none here to avoid duplicates.
+
+upstream fenwira_api {
+    server 127.0.0.1:4000;
+    keepalive 16;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name @@API_DOMAIN@@;
+    # ACME HTTP-01 challenges (certificate provisioning: docs/deployment/NON_DOCKER_SETUP.md).
+    location /.well-known/acme-challenge/ { root /var/www/letsencrypt; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    # `listen … http2` (not `http2 on;`): Ubuntu 24.04 ships nginx 1.24; `http2 on` needs ≥ 1.25.1.
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name @@API_DOMAIN@@;
+
+    ssl_certificate     @@TLS_CERT@@;
+    ssl_certificate_key @@TLS_KEY@@;
+    include /etc/nginx/snippets/fenwira-tls.conf;
+
+    # JSON bodies only (Express limit 100 kB); files go to S3 via presigned URLs.
+    client_max_body_size 2m;
+
+    # Health: only liveness is public (fixed {"status":"ok"}, no dependency calls). Readiness and the
+    # /health summary query Postgres and Redis and report the release version, so they stay local:
+    # deploy/scripts/check-health.sh calls 127.0.0.1:4000 directly, bypassing nginx.
+    location = /health/live {
+        proxy_pass http://fenwira_api;
+        include /etc/nginx/snippets/fenwira-proxy.conf;
+        proxy_set_header Connection "";
+        access_log off;
+    }
+    location ^~ /health {
+        return 404;
+    }
+
+    # Realtime: Socket.IO (websocket + long-polling fallback) on /ws.
+    location /ws {
+        proxy_pass http://fenwira_api;
+        include /etc/nginx/snippets/fenwira-proxy.conf;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        # Long-lived sockets; Socket.IO pings every 25 s, within the snippet's 60 s send timeout.
+        proxy_read_timeout 3600s;
+        proxy_buffering off;
+    }
+
+    location / {
+        proxy_pass http://fenwira_api;
+        include /etc/nginx/snippets/fenwira-proxy.conf;
+        proxy_set_header Connection "";
+        proxy_read_timeout 75s;
+    }
+}

@@ -1,0 +1,8 @@
+# Groups the three Fenwira services: `systemctl start|stop|restart fenwira.target`.
+[Unit]
+Description=Fenwira application (api, worker, web)
+Wants=fenwira-api.service fenwira-worker.service fenwira-web.service
+After=network-online.target redis-server.service
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Every minute: Fenwira Redis metrics to CloudWatch
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=60s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

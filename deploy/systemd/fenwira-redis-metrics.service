@@ -1,0 +1,17 @@
+# Publishes Redis health/memory to CloudWatch (deploy/monitoring/redis-metrics.sh). Infrastructure
+# monitoring: independent of the Fenwira application services.
+[Unit]
+Description=Fenwira Redis metrics to CloudWatch
+After=redis-server.service amazon-cloudwatch-agent.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/fenwira/redis-metrics.sh
+DynamicUser=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=

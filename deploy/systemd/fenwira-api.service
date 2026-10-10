@@ -1,0 +1,54 @@
+# Fenwira NestJS API (REST /api/v1, Socket.IO /ws, Meta webhooks). Install to
+# /etc/systemd/system/. Entry point matches infrastructure/docker/server.Dockerfile (target api).
+# Never runs migrations (deploy/scripts/migrate.sh does, explicitly).
+[Unit]
+Description=Fenwira API
+Documentation=file:///opt/fenwira/current/docs/deployment/PRODUCTION_RUNTIME.md
+After=network-online.target redis-server.service
+Wants=network-online.target
+PartOf=fenwira.target
+# Restart-loop protection: give up after 10 failures in 5 minutes (systemctl reset-failed to retry).
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=fenwira
+Group=fenwira
+WorkingDirectory=/opt/fenwira/current
+EnvironmentFile=/etc/fenwira/api.env
+ExecStart=/usr/bin/node --enable-source-maps apps/api/dist/main.js
+# Nest enableShutdownHooks(): SIGTERM closes the HTTP server, queues and connections.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+MemoryHigh=700M
+MemoryMax=900M
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fenwira-api
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+
+[Install]
+WantedBy=fenwira.target

@@ -32,7 +32,7 @@ Fenwira v2 is a **new application built from scratch**. No code, schema, docs or
 | CI | GitHub Actions |
 | Telemetry | OpenTelemetry-compatible structured logs and metrics |
 
-Do not add AWS, Terraform or Kubernetes code. Keep everything portable: S3-compatible storage, SMTP mail, and config taken only from env vars.
+Do not add AWS, Terraform or Kubernetes code to the application. Keep everything portable: S3-compatible storage, SMTP mail, and config taken only from env vars. Exception (approved for production deployment, Phase 2): Terraform for AWS infrastructure lives only in `infra/terraform/`, is applied manually, and never by CI. Kubernetes, ECS and other infrastructure technologies remain out of scope.
 
 ## Repository layout
 
