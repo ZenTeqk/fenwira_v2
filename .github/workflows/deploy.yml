@@ -102,15 +102,15 @@ jobs:
           fi
           {
             echo "### Deployed \`$GITHUB_SHA\`"
-            echo "- Web: https://v2.fenwira.zenteqk.com"
+            echo "- Web: https://app.fenwira.zenteqk.com"
             echo "- API: https://api.fenwira.zenteqk.com"
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Public smoke test
         run: |
           set -e
-          curl -fsS -o /dev/null -w 'web /login %{http_code}\n' https://v2.fenwira.zenteqk.com/login
-          curl -fsS -o /dev/null -w 'web /api/health %{http_code}\n' https://v2.fenwira.zenteqk.com/api/health
+          curl -fsS -o /dev/null -w 'web /login %{http_code}\n' https://app.fenwira.zenteqk.com/login
+          curl -fsS -o /dev/null -w 'web /api/health %{http_code}\n' https://app.fenwira.zenteqk.com/api/health
           curl -fsS -w ' api /health/live %{http_code}\n' https://api.fenwira.zenteqk.com/health/live
           code="$(curl -s -o /dev/null -w '%{http_code}' https://api.fenwira.zenteqk.com/api/v1/auth/me)"
           echo "api /api/v1/auth/me $code (expected 401)"

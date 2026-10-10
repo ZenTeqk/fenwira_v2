@@ -4,9 +4,9 @@ aws_region        = "ap-south-1"
 vpc_id            = "vpc-038deffeecb93ad2f"
 availability_zone = "ap-south-1a"
 
-# Domains (existing zenteqk.com zone). v2 testing hostnames: both records are new; the landing page
-# (fenwira.zenteqk.com) and the v1 demo (app.fenwira.zenteqk.com) are owned by other states and untouched.
-app_domain        = "v2.fenwira.zenteqk.com"
+# Domains (existing zenteqk.com zone). app/api point at this server since the 2026-10-10 cutover; the
+# landing page (fenwira.zenteqk.com) is owned by another state and untouched.
+app_domain        = "app.fenwira.zenteqk.com"
 api_domain        = "api.fenwira.zenteqk.com"
 manage_dns        = true
 route53_zone_name = "zenteqk.com"

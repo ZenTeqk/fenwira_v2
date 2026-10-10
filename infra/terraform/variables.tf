@@ -44,9 +44,9 @@ variable "name_prefix" {
 # Domains and DNS (no records are created until manage_dns = true)
 # ---------------------------------------------------------------------------------------------
 variable "app_domain" {
-  description = "Public host name of the web app (Next.js). v2 testing: v2.fenwira.zenteqk.com (app.fenwira.zenteqk.com is the v1 demo, owned by another state; README → Domains and cutover)."
+  description = "Public host name of the web app (Next.js). Served by this server since the 2026-10-10 cutover (the v1 CloudFront records were removed)."
   type        = string
-  default     = "v2.fenwira.zenteqk.com"
+  default     = "app.fenwira.zenteqk.com"
 }
 
 variable "api_domain" {
