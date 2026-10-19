@@ -1,5 +1,7 @@
 # Phase 11 closure verification — 2026-10-05
 
+> **Update 2026-10-19:** the remaining gate (fresh clean startup + CI) is cleared; see [§O](#o-closure-addendum-2026-10-19). Sections A–N below are the original 2026-10-05 record and are kept unchanged.
+
 Status: local verification complete; Phase 11 BLOCKED by fresh startup/CI. No Phase 11 closure claimed. Starting branch `phase-11`, clean working tree, implementation baseline `54ac042` (nine Step 5 increments). The closure request accepts Step 5 and preserves Steps 1–4 decisions.
 
 ## A. Acceptance state
@@ -141,3 +143,56 @@ Reproduce the integration run using the existing Compose test image and the stan
 Local commercial lifecycle, financial reconciliation, security/isolation, regression, accessibility and image-security checks pass. Steps 1–3 remain CLOSED; Steps 4–5 remain ACCEPTED. Overall Phase 11 is BLOCKED because the configured MinIO image is unavailable to fresh pulls, preventing the required clean-clone startup and green CI acceptance. The recorded prior CI integration/Compose failures and current missing-manifest check are concrete evidence; cached local startup cannot replace that gate.
 
 Remaining closure work is to resolve MinIO distribution/startup within the approved stack, then rerun fresh startup/smoke and CI on the final closure commits. Production enforcement remains false. No subsequent product/production milestone has begun.
+
+## O. Closure addendum (2026-10-19)
+
+Branch `phase-11-closure` from `main` at `e56c1ee` (CI and Deploy green on 2026-10-10, run 38069293866). No application code changed in this addendum.
+
+### Root cause and fix of the §J blocker
+
+`quay.io/minio/minio` stopped serving free community images (401/`no such manifest`). Commit `91d122f` moved `fenwira-minio` and `fenwira-minio-init` to Chainguard's build of the same AGPL MinIO server, pinned by digest (`cgr.dev/chainguard/minio@sha256:7df55d00…`, RELEASE.2026-09-22T19-25-18Z). On 2026-10-19 the digest and `postgres:16-alpine`, `redis:7-alpine`, `axllent/mailpit:v1.29` all resolved anonymously from their registries (`docker buildx imagetools inspect`).
+
+### Fresh clean-clone startup
+
+| Check | Result |
+| --- | --- |
+| Source | Fresh `git clone` of `origin/main` (`e56c1ee`), `cp .env.example .env`, `COMPOSE_PROFILES=meta-mock` |
+| Isolation | Own Compose project and network with fresh, empty volumes (an override only unsets the fixed `container_name`s and network name); no existing local stack or volume reused |
+| Images | `docker compose build --no-cache --pull`: api, worker, migrate, web, meta-mock built (exit 0, 1,057 s on a 4-CPU Docker VM) |
+| Boot | `docker compose up -d --wait --wait-timeout 240`: exit 0 in 44 s. postgres, redis, minio, mailpit, meta-mock, api, worker, web **healthy**; minio-init and migrate **exited 0** |
+| Init jobs | minio-init: `buckets ready`. migrate: all migrations applied, `post-migrate.sql applied`, `RBAC seeded: 5 roles, 35 permissions, 113 grants`, `Plans seeded: 3`, `RLS check passed` |
+| `pnpm smoke` | **3/3 PASS**: api ready (postgres, redis, queue up); web healthy and sign-in page rendering; outbox round trip api → outbox → relay → queue → worker with correlation ID |
+| Side services | Mailpit UI 200, MinIO console 200, meta-mock `/__mock/health` 200 |
+
+The stack and its volumes were removed afterwards (`down -v` on the isolated project only).
+
+### Quality gates on `phase-11-closure`
+
+| Gate | Result |
+| --- | --- |
+| Lint (ESLint + module boundaries + design tokens) | PASS |
+| Typecheck | PASS |
+| Unit tests (uncached, `--force`) | **324 passed** (api 142, ui 55, contracts 40, whatsapp 33, web 24, config 18, queue 5, worker 4, database 3) |
+| Production build | PASS (8/8 tasks) |
+| OpenAPI document current | PASS |
+| Prettier (changed files) | PASS |
+| Integration, local | database **263 passed**, api **10 passed**. The worker suite could not complete on the local 4-CPU / 8 GB Docker VM shared with another running stack: the 50k-import and 2,000-recipient campaign tests exceeded their deadlines, later files timed out at the per-test limit and the container was killed (exit 137). This matches the contention note in §I; it is not counted as a pass or as a product regression. |
+| Integration, CI | Authoritative: the `integration` job on this branch's pull request (same suite on a clean runner). On `main` at `e56c1ee` it passed: worker 21 files passed + 2 opt-in skips, 226 tests passed. |
+
+### CI guard
+
+`491b5da` had removed the Docker job. A new `compose-boot` job (`.github/workflows/ci.yml`) restores the clean-startup gate without the image scan and browser E2E: build with `--pull`, `up -d --wait`, `scripts/smoke.sh`, logs on failure, `down -v`.
+
+### Documentation
+
+ROADMAP: Phases 1 and 11 marked ✅; the CI/clean-startup backlog row resolved. ARCHITECTURE: frontend libraries corrected (React Hook Form and Zustand were never installed; forms are controlled components with API-side Zod validation, shared UI state is React context).
+
+### Verdict
+
+**PHASE 11 CLOSED**, on the condition that the pull request's `verify`, `release`, `integration`, `compose-boot` and `security` jobs pass. `BILLING_SUBSCRIPTIONS_ENFORCED` remains `false` in production; enabling it is a separate rollout decision. Section K's deferred commercial items are unchanged.
+
+### Follow-up recorded for Phase 12
+
+- In one local run the worker integration output stopped after 5 of 23 files with no Vitest summary while Turbo still reported success. It did not reproduce in a second run or in CI. Phase 12 should make the integration job assert the Vitest totals (for example a JSON or JUnit report checked for the expected file count) so a truncated run cannot pass silently.
+- The 50k import and 2,000-recipient campaign returned `INTERNAL` 500s under heavy local contention rather than slowing down. Investigate during the Phase 12 k6 load and failure tests.
+
