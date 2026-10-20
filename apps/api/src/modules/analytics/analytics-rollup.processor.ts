@@ -119,29 +119,35 @@ export class AnalyticsRollupProcessor
     return 'ignored'
   }
 
-  /** One rollup pass over workspaces with pending work or recent activity (X10). */
-  async pass(now = new Date()): Promise<number> {
-    const tenants = await this.db.system.tenantsWithActivity(
-      new Date(now.getTime() - ACTIVE_MS),
-      TENANT_BATCH,
-    )
-    let lag = 0
-    for (const t of tenants) {
-      const r = await this.rollupTenant(t, now)
-      lag = Math.max(lag, r.lagSeconds)
+  /** Traverse bounded keyset pages; continuously active early IDs cannot pin the first page. */
+  private async *tenantsSince(since: Date): AsyncGenerator<string> {
+    let after: string | null = null
+    for (;;) {
+      const ids = await this.db.system.tenantsWithActivity(since, TENANT_BATCH, after)
+      if (!ids.length) return
+      for (const id of ids) yield id
+      after = ids[ids.length - 1]!
     }
-    this.metrics.analyticsLag.set(lag)
-    return tenants.length
   }
 
-  /** Nightly heal: recompute the last three days (and recent campaigns) from source data. */
+  /** One rollup pass over all workspaces with pending work or recent activity (X10). */
+  async pass(now = new Date()): Promise<number> {
+    let lag = 0,
+      count = 0
+    for await (const t of this.tenantsSince(new Date(now.getTime() - ACTIVE_MS))) {
+      const r = await this.rollupTenant(t, now)
+      lag = Math.max(lag, r.lagSeconds)
+      count++
+    }
+    this.metrics.analyticsLag.set(lag)
+    return count
+  }
+
+  /** Nightly heal across every eligible workspace, never a fixed first page. */
   async heal(now = new Date()): Promise<number> {
-    const tenants = await this.db.system.tenantsWithActivity(
-      new Date(now.getTime() - 3 * 86_400_000),
-      TENANT_BATCH,
-    )
     let corrections = 0
-    for (const t of tenants) corrections += (await this.rollupTenant(t, now, 'heal')).corrections
+    for await (const t of this.tenantsSince(new Date(now.getTime() - 3 * 86_400_000)))
+      corrections += (await this.rollupTenant(t, now, 'heal')).corrections
     this.metrics.analyticsCorrections.inc(corrections)
     return corrections
   }
@@ -323,9 +329,8 @@ export class AnalyticsRollupProcessor
 
   /** Nightly retention (P11-D15) for every workspace with analytics data. */
   async retention(now = new Date()): Promise<number> {
-    const tenants = await this.db.system.tenantsWithActivity(new Date(0), 100_000)
     let purged = 0
-    for (const t of tenants) {
+    for await (const t of this.tenantsSince(new Date(0))) {
       try {
         purged += await this.retainTenant(t, now)
       } catch (err) {

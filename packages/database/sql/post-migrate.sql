@@ -479,6 +479,19 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT p_limit;
 $$;
 
+-- X10 keyset overload; old callers retain the original two-argument accessor.
+CREATE OR REPLACE FUNCTION system.tenants_with_activity(p_since timestamptz, p_limit integer, p_after uuid)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT x.tenant_id FROM (
+    SELECT d.tenant_id FROM public.analytics_dirty d
+    UNION
+    SELECT s.tenant_id FROM public.analytics_tenant_state s WHERE s.last_event_at >= p_since
+  ) x
+  WHERE p_after IS NULL OR x.tenant_id > p_after
+  ORDER BY x.tenant_id LIMIT least(greatest(p_limit, 1), 500);
+$$;
+
 -- X9 (analytics part): analytics retention for one workspace (P11-D15). analytics_events is
 -- append-only for the runtime role, so the purge runs here: by age only, for that workspace only,
 -- returning a count. Nothing else (ledger, audit, messages) is reachable through it.
@@ -589,6 +602,7 @@ BEGIN
     'system.stale_reservations(timestamptz, integer)',
     'system.wallet_ledger_drift(integer)',
     'system.tenants_with_activity(timestamptz, integer)',
+    'system.tenants_with_activity(timestamptz, integer, uuid)',
     'system.purge_analytics_events(uuid, timestamptz)',
     'system.resolve_api_key(text)',
     'system.purge_webhook_deliveries(uuid, timestamptz)',

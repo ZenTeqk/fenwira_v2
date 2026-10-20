@@ -102,6 +102,11 @@ export async function lockWallet(
         ],
         skipDuplicates: true,
       })
+      const credit = await tx.walletTransaction.findFirstOrThrow({
+        where: { idempotencyKey: `trial:${tenantId}` },
+        select: { id: true },
+      })
+      await ledgerPosted(tx, tenantId, credit.id)
     }
   }
   const row = await selectLocked(tx, tenantId)
@@ -281,7 +286,21 @@ async function appendLedger(
       expiresAt: input.expiresAt ?? null,
     },
   })
+  await ledgerPosted(tx, tenantId, row.id)
   return { id: row.id, created: true }
+}
+
+/** Analytics invalidation follows committed ledger changes, including quiet workspaces. */
+async function ledgerPosted(tx: TenantTx, tenantId: string, transactionId: string) {
+  await tx.outboxEvent.create({
+    data: {
+      tenantId,
+      eventType: 'billing.transaction_posted',
+      aggregateType: 'wallet_transaction',
+      aggregateId: transactionId,
+      payload: { transactionId },
+    },
+  })
 }
 
 /**

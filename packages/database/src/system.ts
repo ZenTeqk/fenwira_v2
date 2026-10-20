@@ -214,9 +214,13 @@ export class SystemGateway {
   }
 
   /** X10 — workspaces with pending analytics work or activity since `since` (IDs only). */
-  async tenantsWithActivity(since: Date, limit: number): Promise<string[]> {
+  async tenantsWithActivity(
+    since: Date,
+    limit: number,
+    after: string | null = null,
+  ): Promise<string[]> {
     const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
-      SELECT * FROM system.tenants_with_activity(${since}, ${limit}::int)`
+      SELECT * FROM system.tenants_with_activity(${since}, ${limit}::int, ${after}::uuid)`
     return rows.map((r) => r.tenant_id)
   }
 

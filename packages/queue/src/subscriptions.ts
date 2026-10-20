@@ -8,6 +8,7 @@ import { QUEUES, type QueueName } from './names'
 export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> = {
   'native.transfer_requested': [QUEUES.nativeTransfer],
   'contacts.import_prepared': [QUEUES.contactsImport],
+  'billing.transaction_posted': [QUEUES.analyticsEvents],
   'commercial.operation_completed': [QUEUES.notificationsDispatch],
   'system.ping.requested': [QUEUES.systemPing],
   'identity.email_verification.requested': [QUEUES.identityEvents],

@@ -21,6 +21,8 @@ export const systemPingRequestedSchema = z.object({
 export const EVENT_PAYLOAD_SCHEMAS = {
   'native.transfer_requested': z.object({ transferId: z.uuid() }),
   'contacts.import_prepared': z.object({ importJobId: z.uuid() }),
+  // Every committed ledger posting (IDs only); projections resolve the actual posting day.
+  'billing.transaction_posted': z.object({ transactionId: z.uuid() }),
   'commercial.operation_completed': z.object({ operationId: z.uuid() }),
   'system.ping.requested': systemPingRequestedSchema,
   // Identity (platform events: tenant_id NULL). The worker creates the token and sends the
