@@ -4,7 +4,7 @@ import {
 } from '@fenwira/api/modules/automation'
 import { EntitlementsService } from '@fenwira/api/modules/entitlements'
 import { Database } from '@fenwira/database'
-import { QUEUES } from '@fenwira/queue'
+import { eventJobId, QUEUES } from '@fenwira/queue'
 import {
   deliverWebhook,
   inboundMessageWebhook,
@@ -59,6 +59,28 @@ const customer = () => `9197${String(Math.random()).slice(2, 10)}`
 const control = (action: string, body: unknown) =>
   fetch(`${mock.url}/__mock/${action}`, { method: 'POST', body: JSON.stringify(body) })
 const exec = () => worker.get(AutomationExecuteProcessor)
+
+/** Waits until `count` inbound messages were relayed and their automation.trigger jobs completed. */
+async function triggerJobsDone(tenantId: string, count: number) {
+  const events = await waitFor(
+    () =>
+      db.withTenant(tenantId, (tx) =>
+        tx.outboxEvent.findMany({ where: { eventType: 'message.inbound.received' } }),
+      ),
+    (l) => l.length === count && l.every((ev) => ev.status === 'DISPATCHED'),
+  )
+  const q = new Queue(QUEUES.automationTrigger, { connection: { url: process.env.REDIS_URL! } })
+  try {
+    for (const ev of events) {
+      await waitFor(
+        async () => (await q.getJob(eventJobId(ev.id, QUEUES.automationTrigger)))?.getState(),
+        (state) => state === 'completed',
+      )
+    }
+  } finally {
+    await q.close()
+  }
+}
 
 type Ws = { owner: Member; ids: { wabaId: string; phoneNumberId: string }; phoneId: string }
 async function workspace(label: string): Promise<Ws> {
@@ -496,6 +518,11 @@ describe('Phase 10: flows and execution', { timeout: 120_000 }, () => {
     const [e] = await executionsWhere(w.owner, flowId, (x) => x.status === 'WAITING')
     expect((await w.owner.client.post(`/flows/${flowId}/pause`)).body.data.status).toBe('PAUSED')
     await inbound(w, customer(), 'p') // no new execution while paused
+    // Triggers are matched when the automation.trigger job runs, not when the webhook arrives.
+    // Wait for the second message's trigger job to finish while the flow is still paused, or a
+    // slow runner may process it after the resume below and (correctly) start an execution.
+    await triggerJobsDone(w.owner.tenantId, 2)
+    expect(await executions(w.owner, flowId)).toHaveLength(1)
     await dueNow(db, w.owner.tenantId, e!.id)
     expect(await exec().run(w.owner.tenantId, e!.id)).toBe('flow-paused')
     const still = await execution(w.owner, e!.id)
