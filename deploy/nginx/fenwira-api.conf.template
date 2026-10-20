@@ -26,7 +26,8 @@ server {
     ssl_certificate_key @@TLS_KEY@@;
     include /etc/nginx/snippets/fenwira-tls.conf;
 
-    # JSON bodies only (Express limit 100 kB); files go to S3 via presigned URLs.
+    # JSON bodies only (Express limit 100 kB, 3 MB for Meta webhooks below); files go to S3 via
+    # presigned URLs.
     client_max_body_size 2m;
 
     # Health: only liveness is public (fixed {"status":"ok"}, no dependency calls). Readiness and the
@@ -51,6 +52,16 @@ server {
         # Long-lived sockets; Socket.IO pings every 25 s, within the snippet's 60 s send timeout.
         proxy_read_timeout 3600s;
         proxy_buffering off;
+    }
+
+    # Meta webhooks: payloads can be up to 3 MB (Graph docs, Webhooks → Payload size); the API
+    # accepts 3 MB on this path only. Headroom above that for headers/encoding.
+    location = /api/v1/webhooks/whatsapp {
+        client_max_body_size 4m;
+        proxy_pass http://fenwira_api;
+        include /etc/nginx/snippets/fenwira-proxy.conf;
+        proxy_set_header Connection "";
+        proxy_read_timeout 75s;
     }
 
     location / {

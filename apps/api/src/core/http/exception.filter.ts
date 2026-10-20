@@ -62,6 +62,19 @@ export function toErrorEnvelope(
       },
     }
   }
+  const bodyError = bodyParserError(exception)
+  if (bodyError) {
+    return {
+      status: bodyError.status,
+      body: {
+        error: {
+          code: STATUS_TO_CODE[bodyError.status] ?? 'VALIDATION_FAILED',
+          message: bodyError.message,
+          correlationId,
+        },
+      },
+    }
+  }
   if (exception instanceof HttpException) {
     const status = exception.getStatus()
     const code = STATUS_TO_CODE[status] ?? (status >= 500 ? 'INTERNAL' : 'VALIDATION_FAILED')
@@ -85,6 +98,26 @@ export function toErrorEnvelope(
     status: HttpStatus.INTERNAL_SERVER_ERROR,
     body: { error: { code: 'INTERNAL', message: 'An unexpected error occurred.', correlationId } },
   }
+}
+
+/**
+ * Express body-parser rejects requests before Nest sees them (too large, malformed JSON, unsupported
+ * charset/encoding, aborted). Its errors are not HttpExceptions; without this they surfaced as 500s.
+ * The client-safe status is kept; the message is fixed (parse errors can quote the request body).
+ */
+function bodyParserError(e: unknown): { status: number; message: string } | null {
+  if (typeof e !== 'object' || e === null) return null
+  const { type, status, expose } = e as { type?: unknown; status?: unknown; expose?: unknown }
+  if (typeof type !== 'string' || typeof status !== 'number' || expose !== true) return null
+  if (status < 400 || status > 499) return null
+  const messages: Record<string, string> = {
+    'entity.too.large': 'The request body is too large.',
+    'entity.parse.failed': 'The request body is not valid JSON.',
+    'entity.verify.failed': 'The request body could not be verified.',
+    'request.aborted': 'The request was aborted.',
+    'request.size.invalid': 'The request body size does not match its Content-Length.',
+  }
+  return { status, message: messages[type] ?? 'The request body could not be read.' }
 }
 
 /** Redis/Postgres connectivity failures are outages (503), not bugs (500). */
