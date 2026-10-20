@@ -173,6 +173,56 @@ describe('webhook endpoint', () => {
     expect((await s.owner.client.get('/conversations')).body.data).toEqual([])
   })
 
+  it('accepts Meta-sized batches up to 3 MB and refuses larger bodies with nothing stored', async () => {
+    const s = await setup('msg-size')
+    const from = phoneNo()
+    // Meta: webhook payloads can be up to 3 MB. ~1.5 MB of batched 4,000-character messages.
+    const batch = (count: number) => {
+      const p = inboundMessageWebhook(s.ids, { from, wamid: 'w', text: 'x' })
+      const value = p.entry[0]!.changes[0]!.value as unknown as {
+        messages: Array<Record<string, unknown>>
+      }
+      const [template] = value.messages
+      value.messages = Array.from({ length: count }, (_, i) => ({
+        ...template,
+        id: `wamid.size.${metaId()}.${i}`,
+        text: { body: 'x'.repeat(4000) },
+      }))
+      return JSON.stringify(p)
+    }
+    const post = (raw: string) =>
+      fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hub-Signature-256': signWebhookBody(SECRET, raw),
+        },
+        body: raw,
+      })
+
+    const big = batch(370)
+    expect(big.length).toBeGreaterThan(1_400_000)
+    expect((await post(big)).status).toBe(200)
+    // One webhook_event per Meta event in the batch.
+    const accepted = await db.withTenant(s.owner.tenantId, (tx) => tx.webhookEvent.count())
+    expect(accepted).toBe(370)
+
+    const tooBig = batch(900)
+    expect(tooBig.length).toBeGreaterThan(3 * 1024 * 1024)
+    const refused = await post(tooBig)
+    expect(refused.status).toBe(413)
+    const events = await db.withTenant(s.owner.tenantId, (tx) => tx.webhookEvent.count())
+    expect(events).toBe(accepted)
+
+    // Every other route keeps the 100 kB JSON limit.
+    s.owner.client.tenantId = s.owner.tenantId
+    const huge = await s.owner.client.post('/contacts', {
+      phone: phoneNo(),
+      name: 'n'.repeat(150_000),
+    })
+    expect(huge.status).toBe(413)
+  })
+
   it('ignores events for numbers no tenant owns', async () => {
     const res = await fetch(webhookUrl, {
       method: 'POST',

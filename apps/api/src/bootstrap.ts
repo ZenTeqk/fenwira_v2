@@ -1,7 +1,7 @@
 import { type DestinationStream } from 'pino'
 import 'reflect-metadata'
 import { type ApiEnv } from '@fenwira/config'
-import { type Request, type Response, type NextFunction } from 'express'
+import { json, type Request, type Response, type NextFunction } from 'express'
 import { type INestApplication, RequestMethod } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { type NestExpressApplication } from '@nestjs/platform-express'
@@ -14,6 +14,9 @@ import { RedisIoAdapter } from './modules/realtime'
 
 /** Builds the configured API application (used by main.ts and integration tests). */
 export type ApiAppOptions = { logDestination?: DestinationStream }
+
+/** Largest Meta webhook body accepted (Meta: up to 3 MB). */
+export const WHATSAPP_WEBHOOK_BODY_LIMIT = '3mb'
 
 export async function createApiApp(
   env: ApiEnv,
@@ -30,6 +33,23 @@ export async function createApiApp(
   app.disable('x-powered-by')
   // Must run first so every later middleware and log line carries the correlation id.
   app.use(correlationMiddleware)
+  // Meta webhook payloads can be up to 3 MB (Graph docs, Webhooks → Payload size). Parsed here, before
+  // Nest's global parser (registered at init, 100 kB default) so only this path gets the larger
+  // limit; the global parser then skips the already-parsed body. Keeps rawBody for the HMAC check.
+  // Wrapped in a named function: Nest skips its own JSON parser if it finds a middleware named
+  // `jsonParser` on the Express stack, which would leave every other route without a body.
+  const webhookJson = json({
+    limit: WHATSAPP_WEBHOOK_BODY_LIMIT,
+    verify: (req, _res, buf) => {
+      ;(req as Request & { rawBody?: Buffer }).rawBody = buf
+    },
+  })
+  app.use(
+    '/api/v1/webhooks/whatsapp',
+    function whatsappWebhookBody(req: Request, res: Response, next: NextFunction) {
+      webhookJson(req, res, next)
+    },
+  )
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith('/api/v1/platform')) res.setHeader('Cache-Control', 'no-store')
     next()

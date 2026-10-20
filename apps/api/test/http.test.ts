@@ -47,6 +47,29 @@ describe('toErrorEnvelope', () => {
     )
   })
 
+  it('keeps body-parser client errors as 4xx with fixed messages (never 500, never the body)', () => {
+    const parserError = (status: number, type: string, message: string) =>
+      Object.assign(new Error(message), { status, statusCode: status, expose: true, type })
+    const tooLarge = toErrorEnvelope(parserError(413, 'entity.too.large', 'too large'), 'c')
+    expect(tooLarge.status).toBe(413)
+    expect(tooLarge.body.error).toEqual({
+      code: 'VALIDATION_FAILED',
+      message: 'The request body is too large.',
+      correlationId: 'c',
+    })
+    const badJson = toErrorEnvelope(
+      parserError(400, 'entity.parse.failed', 'Unexpected token s in JSON: "secret-body"'),
+      'c',
+    )
+    expect(badJson.status).toBe(400)
+    expect(JSON.stringify(badJson.body)).not.toContain('secret-body')
+    expect(toErrorEnvelope(parserError(415, 'encoding.unsupported', 'x'), 'c').status).toBe(415)
+    // Not exposed or not a client error: still an opaque 500.
+    expect(
+      toErrorEnvelope(Object.assign(new Error('x'), { type: 'y', status: 413 }), 'c').status,
+    ).toBe(500)
+  })
+
   it('never leaks internal messages for 5xx or unknown errors', () => {
     const unknown = toErrorEnvelope(new Error('db password is hunter2'), 'c')
     expect(unknown.status).toBe(500)
