@@ -258,6 +258,13 @@ export class SystemGateway {
     }
   }
 
+  /** X19 recovery: bounded due delivery IDs; payload/secret/state reads re-enter withTenant. */
+  async webhookDeliveriesDue(now: Date, limit: number, after: string | null = null) {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; delivery_id: string }>>`
+      SELECT * FROM system.webhook_deliveries_due(${now}, ${limit}::int, ${after}::uuid)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, deliveryId: r.delivery_id }))
+  }
+
   /** Purge one workspace's webhook delivery history older than `before` (retention, 30 days). */
   async purgeWebhookDeliveries(tenantId: string, before: Date): Promise<number> {
     const rows = await this.prisma.$queryRaw<Array<{ n: number }>>`

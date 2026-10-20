@@ -3,7 +3,7 @@
 Authorized 2026-10-20. Baseline: `675f7bc`. Existing `main` branch; no push, deployment or production flags/migrations. Audit reports are evidence to revalidate, not assumed passes. Preserve approved Experience V2 and the existing module/queue architecture.
 
 - [x] Stage 1 / F01 / 11.1-03–06, 11.1-14, 11.1-19, X-04: reproduce with PostgreSQL; serialize settlement and ledger idempotency before reads; test competing settle/release, retry, rollback and tenant isolation; commit verified fix.
-- [ ] Stage 2 / F02 / 11.3-15–18: recover durable due PENDING deliveries, bound concurrent claims, enqueue after commit, preserve signatures/deadline/suspension; test job loss/recovery and receiver failures; commit.
+- [x] Stage 2 / F02 / 11.3-15–18: recover durable due PENDING deliveries, bound concurrent claims, enqueue after commit, preserve signatures/deadline/suspension; test job loss/recovery and receiver failures; commit.
 - [ ] Stage 3 / F03 / 11.4-04–06, 11.4-14: keyset traversal beyond 500 subscriptions; test notices/transitions/restarts; commit.
 - [ ] Stage 4 / F04/F05 / 11.2-07–09, 11.2-15–16, 11.2-20: fair analytics traversal and ledger-driven promotional-credit invalidation; test quiet tenants, deduplication, date boundaries and source reconciliation; commit.
 - [ ] Stage 5 / F06 / 11.3-20, X-05: reconcile outdated API/database/deployment prose; classify every remaining matrix item against executable evidence; no invented scope.
@@ -17,3 +17,7 @@ Use disposable test-only PostgreSQL/Redis/Mailpit/MinIO services from cached ima
 ## Stage 1 evidence
 
 Isolated PostgreSQL16 initialized with existing roles/migrations/post-migrate/RLS/seeds. Before fix: 5/8 new tests failed, including a forced duplicate settlement and −13 reserved after a release race (failed run also had teardown timeout). After moving both financial state/idempotency reads behind the wallet row lock: 8/8 PostgreSQL regressions pass. No schema or feature-flag change. Original audit in-memory reproduction is superseded by this actual PostgreSQL evidence. Stage commit contains only wallet core, regression tests and this billing/checklist documentation. Logs: `/private/tmp/fenwira-p11-wallet-{before,after}.log`.
+
+## Stage 2 evidence
+
+Durable due-row recovery on existing maintenance queue; deterministic attempt job IDs; transaction advisory claims; enqueue/alerts after commit; terminal/error timestamps cleared. Additive due index and restricted X19 accessor/security review in ADR-0026. PostgreSQL/Redis/local-receiver suite passed 18/18 before the additional X19 privilege/shape assertion; final count recorded in acceptance results. First run found two test-harness issues (header case and void SQL deserialization), corrected without weakening behavior assertions. Real ten-second receiver timeout, 400/503 retry, Redis job deletion, concurrent scans, crash rollback, signing, rotation, auto-disable and manual retry exercised. No external receivers. API build, worker typecheck and affected lint passed.

@@ -602,3 +602,7 @@ Phase 11 closure adds no schema migration or financial-history backfill. Subscri
 ### Native connectors — Experience V2 follow-up
 
 Additive migration `20261008000000_native_connectors` adds tenant-owned encrypted connection records, short-lived OAuth challenges, and durable transfer receipts with encrypted snapshots and leases. Forced RLS, tenant foreign keys, a composite transfer-to-connection foreign key and a partial unique index for one pending transfer per connection accompany the tables. Existing contact/import, wallet, subscription, analytics and audit history is preserved. No financial backfill is performed.
+
+### Pending webhook recovery index
+
+Additive migration `20261020000000_webhook_pending_due` indexes `(next_attempt_at,id)` for PENDING webhook deliveries. Existing rows, financial data and delivery states are unchanged. Post-migrate SQL adds the restricted X19 due-ID keyset accessor; callers still re-enter tenant transactions. No in-flight lease column is required: PostgreSQL transaction locks expire on crash/rollback.

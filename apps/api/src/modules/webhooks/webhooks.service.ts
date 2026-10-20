@@ -261,7 +261,7 @@ export class WebhooksService {
         throw new AppError('CONFLICT', 409, 'Only a failed delivery can be retried.')
       await tx.webhookDelivery.update({
         where: { id: deliveryId },
-        data: { status: 'PENDING', errorCode: null },
+        data: { status: 'PENDING', errorCode: null, nextAttemptAt: null },
       })
       await this.audit.write(tx, {
         action: 'webhook_delivery.retried',

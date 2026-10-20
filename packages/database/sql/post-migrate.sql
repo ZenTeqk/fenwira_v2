@@ -531,6 +531,17 @@ LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, public AS $
   SELECT count(*)::integer FROM d;
 $$;
 
+-- X19 recovery: identifiers only, fixed search path, no endpoint payloads or secrets.
+GRANT SELECT (id, tenant_id, status, next_attempt_at) ON public.webhook_deliveries TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.webhook_deliveries_due(p_now timestamptz, p_limit integer, p_after uuid DEFAULT NULL)
+RETURNS TABLE (tenant_id uuid, delivery_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT d.tenant_id, d.id FROM public.webhook_deliveries d
+  WHERE d.status = 'PENDING' AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= p_now)
+    AND (p_after IS NULL OR d.id > p_after)
+  ORDER BY d.id LIMIT least(greatest(p_limit, 1), 500);
+$$;
+
 -- X20: subscription lifecycle (Phase 11 Step 4, docs/BILLING.md → Lifecycle). IDs only: trials
 -- ending within 3 days (notices, expiry) and active subscriptions whose period has ended (roll or
 -- cancel). Each tenant is then processed inside withTenant and re-checks its own row.
@@ -571,6 +582,7 @@ BEGIN
     'system.resolve_api_key(text)',
     'system.purge_webhook_deliveries(uuid, timestamptz)',
     'system.tenants_with_stale_webhook_deliveries(timestamptz, integer)',
+    'system.webhook_deliveries_due(timestamptz, integer, uuid)',
     'system.subscriptions_due(timestamptz, integer)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
