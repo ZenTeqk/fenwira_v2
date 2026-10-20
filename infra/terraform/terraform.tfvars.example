@@ -31,3 +31,7 @@ alarm_recovery_notifications = false
 
 # Availability-alarm notifications per running service (worker joins once SMTP is configured).
 app_alarm_services = []
+
+# SES (ses.tf): domain identity, DKIM, MAIL FROM and SMTP-only IAM user
+manage_ses  = true
+mail_domain = "fenwira.zenteqk.com"

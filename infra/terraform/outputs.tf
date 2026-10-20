@@ -42,3 +42,13 @@ output "deploy_document_name" {
   description = "SSM document run by the deploy workflow."
   value       = aws_ssm_document.deploy.name
 }
+
+output "ses_smtp_user" {
+  description = "IAM user whose access key backs the worker's SMTP credentials (deploy/scripts/ses-smtp-credentials.py)."
+  value       = var.manage_ses ? aws_iam_user.ses_smtp[0].name : null
+}
+
+output "ses_smtp_endpoint" {
+  description = "SES SMTP endpoint (implicit TLS on 465)."
+  value       = var.manage_ses ? "email-smtp.${var.aws_region}.amazonaws.com" : null
+}

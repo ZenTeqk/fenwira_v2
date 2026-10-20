@@ -1,5 +1,5 @@
 # Non-secret configuration only. Secret values (database passwords, JWT keys, encryption keys,
-# Meta secrets, the SMTP URL of the provider chosen later, API key pepper) are written with `aws ssm put-parameter` as
+# Meta secrets, the SES SMTP URL, API key pepper) are written with `aws ssm put-parameter` as
 # SecureString under /fenwira/prod/secrets/ (README.md → Credentials) and are never managed here:
 # Terraform stores managed parameter values in state, including SecureStrings.
 
