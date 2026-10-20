@@ -2,6 +2,7 @@ import { type AuditLog, type AuditQuery } from '@fenwira/contracts'
 import { Prisma, type TenantTx } from '@fenwira/database'
 import { Injectable } from '@nestjs/common'
 import { redactAudit } from '../../core/security/redact'
+import { likeLiteral } from '../../core/database/like'
 import { requestContext } from '../../core/context/request-context'
 import { afterCursor, decodeCursor, toPage } from '../../core/http/cursor'
 
@@ -51,7 +52,7 @@ export class AuditService {
   }> {
     const rows = await tx.auditLog.findMany({
       where: {
-        ...(query.action ? { action: { startsWith: query.action } } : {}),
+        ...(query.action ? { action: { startsWith: likeLiteral(query.action) } } : {}),
         ...(query.actorId ? { actorId: query.actorId } : {}),
         ...(query.from || query.to
           ? {

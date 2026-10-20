@@ -8,6 +8,7 @@ import {
 } from '@fenwira/contracts'
 import { type Prisma, type TenantTx } from '@fenwira/database'
 import { AppError } from '../../../core/http/app-error'
+import { likeLiteral } from '../../../core/database/like'
 
 /**
  * The one contact-filter compiler (docs/CONTACTS_AND_CONSENT.md → Filter DSL): DSL → Prisma
@@ -76,9 +77,9 @@ export class FilterCompiler {
       const digits = q.replace(/[^\d]/g, '')
       and.push({
         OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          { email: { contains: q, mode: 'insensitive' } },
-          { waProfileName: { contains: q, mode: 'insensitive' } },
+          { name: { contains: likeLiteral(q), mode: 'insensitive' } },
+          { email: { contains: likeLiteral(q), mode: 'insensitive' } },
+          { waProfileName: { contains: likeLiteral(q), mode: 'insensitive' } },
           ...(digits.length >= 3 ? [{ phoneE164: { contains: digits } }] : []),
         ],
       })
@@ -192,11 +193,12 @@ export class FilterCompiler {
       case 'text': {
         const s = String(v)
         const mode = 'insensitive' as const
-        if (r.operator === 'EQUALS') return has({ valueText: { equals: s, mode } })
-        if (r.operator === 'NOT_EQUALS') return not({ valueText: { equals: s, mode } })
-        if (r.operator === 'CONTAINS') return has({ valueText: { contains: s, mode } })
-        if (r.operator === 'NOT_CONTAINS') return not({ valueText: { contains: s, mode } })
-        return has({ valueText: { startsWith: s, mode } })
+        if (r.operator === 'EQUALS') return has({ valueText: { equals: likeLiteral(s), mode } })
+        if (r.operator === 'NOT_EQUALS') return not({ valueText: { equals: likeLiteral(s), mode } })
+        if (r.operator === 'CONTAINS') return has({ valueText: { contains: likeLiteral(s), mode } })
+        if (r.operator === 'NOT_CONTAINS')
+          return not({ valueText: { contains: likeLiteral(s), mode } })
+        return has({ valueText: { startsWith: likeLiteral(s), mode } })
       }
       case 'select': {
         if (!Array.isArray(v)) throw invalid(path, 'Choose at least one option.')
@@ -246,15 +248,15 @@ function textClause(column: string, r: FilterRule): Where {
   const missing = is({ equals: null })
   switch (r.operator) {
     case 'EQUALS':
-      return is({ equals: r.value, mode })
+      return is({ equals: likeLiteral(String(r.value)), mode })
     case 'NOT_EQUALS':
-      return { OR: [missing, { NOT: is({ equals: r.value, mode }) }] }
+      return { OR: [missing, { NOT: is({ equals: likeLiteral(String(r.value)), mode }) }] }
     case 'CONTAINS':
-      return is({ contains: r.value, mode })
+      return is({ contains: likeLiteral(String(r.value)), mode })
     case 'NOT_CONTAINS':
-      return { OR: [missing, { NOT: is({ contains: r.value, mode }) }] }
+      return { OR: [missing, { NOT: is({ contains: likeLiteral(String(r.value)), mode }) }] }
     case 'STARTS_WITH':
-      return is({ startsWith: r.value, mode })
+      return is({ startsWith: likeLiteral(String(r.value)), mode })
     case 'EXISTS':
       return is({ not: null })
     default:
