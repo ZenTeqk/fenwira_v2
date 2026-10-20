@@ -258,12 +258,13 @@ async function appendLedger(
   tenantId: string,
   input: LedgerEntry,
 ): Promise<{ id: string; created: boolean }> {
+  // Serialize before the idempotency read: a concurrent poster may commit while we wait.
+  const w = await lockWallet(tx, tenantId)
   const existing = await tx.walletTransaction.findFirst({
     where: { idempotencyKey: input.idempotencyKey },
     select: { id: true },
   })
   if (existing) return { id: existing.id, created: false }
-  const w = await lockWallet(tx, tenantId)
   const row = await tx.walletTransaction.create({
     data: {
       tenantId,
@@ -348,6 +349,9 @@ export async function settleReservation(
   input: { messageId: string; category: string; country: string | null; pricing: unknown },
   platform: BillingPlatform = NO_BILLING,
 ): Promise<'settled' | 'none'> {
+  // The ACTIVE snapshot and every ledger/hold change share the same wallet lock as release
+  // and reserve. Reading before this lock can close a hold twice after a competing commit.
+  const w = await lockWallet(tx, tenantId)
   const r = await tx.walletReservation.findFirst({
     where: { messageId: input.messageId, status: 'ACTIVE' },
   })
@@ -362,7 +366,6 @@ export async function settleReservation(
     referenceType: 'message',
     referenceId: input.messageId,
   })
-  const w = await lockWallet(tx, tenantId)
   await tx.walletReservation.update({
     where: { id: r.id },
     data: {

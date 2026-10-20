@@ -1,0 +1,19 @@
+# Phase 11 remediation checklist
+
+Authorized 2026-10-20. Baseline: `675f7bc`. Existing `main` branch; no push, deployment or production flags/migrations. Audit reports are evidence to revalidate, not assumed passes. Preserve approved Experience V2 and the existing module/queue architecture.
+
+- [x] Stage 1 / F01 / 11.1-03–06, 11.1-14, 11.1-19, X-04: reproduce with PostgreSQL; serialize settlement and ledger idempotency before reads; test competing settle/release, retry, rollback and tenant isolation; commit verified fix.
+- [ ] Stage 2 / F02 / 11.3-15–18: recover durable due PENDING deliveries, bound concurrent claims, enqueue after commit, preserve signatures/deadline/suspension; test job loss/recovery and receiver failures; commit.
+- [ ] Stage 3 / F03 / 11.4-04–06, 11.4-14: keyset traversal beyond 500 subscriptions; test notices/transitions/restarts; commit.
+- [ ] Stage 4 / F04/F05 / 11.2-07–09, 11.2-15–16, 11.2-20: fair analytics traversal and ledger-driven promotional-credit invalidation; test quiet tenants, deduplication, date boundaries and source reconciliation; commit.
+- [ ] Stage 5 / F06 / 11.3-20, X-05: reconcile outdated API/database/deployment prose; classify every remaining matrix item against executable evidence; no invented scope.
+- [ ] Stage 6 / V1: run existing Phase11 API/tenant/MFA/financial-security integration coverage and fix confirmed in-scope failures.
+- [ ] Stage 7 / V1/V2: lint, types, unit/integration/schema/OpenAPI/audit and all production builds; record actual failures and totals.
+- [ ] Stage 8 / V2/V4: isolated mock-provider full lifecycle, browser/responsive/accessibility and startup/smoke where feasible; never use customer data.
+- [ ] Stage 9: update six audit reports, requirement IDs/status/counts, commits, remaining gates and separate review/merge/staging/production/enforcement/closure decisions; commit documentation.
+
+Use disposable test-only PostgreSQL/Redis/Mailpit/MinIO services from cached images. No new production infrastructure/dependencies/queues. Do not weaken tests or infer runtime success from source inspection. Stage 1 implementation is first; if an environment gate blocks execution, record it and continue independent authorized work without claiming the stage exit.
+
+## Stage 1 evidence
+
+Isolated PostgreSQL16 initialized with existing roles/migrations/post-migrate/RLS/seeds. Before fix: 5/8 new tests failed, including a forced duplicate settlement and −13 reserved after a release race (failed run also had teardown timeout). After moving both financial state/idempotency reads behind the wallet row lock: 8/8 PostgreSQL regressions pass. No schema or feature-flag change. Original audit in-memory reproduction is superseded by this actual PostgreSQL evidence. Stage commit contains only wallet core, regression tests and this billing/checklist documentation. Logs: `/private/tmp/fenwira-p11-wallet-{before,after}.log`.

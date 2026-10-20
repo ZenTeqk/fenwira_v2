@@ -102,7 +102,7 @@ The wallet row lock serializes reservations, so two workers can never reserve th
 | Final non-billable outcome (permanent failure, or Meta reports it non-billable) | **Release**: mark it RELEASED with a reason, and subtract it from `reserved_minor` |
 | Retryable failure | **Keep** the reservation through the retry lifecycle. It is released only when the message reaches a final state. |
 
-- Reservations are keyed by message ID. Replays and retries never double-reserve, double-settle or double-release.
+- Reservations are keyed by message ID. Replays and retries never double-reserve, double-settle or double-release. Every reservation transition locks the wallet before reading ACTIVE state; ledger posting also locks before checking its idempotency key. A waiter re-reads committed state under that lock, so settlement/release races close a hold once. `apps/worker/test/wallet-concurrency.int.test.ts` covers forced PostgreSQL interleavings, duplicate credits, rollback and tenant isolation.
 - **Stale-reservation recovery** (`billing.maintenance`, every 5 minutes, X17). An ACTIVE reservation older than `BILLING_RESERVATION_GRACE_MINUTES` (default 360) whose message is FAILED, SENT, DELIVERED or READ (or missing) is recovered, per message, idempotently:
   - if a `message.status.changed` event with Meta's pricing was recorded but never applied (a lost or dead-lettered `billing.usage` job), it is applied now: billable pricing **settles**, non-billable releases;
   - otherwise the hold is **released** with reason `recovered: no pricing received`, because nothing says Meta charged for the message.
