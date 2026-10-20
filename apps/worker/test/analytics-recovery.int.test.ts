@@ -96,16 +96,14 @@ it('pass, heal and retention traverse more than 500 continuously eligible Postgr
     expect(retention.mock.calls.filter(([tenantId]) => tenantId === id)).toHaveLength(1)
   // A new processor starts traversal from the beginning after a worker/job restart.
   const restarted = processor(),
-    again = vi
-      .spyOn(restarted, 'rollupTenant')
-      .mockResolvedValue({
-        days: 0,
-        campaigns: 0,
-        changed: 0,
-        corrections: 0,
-        lagSeconds: 0,
-        status: 'ok',
-      })
+    again = vi.spyOn(restarted, 'rollupTenant').mockResolvedValue({
+      days: 0,
+      campaigns: 0,
+      changed: 0,
+      corrections: 0,
+      lagSeconds: 0,
+      status: 'ok',
+    })
   await restarted.pass(now)
   for (const id of ids)
     expect(again.mock.calls.filter(([tenantId]) => tenantId === id)).toHaveLength(1)
