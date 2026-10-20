@@ -125,7 +125,9 @@ export async function linkFromEmail(
 ): Promise<string> {
   const timeoutMs = opts.timeoutMs ?? 15_000
   // Mailpit and the tests share the host clock, so no skew allowance (it would re-admit older mail).
-  const since = opts.since ? new Date(opts.since).toISOString() : ''
+  // Compare as instants, not strings: Mailpit's RFC 3339 `Created` drops trailing fraction zeros
+  // ("…:27Z", "…:27.1Z"), which sorts after "…:27.123Z" and let an older email look newer.
+  const since = opts.since ?? 0
   const base = process.env.MAILPIT_API_URL
   if (!base) throw new Error('MAILPIT_API_URL not set')
   const deadline = Date.now() + timeoutMs
@@ -133,8 +135,8 @@ export async function linkFromEmail(
     const search = await fetch(`${base}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`)
     const body = (await search.json()) as { messages?: Array<{ ID: string; Created: string }> }
     const newest = body.messages
-      ?.filter((m) => m.Created >= since)
-      .sort((a, b) => b.Created.localeCompare(a.Created))[0]
+      ?.filter((m) => Date.parse(m.Created) >= since)
+      .sort((a, b) => Date.parse(b.Created) - Date.parse(a.Created))[0]
     if (newest) {
       const msg = (await (await fetch(`${base}/api/v1/message/${newest.ID}`)).json()) as {
         Text: string
