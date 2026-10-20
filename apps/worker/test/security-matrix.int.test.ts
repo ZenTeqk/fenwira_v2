@@ -76,6 +76,9 @@ let tenantB: Member
 
 beforeAll(async () => {
   api = await bootApi()
+  // Keep one listener for the generated HTTP sweep; ephemeral listen/close per request can
+  // recycle a keep-alive socket under the large route matrix. Assertions remain unchanged.
+  await api.listen(0)
   worker = await bootWorker()
   routes = discoverTenantRoutes(api)
   const owner = await createOwner(api, 'matrixA', 'Matrix A')
@@ -157,7 +160,9 @@ describe('cross-tenant isolation over HTTP (generated)', () => {
   it('Tenant A’s owner gets 404 TENANT_NOT_FOUND on every tenant route of Tenant B', async () => {
     const failures: string[] = []
     for (const route of routes) {
-      const res = await call(byRole.OWNER, route, tenantB.tenantId)
+      const res = await call(byRole.OWNER, route, tenantB.tenantId).catch((cause: unknown) => {
+        throw new Error(`Transport failed for ${route.method} ${route.path}`, { cause })
+      })
       if (res.status !== 404 || res.body.error?.code !== 'TENANT_NOT_FOUND')
         failures.push(`${route.method} ${route.path} → ${res.status}`)
     }
@@ -217,8 +222,7 @@ describe('cross-tenant isolation over HTTP (generated)', () => {
 
 describe('cross-tenant isolation over WebSocket', () => {
   let url: string
-  beforeAll(async () => {
-    await api.listen(0)
+  beforeAll(() => {
     url = `http://127.0.0.1:${(api.getHttpServer().address() as AddressInfo).port}`
   })
 
