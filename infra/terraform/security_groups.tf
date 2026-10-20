@@ -25,7 +25,7 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_https" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
-# Outbound: Meta Graph API, S3, the SMTP provider (chosen later), SSM/CloudWatch endpoints, package mirrors, and
+# Outbound: Meta Graph API, S3, Amazon SES SMTP (465), SSM/CloudWatch endpoints, package mirrors, and
 # PostgreSQL to RDS. There is no NAT gateway; the instance has a public address.
 resource "aws_vpc_security_group_egress_rule" "ec2_all" {
   security_group_id = aws_security_group.ec2.id

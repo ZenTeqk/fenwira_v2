@@ -19,7 +19,7 @@ Production only, in ap-south-1 (Mumbai), in the existing ZenteqK account `569476
 | EC2 | `i-0bfb6eb6021d939d7` (`telegram-controlled-instance`, t3a.large, stopped), Lenz instance profile, EIP `15.207.132.61` serving activepieces/lead/api.lenz/server.zenteqk.com | **Untouched**. Fenwira gets a dedicated instance |
 | Security groups | `db-sg-1`, `rds-ec2-1`, `ec2-rds-1`, `zenteqk-internal-lenz-prod-ec2`, `default` | Not reused or modified |
 | Route 53 | `zenteqk.com` (public, Route 53). `app.fenwira.zenteqk.com` A/AAAA → CloudFront `EY1203ZVXV0NP` (Fenwira v1 app), owned by state `internal/fenwira/prod`. `fenwira.zenteqk.com` A/AAAA → CloudFront `E32KM5M08KEJMY` (**Fenwira landing page**), owned by state `internal/fenwira-landing/prod`. Both use ACM certificates in us-east-1 | Reused zone (read only). No records change until the approved cutover |
-| SES | ap-south-1 has production access; nothing in it is used | **Not provisioned** (decision 9 Oct): the SMTP provider is chosen later |
+| SES | ap-south-1 has production access | Domain identity `fenwira.zenteqk.com` (Easy DKIM, MAIL FROM `mail.`), SMTP-only IAM user, when `manage_ses = true` (decision 20 Oct; replaces the 9 Oct "not provisioned") |
 | Terraform state | `zenteqk-platform-tfstate-shared` (us-east-1, versioned, SSE-S3, public access blocked, TLS-only). Keys: `internal/{fenwira,fenwira-landing,lenz}/prod` | **Reused** with key `internal/fenwira-v2/prod/terraform.tfstate`, S3-native locking |
 | Naming | Existing convention `zenteqk-internal-<app>-prod-*`. Fenwira v1 owns `…-fenwira-prod-*` | v2 uses `zenteqk-internal-fenwira-v2-prod-*` (names verified free) |
 | Availability | PostgreSQL 16.9–16.15; `db.t4g.micro` with gp3 (min 20 GB); `t3a.medium` in 1a/1b/1c; Canonical Ubuntu 24.04 amd64 AMI via SSM | As selected |
@@ -35,7 +35,7 @@ Production only, in ap-south-1 (Mumbai), in the existing ZenteqK account `569476
 | `rds.tf` | PostgreSQL 16.15, db.t4g.micro, Single-AZ in 1a, 20 GB gp3 (autoscaling to 50), encrypted (aws/rds), private, `rds.force_ssl=1`, 7-day backups, deletion protection + final snapshot, **master password managed by RDS in Secrets Manager**, PostgreSQL log export |
 | `iam.tf` | Instance role + profile (SSM Core; inline: 3 buckets, `/fenwira/prod/*` parameters, `kms:Decrypt` on aws/ssm via SSM only, own log groups, `CWAgent` metrics, and Route 53 **TXT changes only for `_acme-challenge.<app_domain>` and `_acme-challenge.<api_domain>`** for certbot DNS-01) |
 | `s3.tf` | `…-media` (versioned, noncurrent versions expire after 30 days), `…-imports` and `…-exports` (7-day expiry). All: public access blocked, `BucketOwnerEnforced`, SSE-S3, CORS for `https://<app_domain>` PUT/GET/HEAD, TLS-only policy, abort-incomplete-multipart. **Three, not four:** `S3_BUCKET_UPLOADS` is declared in config but `StorageService` never uses it |
-| `ses.tf` | Nothing (SES intentionally not provisioned) |
+| `ses.tf` | SES domain identity + DKIM/MAIL FROM records + SMTP-only IAM user (no access keys in state) |
 | `ssm.tf` | Non-secret String parameters under `/fenwira/prod/config/*`, and the CloudWatch agent config |
 | `cloudwatch.tf` | Log groups `/fenwira/v2/prod/{api,worker,web,nginx,system}` and the RDS PostgreSQL group (30 days). SNS topic **without subscriptions** (added when `alarm_email` is provided). Alarms: EC2 system check (**auto-recover**), instance check, CPU credits, memory, disk; RDS CPU, storage, memory, credits |
 | `route53.tf` | `app`/`api` A records **only when `manage_dns = true`** (after the approved cutover), with `allow_overwrite = false` |
@@ -230,7 +230,7 @@ Secrets to inject manually as `SecureString` under `/fenwira/prod/secrets/` (no 
 | `api-key-pepper` | ≥ 16 random characters |
 | `meta-app-id`, `meta-app-secret`, `meta-es-config-id`, `meta-webhook-verify-token` | Meta app |
 | `native-{google,zoho,shopify}-client-{id,secret}` | only for connectors being enabled |
-| `smtp-url`, `mail-from` | once an email provider is chosen (SES is not provisioned) |
+| `smtp-url`, `mail-from` | after `terraform apply` with `manage_ses`: `deploy/scripts/ses-smtp-credentials.py --user <ses_smtp_user output> --mail-from 'Fenwira <no-reply@fenwira.zenteqk.com>'` mints the key and writes both (never printed) |
 
 Deployment sequence:
 1. Bootstrap the roles: `deploy/sql/bootstrap-roles.sql` through the SSM tunnel (`fenwira_owner` and `fenwira_app` passwords generated locally, then stored as the URLs above).

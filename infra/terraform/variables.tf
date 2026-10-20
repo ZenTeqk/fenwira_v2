@@ -209,3 +209,21 @@ variable "github_deploy_branch" {
   type        = string
   default     = "main"
 }
+
+variable "manage_ses" {
+  description = "Provision the SES domain identity (Easy DKIM), custom MAIL FROM, their Route 53 records and the SMTP-only IAM user (ses.tf)."
+  type        = bool
+  default     = false
+}
+
+variable "mail_domain" {
+  description = "Domain Fenwira sends email from (SES domain identity). MAIL_FROM must use an address at this domain."
+  type        = string
+  default     = "fenwira.zenteqk.com"
+}
+
+variable "mail_from_subdomain" {
+  description = "Label of the custom MAIL FROM (bounce) domain under mail_domain: <label>.<mail_domain>."
+  type        = string
+  default     = "mail"
+}
