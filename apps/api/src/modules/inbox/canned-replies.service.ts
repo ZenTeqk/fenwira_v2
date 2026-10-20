@@ -1,6 +1,7 @@
 import { type CannedReply, type CreateCannedReply } from '@fenwira/contracts'
 import { Prisma, type TenantTx } from '@fenwira/database'
 import { Injectable } from '@nestjs/common'
+import { likeLiteral } from '../../core/database/like'
 import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { AuditService } from '../audit'
@@ -43,8 +44,8 @@ export class CannedRepliesService {
         where: q
           ? {
               OR: [
-                { shortcut: { contains: q, mode: 'insensitive' } },
-                { title: { contains: q, mode: 'insensitive' } },
+                { shortcut: { contains: likeLiteral(q), mode: 'insensitive' } },
+                { title: { contains: likeLiteral(q), mode: 'insensitive' } },
               ],
             }
           : undefined,

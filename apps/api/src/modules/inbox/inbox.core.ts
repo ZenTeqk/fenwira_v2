@@ -1,6 +1,7 @@
 import { type Conversation, type Role, roleHasPermission } from '@fenwira/contracts'
 import { type Prisma, type TenantTx } from '@fenwira/database'
 import { AppError } from '../../core/http/app-error'
+import { likeLiteral } from '../../core/database/like'
 import { writeSystemEvent } from '../messaging'
 import { createNotification, type NewNotification } from '../notifications'
 
@@ -142,7 +143,7 @@ export async function searchConversations(
     ORDER BY m.conversation_id, m.created_at DESC
     LIMIT 500`
   const digits = q.replace(/\D/g, '')
-  const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
+  const like = `%${likeLiteral(q)}%`
   const byContact = await tx.$queryRaw<Array<{ id: string }>>`
     SELECT c.id FROM conversations c JOIN contacts ct ON ct.id = c.contact_id
     WHERE ct.name ILIKE ${like} OR ct.wa_profile_name ILIKE ${like}

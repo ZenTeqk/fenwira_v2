@@ -15,6 +15,7 @@ import {
 import { Database, Prisma, type TenantTx } from '@fenwira/database'
 import { GraphClient, GraphError, toMetaTemplatePayload } from '@fenwira/whatsapp'
 import { Inject, Injectable } from '@nestjs/common'
+import { likeLiteral } from '../../core/database/like'
 import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
@@ -87,7 +88,7 @@ export class TemplatesService {
           ...(q.category ? { category: q.category } : {}),
           ...(q.language ? { language: q.language } : {}),
           ...(q.wabaId ? { wabaId: q.wabaId } : {}),
-          ...(q.q ? { name: { contains: q.q.toLowerCase() } } : {}),
+          ...(q.q ? { name: { contains: likeLiteral(q.q.toLowerCase()) } } : {}),
         },
         include: TEMPLATE_INCLUDE,
         orderBy: { updatedAt: 'desc' },

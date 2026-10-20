@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { AppError } from '../src/core/http/app-error'
 import { resolveCorrelationId } from '../src/core/http/correlation.middleware'
 import { toErrorEnvelope } from '../src/core/http/exception.filter'
-import { ZodValidationPipe } from '../src/core/http/zod-validation.pipe'
+import { nulPath, ZodValidationPipe } from '../src/core/http/zod-validation.pipe'
 
 describe('resolveCorrelationId', () => {
   it('keeps a safe client-supplied id', () => {
@@ -20,6 +20,22 @@ describe('resolveCorrelationId', () => {
       expect(id).not.toBe(bad)
       expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
     }
+  })
+})
+
+describe('ZodValidationPipe NUL guard', () => {
+  it('refuses U+0000 anywhere in the input with a field path, before the schema runs', () => {
+    const pipe = new ZodValidationPipe(z.unknown())
+    expect(() => pipe.transform({ a: [{ b: 'x\u0000y' }] })).toThrow(AppError)
+    try {
+      pipe.transform({ a: [{ b: 'x\u0000y' }] })
+    } catch (e) {
+      expect((e as AppError).status).toBe(400)
+      expect((e as AppError).fieldErrors?.[0]?.path).toBe('a.0.b')
+    }
+    expect(nulPath({ ['k\u0000']: 1 })).toBe('k\u0000')
+    expect(nulPath('plain')).toBeNull()
+    expect(pipe.transform({ text: 'Zoë 🚀 \u202E' })).toEqual({ text: 'Zoë 🚀 \u202E' })
   })
 })
 
