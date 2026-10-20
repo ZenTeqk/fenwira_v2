@@ -176,3 +176,7 @@ Commercial read services lock an existing wallet for shared read consistency, wh
 ### X19 recovery extension (Phase 11 remediation)
 
 `system.webhook_deliveries_due(now, limit, after)` returns only `(tenant_id, delivery_id)` for due PENDING records, in deterministic pages capped at 500. Payloads/secrets/updates remain tenant-scoped. Fixed search_path, explicit ownership, column grants and revoked PUBLIC execution follow existing system-function policy. Security review and recovery semantics: ADR-0026.
+
+### X20 lifecycle cursor extension
+
+`system.subscriptions_due(now, limit, after)` is an additive overload returning tenant IDs only, ordered by unique tenant UUID and capped at 500. It has the same column grants, fixed search_path, owner and execution restrictions as the existing two-argument accessor, which remains available to older binaries. Consumers recheck each tenant under its row lock. No new global-data exposure or RLS exception.

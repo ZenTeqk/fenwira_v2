@@ -149,34 +149,43 @@ export class BillingMaintenanceProcessor
    * the rest; repeats are no-ops.
    */
   async tickSubscriptions(now = new Date()): Promise<string> {
-    const tenantIds = await this.db.system.subscriptionsDue(now, BATCH)
-    let notices = 0
-    for (const tenantId of tenantIds) {
-      try {
-        const r = await this.db.withTenant(tenantId, (tx) => stepSubscription(tx, tenantId, now))
-        if (!r.notice) continue
-        notices++
-        this.metrics.subscriptionTransitions.inc({ to: r.notice })
-        if (!this.mailer) continue
-        const copy = noticeCopy(r.notice, r.trialEndsAt)
-        for (const user of r.recipients)
-          await this.mailer
-            .send({
-              to: user.email,
-              ...subscriptionNoticeEmail(
-                user.name,
-                r.workspace,
-                copy,
-                `${this.options.webOrigin ?? ''}/billing/subscription`,
-              ),
-            })
-            .catch((err: unknown) =>
-              this.logger.error({ err, tenantId }, 'subscription notice email failed'),
-            )
-      } catch (err) {
-        this.logger.error({ err, tenantId }, 'subscription lifecycle step failed')
+    let after: string | null = null
+    let processed = 0,
+      notices = 0
+    for (;;) {
+      const tenantIds = await this.db.system.subscriptionsDue(now, BATCH, after)
+      if (!tenantIds.length) break
+      processed += tenantIds.length
+      for (const tenantId of tenantIds) {
+        try {
+          const r = await this.db.withTenant(tenantId, (tx) => stepSubscription(tx, tenantId, now))
+          if (!r.notice) continue
+          notices++
+          this.metrics.subscriptionTransitions.inc({ to: r.notice })
+          if (!this.mailer) continue
+          const copy = noticeCopy(r.notice, r.trialEndsAt)
+          for (const user of r.recipients)
+            await this.mailer
+              .send({
+                to: user.email,
+                ...subscriptionNoticeEmail(
+                  user.name,
+                  r.workspace,
+                  copy,
+                  `${this.options.webOrigin ?? ''}/billing/subscription`,
+                ),
+              })
+              .catch((err: unknown) =>
+                this.logger.error({ err, tenantId }, 'subscription notice email failed'),
+              )
+        } catch (err) {
+          this.logger.error({ err, tenantId }, 'subscription lifecycle step failed')
+        }
       }
+      // Advance even when a row failed or remains warning-due. Restart safely begins at null;
+      // row locks and persisted notices make the repeated first page harmless, never exclusive.
+      after = tenantIds[tenantIds.length - 1]!
     }
-    return `subscriptions:${tenantIds.length}:notices:${notices}`
+    return `subscriptions:${processed}:notices:${notices}`
   }
 }

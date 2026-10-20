@@ -556,6 +556,17 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT p_limit;
 $$;
 
+-- X20 keyset overload: preserve the two-argument accessor for older release compatibility.
+CREATE OR REPLACE FUNCTION system.subscriptions_due(p_now timestamptz, p_limit integer, p_after uuid)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT s.tenant_id FROM public.subscriptions s
+  WHERE ((s.status = 'TRIALING' AND s.trial_ends_at <= p_now + interval '3 days')
+     OR (s.status = 'ACTIVE' AND s.current_period_end <= p_now))
+    AND (p_after IS NULL OR s.tenant_id > p_after)
+  ORDER BY s.tenant_id LIMIT least(greatest(p_limit, 1), 500);
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -583,7 +594,8 @@ BEGIN
     'system.purge_webhook_deliveries(uuid, timestamptz)',
     'system.tenants_with_stale_webhook_deliveries(timestamptz, integer)',
     'system.webhook_deliveries_due(timestamptz, integer, uuid)',
-    'system.subscriptions_due(timestamptz, integer)'
+    'system.subscriptions_due(timestamptz, integer)',
+    'system.subscriptions_due(timestamptz, integer, uuid)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

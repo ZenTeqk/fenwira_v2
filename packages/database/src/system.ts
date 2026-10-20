@@ -280,9 +280,9 @@ export class SystemGateway {
   }
 
   /** X20: subscriptions with lifecycle work due (Phase 11 Step 4) — tenant ids only. */
-  async subscriptionsDue(now: Date, limit: number): Promise<string[]> {
+  async subscriptionsDue(now: Date, limit: number, after: string | null = null): Promise<string[]> {
     const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
-      SELECT * FROM system.subscriptions_due(${now}, ${limit}::int)`
+      SELECT * FROM system.subscriptions_due(${now}, ${limit}::int, ${after}::uuid)`
     return rows.map((r) => r.tenant_id)
   }
 }

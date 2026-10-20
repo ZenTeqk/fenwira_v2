@@ -4,7 +4,7 @@ Authorized 2026-10-20. Baseline: `675f7bc`. Existing `main` branch; no push, dep
 
 - [x] Stage 1 / F01 / 11.1-03–06, 11.1-14, 11.1-19, X-04: reproduce with PostgreSQL; serialize settlement and ledger idempotency before reads; test competing settle/release, retry, rollback and tenant isolation; commit verified fix.
 - [x] Stage 2 / F02 / 11.3-15–18: recover durable due PENDING deliveries, bound concurrent claims, enqueue after commit, preserve signatures/deadline/suspension; test job loss/recovery and receiver failures; commit.
-- [ ] Stage 3 / F03 / 11.4-04–06, 11.4-14: keyset traversal beyond 500 subscriptions; test notices/transitions/restarts; commit.
+- [x] Stage 3 / F03 / 11.4-04–06, 11.4-14: keyset traversal beyond 500 subscriptions; test notices/transitions/restarts; commit.
 - [ ] Stage 4 / F04/F05 / 11.2-07–09, 11.2-15–16, 11.2-20: fair analytics traversal and ledger-driven promotional-credit invalidation; test quiet tenants, deduplication, date boundaries and source reconciliation; commit.
 - [ ] Stage 5 / F06 / 11.3-20, X-05: reconcile outdated API/database/deployment prose; classify every remaining matrix item against executable evidence; no invented scope.
 - [ ] Stage 6 / V1: run existing Phase11 API/tenant/MFA/financial-security integration coverage and fix confirmed in-scope failures.
@@ -21,3 +21,7 @@ Isolated PostgreSQL16 initialized with existing roles/migrations/post-migrate/RL
 ## Stage 2 evidence
 
 Durable due-row recovery on existing maintenance queue; deterministic attempt job IDs; transaction advisory claims; enqueue/alerts after commit; terminal/error timestamps cleared. Additive due index and restricted X19 accessor/security review in ADR-0026. PostgreSQL/Redis/local-receiver suite passed 18/18 before the additional X19 privilege/shape assertion; final count recorded in acceptance results. First run found two test-harness issues (header case and void SQL deserialization), corrected without weakening behavior assertions. Real ten-second receiver timeout, 400/503 retry, Redis job deletion, concurrent scans, crash rollback, signing, rotation, auto-disable and manual retry exercised. No external receivers. API build, worker typecheck and affected lint passed.
+
+## Stage 3 evidence
+
+Original 501-workspace regression failed: final workspace stayed TRIALING. Fixed X20 keyset overload and bounded traversal now pass 2/2 PostgreSQL tests: all 501 receive lifecycle service, concurrent/restarted ticks do not duplicate notices, expiry reaches all rows, and insertion/deletion between pages does not skip later IDs. Existing 2-argument function retained for binary compatibility; no billing flag change. API build, worker typecheck and affected lint pass. Logs: `/private/tmp/fenwira-p11-subscriptions-{before,after}.log`.
