@@ -227,3 +227,7 @@ OAuth challenges expire after ten minutes, store hashed state plus an encrypted 
 ERPNext accepts public HTTPS root URLs only. Provider HTTP uses safeFetch with no redirects, DNS pinning, bounded response/timeouts and no production private-host exception. Other provider destinations come from fixed region/domain allowlists. Errors are sanitized classifications. Google writes RAW values into a new receipt-specific tab, avoiding spreadsheet formula interpretation and duplicate append behavior. Snapshot payloads are encrypted and kept out of audit/outbox/log records.
 
 Disconnect destroys local credentials and prevents new transfers. An in-flight external request can finish; local disconnect does not revoke a remote OAuth grant or uninstall an app. Users must also revoke/uninstall at the provider when required. Imported contacts retain authoritative Fenwira consent/suppression behavior.
+
+### Phase 11 recovery security boundaries
+
+Webhook send claims are PostgreSQL transaction locks, not Redis-only locks. X19 pending recovery and the X10/X20 cursor overloads expose IDs only, retain fixed search_path/column grants and revoke PUBLIC execution; payloads, secrets, financial reads and changes remain in forced-RLS tenant transactions. `billing.transaction_posted` is an internal IDs-only analytics event, excluded from the public webhook catalog and API-key allowlist. Operator MFA/session/financial permission requirements and rollout flags are unchanged. ADR-0026 records recovery security review.

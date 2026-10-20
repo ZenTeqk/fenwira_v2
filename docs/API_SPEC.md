@@ -317,10 +317,7 @@ Implemented in Phase 10:
 
 | Method | Path | P |
 | --- | --- | --- |
-| GET | `/billing/subscription`, `/billing/plans`, `/billing/entitlements` | `billing.read` |
-| POST | `/billing/subscription/change` | `billing.manage` (admin-driven in v2) |
-| GET | `/billing/wallet`, `/billing/wallet/transactions`, `/billing/usage` | `billing.read` |
-| POST | `/billing/wallet/credits` **IK** | Platform admin only in v2 |
+| GET | `/billing/wallet`, `/billing/wallet/transactions` | `billing.read` |
 | GET | `/workspace/status` | `workspace.read` (every role). `{wallet: {state, currency, availableMinor}, subscription: {status, trialEndsAt, trialDaysLeft}}`; `availableMinor` is null without `billing.read` |
 | GET | `/billing/plans` | `billing.read` (Phase 11 Step 4) |
 | GET | `/billing/subscription` | `billing.read` |
@@ -337,6 +334,8 @@ Implemented in Phase 10:
 | POST | `/webhook-endpoints/:id/rotate-secret`, `/webhook-endpoints/:id/test` | `integrations.manage` |
 | GET | `/webhook-endpoints/:id/deliveries`, `/webhook-endpoints/:id/deliveries/:deliveryId` | `integrations.manage` |
 | POST | `/webhook-endpoints/:id/deliveries/:deliveryId/retry` | `integrations.manage` |
+
+Billing Usage is the web redirect `/billing/usage` → `/analytics/usage`; no separate `/billing/usage` HTTP API exists. Plans are requested via `/billing/subscription/request` and activated through platform subscription operations. Funding uses platform wallet operations; no tenant wallet-credit mutation is exposed.
 
 Implemented in Phase 11 Step 1 (`BILLING.md` → Wallet state, Transactions API):
 - `GET /billing/wallet` adds `support {email, url}` (P11-D20, null when not configured), `state` (`NORMAL`, `LOW_BALANCE`, `INSUFFICIENT_FUNDS`, `NOT_ENFORCED`, decision P11-D12), `lowBalanceThresholdMinor` and `spentThisMonthMinor` (usage debits since the 1st, UTC). Clients render `state`; they never compare amounts.
