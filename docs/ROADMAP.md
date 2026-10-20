@@ -13,7 +13,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | Phase | Scope | Status | Prompt |
 | --- | --- | --- | --- |
 | 0 | Product + architecture specification | ✅ frozen 2026-09-26: every open question is decided (`PRODUCT.md` → Decision register, ADR-0022 and ADR-0023). | [PHASE_00](prompts/PHASE_00_SPECIFICATION.md) |
-| 1 | Monorepo + Docker Compose + engineering foundation | 🔵 foundation implemented and cached local startup verified (see below). Fresh startup/CI remain blocked by the configured MinIO image; current evidence is recorded in the Phase 11 closure report. | [PHASE_01](prompts/PHASE_01_FOUNDATION.md) |
+| 1 | Monorepo + Docker Compose + engineering foundation | ✅ fresh clean-clone startup verified 2026-10-19 (no-cache build, fresh volumes, all services healthy, `pnpm smoke` 3/3); guarded in CI by the `compose-boot` job. See the [Phase 11 closure addendum](plans/PHASE_11_CLOSURE.md#o-closure-addendum-2026-10-19). | [PHASE_01](prompts/PHASE_01_FOUNDATION.md) |
 | 2 | Design system + application shell | ✅ all acceptance criteria pass locally (see below). The CI workflow includes every check but hasn't run on GitHub yet (no remote). | [PHASE_02](prompts/PHASE_02_DESIGN_SYSTEM.md) |
 | 3 | Authentication + tenant + RBAC + RLS | ✅ all acceptance criteria pass locally (see below). CI hasn't run on GitHub yet (no remote). | [PHASE_03](prompts/PHASE_03_AUTH_TENANCY.md) |
 | 4 | Meta onboarding + WhatsApp account management | 🔵 every criterion passes against the simulated Graph API (see below). Real Embedded Signup needs Meta Tech Provider approval (MI1). |  [PHASE_04](prompts/PHASE_04_META_ONBOARDING.md) |
@@ -23,7 +23,7 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 8 | Template management / builder | 🔵 every criterion passes against the simulated Graph API (see below). The real-WABA round trip needs Meta production onboarding (MI1). | [PHASE_08](prompts/PHASE_08_TEMPLATES.md) |
 | 9 | Campaign / broadcast engine | ✅ complete (closed 2026-09-26 with decisions P9-D1–D3; see below). Real sends need MI1. | [PHASE_09](prompts/PHASE_09_CAMPAIGNS.md) |
 | 10 | Automation / visual flow builder | ✅ implemented with decisions P10-D1–D4 (ADR-0025); every criterion passes locally (see below). Real sends need MI1. | [PHASE_10](prompts/PHASE_10_AUTOMATION.md) |
-| 11 | Billing + analytics + administration | 🟡 in progress: plan approved 2026-09-28 (P11-D2–D23), implemented in the approved steps ([plans/PHASE_11_PLAN.md](plans/PHASE_11_PLAN.md) §8). Step 1, Step 2 and Step 3 (wallet integrity, analytics, API keys + public routes + webhooks) closed; Step 4 (plans, entitlements, subscriptions; P11-D24–D28) implemented 2026-10-05, accepted 2026-10-05; Step 5 ACCEPTED in the closure request; nine increments ([evidence](plans/STEP5_VALIDATION.md)). Local closure verification complete; Phase 11 BLOCKED by CI/clean startup on the unavailable configured MinIO image ([closure report](plans/PHASE_11_CLOSURE.md)) | [PHASE_11](prompts/PHASE_11_BILLING_ANALYTICS.md) |
+| 11 | Billing + analytics + administration | ✅ closed 2026-10-19. Plan approved 2026-09-28 (P11-D2–D23); Steps 1–3 (wallet integrity, analytics, API keys + public routes + webhooks) closed; Step 4 (plans, entitlements, subscriptions; P11-D24–D28) and Step 5 (platform operations, [evidence](plans/STEP5_VALIDATION.md)) accepted. The last gate, fresh clean startup + CI, was cleared after the MinIO image fix (`91d122f`): see the [closure report](plans/PHASE_11_CLOSURE.md) §O. `BILLING_SUBSCRIPTIONS_ENFORCED` stays false in production pending a separate rollout decision. | [PHASE_11](prompts/PHASE_11_BILLING_ANALYTICS.md) |
 | 12 | Hardening + testing + production readiness | ⬜ | [PHASE_12](prompts/PHASE_12_HARDENING.md) |
 
 ## Dependency order
@@ -330,4 +330,4 @@ Also found and fixed: `@socket.io/redis-emitter` left publish promises unhandled
 | --- | --- | --- |
 | **High** | Stale wallet-reservation recovery | Reservations whose message crashed or was abandoned must be found and safely released or settled from the message's final state, without double charging (keyed by message id, the same idempotent settle/release paths). |
 | High | Real Meta round trips (MI1) | Business milestone; doesn't block development. |
-| — | CI / clean registry startup | Remote exists; configured MinIO image is unavailable to fresh pulls. Integration/Compose CI jobs are blocked; see Phase 11 closure report. |
+| — | ~~CI / clean registry startup~~ | Resolved 2026-10-19: MinIO now uses a digest-pinned Chainguard image (`91d122f`); fresh startup verified and guarded by the `compose-boot` CI job. |

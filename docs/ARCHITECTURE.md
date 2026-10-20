@@ -46,7 +46,7 @@ Both api and worker use the same domain modules from `apps/api/src/modules/*`. T
 - Next.js App Router. Routes under `app/(auth)` (public) and `app/(app)` (authenticated shell).
 - App pages are **client components**. Data comes from the API through TanStack Query. Server components are used only for static shells and metadata.
 - The auth gate runs on the client: `GET /api/v1/auth/me` on shell mount, and a redirect to `/login` on 401.
-- Libraries: TanStack Query for server state, Zustand only for ephemeral UI state (for example the inbox composer draft and the selected conversation), React Hook Form + Zod (schemas from `@fenwira/contracts`) for forms, and the Socket.IO client for realtime, which invalidates or patches Query caches.
+- Libraries: TanStack Query for server state and the Socket.IO client for realtime, which invalidates or patches Query caches. Ephemeral UI state (for example the inbox composer draft and the selected conversation) is component state (`useState`/`useReducer`); cross-page session state lives in React context (`SessionProvider`, `PlatformShell`). Forms are controlled React components submitting through `apps/web/lib/api`; the API's Zod validation (schemas from `@fenwira/contracts`) is authoritative, and some forms also `safeParse` with the same schemas client-side. There is no form or global-state library (React Hook Form and Zustand were planned but never adopted).
 - The API base URL is `NEXT_PUBLIC_API_URL`. Requests use `credentials: 'include'`.
 
 ### Backend module map (NestJS modules in `apps/api/src/modules`)
