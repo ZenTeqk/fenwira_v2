@@ -105,9 +105,14 @@ sudo cp deploy/systemd/fenwira-{api,worker,web}.service deploy/systemd/fenwira.t
 sudo ln -sfn /opt/fenwira/releases/<tag> /opt/fenwira/current
 sudo chown -R fenwira:fenwira /opt/fenwira/current/apps/web/.next/standalone/apps/web/.next/cache
 sudo systemctl daemon-reload
+# Enable each service that should run (links it into fenwira.target.wants), then the target itself
+# so they start at boot. Leave the worker out until SMTP is configured; enable it later the same way.
+sudo systemctl enable fenwira-api fenwira-web   # + fenwira-worker once SMTP is set
 sudo systemctl enable --now fenwira.target
 deploy/scripts/check-health.sh all 120
 ```
+
+`fenwira.target` has no `Wants=` list: it starts only the services that are enabled. Check boot readiness with `systemctl is-enabled fenwira.target fenwira-api fenwira-web` (all `enabled`) and `systemctl list-dependencies fenwira.target`.
 
 ## 8. nginx and certificates
 

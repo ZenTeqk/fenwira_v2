@@ -1,7 +1,10 @@
-# Groups the three Fenwira services: `systemctl start|stop|restart fenwira.target`.
+# Groups the Fenwira services: `systemctl start|stop|restart fenwira.target`.
+# Membership comes only from enabled units (`systemctl enable fenwira-<svc>` links them into
+# fenwira.target.wants via their WantedBy=). There is deliberately no Wants= list here: a disabled
+# unit (today the worker, until SMTP is configured) must stay off at boot and on target start.
+# Each service has PartOf=fenwira.target, so stop/restart of the target reaches every running one.
 [Unit]
-Description=Fenwira application (api, worker, web)
-Wants=fenwira-api.service fenwira-worker.service fenwira-web.service
+Description=Fenwira application (enabled units among api, worker, web)
 After=network-online.target redis-server.service
 
 [Install]
