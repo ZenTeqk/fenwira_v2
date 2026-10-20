@@ -36,7 +36,7 @@ How Fenwira runs on a single Ubuntu 24.04 EC2 host: Node 22, systemd, nginx and 
 
 These are the same entry points the Docker images run (`infrastructure/docker/*.Dockerfile`): one implementation, two ways to package it.
 
-- **Starting and stopping:** `systemctl start|stop|restart fenwira.target` controls all three services.
+- **Starting and stopping:** `systemctl start|stop|restart fenwira.target` controls the *enabled* services (today api and web; the worker is disabled until SMTP exists). `fenwira.target` is enabled under `multi-user.target`, so those services start at boot.
 - **Order:** web waits for the API (`After=`). Both API and worker start after `redis-server`.
 - **Database availability:** RDS is remote, so systemd can't order on it. The services retry their connections, and readiness reports the database down until it answers.
 
