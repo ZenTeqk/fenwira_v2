@@ -25,6 +25,16 @@ describe('loadEnv', () => {
     expect(loadEnv(apiEnvSchema, valid).SYSTEM_PING_ENABLED).toBe(false)
   })
 
+  it('parses MANAGED_LAUNCH_MODE (ADR-0027), off by default', () => {
+    expect(loadEnv(apiEnvSchema, valid).MANAGED_LAUNCH_MODE).toBe(false)
+    expect(
+      loadEnv(apiEnvSchema, { ...valid, MANAGED_LAUNCH_MODE: 'true' }).MANAGED_LAUNCH_MODE,
+    ).toBe(true)
+    expect(() => loadEnv(apiEnvSchema, { ...valid, MANAGED_LAUNCH_MODE: 'yes' })).toThrow(
+      /MANAGED_LAUNCH_MODE/,
+    )
+  })
+
   it('reports every invalid or missing variable at once', () => {
     try {
       loadEnv(apiEnvSchema, { DATABASE_URL: 'mysql://nope' })

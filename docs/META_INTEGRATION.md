@@ -23,6 +23,10 @@ How Fenwira integrates with the Meta WhatsApp Cloud API: the platform app setup,
 
 - The app webhook callback URL is `{PUBLIC_API_URL}/webhooks/whatsapp`, configured once in the Meta app dashboard. Local development needs a tunnel (for example `cloudflared`); see `DEPLOYMENT.md`.
 
+### Managed Launch Mode (ADR-0027)
+
+Until Tech Provider approval, `MANAGED_LAUNCH_MODE=true` hides Embedded Signup. A platform operator connects each customer's WABA from `/platform` with a system-user token, and each WABA can carry its own app secret for webhook signatures (ML-D1). Tenants see read-only connection status. The Embedded Signup flow below is unchanged and returns when the switch is off.
+
 ### Required permissions
 
 `whatsapp_business_management`, `whatsapp_business_messaging` and `business_management` (to read the business portfolio).

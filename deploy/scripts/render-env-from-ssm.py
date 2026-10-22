@@ -60,6 +60,8 @@ SHARED_SERVER = {
     "META_GRAPH_API_VERSION": "v23.0",
     "BILLING_ENFORCED": "false",
     "BILLING_SUBSCRIPTIONS_ENFORCED": "false",
+    # ADR-0027: switching production to Managed Launch Mode is an explicit rollout decision.
+    "MANAGED_LAUNCH_MODE": "false",
 }
 SERVER_VARS = [
     "DATABASE_URL", "ENCRYPTION_KEYS", "ENCRYPTION_ACTIVE_KEY_ID", "S3_REGION", "S3_ENDPOINT",

@@ -52,6 +52,7 @@ export function coreConfigFromApiEnv(
       trialDays: env.BILLING_TRIAL_DAYS,
       trialPlanKey: env.BILLING_TRIAL_PLAN,
     },
+    features: { managedLaunch: env.MANAGED_LAUNCH_MODE },
   }
 }
 
@@ -119,6 +120,7 @@ export class ApiModule {
           graphVersion: env.META_GRAPH_API_VERSION,
           graphBaseUrl: env.META_GRAPH_BASE_URL,
           devConnect: env.WHATSAPP_DEV_CONNECT,
+          managedLaunch: env.MANAGED_LAUNCH_MODE,
         }),
         RealtimeModule.forApi([identity, tenancy]),
         HealthModule.forRoot({

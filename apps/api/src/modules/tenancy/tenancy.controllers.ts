@@ -31,6 +31,7 @@ import {
   Res,
 } from '@nestjs/common'
 import { type Request, type Response } from 'express'
+import { CORE_CONFIG, type CoreConfig } from '../../core/config/core-config'
 import { randomToken } from '@fenwira/config'
 import { z } from 'zod'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
@@ -56,9 +57,10 @@ export class MeController {
     private readonly identity: IdentityService,
     private readonly me: MeService,
     @Inject(IDENTITY_OPTIONS) private readonly options: IdentityOptions,
+    @Inject(CORE_CONFIG) private readonly config: CoreConfig,
   ) {}
 
-  /** User, workspaces and the CSRF token for this browser session. */
+  /** User, workspaces, product switches and the CSRF token for this browser session. */
   @Get('auth/me')
   async get(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<{ data: Me }> {
     const { userId } = currentAuth()
@@ -77,7 +79,8 @@ export class MeController {
         ...(this.options.cookies.domain ? { domain: this.options.cookies.domain } : {}),
       })
     }
-    return { data: { user, memberships, csrfToken } }
+    const features = { managedLaunch: this.config.features?.managedLaunch ?? false }
+    return { data: { user, memberships, csrfToken, features } }
   }
 }
 

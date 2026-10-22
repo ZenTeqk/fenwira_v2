@@ -139,10 +139,14 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
       attention.push({
         id: 'connect',
         tone: 'info',
-        title: 'Connect a WhatsApp number',
-        body: 'Nothing can be sent or received until a WhatsApp Business number is connected.',
+        title: me.features.managedLaunch
+          ? 'Contact support to connect WhatsApp'
+          : 'Connect a WhatsApp number',
+        body: me.features.managedLaunch
+          ? 'Fenwira support connects your WhatsApp Business number. Nothing can be sent or received until it is connected.'
+          : 'Nothing can be sent or received until a WhatsApp Business number is connected.',
         href: '/integrations/whatsapp',
-        action: 'Connect',
+        action: me.features.managedLaunch ? 'View status' : 'Connect',
       })
     else if (conn.status !== 'CONNECTED')
       attention.push({

@@ -119,7 +119,7 @@ Auth column: **Public** = no session needed. **Session** = the `fw_at` cookie (a
 | POST | `/auth/logout` | Session | → 204, cookies cleared, session family revoked immediately |
 | POST | `/auth/password/forgot` | Public | `{email}` → always 202 (no account enumeration) |
 | POST | `/auth/password/reset` | Public | `{token, password}` → 204. Revokes every session; marks the email verified. |
-| GET | `/auth/me` | Session | → `{data: {user, memberships: [{membershipId, tenantId, tenantName, tenantSlug, role, permissions[], require2fa}], csrfToken}}` |
+| GET | `/auth/me` | Session | → `{data: {user, memberships: [{membershipId, tenantId, tenantName, tenantSlug, role, permissions[], require2fa}], csrfToken, features: {managedLaunch}}}`. `features` are platform switches (ADR-0027). |
 | PATCH | `/me` | Session | `{name?, timezone?, locale?}` → `{data: user}` (avatar upload arrives with MinIO files in Phase 5) |
 | POST | `/me/password` | Session | `{currentPassword, newPassword}` → 204. Revokes all other sessions. |
 | GET | `/me/sessions` | Session | → `{data: [{id, userAgent, ip, createdAt, lastUsedAt, current}]}`, one entry per session family |
@@ -178,6 +178,7 @@ Implementation notes (Phase 4):
 - `POST /:id/rotate-token`: `{code}` (Embedded Signup) or `{accessToken}` (developer connect only).
 - `PATCH /:id`: `{isDefault: true}` and/or `{label}`.
 - Rate limits per tenant: connect/rotate 20/h, test 30/h, sync 30/h.
+- **Managed Launch Mode (ADR-0027):** with `MANAGED_LAUNCH_MODE=true`, `GET /config/whatsapp-signup`, `POST /whatsapp/connections`, `/dev`, `/:id/retry`, `/:id/sync`, `/:id/rotate-token` and `DELETE /:id` return **404 `NOT_FOUND`** before validation. Listing, `PATCH` and `/:id/test` are unchanged. Operators manage the connection from `/platform`.
 
 ### Webhooks (P5). Public, no auth.
 

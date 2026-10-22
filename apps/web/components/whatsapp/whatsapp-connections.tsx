@@ -33,10 +33,12 @@ const message = (err: unknown) => (err instanceof ApiError ? err.message : Strin
 
 /** Settings → WhatsApp and Integrations → WhatsApp (same screen, two entry points). */
 export function WhatsAppConnections() {
-  const { tenantId, can } = useSession()
+  const { tenantId, can, me } = useSession()
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const canManage = can('whatsapp.manage')
+  // ADR-0027: in Managed Launch Mode Fenwira support connects numbers; there is no Embedded Signup.
+  const managed = me.features.managedLaunch
   const [devOpen, setDevOpen] = useState(false)
   const [testing, setTesting] = useState<WhatsAppConnection | null>(null)
   const [renaming, setRenaming] = useState<WhatsAppConnection | null>(null)
@@ -57,7 +59,7 @@ export function WhatsAppConnections() {
     queryKey: keys.tenant(tenantId, 'whatsapp-signup-config'),
     queryFn: () =>
       get<{ data: WhatsAppSignupConfig }>('/config/whatsapp-signup').then((r) => r.data),
-    enabled: canManage,
+    enabled: canManage && !managed,
     staleTime: Infinity,
   })
   const refresh = () => void queryClient.invalidateQueries({ queryKey: listKey })
@@ -140,32 +142,41 @@ export function WhatsAppConnections() {
   if (!can('whatsapp.read')) return <PermissionState what="WhatsApp connections" />
 
   const embedded = config.data?.embeddedSignup ?? false
-  const actions = canManage ? (
-    <div className="flex flex-wrap gap-2">
-      {config.data?.devConnect ? (
-        <Button variant="secondary" onClick={() => setDevOpen(true)}>
-          <Wrench aria-hidden="true" />
-          Developer connect
-        </Button>
-      ) : null}
-      {embedded ? (
-        <Button onClick={() => signup.mutate()} loading={signup.isPending}>
-          <Plus aria-hidden="true" />
-          Connect WhatsApp
-        </Button>
-      ) : null}
-    </div>
-  ) : null
+  const actions =
+    canManage && !managed ? (
+      <div className="flex flex-wrap gap-2">
+        {config.data?.devConnect ? (
+          <Button variant="secondary" onClick={() => setDevOpen(true)}>
+            <Wrench aria-hidden="true" />
+            Developer connect
+          </Button>
+        ) : null}
+        {embedded ? (
+          <Button onClick={() => signup.mutate()} loading={signup.isPending}>
+            <Plus aria-hidden="true" />
+            Connect WhatsApp
+          </Button>
+        ) : null}
+      </div>
+    ) : null
 
   return (
     <SettingsPage
       header={{
         title: 'WhatsApp',
-        description:
-          'Connect your WhatsApp Business numbers. Each number belongs to one workspace.',
+        description: managed
+          ? 'Your WhatsApp Business numbers. Fenwira support connects them for you.'
+          : 'Connect your WhatsApp Business numbers. Each number belongs to one workspace.',
         actions: actions,
       }}
     >
+      {managed && connections.data?.length ? (
+        <Alert tone="info" title="Connection managed by Fenwira support">
+          To connect another number, change a token or disconnect a number, contact Fenwira support.
+          Meta bills its conversation charges to your Meta payment method, separately from your
+          Fenwira subscription.
+        </Alert>
+      ) : null}
       {canManage && config.data && !embedded ? (
         <Alert tone="info" title="Embedded Signup isn't set up on this server">
           An administrator needs to add the Meta app ID, app secret and Embedded Signup
@@ -193,11 +204,13 @@ export function WhatsAppConnections() {
       ) : connections.data.length === 0 ? (
         <EmptyState
           icon={<MessageCircle aria-hidden="true" />}
-          title="No WhatsApp number connected"
+          title={managed ? 'Contact support to connect WhatsApp' : 'No WhatsApp number connected'}
           description={
-            canManage
-              ? 'Connect a WhatsApp Business number to start messaging customers.'
-              : 'Ask a workspace admin to connect a WhatsApp Business number.'
+            managed
+              ? 'Fenwira support connects your WhatsApp Business number to this workspace. Contact support to get started.'
+              : canManage
+                ? 'Connect a WhatsApp Business number to start messaging customers.'
+                : 'Ask a workspace admin to connect a WhatsApp Business number.'
           }
           action={actions}
         />
@@ -208,6 +221,7 @@ export function WhatsAppConnections() {
               key={c.id}
               connection={c}
               canManage={canManage}
+              managed={managed}
               busy={busy?.id === c.id ? busy.action : undefined}
               onAction={(action) => void onAction(c, action)}
             />

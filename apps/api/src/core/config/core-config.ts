@@ -35,6 +35,8 @@ export type CoreConfig = {
   metricsHost?: string
   /** Phase 11 Step 4: how EntitlementsService resolves entitlements (docs/BILLING.md → Plans). */
   entitlements?: { enforced: boolean; trialDays: number; trialPlanKey: string }
+  /** Product switches every member may know about (returned by GET /auth/me). */
+  features?: { managedLaunch: boolean }
   /** Tests only: capture log output (default stdout). */
   logDestination?: DestinationStream
 }

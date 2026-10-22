@@ -78,6 +78,8 @@ export const meSchema = z.object({
   user: userSchema,
   memberships: z.array(membershipSummarySchema),
   csrfToken: z.string(),
+  /** Platform product switches (ADR-0027 Managed Launch Mode). */
+  features: z.object({ managedLaunch: z.boolean() }),
 })
 export type Me = z.infer<typeof meSchema>
 

@@ -324,6 +324,20 @@ UI/UX normalization before Phase 11, on branch `ui-design-system-v1`. **Accepted
 
 Also found and fixed: `@socket.io/redis-emitter` left publish promises unhandled, so a publish timing out under load became an unhandled rejection (seen once in the full suite); the emitter now drops failed publishes (unit test reproduces it). The browser CORS rule for `If-Match` (Phase 10) is covered by e2e.
 
+## Managed Launch Mode (ADR-0027, 2026-10-22)
+
+The launch happens before Tech Provider approval and without a payment gateway: operators connect numbers, and customers pay by UPI. Decisions ML-D1–ML-D8 are in `PRODUCT.md`. Each step is its own branch and PR.
+
+| Step | Branch | Status |
+| --- | --- | --- |
+| 1 Feature flag (`MANAGED_LAUNCH_MODE`) | `ml-1-flag` | 🔵 PR open |
+| 2 Operator-only manual Meta connection | `ml-2-meta-connect` | ⬜ |
+| 3 Manual UPI QR billing | `ml-3-upi-billing` | ⬜ |
+| 4 Workspace and team provisioning, SMTP optional | `ml-4-provisioning` | ⬜ |
+| 5 `docs/MANAGED_LAUNCH.md` and operator checklist | `ml-5-runbook` | ⬜ |
+| 6 First contact with real Meta (one test number) | `ml-6-real-meta` | ⬜ needs credentials |
+| 7 Hardening for the new routes, then Phase 12 | `ml-7-hardening` | ⬜ |
+
 ## Production-readiness backlog
 
 | Priority | Item | Why |
