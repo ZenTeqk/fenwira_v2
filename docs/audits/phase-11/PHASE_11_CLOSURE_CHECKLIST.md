@@ -1,6 +1,6 @@
 # Phase 11 closure checklist
 
-Reconciled 2026-10-20. **NOT READY TO CLOSE** pending current-commit CI/clean Compose and deployed-environment evidence. No unresolved confirmed P0/P1 code defect remains locally. Full matrix: 111 PASS, 2 PARTIAL, 0 FAIL, 2 UNVERIFIED /115; workstreams98/100 verified. Six scope exclusions do not count. Partial V3 rows are nonblocking Phase 12 measurements, not acceptance waivers.
+Reconciled 2026-10-20. **NOT READY TO CLOSE** pending remote exact-SHA CI and staging runtime evidence, plus formal Phase 12 deferral acceptance. No unresolved confirmed P0/P1 code defect remains locally. Full matrix: 111 PASS, 3 PARTIAL, 0 FAIL, 1 UNVERIFIED /115; workstreams98/100 verified. Six scope exclusions do not count. Two partial V3 rows are Phase 12 measurements subject to owner acceptance; the third partial row is mandatory X-10. No acceptance waiver assumed.
 
 ## Requirement checks
 
@@ -130,7 +130,7 @@ Reconciled 2026-10-20. **NOT READY TO CLOSE** pending current-commit CI/clean Co
 - [x] **X-07 PASS** — Secrets encrypted and redacted primitives pass current unit suite.
 - [x] **X-08 PASS** — Covered isolated workflow logs contain no customer PII or credentials.
 - [x] **X-09 PASS** — CI defines verify/release/integration/fresh-compose/security jobs.
-- [ ] **X-10 UNVERIFIED** — Audited commit CI job results and fresh clean-clone smoke gate observed.
+- [ ] **X-10 PARTIAL** — Audited commit CI job results and fresh clean-clone smoke gate observed.
 - [x] **X-11 PASS** — API/worker configuration includes Phase 11 flags, jobs and required secrets.
 - [ ] **X-12 UNVERIFIED** — Actual staging/production worker, SMTP, scheduler and flags verified.
 - [x] **X-13 PASS** — Lint, typecheck, all unit tests, backend and worker builds pass.
@@ -145,8 +145,10 @@ Reconciled 2026-10-20. **NOT READY TO CLOSE** pending current-commit CI/clean Co
 - [x] F04/F05 analytics quiet-ledger invalidation and complete tenant traversal verified; actual source rollups reconcile.
 - [x] F06 API/database/security/deployment prose reconciled; schema/OpenAPI current.
 - [x] Existing 325 unit tests preserved; local integration/security/browser coverage executed; default Node 22/Linux build and release assembly pass.
-- [ ] X-10 current-commit CI and clean-clone full Compose startup/smoke. Native isolated smoke does not replace this gate.
-- [ ] X-12 staging/deployed worker/outbox/scheduler/SMTP/matched-flag evidence. No remote environment inspected.
+- [x] X-10 clean-clone full Compose build/startup/smoke at exact 5e08d58 SHA: eight healthy services, successful migrations/init, smoke 3/3.
+- [ ] X-10 remote CI against exact intended SHA: unpublished commit, no Actions runs; main has advanced and direct push can trigger production deploy.
+- [ ] X-12 staging worker/outbox/scheduler/SMTP/matched-flag/secret-permission/monitoring evidence. Read-only AWS metadata identified production only; no staging runtime inspected.
+- [ ] Named owner approval/reference formally accepting 11.2-19 and 11.5-19 Phase 12 deferrals.
 - [ ] Independent review/acceptance of the above evidence before formal closure.
 
 Production deployment, production data assessment/repair, commercial pricing and enforcement activation require separate explicit operational decisions. Both enforcement flags retain default false. No push, PR, merge, deployment or Phase 12 implementation occurred. Final decisions and smallest next actions: [audit report](PHASE_11_AUDIT_REPORT.md).

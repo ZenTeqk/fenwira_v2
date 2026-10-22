@@ -37,7 +37,7 @@ Commands run from repository root; integration/browser commands source the appro
 | Browser acceptance | `pnpm --filter @fenwira/web exec playwright test e2e/billing.spec.ts e2e/analytics.spec.ts e2e/subscription.spec.ts e2e/integrations.spec.ts e2e/platform-real.spec.ts e2e/platform.spec.ts e2e/billing-reconstruction.spec.ts e2e/analytics-reconstruction.spec.ts e2e/integrations-reconstruction.spec.ts --reporter=list,json` | PASS 19 tests / 9 specs; zero failed, skipped or flaky; 196.5 seconds. Chromium. |
 | Live isolated smoke | `API_URL=http://127.0.0.1:4400 WEB_URL=http://127.0.0.1:4300 pnpm smoke` | PASS 3/3, including outbox round trip. Real API/worker, production standalone web, local mock provider. |
 
-Final combined integration total: 527 passing tests / 30 passed files; 2 optional performance tests/files skipped (32 discovered files). Optional performance tests are not mandatory Phase 11 acceptance and are not counted as passes. The prescribed Docker Compose integration wrapper was not run; the same package suites ran natively against isolated PG/Redis/services. Current remote CI/full fresh Compose and live staging gates remain UNVERIFIED.
+Final combined integration total: 527 passing tests / 30 passed files; 2 optional performance tests/files skipped (32 discovered files). Optional performance tests are not mandatory Phase 11 acceptance and are not counted as passes. The prescribed Docker Compose integration wrapper was not run; the same package suites ran natively against isolated PG/Redis/services. At the remediation audit, remote CI/full fresh Compose and live staging gates were unverified. The final release verification below supersedes the local Compose limitation; remote CI and staging remain open.
 
 ## Unit preservation
 
@@ -74,8 +74,110 @@ The passing outbox test emitted Node MaxListenersExceededWarning for test HTTP S
 
 Initial wallet/subscription red tests intentionally reproduced defects. Header-case/void-SQL fixture issues and a typed analytics spy were corrected without weakening assertions. Host sandbox access can block loopback/Docker; approved local service runs were used. An unprivileged final worker rerun was interrupted before results, then restarted with authorized loopback access; only the completed final report counts. Frozen offline Linux install lacked a frontend tarball; online download initially rejected by automatic review, explicitly approved by user and then succeeded. No repository dependency/lockfile edits resulted. No unresolved permission request remains.
 
-No remote CI, full clean Compose boot, staging/production inspection, production migration, external provider send, image scan, load benchmark or Phase 12 operation was performed. Temp logs: `/private/tmp/fenwira-p11-{full-static-unit,linux-build,linux-release-verification,worker-final,browser,smoke}.log`; JSON totals available alongside integration/browser logs during this session.
+During the earlier remediation run, no remote CI, full clean Compose boot, staging/production inspection, production migration, external provider send, image scan, load benchmark or Phase 12 operation was performed. The new release verification below records the subsequent clean Compose run and read-only remote metadata discovery. Temp logs: `/private/tmp/fenwira-p11-{full-static-unit,linux-build,linux-release-verification,worker-final,browser,smoke}.log`; JSON totals available alongside integration/browser logs during this session.
 
 ## Cleanup
 
 After all checks completed, stopped the four task-owned native acceptance processes and removed only the five `fenwira-p11-*` test/build containers and their disposable volumes. Existing seven `fenwira-local-*` containers remained running and untouched. Temporary test env files removed; diagnostic logs/results retained under `/private/tmp`. No production state was accessed.
+
+## Final release verification
+
+Verified source: **`5e08d58a6e6ab54e387f876e93123920e38a6f3b`**, local branch `main`, clean tree at start, 2026-10-20 Asia/Kolkata. This section adds release evidence; earlier 325 unit / 527 integration / 19 Chromium results were not rerun in this verification-only task. Application, CI, deployment and infrastructure source files were unchanged. The only working-tree changes are the six audit reports.
+
+### Remote CI: BLOCKED
+
+Read-only GitHub API access succeeded. `gh api repos/ZenTeqk/fenwira_v2/git/ref/heads/main --jq '.object.sha'` returned **`99060fa048a57f13957aff26d4ab98c79f22ec39`**. Its subject is “Merge PR #26: literal LIKE matching in search/filters; NUL → 400”. The comparison to remediation baseline `675f7bc` showed that baseline is two commits behind current remote main. Local main has eight unpublished remediation/report commits relative to the recorded baseline.
+
+`gh api repos/ZenTeqk/fenwira_v2/commits/5e08d58a6e6ab54e387f876e93123920e38a6f3b --jq '.sha'` returned **HTTP422, No commit found for SHA**. `gh run list --repo ZenTeqk/fenwira_v2 --commit 5e08d58a6e6ab54e387f876e93123920e38a6f3b --limit 20 --json databaseId,headSha,name,status,conclusion,url,createdAt` returned **`[]`**. No remote CI execution/result is claimed. Evidence saved under `/private/tmp/fenwira-p11-release-{remote-main.txt,remote-commit.log,ci.json}`.
+
+CI defines verify (lint/types/units/build/OpenAPI/format), release (Linux packaging/templates), integration, compose-boot and security (gitleaks/advisories). It triggers on main pushes and pull requests targeting main; it has no workflow_dispatch entry point. The production Deploy workflow independently triggers on application/deployment changes pushed to main; it does not wait for the CI workflow. A direct main push therefore is not an appropriate verification-only action. No push, PR, merge, workflow dispatch or deploy was performed.
+
+Commands for a **subsequently authorized** publication of the exact verified source as a review branch (not executed):
+
+```sh
+git fetch origin
+git branch verify/phase11-5e08d58 5e08d58a6e6ab54e387f876e93123920e38a6f3b
+git push --set-upstream origin verify/phase11-5e08d58
+```
+
+That branch push alone will not trigger the existing CI. An authorized pull request to main triggers it, but default actions/checkout on pull_request builds the synthetic PR merge commit. Inspect its checkout logs and head SHA: do not label that an exact `5e08d58` checkout without proof. Obtain an approved CI checkout/publication path for the exact intended SHA, or explicitly designate and reverify a new candidate reconciled with current remote main. No force push or automatic merge is proposed. Any eventual main publication needs separate production-deployment authorization or an approved deployment hold.
+
+### Clean Compose: PASS
+
+Fresh checkout commands:
+
+```sh
+git clone --no-hardlinks --no-checkout /Users/ops/Documents/zenteqk/fenwira_v2 /private/tmp/fenwira-p11-release-5e08d58
+git -C /private/tmp/fenwira-p11-release-5e08d58 checkout --detach 5e08d58a6e6ab54e387f876e93123920e38a6f3b
+# In the clone:
+node scripts/setup-env.mjs
+```
+
+The clone's tracked tree was clean before and after execution; no host node_modules/build output copied. Generated `.env` contains new disposable credentials and is ignored/0600. Resolved Compose was saved outside the clone as a 0600 scratch JSON file; only project/container/image/network/volume names and published port bindings were changed for isolation, plus test env values. No tracked Compose/Dockerfile change. Docker cached layers/package store were reused; this is fresh-clone/fresh-volume acceptance, not a no-cache rebuild. Normal repository Dockerfiles and production runtime targets built successfully on Docker 29.5.3/Compose 5.1.4, Node 22.23.3 (Linux).
+
+Project: `fenwira-p11-release-5e08d58`; containers: `fenwira-p11-release-*`; image tags: `fenwira-p11-release/{api,worker,web,migrate,meta-mock}:5e08d58`; unique network and four fresh named volumes. All published ports loopback-only: API 54400, web 54300, MinIO 54900/54901, Mailpit 54825, Meta mock 54420. Postgres/Redis/worker health ports remain internal. All Meta URLs point at the local simulator; email uses local Mailpit. Both enforcement flags false; SYSTEM_PING_ENABLED true only in this disposable local stack.
+
+Actual commands (scratch config contains disposable secrets; never commit or print it):
+
+```sh
+docker compose -f /private/tmp/fenwira-p11-release-config.json -p fenwira-p11-release-5e08d58 --profile meta-mock build
+docker compose -f /private/tmp/fenwira-p11-release-config.json -p fenwira-p11-release-5e08d58 --profile meta-mock up -d --wait --wait-timeout 240 --pull never
+API_URL=http://127.0.0.1:54400 WEB_URL=http://127.0.0.1:54300 bash scripts/smoke.sh
+```
+
+All exit 0. Five application image targets built; eight long-running services healthy; migration and bucket init completed exit 0. Container status snapshot:
+
+| Service | Actual result |
+|---|---|
+| PostgreSQL | Healthy; PG 16.15; connectivity verified by psql and both application readiness probes |
+| Redis | Healthy; PING → PONG; application queue readiness up |
+| Migrate | Exit0; all 23 migrations applied, RBAC/plan seeds and RLS check passed |
+| MinIO / bucket init | Healthy / exit 0; isolated buckets initialized |
+| Mailpit | Healthy; synthetic local SMTP probe accepted and retained |
+| Meta mock | Healthy; no real Meta/customer sends |
+| API | Healthy; postgres/redis/queue up; reported intended full SHA |
+| Worker | Healthy; postgres/redis/processors/outbox-relay up; same full SHA as API |
+| Web | Healthy; health 200 and sign-in page renders |
+| Smoke | **3/3 PASS**; includes API → PostgreSQL outbox → relay → BullMQ → worker, correlation retained |
+
+API and worker both reported Node `v22.23.3`, APP_VERSION equal to the full intended SHA, BILLING_ENFORCED `false`, BILLING_SUBSCRIPTIONS_ENFORCED `false`. Fresh runtime-role inspection: fenwira_app and fenwira_owner both nonsuperuser/NOBYPASSRLS. Ledger count was **0 before and after probes**. No wallet/customer record fixture or financial mutation performed.
+
+Additional bounded local runtime evidence from BullMQ read APIs (not staging proof):
+
+| Queue | Consumers | Completed observed work | Schedulers |
+|---|---:|---|---|
+| system.ping | 1 | 1 successful smoke event | None required |
+| webhooks.maintenance | 1 | 3 recover-pending jobs; each returned 0 on empty DB | 30-second recovery plus nightly retention |
+| billing.maintenance | 1 | subscriptions-tick (0 subscriptions/notices); recover-reservations (0 settled/released) | 15-minute subscription tick, 5-minute reservation recovery, nightly ledger check |
+| analytics.rollup | 1 | 2 rollups returning 0 on empty DB | Minute rollup plus nightly heal/retention |
+
+All four inspected queues reported zero failed jobs. These are actual executions/schedulers, not assertions that populated financial/workspace lifecycle scenarios were rerun; populated recovery/lifecycle coverage remains the earlier integration evidence. Nightly schedules were registered but not forced or observed to execute during this short run. SMTP probe used the existing nodemailer dependency and the worker's local SMTP_URL; one synthetic `example.invalid` recipient was accepted and found in Mailpit. This verifies local transport, not SES or external alert routing. No external mail sent.
+
+Build/startup/runtime/migration/smoke/health/queue/SMTP evidence: `/private/tmp/fenwira-p11-release-*`. No failures in build/startup/smoke. Readiness version fields are supplied APP_VERSION metadata corroborated by clean checkout/build source; no cryptographic artifact-signing claim. Image IDs captured locally. Raw logs/configs are not committed; they can contain disposable credentials.
+
+### X-12 staging runtime: UNVERIFIED
+
+The default AWS identity belongs to configured account 569476542351. Read-only EC2 metadata lookups in configured region ap-south-1 used `aws ec2 describe-instances` filters `Name=tag:Name,Values=*fenwira*` and separately `Name=tag:Environment,Values=staging,stage`. The former returned only running instance `i-0c5a3e148c5a81b9f`, Name `zenteqk-internal-fenwira-v2-prod-app`, Environment `prod`; the latter returned `[]`. This bounded lookup does not rule out untagged staging resources, other regions or another account. A staging endpoint/profile/instance was requested; none supplied at report time. No production instance connection, SSM command, secret read, financial operation or external customer send performed.
+
+| Required staging evidence | Actual status |
+|---|---|
+| Exact deployed SHA and matching API/worker versions | UNVERIFIED; no staging target |
+| Active worker and BullMQ queue operation | UNVERIFIED |
+| Outbox and webhook recovery work | UNVERIFIED |
+| Subscription and analytics schedulers executing | UNVERIFIED |
+| SMTP configuration and actual delivery | UNVERIFIED |
+| Matched approved billing enforcement flags | UNVERIFIED; no runtime env read |
+| Required secrets present and runtime permissions correct | UNVERIFIED; no secret retrieval |
+| Readiness and monitoring operational | UNVERIFIED |
+
+Repository production units, deploy scripts, env rendering and health procedures were inspected as configuration only. The documentation's historical disabled-worker/SMTP note is not used as a current production observation. Once a distinct staging target is authorized/identified, use read-only health/version/service status, queue/scheduler/completion metadata, secret-name/presence/permission checks without values, and existing non-customer delivery evidence. Do not run the mutating development system.ping smoke against production or enable it there.
+
+### Phase 12 disposition and recommendation
+
+11.2-19 analytics performance/load measurements and 11.5-19 external alert delivery/routing remain **PARTIAL**. They are documented Phase 12 follow-ups subject to formal owner acceptance. Owner and approval reference were requested and are not supplied; no formal deferral acceptance is inferred. See PHASE_12_DEPENDENCIES for acceptance fields.
+
+Updated inventory: **111 PASS / 3 PARTIAL / 0 FAIL / 1 UNVERIFIED (115 applicable)**. X-10 is PARTIAL because clean Compose passes and remote CI is blocked; X-12 remains UNVERIFIED. Two PARTIAL workstream rows are proposed Phase 12 deferrals; the other PARTIAL row is a mandatory gate. **NOT READY TO CLOSE** until exact-SHA CI, staging runtime evidence and named owner acceptance all exist. No new application defect established, and no application remediation performed.
+
+### Release-verification cleanup
+
+After evidence collection, `docker compose -f /private/tmp/fenwira-p11-release-config.json -p fenwira-p11-release-5e08d58 --profile meta-mock down -v --remove-orphans` removes only this project. Existing seven `fenwira-local-*` containers are preserved. Disposable config/env files and the five uniquely tagged build images removed after shutdown; project containers/network/volumes confirmed absent. Build/runtime diagnostic logs retained with restricted permissions. No global prune or infrastructure/deployment change. No push, PR, merge, deploy, production secret change or enforcement activation.
