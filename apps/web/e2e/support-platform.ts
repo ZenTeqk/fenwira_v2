@@ -42,8 +42,31 @@ export async function provisionOperator(page: Page, label: string) {
     memberships: unknown[]
   }
   expect(me.memberships).toHaveLength(0)
-  const provision = (revoke = false) =>
-    execFileSync(
+  const provision = (revoke = false) => {
+    const args = [
+      '--user',
+      me.user.id,
+      '--actor',
+      'platform-browser-test',
+      '--reason',
+      'Isolated local browser fixture',
+      ...(revoke ? ['--revoke'] : []),
+    ]
+    const root = resolve(__dirname, '../../..')
+    if (process.env.E2E_LOCAL_PROVISIONING === 'true') {
+      const url = new URL(process.env.MIGRATION_DATABASE_URL ?? '')
+      if (
+        !['127.0.0.1', 'localhost'].includes(url.hostname) ||
+        !/^\/fenwira_(test|acceptance|e2e_test)$/.test(url.pathname)
+      )
+        throw new Error('Local E2E provisioning requires an isolated loopback test database')
+      return execFileSync(
+        process.execPath,
+        ['packages/database/dist/cli/platform-operator.js', ...args],
+        { cwd: root, stdio: 'pipe', timeout: 30000 },
+      )
+    }
+    return execFileSync(
       'docker',
       [
         'compose',
@@ -54,16 +77,12 @@ export async function provisionOperator(page: Page, label: string) {
         'node',
         'fenwira-migrate',
         'packages/database/dist/cli/platform-operator.js',
-        '--user',
-        me.user.id,
-        '--actor',
-        'platform-browser-test',
-        '--reason',
-        'Isolated local browser fixture',
-        ...(revoke ? ['--revoke'] : []),
+        ...args,
       ],
-      { cwd: resolve(__dirname, '../../..'), stdio: 'pipe', timeout: 30000 },
+      { cwd: root, stdio: 'pipe', timeout: 30000 },
     )
+  }
+
   try {
     provision()
   } catch (error) {

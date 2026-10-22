@@ -172,3 +172,15 @@ Commercial read services lock an existing wallet for shared read consistency, wh
 ### Native connector tables
 
 `native_connections`, `native_oauth_challenges` and `native_transfers` are tenant-owned and have enabled/forced RLS. Native transfers use a composite tenant/connection foreign key, preventing a receipt from referencing another workspace's connection. The HTTP service uses TenantDb; worker processing uses withTenant with the tenant from the committed outbox envelope. No new system gateway or bypass role is introduced. All three tables are included in the generated read/update/delete tenant security matrix.
+
+### X19 recovery extension (Phase 11 remediation)
+
+`system.webhook_deliveries_due(now, limit, after)` returns only `(tenant_id, delivery_id)` for due PENDING records, in deterministic pages capped at 500. Payloads/secrets/updates remain tenant-scoped. Fixed search_path, explicit ownership, column grants and revoked PUBLIC execution follow existing system-function policy. Security review and recovery semantics: ADR-0026.
+
+### X20 lifecycle cursor extension
+
+`system.subscriptions_due(now, limit, after)` is an additive overload returning tenant IDs only, ordered by unique tenant UUID and capped at 500. It has the same column grants, fixed search_path, owner and execution restrictions as the existing two-argument accessor, which remains available to older binaries. Consumers recheck each tenant under its row lock. No new global-data exposure or RLS exception.
+
+### X10 analytics cursor extension
+
+`system.tenants_with_activity(since, limit, after)` is an additive, IDs-only keyset overload capped at 500. Fixed search_path, existing column grants, explicit system ownership and revoked PUBLIC execution are retained. Minute/heal/retention handlers re-enter withTenant for all projections and financial event resolution. The existing 2-argument accessor remains for older binaries.

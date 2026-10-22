@@ -214,9 +214,13 @@ export class SystemGateway {
   }
 
   /** X10 — workspaces with pending analytics work or activity since `since` (IDs only). */
-  async tenantsWithActivity(since: Date, limit: number): Promise<string[]> {
+  async tenantsWithActivity(
+    since: Date,
+    limit: number,
+    after: string | null = null,
+  ): Promise<string[]> {
     const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
-      SELECT * FROM system.tenants_with_activity(${since}, ${limit}::int)`
+      SELECT * FROM system.tenants_with_activity(${since}, ${limit}::int, ${after}::uuid)`
     return rows.map((r) => r.tenant_id)
   }
 
@@ -258,6 +262,13 @@ export class SystemGateway {
     }
   }
 
+  /** X19 recovery: bounded due delivery IDs; payload/secret/state reads re-enter withTenant. */
+  async webhookDeliveriesDue(now: Date, limit: number, after: string | null = null) {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; delivery_id: string }>>`
+      SELECT * FROM system.webhook_deliveries_due(${now}, ${limit}::int, ${after}::uuid)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, deliveryId: r.delivery_id }))
+  }
+
   /** Purge one workspace's webhook delivery history older than `before` (retention, 30 days). */
   async purgeWebhookDeliveries(tenantId: string, before: Date): Promise<number> {
     const rows = await this.prisma.$queryRaw<Array<{ n: number }>>`
@@ -273,9 +284,9 @@ export class SystemGateway {
   }
 
   /** X20: subscriptions with lifecycle work due (Phase 11 Step 4) — tenant ids only. */
-  async subscriptionsDue(now: Date, limit: number): Promise<string[]> {
+  async subscriptionsDue(now: Date, limit: number, after: string | null = null): Promise<string[]> {
     const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
-      SELECT * FROM system.subscriptions_due(${now}, ${limit}::int)`
+      SELECT * FROM system.subscriptions_due(${now}, ${limit}::int, ${after}::uuid)`
     return rows.map((r) => r.tenant_id)
   }
 }

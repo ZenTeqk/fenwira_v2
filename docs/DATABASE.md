@@ -508,7 +508,7 @@ tenant_entitlement_overrides                    T
 
 wallets                                         T
   id, tenant_id unique, currency char(3)
-  balance_minor bigint default 0                 -- cache, maintained ONLY by ledger insert trigger; CHECK consistency job
+  balance_minor bigint default 0                 -- cache maintained by ledger insert trigger; reconciled by daily job
   low_balance_threshold_minor bigint
   credit_limit_minor bigint not null default 0  -- B3: permitted credit limit; configurable per tenant later
   reserved_minor bigint not null default 0      -- B4: sum of ACTIVE reservations
@@ -534,20 +534,36 @@ usage_events                                    T AO
 
 price_book_entries                              G
   id, category (MARKETING|UTILITY|AUTHENTICATION|SERVICE), country char(2) null (null=default)
-  currency, unit_price_minor bigint, markup_bps int, effective_from, effective_to null
+  currency, customer_price_minor bigint, provider_cost_minor bigint null, markup_bps int
+  tax_code text null, tax_bps int null, is_placeholder bool, note text null
+  effective_from, effective_to null
 ```
 
 ## Analytics & developer (P11)
 
 ```text
-analytics_events                                T AO   (retention per entitlement analytics_retention)
-  id, tenant_id, type text, occurred_at, dims jsonb (campaignId?, flowId?, userId?, phoneNumberId?, category?)
-  value numeric default 1
-  idx (tenant_id, type, occurred_at) — BRIN on occurred_at
+analytics_events                                T AO
+  id uuid pk, tenant_id, source_event_id uuid, event_type text, occurred_at timestamptz
+  subject_id uuid null, dims jsonb, recorded_at timestamptz
+  unique (tenant_id, source_event_id)
+  idx (tenant_id, event_type, occurred_at)
 
 analytics_daily_rollups                         T
-  tenant_id, day date, metric text, dims_key text, value numeric
-  pk (tenant_id, day, metric, dims_key)
+  tenant_id, day date, metric text, dims_key text, value bigint, updated_at
+  pk (tenant_id, day, metric, dims_key); idx (tenant_id, metric, day)
+
+analytics_conversation_episodes                 T
+  id uuid pk, tenant_id, conversation_id uuid, opened_at, day date
+  first_response_at null, first_responder_id null, resolved_at null, resolved_by null, updated_at
+  idx (tenant_id, day); idx (tenant_id, conversation_id, opened_at)
+
+analytics_dirty                                 T
+  tenant_id, scope text, key text, marked_at
+  pk (tenant_id, scope, key)
+
+analytics_tenant_state                          T
+  tenant_id pk, timezone null, retention_days null, last_event_at null, last_rollup_at null
+  backfilled_at null, last_error null, last_error_at null, updated_at
 
 api_keys                                        T   (implemented, migration 20261007000000_api_keys_webhooks)
   id, tenant_id, name, prefix char(8) unique, key_hash bytea (sha256 of secret + API_KEY_PEPPER)
@@ -602,3 +618,7 @@ Phase 11 closure adds no schema migration or financial-history backfill. Subscri
 ### Native connectors — Experience V2 follow-up
 
 Additive migration `20261008000000_native_connectors` adds tenant-owned encrypted connection records, short-lived OAuth challenges, and durable transfer receipts with encrypted snapshots and leases. Forced RLS, tenant foreign keys, a composite transfer-to-connection foreign key and a partial unique index for one pending transfer per connection accompany the tables. Existing contact/import, wallet, subscription, analytics and audit history is preserved. No financial backfill is performed.
+
+### Pending webhook recovery index
+
+Additive migration `20261020000000_webhook_pending_due` indexes `(next_attempt_at,id)` for PENDING webhook deliveries. Existing rows, financial data and delivery states are unchanged. Post-migrate SQL adds the restricted X19 due-ID keyset accessor; callers still re-enter tenant transactions. No in-flight lease column is required: PostgreSQL transaction locks expire on crash/rollback.

@@ -132,6 +132,7 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `campaign.completed` | campaigns | `campaignId, counts` | `notifications.dispatch`, `analytics.events`, `webhooks.deliver` |
 | `automation.execution.finished` | automation (`finishExecution`, in the terminal-state transaction; Phase 11) | `executionId, flowId, status` | `analytics.events`, `webhooks.deliver` |
 | `wallet.low_balance` | billing (on a crossing into LOW_BALANCE or INSUFFICIENT_FUNDS, P11-D12) | `walletId, from, to, availableMinor, currency` | `notifications.dispatch` |
+| `billing.transaction_posted` | billing (every committed ledger posting, including initial trial credit) | `transactionId` | `analytics.events` |
 | `wallet.funded` | billing (an unfunded wallet's first available funds, P11-D21) | `walletId, to, availableMinor, currency` | `notifications.dispatch` |
 | `wallet.recovered` | billing (a funded wallet crossing back to NORMAL) | `walletId, from, availableMinor, currency` | `notifications.dispatch` |
 | `subscription.plan_requested` | billing (OWNER requests a plan, Phase 11 Step 4, P11-D24) | `subscriptionId, planId` | `notifications.dispatch` (operator alert) |

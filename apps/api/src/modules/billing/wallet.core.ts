@@ -102,6 +102,11 @@ export async function lockWallet(
         ],
         skipDuplicates: true,
       })
+      const credit = await tx.walletTransaction.findFirstOrThrow({
+        where: { idempotencyKey: `trial:${tenantId}` },
+        select: { id: true },
+      })
+      await ledgerPosted(tx, tenantId, credit.id)
     }
   }
   const row = await selectLocked(tx, tenantId)
@@ -258,12 +263,13 @@ async function appendLedger(
   tenantId: string,
   input: LedgerEntry,
 ): Promise<{ id: string; created: boolean }> {
+  // Serialize before the idempotency read: a concurrent poster may commit while we wait.
+  const w = await lockWallet(tx, tenantId)
   const existing = await tx.walletTransaction.findFirst({
     where: { idempotencyKey: input.idempotencyKey },
     select: { id: true },
   })
   if (existing) return { id: existing.id, created: false }
-  const w = await lockWallet(tx, tenantId)
   const row = await tx.walletTransaction.create({
     data: {
       tenantId,
@@ -280,7 +286,21 @@ async function appendLedger(
       expiresAt: input.expiresAt ?? null,
     },
   })
+  await ledgerPosted(tx, tenantId, row.id)
   return { id: row.id, created: true }
+}
+
+/** Analytics invalidation follows committed ledger changes, including quiet workspaces. */
+async function ledgerPosted(tx: TenantTx, tenantId: string, transactionId: string) {
+  await tx.outboxEvent.create({
+    data: {
+      tenantId,
+      eventType: 'billing.transaction_posted',
+      aggregateType: 'wallet_transaction',
+      aggregateId: transactionId,
+      payload: { transactionId },
+    },
+  })
 }
 
 /**
@@ -348,6 +368,9 @@ export async function settleReservation(
   input: { messageId: string; category: string; country: string | null; pricing: unknown },
   platform: BillingPlatform = NO_BILLING,
 ): Promise<'settled' | 'none'> {
+  // The ACTIVE snapshot and every ledger/hold change share the same wallet lock as release
+  // and reserve. Reading before this lock can close a hold twice after a competing commit.
+  const w = await lockWallet(tx, tenantId)
   const r = await tx.walletReservation.findFirst({
     where: { messageId: input.messageId, status: 'ACTIVE' },
   })
@@ -362,7 +385,6 @@ export async function settleReservation(
     referenceType: 'message',
     referenceId: input.messageId,
   })
-  const w = await lockWallet(tx, tenantId)
   await tx.walletReservation.update({
     where: { id: r.id },
     data: {

@@ -178,6 +178,10 @@ None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → De
 
 ## Phase 11 closure verification
 
-[Phase 11 closure evidence](plans/PHASE_11_CLOSURE.md) distinguishes successful cached local startup from the unresolved fresh MinIO image pull. A local healthy stack is not a clean-clone CI pass; Phase 11 must remain open until the distribution/startup blocker and current CI acceptance are resolved.
+[Phase 11 closure evidence](plans/PHASE_11_CLOSURE.md) §O records the 2026-10-19 MinIO image correction and fresh startup evidence. The earlier image-pull blocker is historical. The independent [2026-10-20 audit and remediation](audits/phase-11/PHASE_11_AUDIT_REPORT.md) governs the current acceptance assessment; earlier closure claims do not certify later code. A local healthy stack is not a clean-clone CI pass.
 
 Production runtime layers install the available Debian PCRE security patch and remove bundled global npm/npx; API, worker, Prisma migration and standalone web start through Node directly. Build/development stages retain their package tooling. The closure scan regression checks all four final production images with the established fixable HIGH/CRITICAL threshold; no vulnerability ignore is introduced.
+
+### Isolated Phase 11 browser acceptance
+
+The E2E helpers retain Compose defaults. For a disposable native/local stack, set `E2E_BASE_URL`, `E2E_API_URL`, `E2E_MAILPIT_URL`, `E2E_META_MOCK_URL`, `E2E_REDIS_CONTAINER` and `E2E_REDIS_DB` to its isolated services. `E2E_LOCAL_PROVISIONING=true` runs the existing operator-provisioning CLI with the test migration URL; the helper rejects remote hosts and database names outside fenwira_test/fenwira_acceptance/fenwira_e2e_test. It does not bypass MFA, grant permissions through tenant membership or mutate real deployments. Never point this harness at production. Current remediation evidence distinguishes the successful webpack production build from the host-blocked default Turbopack build.

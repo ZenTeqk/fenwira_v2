@@ -16,20 +16,19 @@ export const uniqueEmail = (label: string) =>
  */
 export function resetRateLimits(): void {
   const root = resolve(__dirname, '../../..')
-  const keys = execFileSync(
-    'docker',
-    ['compose', 'exec', '-T', 'fenwira-redis', 'redis-cli', '--scan', '--pattern', 'rl:*'],
-    { cwd: root },
-  )
+  const isolated = process.env.E2E_REDIS_CONTAINER
+  if (isolated && !/^[a-zA-Z0-9][a-zA-Z0-9_.-]+$/.test(isolated))
+    throw new Error('Invalid isolated E2E Redis container name')
+  const redisDb = process.env.E2E_REDIS_DB ?? '0'
+  if (!/^(?:[0-9]|1[0-5])$/.test(redisDb)) throw new Error('Invalid E2E Redis database')
+  const command = isolated
+    ? ['exec', isolated, 'redis-cli', '-n', redisDb]
+    : ['compose', 'exec', '-T', 'fenwira-redis', 'redis-cli', '-n', redisDb]
+  const keys = execFileSync('docker', [...command, '--scan', '--pattern', 'rl:*'], { cwd: root })
     .toString()
     .split('\n')
     .filter(Boolean)
-  if (keys.length)
-    execFileSync(
-      'docker',
-      ['compose', 'exec', '-T', 'fenwira-redis', 'redis-cli', 'DEL', ...keys],
-      { cwd: root },
-    )
+  if (keys.length) execFileSync('docker', [...command, 'DEL', ...keys], { cwd: root })
 }
 
 /** Newest link containing `pathPart` in an email to `to`, sent at or after `since` (epoch ms). */

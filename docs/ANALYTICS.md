@@ -41,6 +41,7 @@ All five have row-level security with the standard tenant policy, and tenant-mat
 
 | Event | Marks for recompute |
 | --- | --- |
+| `billing.transaction_posted` | The ledger posting day in the workspace timezone, resolved from transactionId; includes quiet-workspace credits and initial trial grants. |
 | `message.outbound.requested`, `message.inbound.received`, `message.status.changed` | The message's own day (its `created_at` in the workspace timezone) and, for campaign messages, the campaign |
 | `conversation.opened` (now carries `messageId`) | The day of the customer's message. The event is also the start of an inbox episode. |
 | `conversation.assigned` | The day it happened |
@@ -216,3 +217,9 @@ The day scan is an index-only scan on `messages (tenant_id, created_at)`.
 ## Experience V2 presentation
 
 The [Analytics visual reconstruction](design/EXPERIENCE_V2_ANALYTICS_RECONSTRUCTION.md) retains all endpoint definitions and permissions. Overview also reads the existing messaging and inbox endpoints for engagement and human response summaries, with the same tenant and date range. Inbound counts mean all customer messages; current awaiting-first-response counts have no elapsed-time threshold. Supplemental failures have their own retry state. No provider costs or new financial calculations are exposed.
+
+### Fair traversal and financial invalidation (Phase 11 remediation)
+
+Minute, heal and retention passes traverse deterministic X10 keyset pages of at most 500 identifiers, with no first-page or 100000-workspace ceiling. Each tenant retains bounded item work and ordinary RLS transactions. Cursor restart is safe because projections replace source-derived rows. Concurrent/continuously active earlier IDs cannot monopolize the traversal. The two-argument X10 accessor remains available for older releases.
+
+Every newly inserted wallet ledger row writes an IDs-only `billing.transaction_posted` outbox event in its transaction; idempotent ledger replay emits nothing. Initial promotional trial credits use the same invalidation. Analytics resolves the actual posting timestamp under tenant RLS, marks that local day and deduplicates the source event. Late processing uses ledger time rather than envelope/processing time. Quiet workspaces therefore enter PROCESSING and refresh promotional-credit totals without requiring a message. No financial decisions depend on analytics.

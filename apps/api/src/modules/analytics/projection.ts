@@ -57,6 +57,19 @@ export async function recordEvent(
   const campaigns = new Set<string>()
 
   switch (e.eventType) {
+    case 'billing.transaction_posted': {
+      subjectId = payload.transactionId ?? null
+      const posting = subjectId
+        ? await tx.walletTransaction.findFirst({
+            where: { id: subjectId },
+            select: { createdAt: true },
+          })
+        : null
+      if (!posting) return 'ignored'
+      occurredAt = posting.createdAt
+      days.add(dayIn(occurredAt, tz))
+      break
+    }
     case 'message.outbound.requested':
     case 'message.inbound.received':
     case 'message.status.changed': {

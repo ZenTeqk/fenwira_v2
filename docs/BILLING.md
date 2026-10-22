@@ -102,7 +102,7 @@ The wallet row lock serializes reservations, so two workers can never reserve th
 | Final non-billable outcome (permanent failure, or Meta reports it non-billable) | **Release**: mark it RELEASED with a reason, and subtract it from `reserved_minor` |
 | Retryable failure | **Keep** the reservation through the retry lifecycle. It is released only when the message reaches a final state. |
 
-- Reservations are keyed by message ID. Replays and retries never double-reserve, double-settle or double-release.
+- Reservations are keyed by message ID. Replays and retries never double-reserve, double-settle or double-release. Every reservation transition locks the wallet before reading ACTIVE state; ledger posting also locks before checking its idempotency key. A waiter re-reads committed state under that lock, so settlement/release races close a hold once. `apps/worker/test/wallet-concurrency.int.test.ts` covers forced PostgreSQL interleavings, duplicate credits, rollback and tenant isolation.
 - **Stale-reservation recovery** (`billing.maintenance`, every 5 minutes, X17). An ACTIVE reservation older than `BILLING_RESERVATION_GRACE_MINUTES` (default 360) whose message is FAILED, SENT, DELIVERED or READ (or missing) is recovered, per message, idempotently:
   - if a `message.status.changed` event with Meta's pricing was recorded but never applied (a lost or dead-lettered `billing.usage` job), it is applied now: billable pricing **settles**, non-billable releases;
   - otherwise the hold is **released** with reason `recovered: no pricing received`, because nothing says Meta charged for the message.
@@ -211,3 +211,7 @@ The retention regression also covers successive downgrades: automatic grace reta
 Eight concurrent `stepSubscription` transactions reproduced eight T-3 notice claims. The lifecycle now locks the subscription row before reading notice/status state, so only one scheduler invocation claims each warning or expiry and its notification/email recipients. The closure regression covers eight concurrent calls each at T-3, T-1 and expiry; existing lifecycle policy and retention decisions are unchanged.
 
 Closure also reproduced automatic 90-day downgrade grace capping a later 365-day upgrade. When the new configured plan supplies at least the automatic grace window, activation now expires that system-generated override (retaining its metadata), so the new plan applies immediately. Explicit negotiated overrides remain untouched. The configured over-limit downgrade/upgrade closure test verifies the 365-day result; both Step 5 retention regressions remain in the platform suite.
+
+### Lifecycle traversal (Phase 11 remediation)
+
+Each lifecycle tick fixes its cutoff time and traverses due tenants in deterministic keyset pages of at most 500. The cursor advances even if a workspace errors or remains due after a warning, so earlier warning rows cannot starve later expiry/cancellation rows. Restart begins at the first page; subscription row locks, persisted notices and conditional transitions make repeats safe. New IDs beyond the cursor can join the pass; changes behind it are picked up next tick. The old two-argument system accessor is retained for release compatibility.

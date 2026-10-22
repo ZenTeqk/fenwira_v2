@@ -76,6 +76,12 @@ See *Signature verification example* below.
 
 A failed attempt (`WebhookEventsProcessor.send`) is retried with exponential backoff — `min(WEBHOOK_BACKOFF_MS × 2^(attempt-1), 1 hour)` — for up to `WEBHOOK_MAX_RETRY_HOURS` (default 24h, minimum 0.1h) measured from the *delivery's* creation, not the endpoint's. Retry scheduling is self-managed (a BullMQ delayed job per attempt, `attempts: 1`, since the retry loop itself decides whether to reschedule) rather than relying on BullMQ's own retry — so the endpoint's `failureCount` and the delivery's persisted state always agree with what actually happened. Once the retry window elapses without success, the delivery becomes terminally `FAILED` and the endpoint's `failureCount` increments.
 
+## Durable recovery (Phase 11 remediation)
+
+PostgreSQL PENDING rows and `next_attempt_at` are execution intent. The existing webhook maintenance queue scans due delivery IDs every 30 seconds with keyset pagination and re-enqueues missing jobs, including initial/manual retry enqueue gaps and lost delayed Redis jobs. Concurrent scans use the same persisted-attempt job ID. The producer re-registers schedulers periodically so Redis state loss does not permanently lose the recovery schedule.
+
+A sender takes a PostgreSQL transaction advisory lock before reading state, skips competing in-flight attempts and honors the persisted retry time. Crash/rollback releases the claim automatically; no durable in-flight flag can remain stuck. HTTP timeouts are bounded and fit inside the bounded transaction timeout. Retries queue only after commit; database history remains authoritative. Success/terminal failure clears retry timestamps and successful retries clear stale error codes. This remains at-least-once delivery: a crash after remote acceptance can resend the same event/delivery IDs. See ADR-0026 and the real PostgreSQL/Redis/local-receiver regression suite.
+
 ## Duplicate delivery
 
 **Duplicate delivery is normal webhook behavior, not a bug** — a redelivered domain event, a manual retry, or (rarely) two near-simultaneous attempts can all result in more than one HTTP call for the same logical event. Fan-out is idempotent at the database level: `webhook_deliveries` has a unique constraint on `(endpoint_id, event_id)`, and `createDelivery` is an atomic `upsert` against it — a redelivered event finds (and reuses) the existing row rather than creating a second one or raising an error.

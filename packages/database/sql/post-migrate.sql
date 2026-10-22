@@ -479,6 +479,19 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT p_limit;
 $$;
 
+-- X10 keyset overload; old callers retain the original two-argument accessor.
+CREATE OR REPLACE FUNCTION system.tenants_with_activity(p_since timestamptz, p_limit integer, p_after uuid)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT x.tenant_id FROM (
+    SELECT d.tenant_id FROM public.analytics_dirty d
+    UNION
+    SELECT s.tenant_id FROM public.analytics_tenant_state s WHERE s.last_event_at >= p_since
+  ) x
+  WHERE p_after IS NULL OR x.tenant_id > p_after
+  ORDER BY x.tenant_id LIMIT least(greatest(p_limit, 1), 500);
+$$;
+
 -- X9 (analytics part): analytics retention for one workspace (P11-D15). analytics_events is
 -- append-only for the runtime role, so the purge runs here: by age only, for that workspace only,
 -- returning a count. Nothing else (ledger, audit, messages) is reachable through it.
@@ -531,6 +544,17 @@ LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, public AS $
   SELECT count(*)::integer FROM d;
 $$;
 
+-- X19 recovery: identifiers only, fixed search path, no endpoint payloads or secrets.
+GRANT SELECT (id, tenant_id, status, next_attempt_at) ON public.webhook_deliveries TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.webhook_deliveries_due(p_now timestamptz, p_limit integer, p_after uuid DEFAULT NULL)
+RETURNS TABLE (tenant_id uuid, delivery_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT d.tenant_id, d.id FROM public.webhook_deliveries d
+  WHERE d.status = 'PENDING' AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= p_now)
+    AND (p_after IS NULL OR d.id > p_after)
+  ORDER BY d.id LIMIT least(greatest(p_limit, 1), 500);
+$$;
+
 -- X20: subscription lifecycle (Phase 11 Step 4, docs/BILLING.md → Lifecycle). IDs only: trials
 -- ending within 3 days (notices, expiry) and active subscriptions whose period has ended (roll or
 -- cancel). Each tenant is then processed inside withTenant and re-checks its own row.
@@ -543,6 +567,17 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
      OR (s.status = 'ACTIVE' AND s.current_period_end <= p_now)
   ORDER BY s.tenant_id
   LIMIT p_limit;
+$$;
+
+-- X20 keyset overload: preserve the two-argument accessor for older release compatibility.
+CREATE OR REPLACE FUNCTION system.subscriptions_due(p_now timestamptz, p_limit integer, p_after uuid)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT s.tenant_id FROM public.subscriptions s
+  WHERE ((s.status = 'TRIALING' AND s.trial_ends_at <= p_now + interval '3 days')
+     OR (s.status = 'ACTIVE' AND s.current_period_end <= p_now))
+    AND (p_after IS NULL OR s.tenant_id > p_after)
+  ORDER BY s.tenant_id LIMIT least(greatest(p_limit, 1), 500);
 $$;
 
 DO $$
@@ -567,11 +602,14 @@ BEGIN
     'system.stale_reservations(timestamptz, integer)',
     'system.wallet_ledger_drift(integer)',
     'system.tenants_with_activity(timestamptz, integer)',
+    'system.tenants_with_activity(timestamptz, integer, uuid)',
     'system.purge_analytics_events(uuid, timestamptz)',
     'system.resolve_api_key(text)',
     'system.purge_webhook_deliveries(uuid, timestamptz)',
     'system.tenants_with_stale_webhook_deliveries(timestamptz, integer)',
-    'system.subscriptions_due(timestamptz, integer)'
+    'system.webhook_deliveries_due(timestamptz, integer, uuid)',
+    'system.subscriptions_due(timestamptz, integer)',
+    'system.subscriptions_due(timestamptz, integer, uuid)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

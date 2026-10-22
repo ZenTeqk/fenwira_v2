@@ -8,6 +8,8 @@ import {
 } from '@fenwira/contracts'
 import { Database } from '@fenwira/database'
 import { uuidv7 } from '@fenwira/config'
+import { QueueRegistry } from '@fenwira/api/core'
+import { QUEUES } from '@fenwira/queue'
 import { type INestApplication } from '@nestjs/common'
 import { createServer, type Server } from 'node:http'
 import { type AddressInfo } from 'node:net'
@@ -29,6 +31,8 @@ let owner: Member
 type Received = { headers: Record<string, string | string[] | undefined>; body: string }
 let received: Received[] = []
 let failNext = 0
+let failureStatus = 500
+let timeoutNext = false
 
 beforeAll(async () => {
   api = await bootApi({ AUTOMATION_WEBHOOK_DEV_HOSTS: '127.0.0.1' })
@@ -44,9 +48,13 @@ beforeAll(async () => {
     req.on('data', (c) => (body += c))
     req.on('end', () => {
       received.push({ headers: req.headers, body })
+      if (timeoutNext) {
+        timeoutNext = false
+        return
+      }
       if (failNext > 0) {
         failNext--
-        res.writeHead(500).end('nope')
+        res.writeHead(failureStatus).end('nope')
       } else {
         res.writeHead(200).end('ok')
       }
@@ -392,4 +400,206 @@ describe('secret rotation and the test-delivery action', () => {
     const payload = JSON.parse(delivered!.body) as { id: string; type: string }
     expect(payload.id).toBe(test.body.data.deliveryId)
   })
+})
+
+describe('durable delivery recovery (F02)', () => {
+  it('rebuilds a deleted Redis job once across concurrent and repeated recovery passes', async () => {
+    const queue = worker.get(QueueRegistry).get(QUEUES.webhooksDeliver)
+    await queue.pause()
+    try {
+      const created = await owner.client.post('/webhook-endpoints', {
+        name: 'lost job',
+        url: receiverUrl,
+        events: ['contact.created'],
+      })
+      const endpointId = created.body.data.endpoint.id as string
+      const test = await owner.client.post(`/webhook-endpoints/${endpointId}/test`)
+      const deliveryId = test.body.data.deliveryId as string
+      for (const job of await queue.getJobs(['wait', 'delayed', 'paused']))
+        if (job.data.deliveryId === deliveryId) await job.remove()
+      received = []
+      const processor = worker.get(WebhookEventsProcessor)
+      await Promise.all(Array.from({ length: 4 }, () => processor.recoverPending()))
+      await processor.recoverPending()
+      const jobs = (await queue.getJobs(['wait', 'delayed', 'paused'])).filter(
+        (job) => job.data.deliveryId === deliveryId,
+      )
+      expect(jobs).toHaveLength(1)
+      await queue.resume()
+      await waitFor(
+        () =>
+          db.withTenant(owner.tenantId, (tx) =>
+            tx.webhookDelivery.findUniqueOrThrow({ where: { id: deliveryId } }),
+          ),
+        (d) => d.status === 'SUCCEEDED',
+      )
+      expect(
+        received.filter((r) => r.headers[WEBHOOK_DELIVERY_HEADER.toLowerCase()] === deliveryId),
+      ).toHaveLength(1)
+    } finally {
+      await queue.resume()
+    }
+  })
+
+  it('a crashed in-flight transaction releases its claim and the maintenance worker recovers it', async () => {
+    const queue = worker.get(QueueRegistry).get(QUEUES.webhooksDeliver)
+    await queue.pause()
+    const created = await owner.client.post('/webhook-endpoints', {
+      name: 'crash recovery',
+      url: receiverUrl,
+      events: ['contact.created'],
+    })
+    const endpointId = created.body.data.endpoint.id as string
+    const result = await owner.client.post(`/webhook-endpoints/${endpointId}/test`)
+    const deliveryId = result.body.data.deliveryId as string
+    for (const job of await queue.getJobs(['wait', 'delayed', 'paused']))
+      if (job.data.deliveryId === deliveryId) await job.remove()
+    const processor = worker.get(WebhookEventsProcessor)
+    received = []
+    try {
+      await expect(
+        db.withTenant(owner.tenantId, async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`webhook-delivery:${deliveryId}`}, 0))`
+          expect(await processor.send({ tenantId: owner.tenantId, deliveryId })).toBe('in-flight')
+          throw new Error('simulated worker transaction crash')
+        }),
+      ).rejects.toThrow('simulated worker transaction crash')
+      expect(received).toHaveLength(0)
+      // Execute the recurring maintenance handler, not the customer-facing manual retry API.
+      await worker.get(QueueRegistry).get(QUEUES.webhooksMaintenance).add('recover-pending', {})
+      await waitFor(
+        async () =>
+          (await queue.getJobs(['wait', 'delayed', 'paused'])).filter(
+            (j) => j.data.deliveryId === deliveryId,
+          ).length,
+        (n) => n === 1,
+      )
+      await queue.resume()
+      await waitFor(
+        () =>
+          db.withTenant(owner.tenantId, (tx) =>
+            tx.webhookDelivery.findUniqueOrThrow({ where: { id: deliveryId } }),
+          ),
+        (d) => d.status === 'SUCCEEDED',
+      )
+    } finally {
+      await queue.resume()
+    }
+  })
+
+  it('does not recover future retries, terminal deliveries, disabled endpoints or foreign payloads', async () => {
+    const queue = worker.get(QueueRegistry).get(QUEUES.webhooksDeliver)
+    await queue.pause()
+    try {
+      const created = await owner.client.post('/webhook-endpoints', {
+        name: 'future retry',
+        url: receiverUrl,
+        events: ['contact.created'],
+      })
+      const endpointId = created.body.data.endpoint.id as string
+      const result = await owner.client.post(`/webhook-endpoints/${endpointId}/test`)
+      const deliveryId = result.body.data.deliveryId as string
+      for (const job of await queue.getJobs(['wait', 'delayed', 'paused']))
+        if (job.data.deliveryId === deliveryId) await job.remove()
+      await db.withTenant(owner.tenantId, (tx) =>
+        tx.webhookDelivery.update({
+          where: { id: deliveryId },
+          data: { nextAttemptAt: new Date(Date.now() + 60_000) },
+        }),
+      )
+      const processor = worker.get(WebhookEventsProcessor)
+      expect(await processor.send({ tenantId: owner.tenantId, deliveryId })).toBe('not-due')
+      expect(await processor.send({ tenantId: uuidv7(), deliveryId })).toBe('skipped')
+      await processor.recoverPending()
+      expect(
+        (await queue.getJobs(['wait', 'delayed', 'paused'])).filter(
+          (j) => j.data.deliveryId === deliveryId,
+        ),
+      ).toHaveLength(0)
+      await db.withTenant(owner.tenantId, async (tx) => {
+        await tx.webhookDelivery.update({
+          where: { id: deliveryId },
+          data: { nextAttemptAt: null },
+        })
+        await tx.webhookEndpoint.update({ where: { id: endpointId }, data: { status: 'DISABLED' } })
+      })
+      await processor.recoverPending()
+      expect(
+        (await queue.getJobs(['wait', 'delayed', 'paused'])).filter(
+          (j) => j.data.deliveryId === deliveryId,
+        ),
+      ).toHaveLength(0)
+    } finally {
+      await queue.resume()
+    }
+  })
+})
+
+it.each(['400', '503', 'timeout'])(
+  'recovers a persisted retry after receiver %s and loss of its delayed Redis job',
+  async (failure) => {
+    const queue = worker.get(QueueRegistry).get(QUEUES.webhooksDeliver)
+    await queue.pause()
+    try {
+      const created = await owner.client.post('/webhook-endpoints', {
+        name: 'receiver failure',
+        url: receiverUrl,
+        events: ['contact.created'],
+      })
+      const endpointId = created.body.data.endpoint.id as string
+      const result = await owner.client.post(`/webhook-endpoints/${endpointId}/test`)
+      const deliveryId = result.body.data.deliveryId as string
+      const processor = worker.get(WebhookEventsProcessor)
+      timeoutNext = failure === 'timeout'
+      failureStatus = failure === 'timeout' ? 500 : Number(failure)
+      failNext = failure === 'timeout' ? 0 : 1
+      expect(await processor.send({ tenantId: owner.tenantId, deliveryId })).toBe('retrying')
+      const failedAttempt = await db.withTenant(owner.tenantId, (tx) =>
+        tx.webhookDelivery.findUniqueOrThrow({ where: { id: deliveryId } }),
+      )
+      expect(failedAttempt.status).toBe('PENDING')
+      expect(failedAttempt.attempt).toBe(2)
+      expect(failedAttempt.errorCode).toBeTruthy()
+      expect(failedAttempt.nextAttemptAt).not.toBeNull()
+      // Simulate losing both the original and delayed jobs, then make the durable retry due.
+      for (const job of await queue.getJobs(['wait', 'delayed', 'paused']))
+        if (job.data.deliveryId === deliveryId) await job.remove()
+      await db.withTenant(owner.tenantId, (tx) =>
+        tx.webhookDelivery.update({
+          where: { id: deliveryId },
+          data: { nextAttemptAt: new Date(Date.now() - 1) },
+        }),
+      )
+      await processor.recoverPending()
+      await queue.resume()
+      const done = await waitFor(
+        () =>
+          db.withTenant(owner.tenantId, (tx) =>
+            tx.webhookDelivery.findUniqueOrThrow({ where: { id: deliveryId } }),
+          ),
+        (d) => d.status === 'SUCCEEDED',
+      )
+      expect(done.nextAttemptAt).toBeNull()
+      expect(done.errorCode).toBeNull()
+    } finally {
+      failureStatus = 500
+      timeoutNext = false
+      failNext = 0
+      await queue.resume()
+    }
+  },
+  25_000,
+)
+
+it('X19 recovery exposes only identifiers and has no PUBLIC execution privilege', async () => {
+  const [grant] = await db.withGlobal(
+    (tx) => tx.$queryRaw<Array<{ public_execute: boolean; shape: string }>>`
+    SELECT has_function_privilege('public', 'system.webhook_deliveries_due(timestamptz,integer,uuid)', 'EXECUTE') AS public_execute,
+      pg_get_function_result('system.webhook_deliveries_due(timestamptz,integer,uuid)'::regprocedure) AS shape`,
+  )
+  expect(grant?.public_execute).toBe(false)
+  expect(grant?.shape).toBe('TABLE(tenant_id uuid, delivery_id uuid)')
+  const rows = await db.system.webhookDeliveriesDue(new Date(), 1)
+  expect(rows.length).toBeLessThanOrEqual(1)
+  for (const row of rows) expect(Object.keys(row).sort()).toEqual(['deliveryId', 'tenantId'])
 })
