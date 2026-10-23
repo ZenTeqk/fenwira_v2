@@ -72,8 +72,9 @@ SERVER_VARS = [
 REQUIRED = {
     "api": ["DATABASE_URL", "ENCRYPTION_KEYS", "ENCRYPTION_ACTIVE_KEY_ID", "JWT_PRIVATE_KEY",
             "JWT_PUBLIC_KEY", "API_KEY_PEPPER", "S3_ENDPOINT", "S3_REGION"],
-    "worker": ["DATABASE_URL", "ENCRYPTION_KEYS", "ENCRYPTION_ACTIVE_KEY_ID", "SMTP_URL", "MAIL_FROM",
-               "S3_ENDPOINT", "S3_REGION"],
+    # ADR-0027 step 4: SMTP is optional; without it the worker records emails as skipped.
+    "worker": ["DATABASE_URL", "ENCRYPTION_KEYS", "ENCRYPTION_ACTIVE_KEY_ID", "S3_ENDPOINT",
+               "S3_REGION"],
     "web": [],
     "migrate": ["MIGRATION_DATABASE_URL"],
 }
@@ -136,6 +137,8 @@ def main() -> None:
             **SHARED_SERVER, "APP_VERSION": args.release, "WORKER_HEALTH_HOST": "127.0.0.1",
             "WORKER_HEALTH_PORT": "4100", "WEB_ORIGIN": web_origin,
             "NODE_OPTIONS": "--max-old-space-size=768",
+            # ADR-0027 item C: replies to no-reply@fenwira.com go to the team mailbox.
+            "MAIL_REPLY_TO": params.get("config/mail-reply-to", "fenwira@zenteqk.com"),
             **pick(SERVER_VARS + ["SMTP_URL", "MAIL_FROM", "OPS_ALERT_EMAIL"]),
         },
         "web": {

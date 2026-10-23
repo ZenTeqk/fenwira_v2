@@ -42,3 +42,8 @@ output "deploy_document_name" {
   description = "SSM document run by the deploy workflow."
   value       = aws_ssm_document.deploy.name
 }
+
+output "ses_smtp_user" {
+  description = "SMTP-only IAM user for deploy/scripts/ses-smtp-credentials.py (null unless manage_ses)."
+  value       = var.manage_ses ? aws_iam_user.ses_smtp[0].name : null
+}
