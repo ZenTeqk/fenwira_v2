@@ -28,6 +28,7 @@ export async function bootApi(
 
 export async function bootWorker(
   overrides: Record<string, string> = {},
+  options: Parameters<typeof createWorkerApp>[1] = {},
 ): Promise<INestApplication> {
   const app = await createWorkerApp(
     loadEnv(workerEnvSchema, {
@@ -35,6 +36,7 @@ export async function bootWorker(
       LOG_LEVEL: process.env.TEST_LOG_LEVEL ?? 'silent',
       ...overrides,
     }),
+    options,
   )
   await app.init()
   return app

@@ -241,3 +241,71 @@ resource "aws_cloudwatch_metric_alarm" "app_process" {
   alarm_actions       = local.alarm_actions
   ok_actions          = local.alarm_ok_actions
 }
+
+# ---------------------------------------------------------------------------------------------
+# ADR-0027 item E: launch alarms (to the alarms topic, i.e. alarm_email).
+# ---------------------------------------------------------------------------------------------
+
+# API 5xx: the API's exception filter logs every ≥500 response as {"msg":"request failed"}.
+resource "aws_cloudwatch_log_metric_filter" "api_5xx" {
+  name           = "${local.name}-api-5xx"
+  log_group_name = aws_cloudwatch_log_group.this["api"].name
+  pattern        = "{ $.msg = \"request failed\" }"
+  metric_transformation {
+    name          = "api_5xx"
+    namespace     = "Fenwira"
+    value         = "1"
+    default_value = "0"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "api_5xx" {
+  alarm_name          = "${local.name}-api-5xx"
+  alarm_description   = "5 or more API 5xx responses in 5 minutes (api log: \"request failed\")."
+  namespace           = "Fenwira"
+  metric_name         = "api_5xx"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 5
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_ok_actions
+}
+
+# Worker heartbeat: /health/live probed every minute by deploy/monitoring/redis-metrics.sh. Missing
+# data (timer stopped) counts as down. Notifies only once the worker is in app_alarm_services.
+resource "aws_cloudwatch_metric_alarm" "worker_heartbeat" {
+  alarm_name          = "${local.name}-worker-no-heartbeat"
+  alarm_description   = "Worker /health/live not answering for 3 minutes: no webhooks processed, no sends, no email."
+  namespace           = "CWAgent"
+  metric_name         = "worker_up"
+  dimensions          = { InstanceId = aws_instance.app.id }
+  statistic           = "Minimum"
+  period              = 60
+  evaluation_periods  = 3
+  threshold           = 1
+  comparison_operator = "LessThanThreshold"
+  treat_missing_data  = "breaching"
+  actions_enabled     = contains(var.app_alarm_services, "worker")
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_ok_actions
+}
+
+# Queue backlog: the oldest waiting job on a customer-traffic queue is older than 5 minutes.
+resource "aws_cloudwatch_metric_alarm" "queue_backlog_age" {
+  alarm_name          = "${local.name}-queue-backlog-age"
+  alarm_description   = "Oldest waiting job older than 5 minutes for 3 minutes (inbound, status, outbound, campaigns, email…)."
+  namespace           = "CWAgent"
+  metric_name         = "queue_backlog_age_seconds"
+  dimensions          = { InstanceId = aws_instance.app.id }
+  statistic           = "Maximum"
+  period              = 60
+  evaluation_periods  = 3
+  threshold           = 300
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_ok_actions
+}
