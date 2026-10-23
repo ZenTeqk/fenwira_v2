@@ -15,6 +15,21 @@ pnpm --filter @fenwira/database platform:operator -- --user <uuid> --actor <auth
 
 The runtime database role cannot write grants. Provisioning requires verified/enabled identity and enrolled MFA; revocation remains possible if the account is disabled or MFA unavailable. Grant version changes invalidate existing privilege. Immutable audit details preserve authorizing reference and reason. There is no HTTP grant endpoint or self-grant UI.
 
+## Staff access (production)
+
+**Grant a second operator.** The person first creates and verifies a normal account (an operator-issued setup or reset link works) and enrolls 2FA through `POST /api/v1/me/2fa/setup` and `/me/2fa/enable`. An account without a workspace is sent to `/onboarding`, so they use the API from the browser console on app.fenwira.com, with the `csrfToken` from `GET /api/v1/auth/me`. Then, on the server (SSM, `/bin/sh` only), run the CLI the same way migrations run, so no secret passes through the shell:
+
+```sh
+cd /opt/fenwira/current
+env -i PATH="$PATH" HOME=/root node --env-file=/etc/fenwira/migrate.env \
+  packages/database/dist/cli/platform-operator.js \
+  --user <their-user-uuid> --actor "<who approved it>" --reason "<why>"
+```
+
+The CLI refuses unless the account is verified, enabled and has 2FA enrolled, and it records `operator.granted` in `platform_audit`. Find the user id with a read-only `select id from users where email = '…'`, and never print connection strings.
+
+**Revoke.** Run the same command with `--revoke` and a reason. It works even if the account is disabled or has lost 2FA, and existing platform sessions stop at their next request (the grant version changes). Revoke before disabling or deleting a staff account.
+
 ## Privilege and recovery
 
 Visit `/platform/login`; enter password, then a fresh six-digit authenticator code. Separate HttpOnly SameSite=Strict cookies are scoped to `/api/v1/platform`; Secure follows deployment cookie configuration. Production cookie configuration must be secure. Privilege lasts at most 30 minutes, idle limit 10 minutes, and writes/previews need MFA within five minutes. Verify identity again in the workspace action card; this never extends absolute expiry.
