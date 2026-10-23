@@ -67,6 +67,38 @@ variable "dns_ttl" {
   default     = 60
 }
 
+# fenwira.com (ADR-0027 item B). The zone already exists (registered domain, NS delegated) and is
+# only read; the records below are new. The app moves to these names when use_primary_domains = true.
+variable "primary_zone_name" {
+  description = "Existing Route 53 public hosted zone of the product domain (read only, never created)."
+  type        = string
+  default     = "fenwira.com"
+}
+
+variable "primary_app_domain" {
+  description = "Web app host on the product domain."
+  type        = string
+  default     = "app.fenwira.com"
+}
+
+variable "primary_api_domain" {
+  description = "API and Meta webhook host on the product domain."
+  type        = string
+  default     = "api.fenwira.com"
+}
+
+variable "site_domain" {
+  description = "Company site (static page: company details, privacy policy, terms) served by this server."
+  type        = string
+  default     = "fenwira.com"
+}
+
+variable "use_primary_domains" {
+  description = "Point the app configuration (SSM app-domain/api-domain) at primary_app_domain/primary_api_domain. Flip only after the certificate and nginx server blocks for them are live (docs/MANAGED_LAUNCH.md → Domain cutover). The legacy names keep their records either way."
+  type        = bool
+  default     = false
+}
+
 variable "route53_zone_name" {
   description = "Existing Route 53 public hosted zone holding app_domain/api_domain (read only; also scopes the certbot DNS-01 permission)."
   type        = string
