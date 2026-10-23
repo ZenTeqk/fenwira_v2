@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SESSION_ABSOLUTE_SECONDS, SESSION_IDLE_SECONDS } from '../src/core/security/cookies'
+import { JwtService } from '../src/modules/identity/jwt.service'
 import { SessionService } from '../src/modules/identity/session.service'
 
 type Row = {
@@ -135,7 +136,6 @@ describe('session timeouts', () => {
 
 describe('access tokens', () => {
   it('never outlive the idle deadline', async () => {
-    const { JwtService } = await import('../src/modules/identity/jwt.service')
     const jwt = new JwtService({} as never)
     const now = Math.floor(Date.now() / 1000)
     const token = jwt.signAccess('u1', 's1', now, new Date((now + 120) * 1000))
