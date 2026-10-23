@@ -1,0 +1,23 @@
+# ADR-0027 item B: the old web host redirects to the product domain for 30 days after the cutover
+# (docs/MANAGED_LAUNCH.md → Domain cutover). Rendered only when --legacy-app-domain is given.
+# @@LEGACY_APP_DOMAIN@@, @@APP_DOMAIN@@, @@LEGACY_TLS_CERT@@, @@LEGACY_TLS_KEY@@.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name @@LEGACY_APP_DOMAIN@@;
+    location /.well-known/acme-challenge/ { root /var/www/letsencrypt; }
+    location / { return 301 https://@@APP_DOMAIN@@$request_uri; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name @@LEGACY_APP_DOMAIN@@;
+
+    ssl_certificate     @@LEGACY_TLS_CERT@@;
+    ssl_certificate_key @@LEGACY_TLS_KEY@@;
+    include /etc/nginx/snippets/fenwira-tls.conf;
+
+    location / { return 301 https://@@APP_DOMAIN@@$request_uri; }
+}

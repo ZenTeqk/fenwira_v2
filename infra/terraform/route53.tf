@@ -34,3 +34,21 @@ resource "aws_route53_record" "api" {
   records         = [aws_eip.app.public_ip]
   allow_overwrite = false
 }
+
+# fenwira.com (ADR-0027 item B): app, api and the company site all point at this server's Elastic
+# IP. A records only: the instance has no IPv6 address, so AAAA would point nowhere.
+# allow_overwrite = false: Terraform fails instead of taking over an existing record (e.g. a
+# registrar parking record at the apex), so nothing is silently replaced.
+resource "aws_route53_record" "primary" {
+  for_each = var.manage_dns ? {
+    app  = var.primary_app_domain
+    api  = var.primary_api_domain
+    site = var.site_domain
+  } : {}
+  zone_id         = data.aws_route53_zone.primary.zone_id
+  name            = each.value
+  type            = "A"
+  ttl             = var.dns_ttl
+  records         = [aws_eip.app.public_ip]
+  allow_overwrite = false
+}

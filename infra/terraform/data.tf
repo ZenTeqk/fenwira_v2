@@ -75,3 +75,9 @@ data "aws_route53_zone" "this" {
   name         = var.route53_zone_name
   private_zone = false
 }
+
+# Existing fenwira.com zone (read only). Never created here: the domain's NS already delegate to it.
+data "aws_route53_zone" "primary" {
+  name         = var.primary_zone_name
+  private_zone = false
+}

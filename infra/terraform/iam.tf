@@ -126,6 +126,27 @@ data "aws_iam_policy_document" "ec2_app" {
     }
   }
 
+  # The same, for the fenwira.com certificate (app, api and the company site on one certificate).
+  statement {
+    sid       = "AcmeDns01ChangePrimary"
+    actions   = ["route53:ChangeResourceRecordSets"]
+    resources = [data.aws_route53_zone.primary.arn]
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "route53:ChangeResourceRecordSetsNormalizedRecordNames"
+      values = [
+        "_acme-challenge.${var.primary_app_domain}",
+        "_acme-challenge.${var.primary_api_domain}",
+        "_acme-challenge.${var.site_domain}",
+      ]
+    }
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "route53:ChangeResourceRecordSetsRecordTypes"
+      values   = ["TXT"]
+    }
+  }
+
   statement {
     sid       = "AcmeDns01Lookup"
     actions   = ["route53:ListHostedZones", "route53:GetChange"]

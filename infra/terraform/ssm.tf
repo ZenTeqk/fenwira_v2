@@ -6,8 +6,8 @@
 locals {
   config_parameters = {
     "aws-region"         = var.aws_region
-    "app-domain"         = var.app_domain
-    "api-domain"         = var.api_domain
+    "app-domain"         = var.use_primary_domains ? var.primary_app_domain : var.app_domain
+    "api-domain"         = var.use_primary_domains ? var.primary_api_domain : var.api_domain
     "rds-endpoint"       = aws_db_instance.this.address
     "rds-port"           = tostring(aws_db_instance.this.port)
     "rds-database"       = "fenwira"

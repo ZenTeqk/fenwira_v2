@@ -91,7 +91,8 @@ resource "aws_s3_bucket_cors_configuration" "this" {
   for_each = aws_s3_bucket.this
   bucket   = each.value.id
   cors_rule {
-    allowed_origins = ["https://${var.app_domain}"]
+    # Both web origins during the move to fenwira.com; the legacy host only redirects afterwards.
+    allowed_origins = ["https://${var.app_domain}", "https://${var.primary_app_domain}"]
     allowed_methods = ["GET", "PUT", "HEAD"]
     allowed_headers = ["*"]
     expose_headers  = ["ETag"]
