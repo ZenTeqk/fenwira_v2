@@ -881,4 +881,26 @@ it('plan prices: operators read and set them through the grant-checked function;
     currency: 'INR',
     amountMinor: 199900,
   })
+
+it('overview and workspace activity: operators only, aggregates only, no secrets', async () => {
+  const tenant = await identity(false, false)
+  await tenant.client.post('/auth/login', { email: tenant.email, password: PASSWORD })
+  expect((await tenant.client.get('/platform/overview')).status).toBe(401)
+  expect((await tenant.client.get(`/platform/workspaces/${uuidv7()}/activity`)).status).toBe(401)
+  const operator = await privileged()
+  const res = await operator.client.get('/platform/overview')
+  expect(res.status, res.text).toBe(200)
+  expect(res.body.data).toEqual(
+    expect.objectContaining({
+      statusCounts: expect.any(Object),
+      messagesByDay: expect.any(Array),
+      connections: expect.any(Array),
+      queueBacklog: expect.objectContaining({ waiting: expect.any(Number) }),
+      attention: expect.any(Array),
+    }),
+  )
+  const text = JSON.stringify(res.body)
+  for (const banned of ['token', 'secret', 'Ciphertext', 'password', '"body":', '"email":'])
+    expect(text).not.toContain(banned)
+  expect((await operator.client.get(`/platform/workspaces/${uuidv7()}/activity`)).status).toBe(404)
 })

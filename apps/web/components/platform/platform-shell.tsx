@@ -60,6 +60,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
     )
   if (!me.data) return <ErrorState description="Privileged sign-in required." />
   const nav = [
+    ['/platform', 'Overview'],
     ['/platform/workspaces', 'Workspaces'],
     ['/platform/access-requests', 'Access requests'],
     ['/platform/payments', 'Payments'],
@@ -123,7 +124,14 @@ export function PlatformShell({ children }: { children: ReactNode }) {
                   variant={pathname.startsWith(href!) ? 'primary' : 'ghost'}
                   className="justify-start"
                 >
-                  <Link href={href!} aria-current={pathname.startsWith(href!) ? 'page' : undefined}>
+                  <Link
+                    href={href!}
+                    aria-current={
+                      (href === '/platform' ? pathname === href : pathname.startsWith(href!))
+                        ? 'page'
+                        : undefined
+                    }
+                  >
                     {label}
                   </Link>
                 </Button>

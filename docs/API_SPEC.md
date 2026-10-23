@@ -420,6 +420,8 @@ Platform session only. `payments.read` for GETs; `payments.manage` plus fresh MF
 | POST | `/platform/workspaces/:workspaceId/members/:userId/reset-link` | `workspaces.manage` + fresh MFA | → `{link, expiresAt}` (1 h, single use; ML-D4: operators only; members of that workspace only) |
 | GET | `/platform/plans` | `commercial.read` | → `[{key, name, monthly: {currency, amountMinor} \| null}]` |
 | POST | `/platform/plans/:planKey/price` | `subscription.manage` + fresh MFA | `{currency: 'INR', amountMinor}` (₹1–₹10,00,000) → the plan. Audited `platform.plan_price_set`; affects invoices issued afterwards |
+| GET | `/platform/overview` | `financial.read` | → aggregates for the operator dashboard: `statusCounts`, `newWorkspaces`, `mrr`, `revenueByMonth`, `pendingPayments`, `overdueWorkspaces`, `trialsEnding`, `connections` (number, status, quality, messaging limit, webhook, verify), `messagesByDay`, `failedSends7d`, `queueBacklog`, `emailFailures7d`, `accessRequests`, `attention[]`. From `system.platform_overview` (grant-checked; column grants exclude content, tokens, secrets and contacts) |
+| GET | `/platform/workspaces/:workspaceId/activity` | `commercial.read` | → `{messagesByDay (30 days), recentAudit [{action, actorType, createdAt}]}` (no message content, no audit payloads) |
 | GET | `/platform/access-requests` | `commercial.read` | → the last 200 Request access leads, newest first: `{id, name, company, email, phone, volume, status: QUEUED\|EMAILED\|EMAIL_FAILED\|EMAIL_SKIPPED, createdAt}` |
 | GET | `/platform/email-deliveries` | `audit.read` | → the last 100 emails: `{kind, status: SENT\|FAILED\|SKIPPED_NO_SMTP\|SUPPRESSED, recipientHint, errorCode}` |
 
