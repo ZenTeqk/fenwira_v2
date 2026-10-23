@@ -382,6 +382,24 @@ All require platform-session cookies, never tenant/API-key authorization. `GET /
 
 Platform POST `/platform/workspaces/:workspaceId/subscription-operations` (`subscription.manage`): activate configured planId, cancel at period-end, billing_mode FREE/TRIAL/PREPAID. POST `entitlement-operations` (`entitlements.manage`): typed override_set/override_remove. Shared contracts require commercial metadata and accept expectedVersion; retries replay immutable receipts.
 
+### Platform WhatsApp (ADR-0027 Managed Launch Mode)
+
+Under `/platform/workspaces/:workspaceId/whatsapp`, platform session only (`whatsapp.read` for GETs; `whatsapp.manage` plus fresh MFA and platform CSRF for the rest). An unknown or deleted workspace, and a connection of another workspace, are 404. Every mutation writes a tenant audit entry (actor `PLATFORM_OPERATOR`) and a `platform_audit` row (`platform.whatsapp.*`, SUCCESS/FAILED). Responses carry `PlatformWhatsAppConnection` (the tenant connection plus `metaAppId`, `businessId`, `appSecret {maskedSecret, rotatedAt}`, `templatesSyncedAt`); no token or secret is ever returned.
+
+| Method | Path | Body → result |
+| --- | --- | --- |
+| GET | `/connections` | → `PlatformWhatsAppConnection[]` |
+| GET | `/connections/:id` | → `PlatformWhatsAppConnection` |
+| POST | `/connections` | `{wabaId, phoneNumberId, displayPhoneNumber, accessToken, appSecret?, appId?, businessId?}` → 201. 422 `WHATSAPP_CONNECT_FAILED {step, steps}` before anything is stored; 409 `PHONE_NUMBER_ALREADY_CONNECTED` |
+| POST | `/connections/:id/verify` | → `{ok, verifiedAt, checks: {token, phoneNumber, waba}}`; stored on the credential (`verifiedAt`, `verifyOk`, `verifyErrorCode`); a rejected token becomes INVALID |
+| POST | `/connections/:id/subscribe` | Re-subscribes the app to the WABA's webhooks |
+| POST | `/connections/:id/sync` | Status, quality rating and messaging limit from Meta |
+| POST | `/connections/:id/sync-templates` | → `{syncedAt, imported, updated, missing}` |
+| POST | `/connections/:id/rotate` | `{accessToken?, appSecret?, appId?}` (at least one); a new token is verified first |
+| DELETE | `/connections/:id` | 204; unsubscribes and wipes the token and app secret (when no other live number uses the WABA) |
+
+Rate limits per workspace: connect/rotate 20/h, verify 30/h, sync 30/h, template sync 30/h. Tenant `GET /whatsapp/connections` now also returns `connectionMode` and `credential.{verifiedAt, verifyOk, verifyErrorCode}`.
+
 Platform POST `wallet-preview`, `subscription-preview`, `entitlement-preview` under `/platform/workspaces/:workspaceId` use the same corresponding permission/request contract. Domain calculations and validation run in a transaction that always rolls back; no receipt, ledger, subscription, override or outbox change persists. A separate immutable preview-access event is recorded. Preview returns version, before/after/result and effective configured entitlements. Confirmation submits expectedVersion; stale state is 409 VERSION_CONFLICT.
 
 ## Phase 11 closure verification

@@ -331,7 +331,7 @@ The launch happens before Tech Provider approval and without a payment gateway: 
 | Step | Branch | Status |
 | --- | --- | --- |
 | 1 Feature flag (`MANAGED_LAUNCH_MODE`) | `ml-1-flag` | 🔵 PR open |
-| 2 Operator-only manual Meta connection | `ml-2-meta-connect` | ⬜ |
+| 2 Operator-only manual Meta connection | `ml-2-meta-connect` | 🔵 PR open (mock only; real Meta in step 6) |
 | 3 Manual UPI QR billing | `ml-3-upi-billing` | ⬜ |
 | 4 Workspace and team provisioning, SMTP optional | `ml-4-provisioning` | ⬜ |
 | 5 `docs/MANAGED_LAUNCH.md` and operator checklist | `ml-5-runbook` | ⬜ |
