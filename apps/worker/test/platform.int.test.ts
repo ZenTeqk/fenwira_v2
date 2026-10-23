@@ -834,3 +834,51 @@ it('commercial notifications reach billing readers once and exclude operator/cus
     await db.withTenant(tenantId, (tx) => tx.membership.count({ where: { userId: operator.id } })),
   ).toBe(0)
 })
+
+it('plan prices: operators read and set them through the grant-checked function; tenants cannot', async () => {
+  const tenant = await identity(false, false)
+  await tenant.client.post('/auth/login', { email: tenant.email, password: PASSWORD })
+  expect((await tenant.client.get('/platform/plans')).status).toBe(401)
+  expect(
+    (await tenant.client.post('/platform/plans/GROWTH/price', { currency: 'INR', amountMinor: 1 }))
+      .status,
+  ).toBe(401)
+  const operator = await privileged()
+  const before = await operator.client.get('/platform/plans')
+  expect(before.status).toBe(200)
+  // Seeded launch prices (missing rows only), unless a previous test run changed them.
+  expect(before.body.data.map((p: { key: string }) => p.key)).toEqual(
+    expect.arrayContaining(['STARTER', 'GROWTH', 'BUSINESS']),
+  )
+  const set = await operator.client.post('/platform/plans/BUSINESS/price', {
+    currency: 'INR',
+    amountMinor: 209900,
+  })
+  expect(set.status, JSON.stringify(set.body)).toBe(200)
+  expect(set.body.data.monthly).toEqual({ currency: 'INR', amountMinor: 209900 })
+  expect(
+    (
+      await operator.client.post('/platform/plans/BUSINESS/price', {
+        currency: 'INR',
+        amountMinor: 5,
+      })
+    ).status,
+  ).toBe(400)
+  expect(
+    (
+      await operator.client.post('/platform/plans/NOPE/price', {
+        currency: 'INR',
+        amountMinor: 100,
+      })
+    ).status,
+  ).toBe(404)
+  // The runtime role still cannot write plan_prices directly.
+  await expect(
+    db.withGlobal((tx) => tx.$executeRaw`UPDATE plan_prices SET amount_minor = 1`),
+  ).rejects.toThrow()
+  // Restore the launch price for later suites.
+  await operator.client.post('/platform/plans/BUSINESS/price', {
+    currency: 'INR',
+    amountMinor: 199900,
+  })
+})

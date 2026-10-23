@@ -339,15 +339,16 @@ const activate = (tenantId: string, plan: string) =>
   )
 
 describe('Phase 11 Step 4: plans, subscription and entitlements API', { timeout: 90_000 }, () => {
-  it('lists plans as data with no price; entitlements report usage and over-limit', async () => {
+  it('lists plans with their launch prices; entitlements report usage and over-limit', async () => {
     const owner = await createOwner(api, 'sub-api')
     const plans = (await owner.client.get('/billing/plans')).body.data as Array<{
       key: string
-      price: unknown
+      price: { amountMinor: number } | null
       entitlements: Record<string, unknown>
     }>
     expect(plans.map((p) => p.key)).toEqual(['STARTER', 'GROWTH', 'BUSINESS'])
-    expect(plans.every((p) => p.price === null)).toBe(true)
+    // Launch prices (INR monthly, before GST) are seeded when missing (docs/BILLING.md → Plans).
+    expect(plans.map((p) => p.price?.amountMinor)).toEqual([89900, 129900, 199900])
     expect(plans[0]!.entitlements).toMatchObject({ max_contacts: 5000, api_enabled: false })
 
     await owner.client.post('/contacts', { phone: phone() })

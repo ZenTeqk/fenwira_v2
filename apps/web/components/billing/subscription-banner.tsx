@@ -10,7 +10,7 @@ import { useWorkspaceStatus } from '@/lib/workspace-status'
  * billing; quiet until the last week of a trial. Wallet state is separate and shown elsewhere.
  */
 export function SubscriptionBanner() {
-  const { can } = useSession()
+  const { can, me } = useSession()
   const sub = useWorkspaceStatus().data?.subscription
   if (!sub || !can('billing.read')) return null
   const link = (
@@ -61,7 +61,10 @@ export function SubscriptionBanner() {
         tone="warning"
         title={`Trial ends in ${sub.trialDaysLeft} day${sub.trialDaysLeft === 1 ? '' : 's'}`}
       >
-        Request a plan to keep sending without interruption. {link}
+        {me.features.managedLaunch
+          ? 'Billing starts when your trial ends. We’ll send you an invoice to pay by UPI.'
+          : 'Request a plan to keep sending without interruption.'}{' '}
+        {link}
       </Alert>
     )
   return null

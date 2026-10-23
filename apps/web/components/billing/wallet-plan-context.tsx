@@ -3,6 +3,7 @@
 import { Alert, Button, Card, Skeleton, StatusBadge } from '@fenwira/ui'
 import { ArrowRight, CalendarClock, Check, Layers, Tag } from 'lucide-react'
 import Link from 'next/link'
+import { useSession } from '@/components/session/session-provider'
 import { formatMoney } from '@/lib/billing'
 import {
   STATUS_BADGE,
@@ -16,6 +17,7 @@ import {
 export function WalletPlanContext() {
   const subscription = useSubscription()
   const plans = usePlans()
+  const managed = useSession().me.features.managedLaunch
   const entitlements = useEntitlements()
   const s = subscription.data
   const plan = plans.data?.find((p) => p.id === s?.plan?.id)
@@ -94,6 +96,11 @@ export function WalletPlanContext() {
                 </dt>
                 <dd>{date(s.trialEndsAt)}</dd>
               </div>
+            ) : null}
+            {s.status === 'TRIALING' && managed ? (
+              <p className="text-secondary">
+                Billing starts after your free trial. We’ll send you an invoice before it ends.
+              </p>
             ) : null}
             {s.currentPeriodEnd ? (
               <div className="flex flex-wrap items-center justify-between gap-2">

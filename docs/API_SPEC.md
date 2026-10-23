@@ -418,6 +418,8 @@ Platform session only. `payments.read` for GETs; `payments.manage` plus fresh MF
 | POST | `/platform/workspaces/provision` | `workspaces.manage` + fresh MFA | `{workspaceName, ownerName, ownerEmail, country?, timezone?}` → 201 `{workspaceId, ownerUserId, setupLink, setupExpiresAt}`. The setup link (72 h, single use) sets the first password and verifies the email (ML-D7). It is `null` when the email already has an account |
 | GET | `/platform/workspaces/:workspaceId/members` | `commercial.read` | → `[{userId, name, email, role, status, emailVerified, joinedAt}]` |
 | POST | `/platform/workspaces/:workspaceId/members/:userId/reset-link` | `workspaces.manage` + fresh MFA | → `{link, expiresAt}` (1 h, single use; ML-D4: operators only; members of that workspace only) |
+| GET | `/platform/plans` | `commercial.read` | → `[{key, name, monthly: {currency, amountMinor} \| null}]` |
+| POST | `/platform/plans/:planKey/price` | `subscription.manage` + fresh MFA | `{currency: 'INR', amountMinor}` (₹1–₹10,00,000) → the plan. Audited `platform.plan_price_set`; affects invoices issued afterwards |
 | GET | `/platform/access-requests` | `commercial.read` | → the last 200 Request access leads, newest first: `{id, name, company, email, phone, volume, status: QUEUED\|EMAILED\|EMAIL_FAILED\|EMAIL_SKIPPED, createdAt}` |
 | GET | `/platform/email-deliveries` | `audit.read` | → the last 100 emails: `{kind, status: SENT\|FAILED\|SKIPPED_NO_SMTP\|SUPPRESSED, recipientHint, errorCode}` |
 

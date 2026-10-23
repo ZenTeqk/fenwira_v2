@@ -36,12 +36,15 @@ export const PLAN_SEEDS: ReadonlyArray<{
   key: string
   name: string
   sort: number
+  /** Launch monthly price in INR paise. Seeded only when missing; operators edit it in /platform. */
+  monthlyInrMinor: number
   entitlements: Partial<Record<EntitlementKey, boolean | number | null>>
 }> = [
   {
     key: 'STARTER',
     name: 'Starter',
     sort: 10,
+    monthlyInrMinor: 89900,
     entitlements: {
       automation_enabled: true,
       api_enabled: false,
@@ -56,6 +59,7 @@ export const PLAN_SEEDS: ReadonlyArray<{
     key: 'GROWTH',
     name: 'Growth',
     sort: 20,
+    monthlyInrMinor: 129900,
     entitlements: {
       automation_enabled: true,
       api_enabled: true,
@@ -70,6 +74,7 @@ export const PLAN_SEEDS: ReadonlyArray<{
     key: 'BUSINESS',
     name: 'Business',
     sort: 30,
+    monthlyInrMinor: 199900,
     entitlements: {
       automation_enabled: true,
       api_enabled: true,
@@ -97,7 +102,7 @@ export const planSchema = z.object({
   id: z.uuid(),
   key: z.string(),
   name: z.string(),
-  /** Prices are not approved (P11-D4): null until configured; the UI shows "Contact us". */
+  /** Active monthly price (operator-editable in /platform); null shows "Contact us". */
   price: z
     .object({ amountMinor: z.number().int(), currency: z.string(), interval: z.string() })
     .nullable(),
@@ -132,3 +137,17 @@ export type EntitlementStatus = z.infer<typeof entitlementStatusSchema>
 /** P11-D24: the OWNER requests a plan; an operator activates it (no gateway, no prices). */
 export const requestPlanSchema = z.object({ planId: z.uuid() })
 export type RequestPlan = z.infer<typeof requestPlanSchema>
+
+/** Operator console: plan price list and edit (GET/PUT /platform/plans). */
+export const platformPlanSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  monthly: z.object({ currency: z.string(), amountMinor: z.number().int() }).nullable(),
+})
+export type PlatformPlan = z.infer<typeof platformPlanSchema>
+export const setPlanPriceSchema = z.strictObject({
+  currency: z.literal('INR'),
+  /** Paise; ₹1 to ₹10,00,000 a month. */
+  amountMinor: z.number().int().min(100).max(100_000_000),
+})
+export type SetPlanPrice = z.infer<typeof setPlanPriceSchema>
