@@ -64,6 +64,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   if (!me.data) return <ErrorState description="Privileged sign-in required." />
   const nav = [
     ['/platform/workspaces', 'Workspaces'],
+    ['/platform/payments', 'Payments'],
     ['/platform/billing-operations', 'Billing operations'],
     ['/platform/audit', 'Audit'],
   ]
@@ -106,7 +107,8 @@ export function PlatformShell({ children }: { children: ReactNode }) {
             {nav
               .filter(
                 ([href]) =>
-                  href !== '/platform/audit' || me.data.permissions.includes('audit.read'),
+                  (href !== '/platform/audit' || me.data.permissions.includes('audit.read')) &&
+                  (href !== '/platform/payments' || me.data.permissions.includes('payments.read')),
               )
               .map(([href, label]) => (
                 <Button

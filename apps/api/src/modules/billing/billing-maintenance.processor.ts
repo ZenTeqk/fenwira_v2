@@ -14,6 +14,7 @@ import { type QueueProcessor } from '../../core/queue/queue-processor'
 import { QueueRegistry } from '../../core/queue/queue-registry'
 import { Mailer, OpsAlerts, subscriptionNoticeEmail } from '../platform'
 import { BILLING_OPTIONS, type BillingOptions } from './billing.options'
+import { issueRenewalIfDue } from './invoices.core'
 import { noticeCopy, stepSubscription } from './subscriptions.core'
 import { ledgerFigures, recoverReservation } from './usage.core'
 
@@ -153,12 +154,24 @@ export class BillingMaintenanceProcessor
     let processed = 0,
       notices = 0
     for (;;) {
-      const tenantIds = await this.db.system.subscriptionsDue(now, BATCH, after)
+      const manual = this.options.manual
+      // Manual billing (ADR-0027) also steps PAST_DUE workspaces and issues renewals in the lead
+      // window; both lists are stepped idempotently (row lock + conditional transitions).
+      const due = await this.db.system.subscriptionsDue(now, BATCH, after)
+      const manualDue: string[] = manual?.enabled
+        ? await this.db.system.manualBillingDue(now, manual.leadDays, BATCH, after)
+        : []
+      const tenantIds: string[] = [...new Set([...due, ...manualDue])].sort().slice(0, BATCH)
       if (!tenantIds.length) break
       processed += tenantIds.length
       for (const tenantId of tenantIds) {
         try {
-          const r = await this.db.withTenant(tenantId, (tx) => stepSubscription(tx, tenantId, now))
+          const r = await this.db.withTenant(tenantId, async (tx) => {
+            const step = await stepSubscription(tx, tenantId, now, manual)
+            if (manual?.enabled && (await issueRenewalIfDue(tx, tenantId, now, manual)))
+              this.metrics.subscriptionTransitions.inc({ to: 'RENEWAL_INVOICED' })
+            return step
+          })
           if (!r.notice) continue
           notices++
           this.metrics.subscriptionTransitions.inc({ to: r.notice })

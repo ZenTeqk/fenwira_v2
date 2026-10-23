@@ -28,6 +28,22 @@ const execution = async (tx: TenantTx, tenantId: string) => {
   })
 }
 
+const invoice = (tx: TenantTx, tenantId: string) =>
+  tx.invoice.create({
+    data: {
+      tenantId,
+      number: `FW-INV-M${uuidv7()}`,
+      kind: 'WALLET_TOPUP',
+      subtotalMinor: 100n,
+      totalMinor: 100n,
+      description: 'Matrix',
+      dueAt: new Date(),
+      payeeVpa: 'matrix@bank',
+      payeeName: 'Matrix',
+      createdByType: 'SYSTEM',
+    },
+  })
+
 const wallet = (tx: TenantTx, tenantId: string) =>
   tx.wallet.upsert({ where: { tenantId }, create: { tenantId }, update: {} })
 
@@ -434,6 +450,16 @@ const FIXTURES: Record<string, Fixture> = {
       create: { tenantId },
       update: {},
     }),
+  invoices: (tx, { tenantId }) => invoice(tx, tenantId),
+  payment_proofs: async (tx, { tenantId, userId }) =>
+    tx.paymentProof.create({
+      data: {
+        tenantId,
+        invoiceId: (await invoice(tx, tenantId)).id,
+        utr: `M${uuidv7().replace(/-/g, '').slice(0, 20).toUpperCase()}`,
+        submittedById: userId,
+      },
+    }),
   subscriptions: (tx, { tenantId }) =>
     tx.subscription.upsert({
       where: { tenantId },
@@ -502,6 +528,8 @@ const APPEND_ONLY = new Set([
   'automation_execution_steps',
   'analytics_events',
 ])
+/** Financial history (ADR-0027 manual billing): rows change state but are never deleted. */
+const NO_DELETE = new Set(['invoices', 'payment_proofs'])
 
 const appUrl = process.env.DATABASE_URL!
 const ownerUrl = process.env.MIGRATION_DATABASE_URL!
@@ -590,6 +618,9 @@ describe.each(Object.keys(FIXTURES))('%s', (table) => {
     if (APPEND_ONLY.has(table)) {
       // Append-only: the runtime role can't update or delete at all, in any tenant.
       await expect(update()).rejects.toThrow(/permission denied/)
+      await expect(remove()).rejects.toThrow(/permission denied/)
+    } else if (NO_DELETE.has(table)) {
+      expect(await update()).toBe(0)
       await expect(remove()).rejects.toThrow(/permission denied/)
     } else {
       expect(await update()).toBe(0)

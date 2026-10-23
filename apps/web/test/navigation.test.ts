@@ -25,7 +25,7 @@ describe('navigation', () => {
       'Billing',
       'Settings',
     ])
-    expect(flattenLeaves(NAVIGATION)).toHaveLength(32)
+    expect(flattenLeaves(NAVIGATION)).toHaveLength(33)
     const hrefs = flattenLeaves(NAVIGATION).map((l) => l.href)
     expect(new Set(hrefs).size).toBe(hrefs.length)
   })
@@ -37,6 +37,7 @@ describe('navigation', () => {
       if (leaf.phase > SHIPPED_PHASE)
         expect([
           'billing-subscription',
+          'billing-invoices', // ADR-0027 manual UPI billing
           'billing-wallet',
           'analytics-overview',
           'analytics-messaging',
@@ -60,6 +61,7 @@ describe('navigation', () => {
     ])
     expect(visible.find((i) => i.id === 'billing')!.children!.map((c) => c.label)).toEqual([
       'Subscription',
+      'Invoices',
       'Wallet',
     ])
     expect(visible.find((i) => i.id === 'automations')!.children!.map((c) => c.label)).toEqual([
@@ -85,7 +87,7 @@ describe('navigation', () => {
   })
 
   it('reveals everything in preview mode', () => {
-    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(32)
+    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(33)
   })
 
   it('keeps partially shipped groups with only their shipped children', () => {

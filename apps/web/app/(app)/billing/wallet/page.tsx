@@ -203,6 +203,7 @@ export default function WalletPage() {
             href: '/billing/subscription',
             active: false,
           },
+          { id: 'invoices', label: 'Invoices', href: '/billing/invoices', active: false },
           { id: 'wallet', label: 'Wallet', href: '/billing/wallet', active: true },
           { id: 'usage', label: 'Usage', href: '/billing/usage', active: false },
         ]}

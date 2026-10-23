@@ -10,6 +10,9 @@ import {
   walletOperationSchema,
   commercialReceiptSchema,
   type WalletOperation,
+  type ApprovePaymentRequest,
+  type CreateInvoiceRequest,
+  type PaymentReviewResult,
 } from '@fenwira/contracts'
 import { Database, Prisma, type TenantTx } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
@@ -19,7 +22,11 @@ import { requestContext } from '../../core/context/request-context'
 import { AppError } from '../../core/http/app-error'
 import {
   activatePlan,
+  applyApprovedPayment,
   availableOf,
+  issueInvoice,
+  rejectPayment,
+  voidInvoice,
   BILLING_OPTIONS,
   type BillingOptions,
   lockWallet,
@@ -314,5 +321,169 @@ export class CommercialOperationService {
       },
       preview,
     )
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // ADR-0027 manual UPI billing (docs/BILLING.md → Manual invoices). Same privilege recheck,
+  // serialization, immutable receipt, tenant + platform audit and outbox as every operation above.
+  // ------------------------------------------------------------------------------------------
+
+  private get manual() {
+    const manual = this.billing.manual
+    if (!manual) throw new AppError('UPI_NOT_CONFIGURED', 422, 'Manual billing is not configured.')
+    return manual
+  }
+
+  async issueInvoice(tenantId: string, input: CreateInvoiceRequest) {
+    const manual = this.manual
+    return this.run(
+      tenantId,
+      {
+        kind: 'invoice_issue',
+        reason:
+          input.description ?? (input.kind === 'PLAN_RENEWAL' ? 'Plan renewal' : 'Wallet top-up'),
+        reference: `${input.kind}:${input.planKey ?? '-'}:${input.dueAt}`,
+        idempotencyKey: `invoice:${input.idempotencyKey}`,
+        amountMinor: input.amountMinor,
+        currency: 'INR',
+      },
+      async (tx, operatorId) => {
+        const plan = input.planKey
+          ? await tx.plan.findUnique({ where: { key: input.planKey } })
+          : null
+        if (input.kind === 'PLAN_RENEWAL' && !plan) throw AppError.notFound('Plan not found.')
+        const dueAt = new Date(input.dueAt)
+        const invoice = await issueInvoice(
+          tx,
+          tenantId,
+          {
+            kind: input.kind,
+            subtotalMinor: BigInt(input.amountMinor),
+            planId: plan?.id ?? null,
+            description:
+              input.description ??
+              (plan ? `${plan.name} plan, 1 month` : 'Wallet top-up (WhatsApp message credits)'),
+            dueAt,
+          },
+          manual,
+          { type: 'PLATFORM_OPERATOR', id: operatorId },
+        )
+        return { invoiceId: invoice.id, number: invoice.number, totalMinor: invoice.totalMinor }
+      },
+    )
+  }
+
+  async voidInvoice(tenantId: string, invoiceId: string, reason: string) {
+    return this.run(
+      tenantId,
+      {
+        kind: 'invoice_void',
+        reason,
+        reference: invoiceId,
+        idempotencyKey: `invoice-void:${invoiceId}`,
+      },
+      (tx) => voidInvoice(tx, invoiceId, reason, new Date()),
+    )
+  }
+
+  /**
+   * Approve a payment proof. The idempotency key is derived from the proof, so a retried approval
+   * returns the original receipt and a proof can be reviewed only once (approve or reject).
+   */
+  async approvePayment(
+    tenantId: string,
+    proofId: string,
+    input: ApprovePaymentRequest,
+  ): Promise<PaymentReviewResult> {
+    const proof = await this.proofFor(tenantId, proofId)
+    await this.review(() =>
+      this.run(
+        tenantId,
+        {
+          kind: 'payment_approval',
+          reason: input.note ?? 'UPI payment verified',
+          reference: input.reference,
+          idempotencyKey: `payment-review:${proofId}`,
+          amountMinor: Number(proof.invoice.totalMinor),
+          currency: proof.invoice.currency,
+        },
+        (tx, operatorId) =>
+          applyApprovedPayment(tx, tenantId, proofId, operatorId, new Date(), {
+            billing: this.billing,
+            trialPlanKey: this.config.entitlements?.trialPlanKey ?? 'GROWTH',
+          }),
+      ),
+    )
+    return this.reviewResult(tenantId, proofId)
+  }
+
+  async rejectPayment(
+    tenantId: string,
+    proofId: string,
+    reason: string,
+  ): Promise<PaymentReviewResult> {
+    const proof = await this.proofFor(tenantId, proofId)
+    await this.review(() =>
+      this.run(
+        tenantId,
+        {
+          kind: 'payment_rejection',
+          reason,
+          reference: proof.utr,
+          idempotencyKey: `payment-review:${proofId}`,
+        },
+        (tx, operatorId) => rejectPayment(tx, tenantId, proofId, operatorId, reason, new Date()),
+      ),
+    )
+    return this.reviewResult(tenantId, proofId)
+  }
+
+  private async proofFor(tenantId: string, proofId: string) {
+    const proof = await this.db.withTenant(tenantId, (tx) =>
+      tx.paymentProof.findFirst({
+        where: { id: proofId },
+        include: { invoice: { select: { totalMinor: true, currency: true } } },
+      }),
+    )
+    if (!proof) throw AppError.notFound('Payment proof not found.')
+    return proof
+  }
+
+  /** A second, different review of the same proof reuses its key: report it plainly. */
+  private async review(fn: () => Promise<unknown>) {
+    try {
+      await fn()
+    } catch (err) {
+      if (err instanceof AppError && err.code === 'IDEMPOTENCY_KEY_REUSED')
+        throw new AppError('ALREADY_REVIEWED', 409, 'This payment proof was already reviewed.')
+      throw err
+    }
+  }
+
+  private async reviewResult(tenantId: string, proofId: string): Promise<PaymentReviewResult> {
+    return this.db.withTenant(tenantId, async (tx) => {
+      const p = await tx.paymentProof.findFirstOrThrow({
+        where: { id: proofId },
+        include: { invoice: { select: { id: true, status: true } } },
+      })
+      const op = await tx.commercialOperation.findUnique({
+        where: {
+          tenantId_idempotencyKey: { tenantId, idempotencyKey: `payment-review:${proofId}` },
+        },
+        select: { id: true },
+      })
+      if (op && p.status === 'APPROVED')
+        await tx.invoice.updateMany({
+          where: { id: p.invoice.id, commercialOperationId: null },
+          data: { commercialOperationId: op.id },
+        })
+      return {
+        proofId,
+        status: p.status,
+        invoiceStatus: p.invoice.status,
+        receiptNumber: p.receiptNumber,
+        operationId: op?.id ?? null,
+      }
+    })
   }
 }

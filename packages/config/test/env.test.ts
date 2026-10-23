@@ -25,6 +25,22 @@ describe('loadEnv', () => {
     expect(loadEnv(apiEnvSchema, valid).SYSTEM_PING_ENABLED).toBe(false)
   })
 
+  it('treats empty manual-billing variables as unset (Compose passes empty strings)', () => {
+    const env = loadEnv(apiEnvSchema, {
+      ...valid,
+      UPI_VPA: '',
+      UPI_PAYEE_NAME: '',
+      BILLING_GSTIN: '',
+      BILLING_GST_RATE_BPS: '',
+    })
+    expect(env.BILLING_GST_RATE_BPS).toBeUndefined()
+    expect(env.UPI_VPA).toBeUndefined()
+    expect(
+      loadEnv(apiEnvSchema, { ...valid, BILLING_GST_RATE_BPS: '1800' }).BILLING_GST_RATE_BPS,
+    ).toBe(1800)
+    expect(() => loadEnv(apiEnvSchema, { ...valid, UPI_VPA: 'not-a-vpa' })).toThrow(/UPI_VPA/)
+  })
+
   it('parses MANAGED_LAUNCH_MODE (ADR-0027), off by default', () => {
     expect(loadEnv(apiEnvSchema, valid).MANAGED_LAUNCH_MODE).toBe(false)
     expect(

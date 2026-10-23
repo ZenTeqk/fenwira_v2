@@ -7,7 +7,7 @@ export type EntitlementValue = boolean | number | null
 /** Synthetic capability: the subscription is TRIALING (unexpired) or ACTIVE. */
 export const SUBSCRIPTION_ACTIVE = 'subscription_active'
 export type ResolvedEntitlements = {
-  status: 'TRIALING' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED'
+  status: 'TRIALING' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'PAST_DUE' | 'SUSPENDED'
   values: Map<string, EntitlementValue>
 }
 
@@ -18,7 +18,7 @@ const OFF_WHEN_INACTIVE: readonly string[] = ['api_enabled', 'webhooks_enabled']
  * Plans → entitlements (docs/BILLING.md → Plans, precedence). Precedence, highest first:
  * 1. an unexpired `tenant_entitlement_overrides` row for the key;
  * 2. the subscription's profile — TRIALING: the configured trial plan's entitlements;
- *    ACTIVE: the subscribed plan's; EXPIRED/CANCELLED: the last plan's (or the trial plan's)
+ *    ACTIVE/PAST_DUE: the subscribed plan's; EXPIRED/CANCELLED/SUSPENDED: the last plan's (or the trial plan's)
  *    limits, with `api_enabled`/`webhooks_enabled` off, so nothing turns over-limit by expiring;
  * 3. anything unset: enabled / unlimited.
  * Never branches on a plan key: plan identity is only used to look up its rows.
@@ -59,7 +59,8 @@ export class SubscriptionEntitlementSource {
     const sub = await this.ensureSubscription(tx, tenantId)
     const trialValid = sub.status === 'TRIALING' && sub.trialEndsAt && sub.trialEndsAt > now
     const status = sub.status === 'TRIALING' && !trialValid ? 'EXPIRED' : sub.status
-    const active = status === 'ACTIVE' || status === 'TRIALING'
+    // PAST_DUE is the manual-billing grace period: everything keeps working (ADR-0027, ML-D5).
+    const active = status === 'ACTIVE' || status === 'TRIALING' || status === 'PAST_DUE'
 
     const planId =
       status === 'TRIALING' ? null : (sub.planId ?? null) /* null → fall back to trial plan */

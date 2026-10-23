@@ -80,7 +80,15 @@ export const PLAN_SEEDS: ReadonlyArray<{
   },
 ]
 
-export const SUBSCRIPTION_STATUSES = ['TRIALING', 'ACTIVE', 'EXPIRED', 'CANCELLED'] as const
+/** PAST_DUE (grace) and SUSPENDED come from manual billing (ADR-0027, ML-D2). */
+export const SUBSCRIPTION_STATUSES = [
+  'TRIALING',
+  'ACTIVE',
+  'EXPIRED',
+  'CANCELLED',
+  'PAST_DUE',
+  'SUSPENDED',
+] as const
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number]
 
 export const planSchema = z.object({

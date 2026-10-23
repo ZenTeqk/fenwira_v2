@@ -74,6 +74,32 @@ export const baseEnvSchema = z.object({
   /** P11-D20 `billing.support_email` / `billing.support_url`: where to arrange top-ups. Optional. */
   BILLING_SUPPORT_EMAIL: optionalString.pipe(z.email().optional()),
   BILLING_SUPPORT_URL: optionalString.pipe(z.url({ protocol: /^https?$/ }).optional()),
+  /**
+   * ADR-0027 manual UPI billing (ML-D3). Payee of every payment request (upi://pay pa= / pn=);
+   * invoices can't be issued while unset. Snapshotted on each invoice.
+   */
+  UPI_VPA: optionalString.pipe(
+    z
+      .string()
+      .regex(/^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9]{1,63}$/, 'must look like name@bank')
+      .optional(),
+  ),
+  UPI_PAYEE_NAME: optionalString.pipe(z.string().max(99).optional()),
+  /** ML-D5: days a PAST_DUE workspace keeps working before SUSPENDED (production value: business decision). */
+  BILLING_GRACE_DAYS: z.coerce.number().int().min(0).max(90).default(7),
+  /** ML-D5: days before a period ends that the system issues its renewal invoice (priced plans only). */
+  BILLING_INVOICE_LEAD_DAYS: z.coerce.number().int().min(0).max(60).default(7),
+  /** ML-D3/Q22: GST is added only when both are set (one "GST" line; the split is undecided). */
+  BILLING_GSTIN: optionalString.pipe(
+    z
+      .string()
+      .regex(/^[0-9]{2}[A-Z0-9]{10}[0-9A-Z]{3}$/, 'must be a 15-character GSTIN')
+      .optional(),
+  ),
+  // Empty (as Compose passes an unset variable) means unset, not 0.
+  BILLING_GST_RATE_BPS: optionalString
+    .transform((v) => (v === undefined ? undefined : Number(v)))
+    .pipe(z.number().int().min(1).max(10_000).optional()),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_VERSION: z.string().min(1).default('dev'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
