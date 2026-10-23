@@ -737,6 +737,75 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   ORDER BY i.id LIMIT least(greatest(p_limit, 1), 500);
 $$;
 
+-- Operator overview (/platform): aggregates and workspace identifiers only. Column grants keep it
+-- away from message content, tokens, secrets and contact data; every call requires an active grant.
+GRANT SELECT (tenant_id, plan_id, status, trial_ends_at, current_period_end, created_at)
+  ON public.subscriptions TO fenwira_system;
+GRANT SELECT (id, key, name) ON public.plans TO fenwira_system;
+GRANT SELECT (plan_id, currency, interval, amount_minor, active) ON public.plan_prices TO fenwira_system;
+GRANT SELECT (id, tenant_id, waba_id, display_phone_number, quality_rating, messaging_limit_tier, status)
+  ON public.whatsapp_phone_numbers TO fenwira_system;
+GRANT SELECT (tenant_id, waba_id, status, last_event_at) ON public.webhook_subscriptions TO fenwira_system;
+GRANT SELECT (tenant_id, waba_id, status, verify_ok, verify_error_code, verified_at)
+  ON public.meta_credentials TO fenwira_system;
+GRANT SELECT (tenant_id, direction, status, created_at) ON public.messages TO fenwira_system;
+GRANT SELECT (kind, status, error_code, created_at) ON public.email_deliveries TO fenwira_system;
+GRANT SELECT (status, created_at) ON public.access_requests TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.platform_overview(p_operator uuid, p_now timestamptz)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL) THEN
+    RAISE EXCEPTION 'operator grant required' USING ERRCODE = '42501';
+  END IF;
+  RETURN jsonb_build_object(
+    'statusCounts', (SELECT coalesce(jsonb_object_agg(st, n), '{}'::jsonb) FROM (
+        SELECT coalesce(s.status::text, 'NONE') AS st, count(*) AS n
+        FROM public.tenants t LEFT JOIN public.subscriptions s ON s.tenant_id = t.id
+        WHERE t.deleted_at IS NULL GROUP BY 1) x),
+    'newWorkspaces', (SELECT coalesce(jsonb_agg(jsonb_build_object('month', m, 'count', n) ORDER BY m), '[]'::jsonb) FROM (
+        SELECT to_char(date_trunc('month', t.created_at AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM') AS m, count(*) AS n
+        FROM public.tenants t
+        WHERE t.deleted_at IS NULL
+          AND t.created_at >= date_trunc('month', p_now AT TIME ZONE 'Asia/Kolkata') - interval '11 months'
+        GROUP BY 1) x),
+    'mrr', (SELECT coalesce(jsonb_agg(jsonb_build_object('currency', c, 'amountMinor', a, 'workspaces', n)), '[]'::jsonb) FROM (
+        SELECT pp.currency AS c, sum(pp.amount_minor)::bigint AS a, count(*) AS n
+        FROM public.subscriptions s
+        JOIN public.tenants t ON t.id = s.tenant_id AND t.deleted_at IS NULL
+        JOIN public.plan_prices pp ON pp.plan_id = s.plan_id AND pp.active AND pp.interval = 'MONTH'
+        WHERE s.status IN ('ACTIVE', 'PAST_DUE') GROUP BY 1) x),
+    'trialsEnding', (SELECT coalesce(jsonb_agg(jsonb_build_object('workspaceId', t.id, 'name', t.name, 'trialEndsAt', s.trial_ends_at) ORDER BY s.trial_ends_at), '[]'::jsonb)
+        FROM public.subscriptions s JOIN public.tenants t ON t.id = s.tenant_id AND t.deleted_at IS NULL
+        WHERE s.status = 'TRIALING' AND s.trial_ends_at BETWEEN p_now AND p_now + interval '7 days'),
+    'connections', (SELECT coalesce(jsonb_agg(jsonb_build_object(
+          'workspaceId', t.id, 'name', t.name, 'number', p.display_phone_number,
+          'status', p.status, 'quality', p.quality_rating, 'messagingLimit', p.messaging_limit_tier,
+          'webhook', w.status, 'lastWebhookAt', w.last_event_at,
+          'verifyOk', c.verify_ok, 'verifyErrorCode', c.verify_error_code) ORDER BY t.name), '[]'::jsonb)
+        FROM public.whatsapp_phone_numbers p
+        JOIN public.tenants t ON t.id = p.tenant_id AND t.deleted_at IS NULL
+        LEFT JOIN LATERAL (SELECT ws.status, ws.last_event_at FROM public.webhook_subscriptions ws
+                           WHERE ws.waba_id = p.waba_id ORDER BY ws.last_event_at DESC NULLS LAST LIMIT 1) w ON true
+        LEFT JOIN LATERAL (SELECT mc.verify_ok, mc.verify_error_code FROM public.meta_credentials mc
+                           WHERE mc.waba_id = p.waba_id ORDER BY mc.verified_at DESC NULLS LAST LIMIT 1) c ON true),
+    'messagesByDay', (SELECT coalesce(jsonb_agg(jsonb_build_object('day', d, 'inbound', i, 'outbound', o) ORDER BY d), '[]'::jsonb) FROM (
+        SELECT to_char(date_trunc('day', m.created_at AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM-DD') AS d,
+               count(*) FILTER (WHERE m.direction = 'INBOUND') AS i,
+               count(*) FILTER (WHERE m.direction = 'OUTBOUND') AS o
+        FROM public.messages m WHERE m.created_at >= p_now - interval '30 days' GROUP BY 1) x),
+    'failedSends7d', (SELECT count(*) FROM public.messages m
+        WHERE m.direction = 'OUTBOUND' AND m.status = 'FAILED' AND m.created_at >= p_now - interval '7 days'),
+    'emailFailures7d', (SELECT count(*) FROM public.email_deliveries e
+        WHERE e.status = 'FAILED' AND e.created_at >= p_now - interval '7 days'),
+    'accessRequests', jsonb_build_object(
+        'new7d', (SELECT count(*) FROM public.access_requests r WHERE r.created_at >= p_now - interval '7 days'),
+        'unsent', (SELECT count(*) FROM public.access_requests r
+                   WHERE r.status IN ('EMAIL_FAILED', 'EMAIL_SKIPPED')
+                      OR (r.status = 'QUEUED' AND r.created_at < p_now - interval '10 minutes')))
+  );
+END $$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -774,7 +843,8 @@ BEGIN
     'system.platform_overdue_workspaces(uuid, timestamptz)',
     'system.platform_revenue_by_month(uuid, integer)',
     'system.platform_set_plan_price(uuid, text, text, bigint)',
-    'system.invoice_reminders_due(timestamptz, integer, uuid)'
+    'system.invoice_reminders_due(timestamptz, integer, uuid)',
+    'system.platform_overview(uuid, timestamptz)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

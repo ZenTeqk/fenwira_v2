@@ -89,7 +89,8 @@ export function PaymentsView() {
     <ListPage
       header={{
         title: 'Payments',
-        description: 'UPI payment proofs to verify, overdue workspaces and revenue.',
+        description:
+          'Verify UPI payments: match each UTR and amount with the bank statement, then approve or reject. Also overdue workspaces and revenue. See docs/MANAGED_LAUNCH.md § 3 steps 8–9.',
       }}
     >
       <div className="grid gap-4 sm:grid-cols-3">

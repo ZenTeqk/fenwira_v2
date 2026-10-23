@@ -275,7 +275,7 @@ export function EmailDeliveriesView() {
       header={{
         title: 'Email',
         description:
-          'The last 100 emails the worker attempted. Skipped means SMTP is not configured: share links from the console instead.',
+          'Check that customers receive setup links, invoices and reminders: the last 100 emails the worker attempted. Skipped means SMTP is not configured; share links from the console instead. See docs/MANAGED_LAUNCH.md § 8 Email.',
       }}
     >
       {deliveries.isPending ? (
@@ -340,7 +340,7 @@ export function AccessRequestsView() {
       header={{
         title: 'Access requests',
         description:
-          'Requests from the fenwira.com form, newest first. Every request is kept even when its email fails.',
+          'Leads from the fenwira.com form, newest first; reply, then create the workspace. Every request is kept even when its email fails. See docs/MANAGED_LAUNCH.md § Customer-friendly onboarding.',
       }}
     >
       {leads.isPending ? (

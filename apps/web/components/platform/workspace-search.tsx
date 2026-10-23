@@ -36,8 +36,9 @@ export function WorkspaceSearch({ operations = false }: { operations?: boolean }
     <ListPage
       header={{
         title: operations ? 'Billing operations' : 'Workspaces',
-        description:
-          'Find a workspace by name, exact ID or slug. Only commercial state is available.',
+        description: operations
+          ? 'Change a workspace’s plan, wallet or limits with a receipt. Find it by name, exact ID or slug. See docs/MANAGED_LAUNCH.md § 4 Billing operations.'
+          : 'Create workspaces and find one by name, exact ID or slug to manage its team, WhatsApp, plan and invoices. See docs/MANAGED_LAUNCH.md § 3 Onboard one customer.',
         actions: operations ? undefined : <ProvisionWorkspace />,
       }}
     >

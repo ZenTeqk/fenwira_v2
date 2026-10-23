@@ -276,6 +276,13 @@ export class SystemGateway {
     return rows.map((r) => ({ tenantId: r.tenant_id, invoiceId: r.invoice_id, notice: r.notice }))
   }
 
+  /** Operator overview aggregates (/platform); the function re-checks the operator's grant. */
+  async platformOverview(operatorId: string, now: Date): Promise<Record<string, unknown>> {
+    const rows = await this.prisma.$queryRaw<Array<{ o: Record<string, unknown> }>>`
+      SELECT system.platform_overview(${operatorId}::uuid, ${now}::timestamptz) AS o`
+    return rows[0]!.o
+  }
+
   /** X2 (WABA-level fields such as template and account updates). */
   async resolveTenantByWabaId(wabaId: string): Promise<string | null> {
     const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`

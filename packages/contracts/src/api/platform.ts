@@ -309,3 +309,65 @@ export const emailDeliverySchema = z.object({
   createdAt: z.string(),
 })
 export type EmailDelivery = z.infer<typeof emailDeliverySchema>
+
+/** Operator overview (GET /platform/overview): aggregates and workspace identifiers only. */
+export const platformOverviewSchema = z.object({
+  statusCounts: z.record(z.string(), z.number()),
+  newWorkspaces: z.array(z.object({ month: z.string(), count: z.number() })),
+  mrr: z.array(z.object({ currency: z.string(), amountMinor: z.number(), workspaces: z.number() })),
+  revenueByMonth: z.array(
+    z.object({
+      month: z.string(),
+      currency: z.string(),
+      totalMinor: z.number(),
+      payments: z.number(),
+    }),
+  ),
+  pendingPayments: z.number(),
+  overdueWorkspaces: z.number(),
+  trialsEnding: z.array(
+    z.object({ workspaceId: z.uuid(), name: z.string(), trialEndsAt: z.string() }),
+  ),
+  connections: z.array(
+    z.object({
+      workspaceId: z.uuid(),
+      name: z.string(),
+      number: z.string(),
+      status: z.string(),
+      quality: z.string(),
+      messagingLimit: z.string().nullable(),
+      webhook: z.string().nullable(),
+      lastWebhookAt: z.string().nullable(),
+      verifyOk: z.boolean().nullable(),
+      verifyErrorCode: z.string().nullable(),
+    }),
+  ),
+  messagesByDay: z.array(z.object({ day: z.string(), inbound: z.number(), outbound: z.number() })),
+  failedSends7d: z.number(),
+  queueBacklog: z.object({ waiting: z.number(), delayed: z.number(), failed: z.number() }),
+  emailFailures7d: z.number(),
+  accessRequests: z.object({ new7d: z.number(), unsent: z.number() }),
+  attention: z.array(
+    z.object({
+      kind: z.enum([
+        'PENDING_UTR',
+        'OVERDUE',
+        'UNHEALTHY_CONNECTION',
+        'EMAIL_FAILURES',
+        'UNSENT_LEADS',
+      ]),
+      title: z.string(),
+      href: z.string(),
+    }),
+  ),
+})
+export type PlatformOverview = z.infer<typeof platformOverviewSchema>
+
+/** Workspace detail activity (GET /platform/workspaces/:id/activity): no message content. */
+export const platformWorkspaceActivitySchema = z.object({
+  messagesByDay: z.array(z.object({ day: z.string(), inbound: z.number(), outbound: z.number() })),
+  recentAudit: z.array(
+    z.object({ action: z.string(), actorType: z.string(), createdAt: z.string() }),
+  ),
+})
+export type PlatformWorkspaceActivity = z.infer<typeof platformWorkspaceActivitySchema>

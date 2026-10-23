@@ -1,4 +1,5 @@
 'use client'
+import { WorkspaceActivity } from './platform-overview'
 import {
   ENTITLEMENT_LABELS,
   platformFinancialSchema,
@@ -66,7 +67,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
     <DetailPage
       header={{
         title: workspace.name,
-        description: `${workspace.slug} · ${workspace.id}`,
+        description: `${workspace.slug} · ${workspace.id}. Plan, team, WhatsApp, invoices and activity for this workspace. See docs/MANAGED_LAUNCH.md § 3.`,
         actions: (
           <Button asChild variant="secondary">
             <Link href="/platform/workspaces">Back to workspaces</Link>
@@ -109,6 +110,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
       <CommercialActions data={data} />
       <WorkspaceMembers workspaceId={workspace.id} />
       <WorkspaceWhatsApp workspaceId={workspace.id} name={workspace.name} />
+      <WorkspaceActivity workspaceId={workspace.id} />
       <WorkspaceInvoices
         workspaceId={workspace.id}
         name={workspace.name}

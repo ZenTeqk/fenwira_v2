@@ -1,4 +1,6 @@
-import { redirect } from 'next/navigation'
+'use client'
+import { PlatformOverview } from '@/components/platform/platform-overview'
+
 export default function Page() {
-  redirect('/platform/workspaces')
+  return <PlatformOverview />
 }

@@ -34,7 +34,7 @@ export default function Page() {
       header={{
         title: 'Platform audit',
         description:
-          'Latest 100 immutable security and commercial events. Financial details remain on workspace receipts.',
+          'Who did what in the console: the latest 100 immutable security and commercial events. Financial details remain on workspace receipts. See docs/runbooks/PLATFORM_OPERATIONS.md.',
       }}
     >
       {result.isPending ? (
