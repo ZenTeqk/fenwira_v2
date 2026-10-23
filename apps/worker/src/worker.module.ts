@@ -65,8 +65,12 @@ import { parseKeyRing, type WorkerEnv } from '@fenwira/config'
 import { type DynamicModule, Module } from '@nestjs/common'
 import { ProcessorsHealthIndicator } from './processors.health'
 
-export function coreConfigFromWorkerEnv(env: WorkerEnv): CoreConfig {
+export function coreConfigFromWorkerEnv(
+  env: WorkerEnv,
+  extra: Pick<CoreConfig, 'logDestination'> = {},
+): CoreConfig {
   return {
+    ...extra,
     service: 'worker',
     version: env.APP_VERSION,
     nodeEnv: env.NODE_ENV,
@@ -86,7 +90,7 @@ export function coreConfigFromWorkerEnv(env: WorkerEnv): CoreConfig {
 
 @Module({})
 export class WorkerModule {
-  static forRoot(env: WorkerEnv): DynamicModule {
+  static forRoot(env: WorkerEnv, extra: Pick<CoreConfig, 'logDestination'> = {}): DynamicModule {
     // One instance shared by the runtime and health modules (a second forRoot would mean a second relay).
     const platform = PlatformWorkerModule.forRoot({
       databaseUrl: env.DATABASE_URL,
@@ -201,7 +205,7 @@ export class WorkerModule {
       module: WorkerModule,
       controllers: [MetricsController],
       imports: [
-        CoreModule.forRoot(coreConfigFromWorkerEnv(env)),
+        CoreModule.forRoot(coreConfigFromWorkerEnv(env, extra)),
         EmailModule.forRoot({
           smtpUrl: env.SMTP_URL,
           from: env.MAIL_FROM,
