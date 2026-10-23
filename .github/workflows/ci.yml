@@ -1,9 +1,8 @@
 name: CI
 
-# Checks only; never deploys (deployment is .github/workflows/deploy.yml, main only).
+# Checks only; never deploys. Runs on pull requests to main; a merge to main runs only
+# .github/workflows/deploy.yml (which builds and verifies the release before deploying).
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
