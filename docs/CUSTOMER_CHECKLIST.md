@@ -1,33 +1,31 @@
-# Getting started with Fenwira: what we need from you
+# Getting started with Fenwira
 
-Thank you for choosing Fenwira. We set up your workspace and connect your WhatsApp number with you. Please send us the details below, and check the Meta steps are done before our setup call.
+Thank you for choosing Fenwira, a product of ZenteqK. We set everything up for you. You won't need to handle any technical keys or IDs.
 
-## 1. Please send us
+## 1. Send us
 
-| What | Where to find it |
-| --- | --- |
-| Business name | As you want it to appear in Fenwira |
-| Owner's name and email | The person who will manage the workspace |
-| Meta Business ID | business.facebook.com → Settings → Business info |
-| WhatsApp Business Account (WABA) ID | business.facebook.com → Settings → Accounts → WhatsApp accounts |
-| Phone number ID | developers.facebook.com → your app → WhatsApp → API setup |
-| Which phone number to use | The number customers will message (with country code) |
-| Plan | The Fenwira plan you'd like to start with |
+- Your **business name** (as it should appear in Fenwira)
+- The **owner's name and email** (the person who will manage the workspace)
+- The **phone number** to use for WhatsApp, with country code
+- Your **plan**: Starter, Growth or Business
 
-We will also need an access token and app details from your Meta app. **Don't send these by email or chat.** We'll share a secure way to send them, or enter them with you on the call.
+## 2. Choose how we connect your WhatsApp
 
-## 2. Meta steps to finish first
+**Option A: add us as a partner (recommended).** In Meta Business Settings (business.facebook.com), go to **Users → Partners → Add**, and add ZenteqK with the Business ID we send you. Give us access to your WhatsApp account. We do the rest.
 
-1. **Verify your business** in Meta Business Settings (Security center → Business verification).
-2. **Create a Meta app** of type Business, add the **WhatsApp** product, and switch the app to **Live**.
-3. **Add your phone number** to your WhatsApp Business Account, verify it, and get your **display name approved**.
-4. **Create a system user** (Business Settings → Users → System users) and give it access to the app and the WhatsApp account.
-5. **Add a payment method** in WhatsApp Manager. Meta bills WhatsApp conversation charges to you directly, separately from Fenwira.
+**Option B: a 20-minute screen share.** We join a video call, you share your screen and sign in to Meta, and we guide you click by click.
 
-If any step is unclear, reply to this message or write to **fenwira@zenteqk.com** and we'll help.
+## 3. Before we start, please check
 
-## 3. What happens next
+- **Your business is verified** in Meta Business Settings (Security center → Business verification). We can help if it isn't.
+- **The phone number is not active on the WhatsApp or WhatsApp Business app.** A number used in the app has to be removed from it first (this deletes its chat history on the phone).
+- **The number can receive an SMS or a call** for the one-time verification code.
+- **You can add a payment method in Meta.** Meta bills WhatsApp conversation charges to you directly, separately from Fenwira.
 
-1. We create your workspace and send you a one-time link to set your password.
-2. We connect your WhatsApp number together and send a test message.
-3. You invite your team, and we share the first invoice (payable by UPI).
+## 4. What happens next
+
+1. We create your workspace and send you a link to set your password.
+2. We connect your WhatsApp number and send a test message together.
+3. You invite your team. Your 14-day free trial starts; we send the first invoice (payable by UPI) before it ends.
+
+Questions? Reply to this message or write to **fenwira@zenteqk.com**.

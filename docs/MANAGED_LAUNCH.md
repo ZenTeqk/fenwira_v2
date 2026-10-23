@@ -6,6 +6,22 @@ How the operator onboards and runs customers in Managed Launch Mode (ADR-0027, d
 
 > Nothing here has been tested against real Meta yet; only the Meta mock has. Treat the first customer as the first real test (step 6 of the brief).
 
+## Customer-friendly onboarding (partner access or screen share)
+
+Send the customer `docs/CUSTOMER_CHECKLIST.md` as it is. They send business name, owner name and email, the phone number and the plan, and choose **(a) partner access** or **(b) a 20-minute screen share**. They never handle tokens or IDs; the operator collects every value in §2 and enters it in the console (§3 step 2).
+
+> **Untested against real Meta.** Only the Meta mock has been exercised. Confirm the partner-access route on the first real customer, and update this section with what actually worked.
+
+**(a) Partner access (expected route, to be confirmed).**
+1. Give the customer ZenteqK's Meta Business ID. They add ZenteqK as a **partner** (Business Settings → Users → Partners) and share their WhatsApp account with full control.
+2. In ZenteqK's Business Settings, assign the shared WABA to a ZenteqK **system user** and to the Meta app that will receive its webhooks, then generate a permanent token (`whatsapp_business_management`, `whatsapp_business_messaging`).
+3. Read the WABA ID, phone number ID, display number and the customer's business ID from WhatsApp Manager; use ZenteqK's app ID and app secret. If the number isn't registered yet, add and verify it with the customer on a short call (they receive the code).
+4. Open question for the first run: whether webhooks for a partner-shared WABA reach ZenteqK's app (and verify with its secret, the platform `META_APP_SECRET` fallback, ML-D1) without any customer app.
+
+**(b) Screen share.** The customer signs in to Meta and shares the screen; you guide them through §1 in their own Business portfolio (their app and system user, ML-D1) and copy each §2 value straight into the console form. Tokens never go through chat or email.
+
+Either way, finish with §3 (create workspace → send the welcome message → connect → verify → test).
+
 ## 1. One-time Meta prerequisites (per customer app)
 
 ML-D1: each customer usually has their own Meta app and system user. Before the call, the customer (or you, with their access) must have:
@@ -20,7 +36,7 @@ ML-D1: each customer usually has their own Meta app and system user. Before the 
    - Verify token: the value of `/fenwira/prod/secrets/meta-webhook-verify-token` (SSM). Read it with `aws ssm get-parameter --with-decryption`, and never paste it into chat or tickets.
    - Subscribe the field **messages** (Fenwira subscribes the app to the WABA itself).
 
-## 2. What to ask the customer for
+## 2. What the operator collects (partner access or screen share; never from the customer by chat)
 
 | Item | Where they find it |
 | --- | --- |
@@ -36,7 +52,7 @@ ML-D1: each customer usually has their own Meta app and system user. Before the 
 
 ## 3. Onboard one customer, end to end
 
-1. **Create the workspace.** In Workspaces, choose **Create workspace** and enter the business name, owner name and owner email. Copy the **setup link** (single use, 72 hours) and send it to the owner. Each workspace starts on a 14-day trial.
+1. **Create the workspace.** In Workspaces, choose **Create workspace** and enter the business name, owner name and owner email. Use **Copy message** to send the owner the ready-made welcome (setup link, single use for 72 hours; the app URL; three next steps), for example on WhatsApp. Each workspace starts on a 14-day trial.
 2. **Connect WhatsApp.** In the workspace, choose WhatsApp → **Connect WhatsApp number** and fill WABA ID, phone number ID, display number, token, app secret, app ID and business ID. Fenwira checks the token and the number, stores everything encrypted, subscribes the app to the WABA, and registers the number if needed. The display number must match Meta's.
 3. **Verify.** Use **Verify connection**. All three checks (token, phone number, WABA) must be green. Note any error code.
 4. **Sync templates** and **Sync status & quality**.
