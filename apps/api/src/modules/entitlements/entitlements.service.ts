@@ -87,6 +87,8 @@ export class EntitlementsService {
         return tx.contact.count({ where: { deletedAt: null } })
       case 'max_active_flows':
         return tx.flow.count({ where: { status: 'ACTIVE', deletedAt: null } })
+      case 'max_phone_numbers':
+        return tx.whatsAppPhoneNumber.count({ where: { status: { not: 'DISCONNECTED' } } })
       default:
         return null
     }

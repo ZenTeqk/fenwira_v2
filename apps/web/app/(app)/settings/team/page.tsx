@@ -41,6 +41,7 @@ import { fieldError, FormError } from '@/components/auth/form-error'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
+import { CopyLink } from '@/components/copy-link'
 
 const assignable = (actor: Role) => ROLES.filter((r) => canAssignRole(actor, r))
 
@@ -55,27 +56,49 @@ function InviteModal({
   const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('AGENT')
+  const [issued, setIssued] = useState<Invitation | null>(null)
   const invite = useMutation({
-    mutationFn: () => post('/team/invitations', { email, role }),
-    onSuccess: () => {
-      toast.success(`Invitation sent to ${email}`)
+    mutationFn: () =>
+      post<{ data: Invitation }>('/team/invitations', { email, role }).then((r) => r.data),
+    onSuccess: (inv) => {
+      toast.success(`Invitation created for ${email}`)
       setEmail('')
-      onOpenChange(false)
+      setIssued(inv)
       void queryClient.invalidateQueries({ queryKey: keys.tenant(tenantId, 'invitations') })
     },
   })
+  const close = (v: boolean) => {
+    if (!v) setIssued(null)
+    onOpenChange(v)
+  }
+  if (issued?.link)
+    return (
+      <Modal open={open} onOpenChange={close}>
+        <ModalContent
+          title="Share the invitation link"
+          description={`Send this link to ${issued.email}. If email is set up, they also get it by email.`}
+          footer={
+            <ModalClose asChild>
+              <Button>Done</Button>
+            </ModalClose>
+          }
+        >
+          <CopyLink link={issued.link} expiresAt={issued.expiresAt} label="Invitation link" />
+        </ModalContent>
+      </Modal>
+    )
   return (
-    <Modal open={open} onOpenChange={onOpenChange}>
+    <Modal open={open} onOpenChange={close}>
       <ModalContent
         title="Invite a teammate"
-        description="They'll get an email with a link to join this workspace."
+        description="You'll get a one-time link to share. If email is set up, they also get it by email."
         footer={
           <>
             <ModalClose asChild>
               <Button variant="secondary">Cancel</Button>
             </ModalClose>
             <Button type="submit" form="invite-form" loading={invite.isPending}>
-              Send invitation
+              Create invitation
             </Button>
           </>
         }
@@ -157,11 +180,13 @@ export default function TeamSettingsPage() {
     onSuccess: refresh,
     onError,
   })
+  const [newLink, setNewLink] = useState<{ link: string; expiresAt: string } | null>(null)
   const inviteAction = useMutation({
     mutationFn: ({ id, action }: { id: string; action: 'resend' | 'revoke' }) =>
-      post(`/team/invitations/${id}/${action}`),
-    onSuccess: (_d, v) => {
-      toast.success(v.action === 'resend' ? 'Invitation resent' : 'Invitation revoked')
+      post<{ data?: { link: string; expiresAt: string } }>(`/team/invitations/${id}/${action}`),
+    onSuccess: (res, v) => {
+      toast.success(v.action === 'resend' ? 'New invitation link created' : 'Invitation revoked')
+      if (v.action === 'resend' && res?.data) setNewLink(res.data)
       refresh()
     },
     onError,
@@ -354,6 +379,21 @@ export default function TeamSettingsPage() {
           />
         </section>
       ) : null}
+      <Modal open={newLink !== null} onOpenChange={(v) => !v && setNewLink(null)}>
+        <ModalContent
+          title="New invitation link"
+          description="The previous link no longer works. If email is set up, this one is emailed too."
+          footer={
+            <ModalClose asChild>
+              <Button>Done</Button>
+            </ModalClose>
+          }
+        >
+          {newLink ? (
+            <CopyLink link={newLink.link} expiresAt={newLink.expiresAt} label="Invitation link" />
+          ) : null}
+        </ModalContent>
+      </Modal>
       <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} />
     </ListPage>
   )

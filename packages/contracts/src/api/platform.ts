@@ -13,6 +13,8 @@ export const PLATFORM_PERMISSIONS = [
   /** ADR-0027 manual UPI billing: invoices, the payment queue and the billing dashboard. */
   'payments.read',
   'payments.manage',
+  /** ADR-0027 step 4: create workspaces + owners, issue reset links, see email deliveries. */
+  'workspaces.manage',
 ] as const
 export type PlatformPermission = (typeof PLATFORM_PERMISSIONS)[number]
 export const platformLoginSchema = z
@@ -262,3 +264,46 @@ export const platformGrantCommandSchema = z.object({
   actor: z.string().trim().min(1).max(120).refine(safeNote),
   reason: z.string().trim().min(5).max(500).refine(safeNote),
 })
+
+// ---------------------------------------------------------------------------------------------
+// ADR-0027 step 4: provisioning without email. Links are returned once, when issued.
+// ---------------------------------------------------------------------------------------------
+export const createWorkspaceWithOwnerSchema = z
+  .object({
+    workspaceName: z.string().trim().min(2).max(80),
+    ownerName: z.string().trim().min(1).max(120),
+    ownerEmail: z.email().trim().toLowerCase(),
+    country: z.string().length(2).toUpperCase().default('IN'),
+    timezone: z.string().min(1).max(64).default('Asia/Kolkata'),
+  })
+  .strict()
+export type CreateWorkspaceWithOwner = z.infer<typeof createWorkspaceWithOwnerSchema>
+export const provisionedWorkspaceSchema = z.object({
+  workspaceId: z.uuid(),
+  ownerUserId: z.uuid(),
+  /** null when the owner already had a Fenwira account (they sign in as usual). */
+  setupLink: z.string().nullable(),
+  setupExpiresAt: z.string().nullable(),
+})
+export type ProvisionedWorkspace = z.infer<typeof provisionedWorkspaceSchema>
+export const platformMemberSchema = z.object({
+  userId: z.uuid(),
+  name: z.string(),
+  email: z.string(),
+  role: z.string(),
+  status: z.string(),
+  emailVerified: z.boolean(),
+  joinedAt: z.string(),
+})
+export type PlatformMember = z.infer<typeof platformMemberSchema>
+export const oneTimeLinkSchema = z.object({ link: z.string(), expiresAt: z.string() })
+export type OneTimeLink = z.infer<typeof oneTimeLinkSchema>
+export const emailDeliverySchema = z.object({
+  id: z.uuid(),
+  kind: z.string(),
+  status: z.enum(['SENT', 'FAILED', 'SKIPPED_NO_SMTP', 'SUPPRESSED']),
+  recipientHint: z.string(),
+  errorCode: z.string().nullable(),
+  createdAt: z.string(),
+})
+export type EmailDelivery = z.infer<typeof emailDeliverySchema>

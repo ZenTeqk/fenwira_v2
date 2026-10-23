@@ -2472,3 +2472,39 @@ model PaymentProof {
   @@index([status, submittedAt])
   @@map("payment_proofs")
 }
+
+// ADR-0027 step 4: every email the worker attempts, so missing SMTP or failures are visible in the
+// operator console instead of blocking queues. Global (no tenant data, no body, no full address).
+enum EmailDeliveryStatus {
+  SENT
+  FAILED
+  SKIPPED_NO_SMTP
+  SUPPRESSED
+
+  @@map("email_delivery_status")
+}
+
+model EmailDelivery {
+  id            String              @id @default(uuid(7)) @db.Uuid
+  kind          String
+  status        EmailDeliveryStatus
+  /// sha256(lower(email)): matches suppressions without storing the address.
+  recipientHash Bytes               @map("recipient_hash")
+  /// "a•••@example.com"
+  recipientHint String              @map("recipient_hint")
+  errorCode     String?             @map("error_code")
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([createdAt(sort: Desc), id])
+  @@index([recipientHash])
+  @@map("email_deliveries")
+}
+
+/// Addresses Fenwira must not email again (hard bounce or complaint; ADR-0027 step C). Global.
+model EmailSuppression {
+  recipientHash Bytes    @id @map("recipient_hash")
+  reason        String
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("email_suppressions")
+}

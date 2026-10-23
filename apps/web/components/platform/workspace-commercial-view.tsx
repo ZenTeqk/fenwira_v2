@@ -32,6 +32,7 @@ import Link from 'next/link'
 import { platformMoney, platformRequest } from '@/lib/platform'
 import { CommercialActions, ReceiptDetails } from './commercial-actions'
 import { usePlatform } from './platform-shell'
+import { WorkspaceMembers } from './platform-accounts'
 import { WorkspaceInvoices } from './workspace-invoices'
 import { WorkspaceWhatsApp } from './workspace-whatsapp'
 const valueLabel = (v: boolean | number | null) =>
@@ -106,6 +107,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
       }
     >
       <CommercialActions data={data} />
+      <WorkspaceMembers workspaceId={workspace.id} />
       <WorkspaceWhatsApp workspaceId={workspace.id} name={workspace.name} />
       <WorkspaceInvoices
         workspaceId={workspace.id}

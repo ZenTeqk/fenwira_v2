@@ -10,7 +10,11 @@ import {
   TeamController,
   WorkspaceController,
 } from './tenancy.controllers'
-import { TENANCY_WORKER_OPTIONS, TenancyProcessor } from './tenancy.processor'
+import {
+  TENANCY_WORKER_OPTIONS,
+  type TenancyWorkerOptions,
+  TenancyProcessor,
+} from './tenancy.processor'
 import { TeamService } from './team.service'
 import { TenantAccessService } from './tenant-access.service'
 import { TenantGuard } from './tenant.guard'
@@ -44,7 +48,7 @@ export class TenancyModule {
   }
 
   /** Worker side: invitation emails. Requires EmailModule (global). */
-  static forWorker(options: { webOrigin: string }): DynamicModule {
+  static forWorker(options: TenancyWorkerOptions): DynamicModule {
     return {
       module: TenancyModule,
       providers: [{ provide: TENANCY_WORKER_OPTIONS, useValue: options }, TenancyProcessor],

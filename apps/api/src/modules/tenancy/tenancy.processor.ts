@@ -1,4 +1,4 @@
-import { randomToken, sha256 } from '@fenwira/config'
+import { decryptSecret, type KeyRing, randomToken, sha256 } from '@fenwira/config'
 import { EVENT_PAYLOAD_SCHEMAS, ROLE_LABELS, type Role } from '@fenwira/contracts'
 import { Database } from '@fenwira/database'
 import { type EventJob, QUEUES } from '@fenwira/queue'
@@ -9,7 +9,7 @@ import { invitationEmail, Mailer } from '../platform'
 
 const INVITATION_TTL_MS = 7 * 24 * 3600 * 1000
 export const TENANCY_WORKER_OPTIONS = Symbol('TENANCY_WORKER_OPTIONS')
-export type TenancyWorkerOptions = { webOrigin: string }
+export type TenancyWorkerOptions = { webOrigin: string; keyRing?: KeyRing }
 
 /**
  * (Re)issues the invitation token and emails it. Each send replaces the previous token, so only
@@ -27,12 +27,18 @@ export class TenancyProcessor implements QueueProcessor<EventJob<'tenancy.invita
   ) {}
 
   async process(job: Job<EventJob<'tenancy.invitation.sent'>>): Promise<void> {
-    const { invitationId } = EVENT_PAYLOAD_SCHEMAS['tenancy.invitation.sent'].parse(
-      job.data.payload,
-    )
+    const { invitationId, tokenCiphertext } = EVENT_PAYLOAD_SCHEMAS[
+      'tenancy.invitation.sent'
+    ].parse(job.data.payload)
     const tenantId = job.data.tenantId
     if (!tenantId) throw new Error('tenancy.invitation.sent without tenantId')
-    const token = randomToken()
+    // ADR-0027 step 4: the API issued the link (copyable); email exactly that one. Older events
+    // without a token still get a fresh one here.
+    const issued =
+      tokenCiphertext && this.options.keyRing
+        ? decryptSecret(this.options.keyRing, Buffer.from(tokenCiphertext, 'base64'))
+        : null
+    const token = issued ?? randomToken()
     const mail = await this.db.withTenant(tenantId, async (tx) => {
       const inv = await tx.invitation.findFirst({
         where: { id: invitationId, tenantId, status: 'PENDING' },
@@ -40,14 +46,18 @@ export class TenancyProcessor implements QueueProcessor<EventJob<'tenancy.invita
       })
       if (!inv) return null
       const now = new Date()
-      await tx.invitation.update({
-        where: { id: inv.id },
-        data: {
-          tokenHash: sha256(token),
-          sentAt: now,
-          expiresAt: new Date(now.getTime() + INVITATION_TTL_MS),
-        },
-      })
+      if (!issued)
+        await tx.invitation.update({
+          where: { id: inv.id },
+          data: {
+            tokenHash: sha256(token),
+            sentAt: now,
+            expiresAt: new Date(now.getTime() + INVITATION_TTL_MS),
+          },
+        })
+      // A newer link replaced this one: don't email a dead link.
+      else if (!inv.tokenHash || !Buffer.from(inv.tokenHash).equals(Buffer.from(sha256(token))))
+        return null
       return {
         to: inv.email,
         inviter: inv.invitedBy.name,
@@ -57,9 +67,12 @@ export class TenancyProcessor implements QueueProcessor<EventJob<'tenancy.invita
     })
     if (!mail) return
     const url = `${this.options.webOrigin}/invitations/${token}`
-    await this.mailer.send({
-      to: mail.to,
-      ...invitationEmail(mail.inviter, mail.workspace, mail.role, url),
-    })
+    await this.mailer.send(
+      {
+        to: mail.to,
+        ...invitationEmail(mail.inviter, mail.workspace, mail.role, url),
+      },
+      'invitation',
+    )
   }
 }

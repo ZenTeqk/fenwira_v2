@@ -66,6 +66,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
     ['/platform/workspaces', 'Workspaces'],
     ['/platform/payments', 'Payments'],
     ['/platform/billing-operations', 'Billing operations'],
+    ['/platform/email', 'Email'],
     ['/platform/audit', 'Audit'],
   ]
   return (
@@ -107,7 +108,8 @@ export function PlatformShell({ children }: { children: ReactNode }) {
             {nav
               .filter(
                 ([href]) =>
-                  (href !== '/platform/audit' || me.data.permissions.includes('audit.read')) &&
+                  ((href !== '/platform/audit' && href !== '/platform/email') ||
+                    me.data.permissions.includes('audit.read')) &&
                   (href !== '/platform/payments' || me.data.permissions.includes('payments.read')),
               )
               .map(([href, label]) => (

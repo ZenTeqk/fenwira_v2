@@ -1,6 +1,7 @@
 import { type DynamicModule, Module, type Provider } from '@nestjs/common'
 import { GraphClient } from '@fenwira/whatsapp'
 import { AuditModule } from '../audit'
+import { EntitlementsModule } from '../entitlements'
 import { WhatsAppConnectionService } from './connection.service'
 import { WhatsAppSyncService } from './sync.service'
 import { SelfServeConnectionGuard, WhatsAppConnectionsController } from './whatsapp.controller'
@@ -23,6 +24,7 @@ export class WhatsAppAccountsModule {
   static forApi(options: WhatsAppOptions): DynamicModule {
     return {
       module: WhatsAppAccountsModule,
+      imports: [EntitlementsModule.forRoot()],
       controllers: [WhatsAppConnectionsController],
       providers: [...shared(options), WhatsAppConnectionService, SelfServeConnectionGuard],
       // ADR-0027: the operator console (PlatformWhatsAppModule) drives the same service.

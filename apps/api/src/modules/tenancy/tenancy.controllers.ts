@@ -186,8 +186,8 @@ export class TeamController {
   @Post('invitations/:id/resend')
   @RequirePermission('team.manage')
   @HttpCode(202)
-  async resend(@Param('id', uuidParam) id: string): Promise<void> {
-    await this.invitations.resend(id)
+  async resend(@Param('id', uuidParam) id: string) {
+    return { data: await this.invitations.resend(id) }
   }
 
   @Post('invitations/:id/revoke')

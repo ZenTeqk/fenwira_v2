@@ -44,6 +44,8 @@ Database passwords, `ENCRYPTION_KEYS`, JWT keys, `API_KEY_PEPPER`, `META_APP_SEC
 | `NATIVE_{GOOGLE,ZOHO,SHOPIFY}_CLIENT_{ID,SECRET}` | — | unset | OAuth connectors. Unset means "setup required" |
 | `MANAGED_LAUNCH_MODE` | — | `false` | ADR-0027. `true` hides Embedded Signup and tenant-side Meta connection changes; operators connect numbers from `/platform`. Switching production is a rollout decision |
 | `BILLING_ENFORCED`, `BILLING_SUBSCRIPTIONS_ENFORCED` | — | `false` | Business decisions |
+| `SMTP_URL` (worker) | — | unset | ADR-0027 step 4: optional. Unset means emails are recorded as `SKIPPED_NO_SMTP` (operator console → Email) and links are shared by hand |
+| `MAIL_FROM`, `MAIL_REPLY_TO` (worker) | — | `Fenwira <no-reply@fenwira.com>`, unset | Sender and Reply-To |
 | `UPI_VPA`, `UPI_PAYEE_NAME` | — | unset | ADR-0027 manual UPI billing: the payee on every payment request. Invoices can't be issued while unset |
 | `BILLING_GRACE_DAYS`, `BILLING_INVOICE_LEAD_DAYS` | — | 7, 7 | ML-D5: PAST_DUE grace before SUSPENDED; renewal-invoice lead time. Production values are business decisions |
 | `BILLING_GSTIN`, `BILLING_GST_RATE_BPS` | — | unset | GST line only when both are set (Q22 open) |

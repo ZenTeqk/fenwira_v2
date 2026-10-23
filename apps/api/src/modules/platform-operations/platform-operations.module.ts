@@ -7,6 +7,8 @@ import { CommercialReadController } from './commercial-read.controller'
 import { CommercialReadService } from './commercial-read.service'
 import { PlatformAuthController } from './platform-auth.controller'
 import { PlatformAuthService } from './platform-auth.service'
+import { PlatformAccountsController } from './platform-accounts.controller'
+import { PlatformAccountsService } from './platform-accounts.service'
 import { PlatformBillingController } from './platform-billing.controller'
 import { PlatformBillingService } from './platform-billing.service'
 import { PlatformGuard } from './platform.guard'
@@ -21,6 +23,7 @@ export class PlatformOperationsModule {
         CommercialReadController,
         CommercialOperationController,
         PlatformBillingController,
+        PlatformAccountsController,
       ],
       providers: [
         PlatformAuthService,
@@ -28,6 +31,7 @@ export class PlatformOperationsModule {
         CommercialReadService,
         CommercialOperationService,
         PlatformBillingService,
+        PlatformAccountsService,
         { provide: BILLING_OPTIONS, useValue: billing },
       ],
       exports: [PlatformGuard, PlatformAuthService],

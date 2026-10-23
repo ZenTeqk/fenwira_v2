@@ -1,4 +1,4 @@
-import { randomToken, sha256 } from '@fenwira/config'
+import { decryptSecret, randomToken, sha256 } from '@fenwira/config'
 import { EVENT_PAYLOAD_SCHEMAS } from '@fenwira/contracts'
 import { Database } from '@fenwira/database'
 import { type EventJob, QUEUES } from '@fenwira/queue'
@@ -6,7 +6,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { type Job } from 'bullmq'
 import { PinoLogger } from 'nestjs-pino'
 import { type QueueProcessor } from '../../core/queue/queue-processor'
-import { Mailer, passwordResetEmail, verificationEmail } from '../platform'
+import { accountSetupEmail, Mailer, passwordResetEmail, verificationEmail } from '../platform'
 import { IDENTITY_WORKER_OPTIONS, type IdentityWorkerOptions } from './identity-worker.options'
 
 const VERIFY_TTL_MS = 24 * 3600 * 1000
@@ -59,12 +59,32 @@ export class IdentityProcessor implements QueueProcessor<IdentityEvent> {
         user.name,
         `${this.options.webOrigin}/verify-email?token=${token}`,
       )
-      await this.mailer.send({ to: user.email, ...email })
+      await this.mailer.send({ to: user.email, ...email }, 'email_verification')
       return
     }
-    const { userId } = EVENT_PAYLOAD_SCHEMAS['identity.password_reset.requested'].parse(
-      job.data.payload,
-    )
+    const { userId, tokenCiphertext, kind } = EVENT_PAYLOAD_SCHEMAS[
+      'identity.password_reset.requested'
+    ].parse(job.data.payload)
+    // ADR-0027 step 4: an operator-issued reset or owner-setup link: email that exact link.
+    if (tokenCiphertext && this.options.keyRing) {
+      const issued = decryptSecret(this.options.keyRing, Buffer.from(tokenCiphertext, 'base64'))
+      const user = await this.db.withGlobal(async (tx) => {
+        const row = await tx.passwordResetToken.findUnique({ where: { tokenHash: sha256(issued) } })
+        if (!row || row.usedAt || row.expiresAt <= new Date()) return null
+        return tx.user.findUnique({ where: { id: userId } })
+      })
+      if (!user) return
+      const setup = kind === 'SETUP'
+      const url = `${this.options.webOrigin}/reset-password?token=${issued}${setup ? '&setup=1' : ''}`
+      await this.mailer.send(
+        {
+          to: user.email,
+          ...(setup ? accountSetupEmail(user.name, url) : passwordResetEmail(user.name, url)),
+        },
+        setup ? 'account_setup' : 'password_reset',
+      )
+      return
+    }
     const user = await this.db.withGlobal(async (tx) => {
       const u = await tx.user.findUnique({ where: { id: userId } })
       if (!u || u.disabledAt) return null
@@ -78,9 +98,12 @@ export class IdentityProcessor implements QueueProcessor<IdentityEvent> {
       return u
     })
     if (!user) return
-    await this.mailer.send({
-      to: user.email,
-      ...passwordResetEmail(user.name, `${this.options.webOrigin}/reset-password?token=${token}`),
-    })
+    await this.mailer.send(
+      {
+        to: user.email,
+        ...passwordResetEmail(user.name, `${this.options.webOrigin}/reset-password?token=${token}`),
+      },
+      'password_reset',
+    )
   }
 }

@@ -63,6 +63,19 @@ export function passwordResetEmail(name: string, url: string) {
  * Low balance / insufficient funds (P11-D12). Amounts are pre-formatted by the caller. Top-ups
  * are manual and made by the Fenwira team (P11-D13); no payment link exists (P11-D19).
  */
+/** ADR-0027 step 4: the workspace owner sets their password through an operator-issued link. */
+export function accountSetupEmail(name: string, url: string) {
+  return {
+    subject: 'Set up your Fenwira account',
+    ...layout(
+      `Hi ${name}, your Fenwira workspace is ready`,
+      ['Choose a password to sign in. Then invite your team from Settings → Team.'],
+      { label: 'Set your password', url },
+      'This link works once and expires in 72 hours.',
+    ),
+  }
+}
+
 export function walletLowBalanceEmail(
   name: string,
   workspace: string,

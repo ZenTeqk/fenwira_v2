@@ -32,7 +32,7 @@ export const toWorkspace = (t: TenantRow): Workspace => ({
   createdAt: t.createdAt.toISOString(),
 })
 
-function slugify(name: string): string {
+export function slugify(name: string): string {
   const base = name
     .toLowerCase()
     .normalize('NFKD')

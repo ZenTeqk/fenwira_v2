@@ -28,9 +28,18 @@ export const EVENT_PAYLOAD_SCHEMAS = {
   // Identity (platform events: tenant_id NULL). The worker creates the token and sends the
   // email, so raw tokens never touch the database or the outbox.
   'identity.email_verification.requested': z.object({ userId: z.uuid() }),
-  'identity.password_reset.requested': z.object({ userId: z.uuid() }),
+  // ADR-0027 step 4: when the API already issued the link (operator reset, owner setup), the
+  // token travels encrypted (AES-256-GCM key ring) so the email carries the same link as the copy.
+  'identity.password_reset.requested': z.object({
+    userId: z.uuid(),
+    tokenCiphertext: z.string().optional(),
+    kind: z.enum(['RESET', 'SETUP']).optional(),
+  }),
   // Tenancy (tenant events). The worker (re)generates the invitation token and emails it.
-  'tenancy.invitation.sent': z.object({ invitationId: z.uuid() }),
+  'tenancy.invitation.sent': z.object({
+    invitationId: z.uuid(),
+    tokenCiphertext: z.string().optional(),
+  }),
   // Messaging (Phase 5). IDs only; consumers reload what they need inside withTenant.
   'message.outbound.requested': z.object({ messageId: z.uuid() }),
   'message.inbound.received': z.object({
