@@ -12,6 +12,7 @@ on:
       - 'docs/**'
       - '**/*.md'
       - '.github/dependabot.yml'
+      - '.github/workflows/ci.yml'
 
 # One deployment at a time; a newer push waits instead of cancelling a deployment in progress.
 concurrency:
