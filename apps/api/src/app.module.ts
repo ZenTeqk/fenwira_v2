@@ -28,6 +28,7 @@ import { AutomationModule } from './modules/automation'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
 import { ApiKeyGuard, ApiKeysModule } from './modules/api-keys'
 import { NativeModule, nativeOptions } from './modules/native-connectors'
+import { PlatformWhatsAppModule } from './modules/platform-whatsapp'
 import { WebhooksModule } from './modules/webhooks'
 
 export function coreConfigFromApiEnv(
@@ -68,6 +69,22 @@ export class ApiModule {
       webOrigin: env.WEB_ORIGIN,
     })
     const tenancy = TenancyModule.forApi(identity)
+    const templates = TemplatesModule.forApi({
+      keyRing,
+      appId: env.META_APP_ID,
+      graphVersion: env.META_GRAPH_API_VERSION,
+      graphBaseUrl: env.META_GRAPH_BASE_URL,
+    })
+    const whatsapp = WhatsAppAccountsModule.forApi({
+      keyRing,
+      appId: env.META_APP_ID,
+      appSecret: env.META_APP_SECRET,
+      configId: env.META_ES_CONFIG_ID,
+      graphVersion: env.META_GRAPH_API_VERSION,
+      graphBaseUrl: env.META_GRAPH_BASE_URL,
+      devConnect: env.WHATSAPP_DEV_CONNECT,
+      managedLaunch: env.MANAGED_LAUNCH_MODE,
+    })
     const messaging = MessagingModule.forApi({
       keyRing,
       graphBaseUrl: env.META_GRAPH_BASE_URL,
@@ -106,22 +123,9 @@ export class ApiModule {
           billing: billingPlatformFromEnv(env),
         }),
         AutomationModule.forApi({ keyRing, publicApiUrl: env.PUBLIC_API_URL }),
-        TemplatesModule.forApi({
-          keyRing,
-          appId: env.META_APP_ID,
-          graphVersion: env.META_GRAPH_API_VERSION,
-          graphBaseUrl: env.META_GRAPH_BASE_URL,
-        }),
-        WhatsAppAccountsModule.forApi({
-          keyRing,
-          appId: env.META_APP_ID,
-          appSecret: env.META_APP_SECRET,
-          configId: env.META_ES_CONFIG_ID,
-          graphVersion: env.META_GRAPH_API_VERSION,
-          graphBaseUrl: env.META_GRAPH_BASE_URL,
-          devConnect: env.WHATSAPP_DEV_CONNECT,
-          managedLaunch: env.MANAGED_LAUNCH_MODE,
-        }),
+        templates,
+        whatsapp,
+        PlatformWhatsAppModule.forApi([whatsapp, templates]),
         RealtimeModule.forApi([identity, tenancy]),
         HealthModule.forRoot({
           indicators: [PostgresHealthIndicator, RedisHealthIndicator, QueueHealthIndicator],

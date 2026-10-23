@@ -1,4 +1,5 @@
 export { WhatsAppAccountsModule } from './whatsapp.module'
+export { WhatsAppConnectionService } from './connection.service'
 export { WHATSAPP_OPTIONS, type WhatsAppOptions } from './whatsapp.options'
 export { SYNC_DUE_JOB, SYNC_PHONE_JOB, WhatsAppSyncProcessor } from './whatsapp-sync.processor'
 export { WhatsAppSyncService } from './sync.service'

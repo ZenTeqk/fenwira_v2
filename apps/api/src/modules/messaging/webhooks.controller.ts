@@ -15,7 +15,10 @@ import { MetricsService } from '../../core/metrics/metrics.service'
 import { Public, SkipCsrf } from '../../core/security/decorators'
 import { WebhookIngestService } from './webhook-ingest.service'
 
-/** Meta → Fenwira. Public: authenticity comes from the X-Hub-Signature-256 HMAC. */
+/**
+ * Meta → Fenwira. Public: authenticity comes from the X-Hub-Signature-256 HMAC, made with the app
+ * secret of the WABA the payload belongs to, or the platform app secret (ML-D1, ADR-0027).
+ */
 @Controller('webhooks/whatsapp')
 @Public()
 @SkipCsrf()
@@ -45,12 +48,17 @@ export class WhatsAppWebhookController {
   @HttpCode(200)
   async receive(@Req() req: RawBodyRequest<Request>, @Body() body: unknown) {
     const end = this.metrics.webhookIngestDuration.startTimer()
-    if (!this.ingest.verifySignature(req.rawBody, req.header('x-hub-signature-256'))) {
+    const signedWith = await this.ingest.verifiedSecret(
+      req.rawBody,
+      req.header('x-hub-signature-256'),
+      body,
+    )
+    if (!signedWith) {
       this.metrics.webhookReceived.inc({ kind: 'unknown', result: 'bad_signature' })
       throw new AppError('UNAUTHENTICATED', 401, 'Invalid signature.')
     }
     try {
-      return await this.ingest.ingest(body)
+      return await this.ingest.ingest(body, signedWith)
     } finally {
       end()
     }

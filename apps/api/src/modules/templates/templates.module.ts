@@ -25,6 +25,8 @@ export class TemplatesModule {
       module: TemplatesModule,
       controllers: [TemplatesController],
       providers: [...shared(options), TemplatesService],
+      // ADR-0027: the operator console's "Sync templates" (PlatformWhatsAppModule).
+      exports: [TemplateSyncService],
     }
   }
 

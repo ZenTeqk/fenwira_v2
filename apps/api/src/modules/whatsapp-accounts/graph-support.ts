@@ -35,8 +35,10 @@ export async function verifyToken(
   options: WhatsAppOptions,
   token: string,
   wabaId: string,
+  /** ML-D1: the WABA's own Meta app (`appId|appSecret`); default = the platform app or self. */
+  appToken?: string,
 ): Promise<TokenInfo> {
-  const info = await graph.debugToken(token, appTokenFor(options, token))
+  const info = await graph.debugToken(token, appToken ?? appTokenFor(options, token))
   if (!info.isValid)
     throw new StepFailure('META_TOKEN_INVALID', 'Meta says this token is not valid.')
   if (!REQUIRED_SCOPES.every((s) => info.scopes.includes(s)))
@@ -49,6 +51,13 @@ export async function verifyToken(
     )
   return info
 }
+
+/** App token of a customer's own Meta app, when both halves are known (ML-D1). */
+export const ownAppToken = (appId?: string | null, appSecret?: string | null) =>
+  appId && appSecret ? `${appId}|${appSecret}` : undefined
+
+/** Digits only, for comparing phone numbers typed by people with Meta's display format. */
+export const phoneDigits = (value: string) => value.replace(/\D/g, '')
 
 export const decryptToken = (options: WhatsAppOptions, ciphertext: Uint8Array | null) =>
   ciphertext ? decryptSecret(options.keyRing, ciphertext) : null

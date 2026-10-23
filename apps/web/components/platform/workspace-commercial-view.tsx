@@ -32,6 +32,7 @@ import Link from 'next/link'
 import { platformMoney, platformRequest } from '@/lib/platform'
 import { CommercialActions, ReceiptDetails } from './commercial-actions'
 import { usePlatform } from './platform-shell'
+import { WorkspaceWhatsApp } from './workspace-whatsapp'
 const valueLabel = (v: boolean | number | null) =>
   v === null
     ? 'Unlimited'
@@ -104,6 +105,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
       }
     >
       <CommercialActions data={data} />
+      <WorkspaceWhatsApp workspaceId={workspace.id} name={workspace.name} />
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>

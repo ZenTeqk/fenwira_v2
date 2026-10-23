@@ -3,6 +3,7 @@ import {
   type ConnectionStep,
   type ConnectionStepKey,
   connectionStepSchema,
+  type PlatformWhatsAppConnection,
   type WhatsAppConnection,
 } from '@fenwira/contracts'
 import { type Prisma } from '@fenwira/database'
@@ -18,6 +19,7 @@ export const CONNECTION_INCLUDE = {
         take: 1,
       },
       webhookSubscriptions: true,
+      metaBusinessAccount: true,
     },
   },
 } as const satisfies Prisma.WhatsAppPhoneNumberInclude
@@ -61,6 +63,7 @@ export function toConnection(p: PhoneWithRelations): WhatsAppConnection {
     verifiedName: p.verifiedName,
     label: p.label,
     waba: { id: p.waba.wabaId, name: p.waba.name },
+    connectionMode: p.waba.connectionMode,
     status: p.status,
     qualityRating: p.qualityRating,
     messagingLimitTier: p.messagingLimitTier,
@@ -73,12 +76,31 @@ export function toConnection(p: PhoneWithRelations): WhatsAppConnection {
           tokenType: credential.tokenType,
           maskedToken: maskToken(credential.tokenPrefix, credential.tokenLast4),
           expiresAt: credential.expiresAt?.toISOString() ?? null,
+          verifiedAt: credential.verifiedAt?.toISOString() ?? null,
+          verifyOk: credential.verifyOk,
+          verifyErrorCode: credential.verifyErrorCode,
         }
       : null,
     steps: readSteps(p.statusDetail),
     lastSyncedAt: p.lastSyncedAt?.toISOString() ?? null,
     connectedAt: p.connectedAt?.toISOString() ?? null,
     createdAt: p.createdAt.toISOString(),
+  }
+}
+
+/** Operator view (ADR-0027): adds the app, business and masked app secret; never a secret. */
+export function toPlatformConnection(p: PhoneWithRelations): PlatformWhatsAppConnection {
+  return {
+    ...toConnection(p),
+    metaAppId: p.waba.metaAppId,
+    businessId: p.waba.metaBusinessAccount?.metaBusinessId ?? null,
+    appSecret: p.waba.appSecretLast4
+      ? {
+          maskedSecret: `••••${p.waba.appSecretLast4}`,
+          rotatedAt: p.waba.appSecretRotatedAt?.toISOString() ?? null,
+        }
+      : null,
+    templatesSyncedAt: p.waba.templatesSyncedAt?.toISOString() ?? null,
   }
 }
 

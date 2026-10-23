@@ -428,6 +428,14 @@ model MetaBusinessAccount {
   @@map("meta_business_accounts")
 }
 
+/// ADR-0027: how a WABA was connected. MANAGED = by a platform operator with a system-user token.
+enum ConnectionMode {
+  EMBEDDED_SIGNUP
+  MANAGED
+
+  @@map("connection_mode")
+}
+
 enum WabaStatus {
   ACTIVE
   RESTRICTED
@@ -451,6 +459,13 @@ model WhatsAppBusinessAccount {
   status                   WabaStatus @default(ACTIVE)
   /// Last successful template sync from Meta (docs/TEMPLATE_ENGINE.md → Sync from Meta).
   templatesSyncedAt        DateTime?  @map("templates_synced_at") @db.Timestamptz(3)
+  connectionMode           ConnectionMode @default(EMBEDDED_SIGNUP) @map("connection_mode")
+  /// ML-D1: the Meta app whose webhooks this WABA sends (MANAGED only; null = the platform app).
+  metaAppId                String?    @map("meta_app_id")
+  /// ML-D1: that app's secret (AES-256-GCM, versioned keys). Verifies webhook signatures; never returned.
+  appSecretCiphertext      Bytes?     @map("app_secret_ciphertext")
+  appSecretLast4           String?    @map("app_secret_last4")
+  appSecretRotatedAt       DateTime?  @map("app_secret_rotated_at") @db.Timestamptz(3)
   createdAt                DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -550,6 +565,12 @@ model MetaCredential {
   status          CredentialStatus @default(VALID)
   lastCheckedAt   DateTime?        @map("last_checked_at") @db.Timestamptz(3)
   rotatedAt       DateTime?        @map("rotated_at") @db.Timestamptz(3)
+  /// ADR-0027 "Verify connection": last live check of token, phone number and WABA access.
+  verifiedAt      DateTime?        @map("verified_at") @db.Timestamptz(3)
+  verifyOk        Boolean?         @map("verify_ok")
+  /// Fenwira error code and Meta's message text (never contains the token).
+  verifyErrorCode String?          @map("verify_error_code")
+  verifyError     String?          @map("verify_error")
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 

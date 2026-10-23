@@ -172,6 +172,32 @@ export class SystemGateway {
     return row ? { tenantId: row.tenant_id, phoneId: row.phone_id } : null
   }
 
+  /**
+   * X2 + ML-D1: where a webhook event goes and which secret must have signed it. `phoneId` is set
+   * for message/status events (the number must belong to `wabaId`); `appSecretCiphertext` null
+   * means the platform app secret. Null when the WABA or the number isn't live in any workspace.
+   */
+  async resolveWebhookRoute(
+    wabaId: string,
+    phoneNumberId: string | null,
+  ): Promise<{
+    tenantId: string
+    phoneId: string | null
+    appSecretCiphertext: Buffer | null
+  } | null> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ tenant_id: string; phone_id: string | null; app_secret_ciphertext: Buffer | null }>
+    >`SELECT * FROM system.resolve_webhook_route(${wabaId}, ${phoneNumberId})`
+    const row = rows[0]
+    return row
+      ? {
+          tenantId: row.tenant_id,
+          phoneId: row.phone_id,
+          appSecretCiphertext: row.app_secret_ciphertext,
+        }
+      : null
+  }
+
   /** X2 (WABA-level fields such as template and account updates). */
   async resolveTenantByWabaId(wabaId: string): Promise<string | null> {
     const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`

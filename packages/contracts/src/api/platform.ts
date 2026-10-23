@@ -7,6 +7,9 @@ export const PLATFORM_PERMISSIONS = [
   'subscription.manage',
   'entitlements.manage',
   'audit.read',
+  /** ADR-0027: connect, verify, sync and rotate customers' Meta connections. */
+  'whatsapp.read',
+  'whatsapp.manage',
 ] as const
 export type PlatformPermission = (typeof PLATFORM_PERMISSIONS)[number]
 export const platformLoginSchema = z

@@ -403,6 +403,27 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT 1;
 $$;
 
+-- X2 (ADR-0027, ML-D1): signature-aware webhook routing. Called BEFORE the signature is verified,
+-- so it returns only what verification needs: the tenant, the live number (when the event names
+-- one) and the WABA's own app secret ciphertext (null = verify with the platform secret). A phone
+-- event resolves only when the number belongs to the very WABA the entry names, so a payload
+-- signed with one customer's app secret can never reach another customer's number.
+GRANT SELECT (waba_id) ON public.whatsapp_phone_numbers TO fenwira_system;
+GRANT SELECT (app_secret_ciphertext) ON public.whatsapp_business_accounts TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.resolve_webhook_route(p_waba_id text, p_phone_number_id text)
+RETURNS TABLE (tenant_id uuid, phone_id uuid, app_secret_ciphertext bytea)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT w.tenant_id, p.id, w.app_secret_ciphertext
+  FROM public.whatsapp_business_accounts w
+  LEFT JOIN public.whatsapp_phone_numbers p
+    ON p_phone_number_id IS NOT NULL
+   AND p.waba_id = w.id AND p.tenant_id = w.tenant_id
+   AND p.phone_number_id = p_phone_number_id AND p.status <> 'DISCONNECTED'
+  WHERE w.waba_id = p_waba_id AND w.status <> 'DISCONNECTED'
+    AND (p_phone_number_id IS NULL OR p.id IS NOT NULL)
+  LIMIT 1;
+$$;
+
 -- X13: inbox maintenance. Conversations whose snooze ended (→ OPEN) or whose takeover should be
 -- released (RESOLVED, tenant opted in, no agent message for N hours). IDs only; the job re-enters
 -- withTenant for each.
@@ -593,6 +614,7 @@ BEGIN
     'system.phone_numbers_due_for_sync(timestamptz, integer)',
     'system.resolve_tenant_by_phone_number_id(text)',
     'system.resolve_tenant_by_waba_id(text)',
+    'system.resolve_webhook_route(text, text)',
     'system.inbox_maintenance_due(timestamptz, integer)',
     'system.wabas_due_for_template_sync(timestamptz, integer)',
     'system.due_scheduled_campaigns(timestamptz, integer)',
