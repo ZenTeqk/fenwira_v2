@@ -26,6 +26,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Textarea,
   toast,
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
@@ -33,6 +34,7 @@ import Link from 'next/link'
 import { type FormEvent, useState } from 'react'
 import { z } from 'zod'
 import { CopyLink } from '@/components/copy-link'
+import { ownerWelcomeMessage } from '@/lib/onboarding'
 import { ApiError } from '@/lib/api/client'
 import { platformRequest } from '@/lib/platform'
 import { usePlatform } from './platform-shell'
@@ -50,6 +52,8 @@ export function ProvisionWorkspace() {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ workspaceName: '', ownerName: '', ownerEmail: '' })
   const [result, setResult] = useState<ProvisionedWorkspace | null>(null)
+  // Kept for the welcome message after the form resets.
+  const [created, setCreated] = useState({ ownerName: '', workspaceName: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   if (!me?.permissions.includes('workspaces.manage')) return null
@@ -62,6 +66,7 @@ export function ProvisionWorkspace() {
     if (!parsed.success) return setError(parsed.error.issues.map((i) => i.message).join(' · '))
     setBusy(true)
     try {
+      setCreated({ ownerName: parsed.data.ownerName, workspaceName: parsed.data.workspaceName })
       setResult(
         provisionedWorkspaceSchema.parse(
           await platformRequest('/workspaces/provision', parsed.data),
@@ -104,6 +109,14 @@ export function ProvisionWorkspace() {
                 They sign in with their existing password and will see the new workspace.
               </Alert>
             )}
+            <WelcomeMessage
+              text={ownerWelcomeMessage({
+                ...created,
+                setupLink: result.setupLink,
+                setupExpiresAt: result.setupExpiresAt,
+                appOrigin: window.location.origin,
+              })}
+            />
             <Button asChild variant="secondary">
               <Link href={`/platform/workspaces/${result.workspaceId}`}>Open workspace</Link>
             </Button>
@@ -131,6 +144,26 @@ export function ProvisionWorkspace() {
         )}
       </DetailDrawer>
     </>
+  )
+}
+
+/** Ready-to-send owner welcome (setup link, app URL, next steps) with one-click copy. */
+function WelcomeMessage({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Field label="Welcome message for the owner">
+        <Textarea readOnly rows={10} value={text} onFocus={(e) => e.currentTarget.select()} />
+      </Field>
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={() =>
+          void navigator.clipboard.writeText(text).then(() => toast.success('Message copied'))
+        }
+      >
+        Copy message
+      </Button>
+    </div>
   )
 }
 
