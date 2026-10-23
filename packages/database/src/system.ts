@@ -264,8 +264,10 @@ export class SystemGateway {
     currency: string,
     amountMinor: number,
   ): Promise<void> {
+    // $executeRaw: Prisma can't deserialize a `void` result column ($queryRaw would throw after
+    // the function already committed the price).
     await this.prisma
-      .$queryRaw`SELECT system.platform_set_plan_price(${operatorId}::uuid, ${planKey}, ${currency}, ${amountMinor}::bigint)`
+      .$executeRaw`SELECT system.platform_set_plan_price(${operatorId}::uuid, ${planKey}, ${currency}, ${amountMinor}::bigint)`
   }
 
   /** Daily invoice reminders (IDs only): DUE_SOON within 3 days, OVERDUE after due, not yet emailed. */
