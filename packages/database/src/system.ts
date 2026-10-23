@@ -263,11 +263,9 @@ export class SystemGateway {
     planKey: string,
     currency: string,
     amountMinor: number,
-  ) {
-    const rows = await this.prisma.$queryRaw<
-      Array<{ plan_key: string; currency: string; amount_minor: bigint }>
-    >`SELECT * FROM system.platform_set_plan_price(${operatorId}::uuid, ${planKey}, ${currency}, ${amountMinor}::bigint)`
-    return rows[0]!
+  ): Promise<void> {
+    await this.prisma
+      .$queryRaw`SELECT system.platform_set_plan_price(${operatorId}::uuid, ${planKey}, ${currency}, ${amountMinor}::bigint)`
   }
 
   /** X2 (WABA-level fields such as template and account updates). */

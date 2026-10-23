@@ -695,9 +695,11 @@ $$;
 -- this function checks the operator's grant, upserts one (plan, currency, MONTH) row and returns it.
 GRANT SELECT (id, key) ON public.plans TO fenwira_system;
 GRANT SELECT, INSERT, UPDATE ON public.plan_prices TO fenwira_system;
+-- RETURNS void: OUT columns named like plan_prices' columns would make ON CONFLICT ambiguous.
+DROP FUNCTION IF EXISTS system.platform_set_plan_price(uuid, text, text, bigint);
 CREATE OR REPLACE FUNCTION system.platform_set_plan_price(
   p_operator uuid, p_plan_key text, p_currency text, p_amount_minor bigint)
-RETURNS TABLE (plan_key text, currency text, amount_minor bigint)
+RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 DECLARE v_plan uuid;
 BEGIN
@@ -713,7 +715,6 @@ BEGIN
   VALUES (gen_random_uuid(), v_plan, p_currency, 'MONTH', p_amount_minor, true)
   ON CONFLICT (plan_id, currency, interval)
   DO UPDATE SET amount_minor = EXCLUDED.amount_minor, active = true;
-  RETURN QUERY SELECT p_plan_key, p_currency, p_amount_minor;
 END $$;
 
 DO $$
