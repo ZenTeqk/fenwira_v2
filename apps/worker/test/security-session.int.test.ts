@@ -9,6 +9,7 @@ import {
   ACCESS_COOKIE,
   CSRF_COOKIE,
   REFRESH_COOKIE,
+  PUBLIC_SITE_KEY,
   REFRESH_PATH,
   SKIP_CSRF_KEY,
 } from '@fenwira/api/core'
@@ -45,9 +46,9 @@ function mutatingRoutes(app: INestApplication): Route[] {
         const sub = String(Reflect.getMetadata(PATH_METADATA, handler) ?? '')
         const path = `/${[base, sub].filter((p) => p && p !== '/').join('/')}`.replace(/\/+/g, '/')
         if (path.startsWith('/platform')) continue
-        const skipCsrf = Boolean(
-          Reflect.getMetadata(SKIP_CSRF_KEY, handler) ??
-          Reflect.getMetadata(SKIP_CSRF_KEY, controller),
+        // @PublicSite routes are cookieless by design: CSRF there is the origin allow-list only.
+        const skipCsrf = [SKIP_CSRF_KEY, PUBLIC_SITE_KEY].some((key) =>
+          Boolean(Reflect.getMetadata(key, handler) ?? Reflect.getMetadata(key, controller)),
         )
         routes.push({ method: verb, path, skipCsrf })
       }
@@ -121,10 +122,12 @@ describe('CSRF over every state-changing route (generated)', () => {
       owner.client.csrf = csrf
     }
     expect(missing).toEqual([])
-    // Each exemption is reviewed: pre-session logins, the SameSite=Strict refresh, and HMAC-signed
-    // webhooks. A new @SkipCsrf route fails here until it is reviewed and listed.
+    // Each exemption is reviewed: pre-session logins, the SameSite=Strict refresh, HMAC-signed
+    // webhooks, and the cookieless marketing-site form (@PublicSite: fenwira.com origins only).
+    // A new @SkipCsrf or @PublicSite route fails here until it is reviewed and listed.
     expect(exempt.sort()).toEqual([
       'POST /auth/refresh',
+      'POST /public/request-access',
       'POST /webhooks/automation/:token',
       'POST /webhooks/whatsapp',
     ])
