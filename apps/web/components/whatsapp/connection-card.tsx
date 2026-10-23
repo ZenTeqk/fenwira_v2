@@ -43,11 +43,14 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
 export function ConnectionCard({
   connection: c,
   canManage,
+  managed = false,
   busy,
   onAction,
 }: {
   connection: WhatsAppConnection
   canManage: boolean
+  /** ADR-0027 Managed Launch Mode: Fenwira support owns the Meta connection (sync, retry, token, disconnect). */
+  managed?: boolean
   busy?: ConnectionAction
   onAction: (action: ConnectionAction) => void
 }) {
@@ -74,12 +77,15 @@ export function ConnectionCard({
       <CardContent className="flex flex-col gap-4">
         {c.credential?.status === 'INVALID' ? (
           <Alert tone="danger" title="Meta rejected this number's token">
-            Messages can't be sent until the token is rotated or the number is connected again.
+            {managed
+              ? "Messages can't be sent until Fenwira support updates the connection. Contact support."
+              : "Messages can't be sent until the token is rotated or the number is connected again."}
           </Alert>
         ) : null}
         {c.credential?.status === 'EXPIRING' && c.credential.expiresAt ? (
           <Alert tone="warning" title="The token expires soon">
-            It expires {relativeTime(c.credential.expiresAt)}. Rotate it to avoid interruptions.
+            It expires {relativeTime(c.credential.expiresAt)}.{' '}
+            {managed ? 'Contact Fenwira support to renew it.' : 'Rotate it to avoid interruptions.'}
           </Alert>
         ) : null}
         {failed ? (
@@ -87,7 +93,7 @@ export function ConnectionCard({
             tone="danger"
             title="Setup didn't finish"
             action={
-              canManage ? (
+              canManage && !managed ? (
                 <Button
                   size="sm"
                   variant="secondary"
@@ -146,15 +152,17 @@ export function ConnectionCard({
           <Button variant="secondary" size="sm" onClick={() => onAction('test')}>
             Test connection
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={busy === 'sync'}
-            onClick={() => onAction('sync')}
-          >
-            <RefreshCw aria-hidden="true" />
-            Sync now
-          </Button>
+          {managed ? null : (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={busy === 'sync'}
+              onClick={() => onAction('sync')}
+            >
+              <RefreshCw aria-hidden="true" />
+              Sync now
+            </Button>
+          )}
           <Dropdown>
             <DropdownTrigger asChild>
               <Button variant="ghost" size="icon" aria-label={`Manage ${c.displayPhoneNumber}`}>
@@ -166,11 +174,15 @@ export function ConnectionCard({
               {c.isDefault ? null : (
                 <DropdownItem onSelect={() => onAction('default')}>Make default</DropdownItem>
               )}
-              <DropdownItem onSelect={() => onAction('rotate')}>Rotate token</DropdownItem>
-              <DropdownSeparator />
-              <DropdownItem destructive onSelect={() => onAction('disconnect')}>
-                Disconnect
-              </DropdownItem>
+              {managed ? null : (
+                <>
+                  <DropdownItem onSelect={() => onAction('rotate')}>Rotate token</DropdownItem>
+                  <DropdownSeparator />
+                  <DropdownItem destructive onSelect={() => onAction('disconnect')}>
+                    Disconnect
+                  </DropdownItem>
+                </>
+              )}
             </DropdownContent>
           </Dropdown>
         </CardFooter>

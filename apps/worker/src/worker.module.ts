@@ -79,6 +79,7 @@ export function coreConfigFromWorkerEnv(env: WorkerEnv): CoreConfig {
       trialDays: env.BILLING_TRIAL_DAYS,
       trialPlanKey: env.BILLING_TRIAL_PLAN,
     },
+    features: { managedLaunch: env.MANAGED_LAUNCH_MODE },
   }
 }
 

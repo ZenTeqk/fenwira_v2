@@ -10,6 +10,8 @@ export type WhatsAppOptions = {
   graphBaseUrl: string
   /** API only: POST /whatsapp/connections/dev is enabled. */
   devConnect: boolean
+  /** ADR-0027: tenants can't connect or change Meta connections (operators do, from /platform). */
+  managedLaunch?: boolean
   /** Worker only: how stale a number's data may get before the sync job refreshes it. */
   syncIntervalHours?: number
 }

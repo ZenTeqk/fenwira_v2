@@ -7,13 +7,43 @@ import {
   type WhatsAppConnection,
   type WhatsAppSignupConfig,
 } from '@fenwira/contracts'
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common'
+import {
+  Body,
+  type CanActivate,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Injectable,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common'
 import { z } from 'zod'
+import { AppError } from '../../core/http/app-error'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
 import { RequirePermission } from '../../core/security/decorators'
 import { WhatsAppConnectionService } from './connection.service'
+import { WHATSAPP_OPTIONS, type WhatsAppOptions } from './whatsapp.options'
 
 const uuidParam = new ZodValidationPipe(z.uuid())
+
+/**
+ * ADR-0027 Managed Launch Mode: Embedded Signup and tenant-side changes to the Meta connection
+ * (connect, retry, sync, token rotation, disconnect) don't exist (404, before body validation);
+ * platform operators make them from /platform. Listing, renaming, the default number and test
+ * sends stay available.
+ */
+@Injectable()
+export class SelfServeConnectionGuard implements CanActivate {
+  constructor(@Inject(WHATSAPP_OPTIONS) private readonly options: WhatsAppOptions) {}
+  canActivate(): boolean {
+    if (this.options.managedLaunch) throw AppError.notFound()
+    return true
+  }
+}
 
 @Controller()
 export class WhatsAppConnectionsController {
@@ -21,6 +51,7 @@ export class WhatsAppConnectionsController {
 
   /** Public Embedded Signup values for the FB JS SDK (never the app secret). */
   @Get('config/whatsapp-signup')
+  @UseGuards(SelfServeConnectionGuard)
   @RequirePermission('whatsapp.manage')
   signupConfig(): { data: WhatsAppSignupConfig } {
     return { data: this.connections.signupConfig() }
@@ -33,6 +64,7 @@ export class WhatsAppConnectionsController {
   }
 
   @Post('whatsapp/connections')
+  @UseGuards(SelfServeConnectionGuard)
   @RequirePermission('whatsapp.manage')
   @HttpCode(201)
   async connect(
@@ -44,6 +76,7 @@ export class WhatsAppConnectionsController {
 
   /** Only when WHATSAPP_DEV_CONNECT=true (404 otherwise). */
   @Post('whatsapp/connections/dev')
+  @UseGuards(SelfServeConnectionGuard)
   @RequirePermission('whatsapp.manage')
   @HttpCode(201)
   async devConnect(
@@ -54,6 +87,7 @@ export class WhatsAppConnectionsController {
   }
 
   @Post('whatsapp/connections/:id/retry')
+  @UseGuards(SelfServeConnectionGuard)
   @RequirePermission('whatsapp.manage')
   @HttpCode(200)
   async retry(@Param('id', uuidParam) id: string): Promise<{ data: WhatsAppConnection }> {
@@ -68,6 +102,7 @@ export class WhatsAppConnectionsController {
   }
 
   @Post('whatsapp/connections/:id/sync')
+  @UseGuards(SelfServeConnectionGuard)
   @RequirePermission('whatsapp.manage')
   @HttpCode(200)
   async sync(@Param('id', uuidParam) id: string): Promise<{ data: WhatsAppConnection }> {
@@ -75,6 +110,7 @@ export class WhatsAppConnectionsController {
   }
 
   @Post('whatsapp/connections/:id/rotate-token')
+  @UseGuards(SelfServeConnectionGuard)
   @RequirePermission('whatsapp.manage')
   @HttpCode(200)
   async rotate(
@@ -96,6 +132,7 @@ export class WhatsAppConnectionsController {
   }
 
   @Delete('whatsapp/connections/:id')
+  @UseGuards(SelfServeConnectionGuard)
   @RequirePermission('whatsapp.manage')
   @HttpCode(204)
   async disconnect(@Param('id', uuidParam) id: string): Promise<void> {

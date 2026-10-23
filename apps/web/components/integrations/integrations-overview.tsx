@@ -30,7 +30,7 @@ import { type WebhookEndpoint } from '@fenwira/contracts'
 
 /** Read-focused overview; setup and credential management stay in the existing screens. */
 export function IntegrationsOverview() {
-  const { tenantId, can } = useSession()
+  const { tenantId, can, me } = useSession()
   const cache = useQueryClient()
   const canRead = can('whatsapp.read')
   const canManage = can('integrations.manage')
@@ -78,10 +78,16 @@ export function IntegrationsOverview() {
               <EmptyState
                 icon={<MessageCircle aria-hidden="true" />}
                 title="No WhatsApp number connected"
-                description="Connect your business number to communicate with customers."
+                description={
+                  me.features.managedLaunch
+                    ? 'Contact Fenwira support to connect your business number.'
+                    : 'Connect your business number to communicate with customers.'
+                }
                 action={
                   <Button variant="secondary" asChild>
-                    <Link href="/integrations/whatsapp">Set up WhatsApp</Link>
+                    <Link href="/integrations/whatsapp">
+                      {me.features.managedLaunch ? 'View WhatsApp status' : 'Set up WhatsApp'}
+                    </Link>
                   </Button>
                 }
               />

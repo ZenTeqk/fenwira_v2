@@ -78,3 +78,26 @@ test('connect a number with developer connect, test it, and disconnect it', asyn
   await page.getByRole('alertdialog').getByRole('button', { name: 'Disconnect' }).click()
   await expect(page.getByText('No WhatsApp number connected')).toBeVisible()
 })
+
+test('Managed Launch Mode shows read-only status and "Contact support" instead of Connect', async ({
+  page,
+}) => {
+  // ADR-0027: the switch reaches the browser through /auth/me; the API side is covered by
+  // apps/worker/test/managed-launch.int.test.ts, so forcing the flag here exercises the UI only.
+  await signInAsNewOwner(page, 'ui-managed')
+  await page.route('**/api/v1/auth/me', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json()
+    body.data.features = { managedLaunch: true }
+    await route.fulfill({ response, json: body })
+  })
+  let signupConfigRequested = false
+  page.on('request', (r) => {
+    if (r.url().includes('/config/whatsapp-signup')) signupConfigRequested = true
+  })
+  await page.goto('/settings/whatsapp')
+  await expect(page.getByText('Contact support to connect WhatsApp')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Connect WhatsApp' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Developer connect' })).toHaveCount(0)
+  expect(signupConfigRequested).toBe(false)
+})

@@ -47,6 +47,12 @@ const nativeConnectorEnv = {
 
 export const baseEnvSchema = z.object({
   ...nativeConnectorEnv,
+  /**
+   * Managed Launch Mode (ADR-0027): platform operators connect WhatsApp numbers from /platform;
+   * Embedded Signup and every tenant-side Meta connection action are hidden (404). Off restores
+   * self-serve Embedded Signup after Tech Provider approval.
+   */
+  MANAGED_LAUNCH_MODE: booleanString.default(false),
   /** B3/B4: billable sends reserve wallet funds. Off until billing launches (docs/BILLING.md). */
   BILLING_ENFORCED: booleanString.default(false),
   /**
