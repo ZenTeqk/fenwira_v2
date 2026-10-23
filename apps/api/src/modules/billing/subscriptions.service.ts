@@ -17,6 +17,7 @@ import { AuditService } from '../audit'
 import { EntitlementsService } from '../entitlements'
 import { currentActorId } from '../identity'
 import { currentTenant } from '../tenancy'
+import { BILLING_OPTIONS, type BillingOptions } from './billing.options'
 
 const DAY = 86_400_000
 
@@ -32,6 +33,7 @@ export class SubscriptionsService {
     private readonly audit: AuditService,
     private readonly entitlements: EntitlementsService,
     @Inject(CORE_CONFIG) private readonly config: CoreConfig,
+    @Inject(BILLING_OPTIONS) private readonly billing: BillingOptions,
   ) {}
 
   plans(): Promise<Plan[]> {
@@ -170,7 +172,22 @@ export class SubscriptionsService {
     const { tenantId } = currentTenant()
     return this.tenantDb.run(async (tx) => {
       const s = await this.read(tx, tenantId)
-      return { status: s.status, trialEndsAt: s.trialEndsAt, trialDaysLeft: s.trialDaysLeft }
+      // ADR-0027 manual billing: "Payment due" while a renewal is open; grace end while PAST_DUE.
+      const manual = this.billing.manual
+      const paymentDue = manual?.enabled
+        ? (await tx.invoice.count({ where: { kind: 'PLAN_RENEWAL', status: 'OPEN' } })) > 0
+        : false
+      const graceEndsAt =
+        s.status === 'PAST_DUE' && s.currentPeriodEnd && manual
+          ? new Date(new Date(s.currentPeriodEnd).getTime() + manual.graceDays * DAY).toISOString()
+          : null
+      return {
+        status: s.status,
+        trialEndsAt: s.trialEndsAt,
+        trialDaysLeft: s.trialDaysLeft,
+        paymentDue,
+        graceEndsAt,
+      }
     })
   }
 

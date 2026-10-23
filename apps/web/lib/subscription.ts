@@ -54,4 +54,16 @@ export const STATUS_LABEL: Record<Subscription['status'], string> = {
   ACTIVE: 'Active',
   EXPIRED: 'Trial ended',
   CANCELLED: 'Ended',
+  PAST_DUE: 'Payment overdue',
+  SUSPENDED: 'Suspended',
 }
+
+/** StatusBadge preset for a subscription status (ADR-0027 adds PAST_DUE and SUSPENDED). */
+export const STATUS_BADGE = {
+  TRIALING: 'PENDING',
+  ACTIVE: 'ACTIVE',
+  EXPIRED: 'EXPIRED',
+  CANCELLED: 'CANCELLED',
+  PAST_DUE: 'ATTENTION',
+  SUSPENDED: 'PAUSED',
+} as const satisfies Record<Subscription['status'], string>

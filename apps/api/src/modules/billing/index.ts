@@ -5,6 +5,8 @@ export {
   billingPlatformFromEnv,
   type BillingSupport,
   billingSupportFromEnv,
+  type ManualBilling,
+  manualBillingFromEnv,
 } from './billing.options'
 export { BillingMaintenanceProcessor } from './billing-maintenance.processor'
 export { BillingUsageProcessor } from './billing-usage.processor'
@@ -27,4 +29,18 @@ export {
   walletStateOf,
 } from './wallet.core'
 export { activatePlan, RETENTION_GRACE_DAYS, stepSubscription } from './subscriptions.core'
+export {
+  applyApprovedPayment,
+  daysFrom,
+  displayStatusOf,
+  majorAmount,
+  taxFor,
+  upiDeepLink,
+  INVOICE_INCLUDE,
+  issueInvoice,
+  rejectPayment,
+  toInvoice,
+  toInvoiceDetail,
+  voidInvoice,
+} from './invoices.core'
 export { SubscriptionsService } from './subscriptions.service'

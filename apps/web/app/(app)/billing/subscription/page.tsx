@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError } from '@/lib/api/client'
 import {
+  STATUS_BADGE,
   STATUS_LABEL,
   useEntitlements,
   usePlans,
@@ -166,9 +167,13 @@ export default function SubscriptionPage() {
         ? s.cancelAtPeriodEnd
           ? `Ends ${date(s.currentPeriodEnd)}.`
           : `Monthly · renews ${date(s.currentPeriodEnd)}.`
-        : inactive
-          ? 'Template messages, campaigns, API keys and webhooks are paused. Your data is kept and inbound messages keep arriving.'
-          : ''
+        : s.status === 'PAST_DUE'
+          ? 'The billing period ended without a confirmed payment. Everything keeps working during the grace period; pay the open invoice under Billing → Invoices.'
+          : s.status === 'SUSPENDED'
+            ? 'Suspended for an unpaid invoice: new messages and campaigns are paused. Inbound messages keep arriving and your data is kept. Pay the open invoice to resume.'
+            : inactive
+              ? 'Template messages, campaigns, API keys and webhooks are paused. Your data is kept and inbound messages keep arriving.'
+              : ''
 
   return (
     <SettingsPage
@@ -189,10 +194,7 @@ export default function SubscriptionPage() {
           <h2 className="text-lg font-semibold text-slate">{headline}</h2>
           {detail ? <p className="max-w-xl text-base text-secondary">{detail}</p> : null}
         </div>
-        <StatusBadge
-          status={inactive ? 'EXPIRED' : s.status === 'TRIALING' ? 'PENDING' : 'ACTIVE'}
-          label={STATUS_LABEL[s.status]}
-        />
+        <StatusBadge status={STATUS_BADGE[s.status]} label={STATUS_LABEL[s.status]} />
       </Card>
 
       <section aria-labelledby="limits-heading" className="flex flex-col gap-1">

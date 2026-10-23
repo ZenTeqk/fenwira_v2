@@ -22,7 +22,12 @@ import { InboxModule } from './modules/inbox'
 import { MessagingModule } from './modules/messaging'
 import { TemplatesModule } from './modules/templates'
 import { AnalyticsModule } from './modules/analytics'
-import { BillingModule, billingPlatformFromEnv, billingSupportFromEnv } from './modules/billing'
+import {
+  BillingModule,
+  billingPlatformFromEnv,
+  billingSupportFromEnv,
+  manualBillingFromEnv,
+} from './modules/billing'
 import { CampaignsModule } from './modules/campaigns'
 import { AutomationModule } from './modules/automation'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
@@ -102,6 +107,7 @@ export class ApiModule {
         PlatformOperationsModule.forApi(identity, {
           ...billingPlatformFromEnv(env),
           support: billingSupportFromEnv(env),
+          manual: manualBillingFromEnv(env),
         }),
         tenancy,
         AuditApiModule,
@@ -118,6 +124,7 @@ export class ApiModule {
         BillingModule.forApi({
           ...billingPlatformFromEnv(env),
           support: billingSupportFromEnv(env),
+          manual: manualBillingFromEnv(env),
         }),
         CampaignsModule.forApi({
           billing: billingPlatformFromEnv(env),

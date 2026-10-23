@@ -76,7 +76,10 @@ export const workspaceStatusSchema = z.object({
   /** Phase 11 Step 4: for the shell's trial/expired banner. Independent of the wallet. */
   subscription: z
     .object({
-      status: z.enum(['TRIALING', 'ACTIVE', 'EXPIRED', 'CANCELLED']),
+      status: z.enum(['TRIALING', 'ACTIVE', 'EXPIRED', 'CANCELLED', 'PAST_DUE', 'SUSPENDED']),
+      /** ML-D2 manual billing: an open renewal invoice; `paymentDue` = shown as "Payment due". */
+      paymentDue: z.boolean().optional(),
+      graceEndsAt: z.string().nullable().optional(),
       trialEndsAt: z.string().nullable(),
       trialDaysLeft: z.number().int().nullable(),
     })

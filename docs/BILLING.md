@@ -188,6 +188,51 @@ Ledger rows carry `fund_type` `PAID` (default) or `PROMOTIONAL` (trial and promo
 
 Always format from minor units with `Intl.NumberFormat(locale, {style:'currency', currency})`. Never do float arithmetic. Sums use `bigint` on the server and strings in JSON when the value is above `Number.MAX_SAFE_INTEGER` (not expected in v2; contracts use `number` with a `.int().safe()` check).
 
+## Manual invoices — UPI (ADR-0027 Managed Launch Mode, step 3)
+
+Decisions ML-D2, ML-D3, ML-D5, ML-D6. There's still no payment gateway (P11-D19). Customers pay by UPI and an operator verifies each payment by hand.
+
+**Meta charges are separate.** WhatsApp conversation charges are billed by Meta to the payment method in the customer's own Meta Business account. Fenwira invoices cover only the Fenwira subscription and wallet credits. The Invoices page, the documents and the operator dashboard all say so.
+
+### Invoices ("payment requests")
+
+- `invoices` (tenant, forced RLS, never deleted by the runtime role). Kinds: `PLAN_RENEWAL` (one month of a configured plan) and `WALLET_TOPUP`. Status: `OPEN`, `PAID`, `VOID`. The display status is computed: DUE, OVERDUE (past `due_at`), PAYMENT_SUBMITTED (a PENDING proof), PAID, VOID.
+- **Amounts (ML-D3):** the operator enters the amount before tax. The system issues a renewal itself only for a plan with an active monthly price in the workspace currency, once per period, `BILLING_INVOICE_LEAD_DAYS` before the period ends (`billing.maintenance` subscriptions tick). Plans without a price (all seeded plans, P11-D4) are invoiced by hand. At most one renewal is OPEN per workspace.
+- **GST:** added only when `BILLING_GSTIN` and `BILLING_GST_RATE_BPS` are both set, as one rounded "GST x%" line. The CGST/SGST/IGST split is undecided (Q22). Documents are titled "Payment request" and "Receipt", never "Tax invoice", and say so when GST isn't configured.
+- **Numbers:** global sequences, `FW-INV-000001` and `FW-RCT-000001`. The invoice number is the UPI note (`tn`) and the payment reference.
+- **Payee:** `UPI_VPA` and `UPI_PAYEE_NAME` (configuration, never code), snapshotted on each invoice. Issuing is refused (422 `UPI_NOT_CONFIGURED`) while unset.
+- **Paying:** `upi://pay?pa=<VPA>&pn=<name>&am=<total, 2 decimals>&cu=INR&tn=<number>`, percent-encoded. The API also returns it as a PNG QR data URL. Documents are self-contained HTML (no scripts, strict CSP, every value escaped).
+
+### Payment proofs
+
+- `payment_proofs` (tenant, forced RLS, never deleted): UTR (normalized: spaces and dashes removed, upper case, 6–35 alphanumerics), an optional screenshot, status `PENDING`, `APPROVED` or `REJECTED`, reviewer, reason and receipt number.
+- The screenshot uses the existing upload hardening: a presigned PUT to a per-tenant key, then a size and magic-byte check on submit (PNG, JPEG or PDF, at most 5 MB, file purpose `PAYMENT_PROOF`). Operators see it through a 2-minute presigned link, and every view is platform-audited.
+- **Duplicate UTRs are blocked across all workspaces:** a partial unique index over PENDING and APPROVED proofs, with a yes/no pre-check (`system.utr_in_use`). A rejected proof frees its UTR. Only one PENDING proof is allowed per invoice.
+- Submitting needs `billing.manage` (OWNER); reading needs `billing.read`.
+
+### Approval (operator, `payments.manage`, fresh MFA)
+
+Approval is a commercial operation keyed `payment-review:<proofId>`. It runs in one transaction with the privilege recheck, serialization, immutable receipt, tenant and platform audit, and outbox. It marks the proof APPROVED with a receipt number, marks the invoice PAID, and then:
+
+- `WALLET_TOPUP`: posts a PAID `CREDIT` for the pre-tax amount (idempotency key `invoice:<id>`).
+- `PLAN_RENEWAL` (ML-D6): an ACTIVE or PAST_DUE subscription on the same plan is extended from its previous period end, so there are no free days and none are lost. Anything else (TRIALING, EXPIRED, CANCELLED, SUSPENDED or a different plan) is activated from the approval date via `activatePlan`.
+
+A retried approval returns the same result. A second, different review (for example a reject after an approve) returns 409 `ALREADY_REVIEWED`. Rejection keeps the invoice OPEN, records the reason and notifies billing readers.
+
+### Lifecycle with manual billing (`MANAGED_LAUNCH_MODE=true`)
+
+| From | When | To | Effect |
+| --- | --- | --- | --- |
+| ACTIVE | renewal unpaid at `current_period_end` | PAST_DUE | Grace: everything keeps working. Banner "Subscription payment overdue" until period end + `BILLING_GRACE_DAYS` |
+| PAST_DUE | period end + grace days | SUSPENDED | ML-D2: every new outbound send is refused (`SUBSCRIPTION_SUSPENDED`): inbox, campaigns, automations, API. Only SYSTEM consent/opt-out replies go out. Campaign launch and resume are refused, and running campaigns pause (resumable). API and webhooks are off like EXPIRED. **Inbound is never blocked; nothing is deleted** |
+| PAST_DUE / SUSPENDED | renewal approved | ACTIVE | See Approval |
+
+"Payment due" is ACTIVE with an open renewal, reported as `subscription.paymentDue` by `GET /workspace/status`. Without managed launch the old behaviour applies (periods roll monthly). Suspension takes effect only where subscriptions are enforced (`BILLING_SUBSCRIPTIONS_ENFORCED`).
+
+### Operator dashboard
+
+`GET /platform/billing/dashboard` (`payments.read`) shows the pending proofs (oldest first), workspaces with overdue open invoices or a PAST_DUE/SUSPENDED subscription, and paid totals per month (Asia/Kolkata) for the last 12 months. Each comes from an operator-scoped SECURITY DEFINER function (X22c) that returns billing fields only.
+
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.

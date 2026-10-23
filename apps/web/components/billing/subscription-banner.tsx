@@ -18,6 +18,33 @@ export function SubscriptionBanner() {
       View subscription
     </Link>
   )
+  // ADR-0027 manual UPI billing (ML-D2): grace, then suspension; both point at the open invoice.
+  const invoices = (
+    <Link href="/billing/invoices" className="font-medium underline underline-offset-4">
+      View invoices
+    </Link>
+  )
+  if (sub.status === 'SUSPENDED')
+    return (
+      <Alert tone="danger" title="Workspace suspended for an unpaid invoice">
+        New messages and campaigns are paused until the invoice is paid. Inbound messages keep
+        arriving and your data is kept. {invoices}
+      </Alert>
+    )
+  if (sub.status === 'PAST_DUE')
+    return (
+      <Alert tone="warning" title="Subscription payment overdue">
+        Everything keeps working
+        {sub.graceEndsAt ? ` until ${new Date(sub.graceEndsAt).toLocaleDateString()}` : ''}. Pay the
+        open invoice by UPI to avoid suspension. {invoices}
+      </Alert>
+    )
+  if (sub.status === 'ACTIVE' && sub.paymentDue)
+    return (
+      <Alert tone="info" title="Payment due">
+        Your next subscription invoice is ready. Pay it by UPI before the due date. {invoices}
+      </Alert>
+    )
   if (sub.status === 'EXPIRED' || sub.status === 'CANCELLED')
     return (
       <Alert
