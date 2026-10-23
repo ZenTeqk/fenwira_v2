@@ -881,6 +881,7 @@ it('plan prices: operators read and set them through the grant-checked function;
     currency: 'INR',
     amountMinor: 199900,
   })
+})
 
 it('overview and workspace activity: operators only, aggregates only, no secrets', async () => {
   const tenant = await identity(false, false)

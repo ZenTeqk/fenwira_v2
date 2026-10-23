@@ -9689,6 +9689,35 @@
         "x-platform-permission": "audit.read"
       }
     },
+    "/api/v1/platform/overview": {
+      "get": {
+        "operationId": "PlatformOverview_get",
+        "tags": [
+          "PlatformOverview"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "financial.read"
+      }
+    },
     "/api/v1/platform/plans": {
       "get": {
         "operationId": "PlatformPlans_list",
@@ -9923,6 +9952,47 @@
         "operationId": "CommercialRead_workspace",
         "tags": [
           "CommercialRead"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "commercial.read"
+      }
+    },
+    "/api/v1/platform/workspaces/{workspaceId}/activity": {
+      "get": {
+        "operationId": "PlatformOverview_activity",
+        "tags": [
+          "PlatformOverview"
         ],
         "parameters": [
           {
