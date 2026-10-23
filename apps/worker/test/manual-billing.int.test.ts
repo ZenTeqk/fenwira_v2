@@ -1,5 +1,5 @@
 import { BillingMaintenanceProcessor } from '@fenwira/api/modules/billing'
-import { uuidv7 } from '@fenwira/config'
+import { sha256, uuidv7 } from '@fenwira/config'
 import { Database } from '@fenwira/database'
 import { signWebhookBody } from '@fenwira/whatsapp'
 import { inboundMessageWebhook, type MetaMockState, startMetaMock } from '@fenwira/whatsapp/testing'
@@ -434,6 +434,72 @@ describe('renewal lifecycle: ACTIVE → renewal invoice → PAST_DUE → SUSPEND
     const expected = new Date(end)
     expected.setUTCMonth(expected.getUTCMonth() + 1)
     expect(sub.currentPeriodEnd!.toISOString()).toBe(expected.toISOString())
+  })
+})
+
+describe('billing emails: issued, due soon, overdue, rejected, approved', () => {
+  const claimed = (tenantId: string, key: string) =>
+    waitFor(
+      () =>
+        db.withTenant(tenantId, (tx) =>
+          tx.notification.findMany({ where: { dedupeKey: key }, select: { emailedAt: true } }),
+        ),
+      (rows) => rows.length > 0 && rows.every((r) => r.emailedAt !== null),
+    )
+  const deliveries = async (kind: string, email: string) =>
+    migration.withGlobal((tx) =>
+      tx.emailDelivery.count({ where: { kind, recipientHash: sha256(email.toLowerCase()) } }),
+    )
+
+  it('emails each notice once per member, even when the daily reminder job reruns', async () => {
+    const dueAt = new Date(Date.now() + 2 * DAY)
+    const id = await issue(ownerB.tenantId, {
+      kind: 'WALLET_TOPUP',
+      amountMinor: 30_000,
+      dueAt: dueAt.toISOString(),
+    })
+    await claimed(ownerB.tenantId, `invoice:${id}:issued`)
+    const reminders = worker.get(BillingMaintenanceProcessor)
+    await reminders.remindInvoices()
+    await reminders.remindInvoices()
+    await claimed(ownerB.tenantId, `invoice:${id}:due-soon`)
+    const later = new Date(dueAt.getTime() + DAY)
+    await reminders.remindInvoices(later)
+    await reminders.remindInvoices(later)
+    await claimed(ownerB.tenantId, `invoice:${id}:overdue`)
+    // Let any redelivered notice drain; a rerun must not send again.
+    await new Promise((r) => setTimeout(r, 2000))
+    for (const kind of ['invoice_issued', 'invoice_due_soon', 'invoice_overdue'])
+      expect(await deliveries(kind, ownerB.email), kind).toBeGreaterThanOrEqual(1)
+    const before = await deliveries('invoice_overdue', ownerB.email)
+    await reminders.remindInvoices(later)
+    await new Promise((r) => setTimeout(r, 1500))
+    expect(await deliveries('invoice_overdue', ownerB.email)).toBe(before)
+  })
+
+  it('emails the rejection reason and the receipt after approval', async () => {
+    const id = await issue(ownerB.tenantId, { kind: 'WALLET_TOPUP', amountMinor: 25_000 })
+    expect((await submitProof(ownerB, id, utr())).status).toBe(201)
+    const first = await pendingProofOf(ownerB, id)
+    await operator.post(`${ws(ownerB.tenantId)}/payment-proofs/${first}/reject`, {
+      reason: 'No matching credit in the bank statement.',
+    })
+    await claimed(ownerB.tenantId, `proof:${first}:rejected`)
+    expect((await submitProof(ownerB, id, utr())).status).toBe(201)
+    const second = await pendingProofOf(ownerB, id)
+    const ok = await operator.post(`${ws(ownerB.tenantId)}/payment-proofs/${second}/approve`, {
+      reference: 'stmt',
+    })
+    expect(ok.status, ok.text).toBe(200)
+    await claimed(ownerB.tenantId, `invoice:${id}:paid`)
+    // A paid invoice gets no further reminders.
+    const reminders = worker.get(BillingMaintenanceProcessor)
+    await reminders.remindInvoices(new Date(Date.now() + 30 * DAY))
+    await new Promise((r) => setTimeout(r, 1500))
+    const overdue = await db.withTenant(ownerB.tenantId, (tx) =>
+      tx.notification.count({ where: { dedupeKey: `invoice:${id}:overdue` } }),
+    )
+    expect(overdue).toBe(0)
   })
 })
 

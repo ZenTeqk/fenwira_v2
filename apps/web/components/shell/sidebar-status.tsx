@@ -23,7 +23,7 @@ const row = cn(
  * shell, P11-D12). Amounts appear only for members who can view billing.
  */
 export function SidebarStatus({ collapsed = false }: { collapsed?: boolean }) {
-  const { can } = useSession()
+  const { can, me } = useSession()
   const connections = useConnections()
   const status = useWorkspaceStatus()
   const conn = connectionSummary(connections.data)
@@ -45,7 +45,8 @@ export function SidebarStatus({ collapsed = false }: { collapsed?: boolean }) {
       ),
     })
   }
-  if (wallet && wallet.state !== 'NOT_ENFORCED') {
+  // ADR-0027: no wallet surfaces for customers in Managed Launch (operators manage it).
+  if (wallet && wallet.state !== 'NOT_ENFORCED' && !me.features.managedLaunch) {
     const amount =
       wallet.availableMinor === null ? null : formatMoney(wallet.availableMinor, wallet.currency)
     const text =

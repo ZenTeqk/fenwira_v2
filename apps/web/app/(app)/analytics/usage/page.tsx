@@ -1,5 +1,6 @@
 'use client'
 
+import { useManagedBillingRedirect } from '@/components/billing/managed-billing'
 import { type UsageAnalytics } from '@fenwira/contracts'
 import { MetricCard, PermissionState, TrendChart } from '@fenwira/ui'
 import { Gift, Receipt, Send } from 'lucide-react'
@@ -22,7 +23,7 @@ const TONES = ['primary', 'info', 'success', 'warning'] as const
  * Analytics → Usage. Charges come from usage events (the source of every wallet debit), so they
  * reconcile with the ledger; balances are never computed here (the Wallet page shows them).
  */
-export default function UsageAnalyticsPage() {
+function UsageAnalyticsPageContent() {
   const { can } = useSession()
   const [range, setRange] = useAnalyticsRange()
   const query = useAnalytics<UsageAnalytics>('usage', range, can('billing.read'))
@@ -100,4 +101,8 @@ export default function UsageAnalyticsPage() {
       }}
     </AnalyticsFrame>
   )
+}
+
+export default function UsageAnalyticsPage() {
+  return useManagedBillingRedirect() ? null : <UsageAnalyticsPageContent />
 }

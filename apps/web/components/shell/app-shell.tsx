@@ -94,7 +94,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
     analyticsModule ||
     integrationsModule ||
     billingWallet
-  const { membership, tenantId, can } = useSession()
+  const { membership, tenantId, can, me } = useSession()
   const unread = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox-unread'),
     queryFn: () =>
@@ -109,8 +109,9 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   useRealtimeEvent('conversation.read', () => void unread.refetch())
   const badges = { inbox: unread.data ?? 0 }
   const nav: NavItem[] = useMemo(
-    () => visibleNavigation(navPreview, NAVIGATION, membership.permissions),
-    [navPreview, membership.permissions],
+    () =>
+      visibleNavigation(navPreview, NAVIGATION, membership.permissions, me.features.managedLaunch),
+    [navPreview, membership.permissions, me.features.managedLaunch],
   )
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)

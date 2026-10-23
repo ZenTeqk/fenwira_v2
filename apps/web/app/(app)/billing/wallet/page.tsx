@@ -1,5 +1,6 @@
 'use client'
 
+import { useManagedBillingRedirect } from '@/components/billing/managed-billing'
 import { type Wallet, WALLET_TRANSACTION_TYPES, type WalletTransaction } from '@fenwira/contracts'
 import {
   Alert,
@@ -72,7 +73,7 @@ const dateFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeS
  * state, funds held for sends in progress, this month's usage, and the append-only ledger.
  * Top-ups are manual and made by the Fenwira team (P11-D13); there is no payment flow (P11-D19).
  */
-export default function WalletPage() {
+function WalletPageContent() {
   const { can } = useSession()
   const wallet = useWallet()
   const [type, setType] = useState<string>(ALL)
@@ -433,4 +434,8 @@ export default function WalletPage() {
       </div>
     </DetailPage>
   )
+}
+
+export default function WalletPage() {
+  return useManagedBillingRedirect() ? null : <WalletPageContent />
 }

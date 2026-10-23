@@ -1,5 +1,6 @@
 'use client'
 
+import { useManagedBillingRedirect } from '@/components/billing/managed-billing'
 import { type EntitlementStatus, type Plan } from '@fenwira/contracts'
 import {
   Alert,
@@ -130,7 +131,7 @@ function PlanCard({
 }
 
 /** Subscription (Phase 11 Step 4): plan, trial and limits. Wallet credits are separate. */
-export default function SubscriptionPage() {
+function SubscriptionPageContent() {
   const { can } = useSession()
   const sub = useSubscription()
   const plans = usePlans()
@@ -263,4 +264,8 @@ export default function SubscriptionPage() {
       </p>
     </SettingsPage>
   )
+}
+
+export default function SubscriptionPage() {
+  return useManagedBillingRedirect() ? null : <SubscriptionPageContent />
 }

@@ -119,6 +119,7 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `identity.password_reset.requested` | identity (platform event) | `userId` | `identity.events` |
 | `tenancy.invitation.sent` | tenancy | `invitationId` | `tenancy.events` |
 | `leads.access_request.submitted` | leads | `accessRequestId` | `leads.events` |
+| `billing.invoice_notice` | billing | `invoiceId`, `notice`, `proofId?` | `notifications.dispatch` |
 | `message.outbound.requested` | messaging (`MessagingService.send`) | `messageId` | `whatsapp.outbound` |
 | `message.inbound.received` | messaging (inbound processor) | `messageId, conversationId, contactId, text?` | `contacts.events` (opt-in/out keywords), `automation.trigger`, `analytics.events`, `webhooks.deliver` |
 | `message.status.changed` | messaging (status processor) | `messageId, from, to, errorCode?, pricing?` | `campaign.events`, `analytics.events`, `billing.usage`, `contacts.events` (on 131050), `webhooks.deliver` |

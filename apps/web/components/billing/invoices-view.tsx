@@ -40,6 +40,7 @@ import { type FormEvent, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, download, get, post } from '@/lib/api/client'
 import { formatMoney } from '@/lib/billing'
+import { STATUS_BADGE, STATUS_LABEL, usePlans, useSubscription } from '@/lib/subscription'
 import { keys } from '@/lib/api/keys'
 
 const STATUS: Record<InvoiceDisplayStatus, { status: StatusKey; label: string }> = {
@@ -64,7 +65,8 @@ const message = (err: unknown) => (err instanceof ApiError ? err.message : 'Some
  * (QR or deep link), then confirmed by submitting the UTR. Fenwira verifies each payment by hand.
  */
 export function InvoicesView() {
-  const { tenantId, can } = useSession()
+  const { tenantId, can, me } = useSession()
+  const managed = me.features.managedLaunch
   const params = useSearchParams()
   const router = useRouter()
   const openId = params.get('invoice')
@@ -82,32 +84,41 @@ export function InvoicesView() {
     <DetailPage
       header={{
         title: 'Billing',
-        description: 'Payment requests for your Fenwira subscription and WhatsApp credits.',
+        description: managed
+          ? 'Your plan and payment requests. Pay by UPI, then enter the UTR so we can confirm it.'
+          : 'Payment requests for your Fenwira subscription and WhatsApp credits.',
       }}
       banner={
         <Alert tone="info" title="Meta charges are billed separately">
           WhatsApp conversation charges from Meta are billed by Meta to the payment method in your
-          Meta Business account. Fenwira invoices cover only your Fenwira subscription and wallet
-          credits.
+          Meta Business account. Fenwira invoices cover only your Fenwira subscription
+          {managed ? '' : ' and wallet credits'}.
         </Alert>
       }
     >
-      <ModuleTabs
-        label="Billing pages"
-        className="bg-transparent"
-        linkAs={Link}
-        items={[
-          {
-            id: 'subscription',
-            label: 'Subscription',
-            href: '/billing/subscription',
-            active: false,
-          },
-          { id: 'invoices', label: 'Invoices', href: '/billing/invoices', active: true },
-          { id: 'wallet', label: 'Wallet', href: '/billing/wallet', active: false },
-          { id: 'usage', label: 'Usage', href: '/billing/usage', active: false },
-        ]}
-      />
+      {managed ? (
+        <>
+          <PlanSummary />
+          {due[0] ? <OpenInvoice id={due[0].id} /> : null}
+        </>
+      ) : (
+        <ModuleTabs
+          label="Billing pages"
+          className="bg-transparent"
+          linkAs={Link}
+          items={[
+            {
+              id: 'subscription',
+              label: 'Subscription',
+              href: '/billing/subscription',
+              active: false,
+            },
+            { id: 'invoices', label: 'Invoices', href: '/billing/invoices', active: true },
+            { id: 'wallet', label: 'Wallet', href: '/billing/wallet', active: false },
+            { id: 'usage', label: 'Usage', href: '/billing/usage', active: false },
+          ]}
+        />
+      )}
       {list.isPending ? (
         <Skeleton className="h-48 w-full" />
       ) : list.isError ? (
@@ -158,6 +169,63 @@ export function InvoicesView() {
       )}
       <InvoiceDrawer id={openId} onClose={() => open(null)} />
     </DetailPage>
+  )
+}
+
+/** Managed Launch: current plan, monthly price and next due date in one card. */
+function PlanSummary() {
+  const subscription = useSubscription()
+  const plans = usePlans()
+  const s = subscription.data
+  if (subscription.isPending) return <Skeleton className="h-28 w-full" />
+  if (!s) return null
+  const trial = s.status === 'TRIALING'
+  const plan = plans.data?.find((p) => p.key === s.plan?.key) ?? null
+  const due = trial ? s.trialEndsAt : s.currentPeriodEnd
+  return (
+    <Card className="flex flex-col gap-4 p-5">
+      <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <SummaryItem label="Plan">
+          {s.plan?.name ?? (trial ? 'Free trial' : 'No plan yet')}
+        </SummaryItem>
+        <SummaryItem label="Monthly price">
+          {plan?.price
+            ? `${formatMoney(plan.price.amountMinor, plan.price.currency)} + GST if applicable`
+            : trial
+              ? 'Free during the trial'
+              : '—'}
+        </SummaryItem>
+        <SummaryItem label={trial ? 'Trial ends' : 'Next payment due'}>{day(due)}</SummaryItem>
+        <SummaryItem label="Status">
+          <StatusBadge status={STATUS_BADGE[s.status]} label={STATUS_LABEL[s.status]} />
+        </SummaryItem>
+      </dl>
+      {trial ? (
+        <p className="text-sm text-secondary">
+          Billing starts after your free trial. We’ll send you an invoice to pay by UPI before it
+          ends.
+        </p>
+      ) : null}
+    </Card>
+  )
+}
+
+/** Managed Launch: the open payment request shown in full (UPI QR, copyable link, UTR form). */
+function OpenInvoice({ id }: { id: string }) {
+  const { tenantId } = useSession()
+  const detail = useQuery({
+    queryKey: keys.tenant(tenantId, 'invoices', id),
+    queryFn: () => get<{ data: InvoiceDetail }>(`/billing/invoices/${id}`).then((r) => r.data),
+  })
+  if (detail.isPending) return <Skeleton className="h-64 w-full" />
+  if (detail.isError) return <ErrorState onRetry={() => void detail.refetch()} />
+  return (
+    <Card className="flex flex-col gap-4 p-5">
+      <h2 className="text-base font-semibold">
+        Payment request {detail.data.number}: {detail.data.description}
+      </h2>
+      <InvoiceBody inv={detail.data} />
+    </Card>
   )
 }
 

@@ -1326,6 +1326,8 @@ model Notification {
   /// Set by event-driven notifications so a redelivered event never notifies twice.
   dedupeKey String?              @map("dedupe_key")
   readAt    DateTime?            @map("read_at") @db.Timestamptz(3)
+  /// Billing reminder emails: set once when the email for this notification is claimed (at most once).
+  emailedAt DateTime?            @map("emailed_at") @db.Timestamptz(3)
   createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)

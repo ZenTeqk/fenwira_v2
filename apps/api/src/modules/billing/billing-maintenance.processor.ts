@@ -14,13 +14,14 @@ import { type QueueProcessor } from '../../core/queue/queue-processor'
 import { QueueRegistry } from '../../core/queue/queue-registry'
 import { Mailer, OpsAlerts, subscriptionNoticeEmail } from '../platform'
 import { BILLING_OPTIONS, type BillingOptions } from './billing.options'
-import { issueRenewalIfDue } from './invoices.core'
+import { emitInvoiceNotice, issueRenewalIfDue } from './invoices.core'
 import { noticeCopy, stepSubscription } from './subscriptions.core'
 import { ledgerFigures, recoverReservation } from './usage.core'
 
 export const RECOVER_JOB = 'recover-reservations'
 export const LEDGER_CHECK_JOB = 'ledger-check'
 export const SUBSCRIPTIONS_JOB = 'subscriptions-tick'
+export const INVOICE_REMINDERS_JOB = 'invoice-reminders'
 const DEFAULT_GRACE_MINUTES = 360
 const BATCH = 500
 
@@ -72,6 +73,12 @@ export class BillingMaintenanceProcessor
         { every: 15 * 60_000 },
         { name: SUBSCRIPTIONS_JOB, data: {}, opts },
       )
+      // Manual UPI billing reminders, daily at 09:00 IST (due within 3 days, overdue).
+      await queue.upsertJobScheduler(
+        'billing-invoice-reminders',
+        { pattern: '30 3 * * *', tz: 'UTC' },
+        { name: INVOICE_REMINDERS_JOB, data: {}, opts },
+      )
       await queue.upsertJobScheduler(
         'billing-ledger-check',
         { pattern: '15 2 * * *', tz: 'UTC' },
@@ -89,6 +96,7 @@ export class BillingMaintenanceProcessor
     if (job.name === RECOVER_JOB) return this.recoverStale()
     if (job.name === LEDGER_CHECK_JOB) return this.checkLedger()
     if (job.name === SUBSCRIPTIONS_JOB) return this.tickSubscriptions()
+    if (job.name === INVOICE_REMINDERS_JOB) return this.remindInvoices()
     return 'ignored'
   }
 
@@ -142,6 +150,33 @@ export class BillingMaintenanceProcessor
       [...lines, 'Nothing was corrected. Investigate before adjusting (docs/BILLING.md → Wallet).'],
     )
     return drifted.length
+  }
+
+  /**
+   * Daily manual-billing reminders (ADR-0027): queues one billing.invoice_notice per open invoice
+   * that is due within 3 days or overdue and hasn't been emailed for that notice. The dispatch
+   * worker re-checks the invoice and claims each email once, so reruns never send duplicates.
+   */
+  async remindInvoices(now = new Date()): Promise<string> {
+    if (!this.options.manual?.enabled) return 'reminders:off'
+    let after: string | null = null
+    let queued = 0
+    for (;;) {
+      const due = await this.db.system.invoiceRemindersDue(now, BATCH, after)
+      if (!due.length) break
+      for (const d of due) {
+        try {
+          await this.db.withTenant(d.tenantId, (tx) =>
+            emitInvoiceNotice(tx, d.tenantId, d.invoiceId, d.notice),
+          )
+          queued++
+        } catch (err) {
+          this.logger.error({ err, tenantId: d.tenantId }, 'invoice reminder not queued')
+        }
+      }
+      after = due[due.length - 1]!.invoiceId
+    }
+    return `reminders:${queued}`
   }
 
   /**

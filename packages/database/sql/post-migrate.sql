@@ -717,6 +717,26 @@ BEGIN
   DO UPDATE SET amount_minor = EXCLUDED.amount_minor, active = true;
 END $$;
 
+-- Daily invoice reminders (ADR-0027): open invoices due within 3 days or overdue, without a pending
+-- proof, whose reminder email hasn't been claimed yet. IDs only; the worker re-checks per tenant.
+GRANT SELECT (status) ON public.payment_proofs TO fenwira_system;
+GRANT SELECT (tenant_id, dedupe_key, emailed_at) ON public.notifications TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.invoice_reminders_due(p_now timestamptz, p_limit integer, p_after uuid)
+RETURNS TABLE (tenant_id uuid, invoice_id uuid, notice text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT i.tenant_id, i.id, CASE WHEN i.due_at <= p_now THEN 'OVERDUE' ELSE 'DUE_SOON' END
+  FROM public.invoices i
+  WHERE i.status = 'OPEN' AND i.due_at <= p_now + interval '3 days'
+    AND (p_after IS NULL OR i.id > p_after)
+    AND NOT EXISTS (SELECT 1 FROM public.payment_proofs p
+                    WHERE p.invoice_id = i.id AND p.status = 'PENDING')
+    AND NOT EXISTS (SELECT 1 FROM public.notifications n
+                    WHERE n.tenant_id = i.tenant_id AND n.emailed_at IS NOT NULL
+                      AND n.dedupe_key = 'invoice:' || i.id::text
+                          || CASE WHEN i.due_at <= p_now THEN ':overdue' ELSE ':due-soon' END)
+  ORDER BY i.id LIMIT least(greatest(p_limit, 1), 500);
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -753,7 +773,8 @@ BEGIN
     'system.platform_pending_proofs(uuid, integer)',
     'system.platform_overdue_workspaces(uuid, timestamptz)',
     'system.platform_revenue_by_month(uuid, integer)',
-    'system.platform_set_plan_price(uuid, text, text, bigint)'
+    'system.platform_set_plan_price(uuid, text, text, bigint)',
+    'system.invoice_reminders_due(timestamptz, integer, uuid)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

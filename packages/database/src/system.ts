@@ -268,6 +268,14 @@ export class SystemGateway {
       .$queryRaw`SELECT system.platform_set_plan_price(${operatorId}::uuid, ${planKey}, ${currency}, ${amountMinor}::bigint)`
   }
 
+  /** Daily invoice reminders (IDs only): DUE_SOON within 3 days, OVERDUE after due, not yet emailed. */
+  async invoiceRemindersDue(now: Date, limit: number, after: string | null) {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ tenant_id: string; invoice_id: string; notice: 'DUE_SOON' | 'OVERDUE' }>
+    >`SELECT * FROM system.invoice_reminders_due(${now}::timestamptz, ${limit}::int, ${after}::uuid)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, invoiceId: r.invoice_id, notice: r.notice }))
+  }
+
   /** X2 (WABA-level fields such as template and account updates). */
   async resolveTenantByWabaId(wabaId: string): Promise<string | null> {
     const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
