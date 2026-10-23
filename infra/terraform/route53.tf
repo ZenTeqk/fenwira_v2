@@ -35,15 +35,13 @@ resource "aws_route53_record" "api" {
   allow_overwrite = false
 }
 
-# fenwira.com (ADR-0027 item B): app, api and the company site all point at this server's Elastic
-# IP. A records only: the instance has no IPv6 address, so AAAA would point nowhere.
-# allow_overwrite = false: Terraform fails instead of taking over an existing record (e.g. a
-# registrar parking record at the apex), so nothing is silently replaced.
+# fenwira.com (ADR-0027 item B): app and api point at this server's Elastic IP. A records only: the
+# instance has no IPv6 address, so AAAA would point nowhere. allow_overwrite = false: Terraform
+# fails instead of taking over an existing record, so nothing is silently replaced.
 resource "aws_route53_record" "primary" {
   for_each = var.manage_dns ? {
-    app  = var.primary_app_domain
-    api  = var.primary_api_domain
-    site = var.site_domain
+    app = var.primary_app_domain
+    api = var.primary_api_domain
   } : {}
   zone_id         = data.aws_route53_zone.primary.zone_id
   name            = each.value
@@ -51,4 +49,32 @@ resource "aws_route53_record" "primary" {
   ttl             = var.dns_ttl
   records         = [aws_eip.app.public_ip]
   allow_overwrite = false
+}
+
+# The marketing site (fenwira_marketing, its own state) serves the apex and www from CloudFront;
+# www 301s to the apex there. The apex record used to point at this server: moving it keeps the
+# change an in-place A → alias swap (one atomic Route 53 change batch, no gap).
+moved {
+  from = aws_route53_record.primary["site"]
+  to   = aws_route53_record.site["apex"]
+}
+
+data "aws_cloudfront_distribution" "site" {
+  id = var.site_distribution_id
+}
+
+resource "aws_route53_record" "site" {
+  for_each = var.manage_dns ? {
+    apex = var.site_domain
+    www  = "www.${var.site_domain}"
+  } : {}
+  zone_id         = data.aws_route53_zone.primary.zone_id
+  name            = each.value
+  type            = "A"
+  allow_overwrite = false
+  alias {
+    name                   = data.aws_cloudfront_distribution.site.domain_name
+    zone_id                = data.aws_cloudfront_distribution.site.hosted_zone_id
+    evaluate_target_health = false
+  }
 }

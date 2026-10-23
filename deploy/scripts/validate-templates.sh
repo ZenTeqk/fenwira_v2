@@ -64,10 +64,6 @@ if command -v nginx >/dev/null 2>&1 && command -v openssl >/dev/null 2>&1; then
     --api-cert "$tmp/cert.pem" --api-key "$tmp/key.pem" --static-dir "$tmp/static" \
     --legacy-app-domain app.legacy.test --legacy-api-domain api.legacy.test \
     --legacy-cert "$tmp/cert.pem" --legacy-key "$tmp/key.pem" >/dev/null
-  # The company-site block, with its placeholder guard bypassed (the pages aren't published here).
-  sed -e "s|@@SITE_DOMAIN@@|fenwira.test|g" -e "s|@@SITE_ROOT@@|$tmp/static|g" \
-    -e "s|@@TLS_CERT@@|$tmp/cert.pem|g" -e "s|@@TLS_KEY@@|$tmp/key.pem|g" \
-    "$REPO_ROOT/deploy/nginx/fenwira-site.conf.template" >"$tmp/etc/sites-available/fenwira-site.conf"
   sed -i.bak "s|/etc/nginx/snippets/|$tmp/etc/snippets/|g" "$tmp"/etc/sites-available/*.conf
   cat >"$tmp/nginx.conf" <<EOF
 pid $tmp/nginx.pid;

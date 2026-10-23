@@ -88,9 +88,15 @@ variable "primary_api_domain" {
 }
 
 variable "site_domain" {
-  description = "Company site (static page: company details, privacy policy, terms) served by this server."
+  description = "Marketing site apex (and www), served by the fenwira_marketing CloudFront distribution."
   type        = string
   default     = "fenwira.com"
+}
+
+variable "site_distribution_id" {
+  description = "CloudFront distribution of the marketing site (fenwira_marketing state); apex and www alias to it."
+  type        = string
+  default     = "E1NPM6L6RF4KJZ"
 }
 
 variable "use_primary_domains" {
