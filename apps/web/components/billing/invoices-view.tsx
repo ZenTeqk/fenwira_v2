@@ -203,14 +203,21 @@ function InvoiceBody({ inv }: { inv: InvoiceDetail }) {
         <SummaryItem label="Status">
           <StatusBadge {...STATUS[inv.displayStatus]} />
         </SummaryItem>
-        <SummaryItem label="Amount">{formatMoney(inv.totalMinor, inv.currency)}</SummaryItem>
         <SummaryItem label="Due">{day(inv.dueAt)}</SummaryItem>
         <SummaryItem label="Issued">{day(inv.issuedAt)}</SummaryItem>
+        {inv.taxLines.length ? (
+          <SummaryItem label="Amount (before GST)">
+            {formatMoney(inv.subtotalMinor, inv.currency)}
+          </SummaryItem>
+        ) : null}
         {inv.taxLines.map((t) => (
           <SummaryItem key={t.label} label={t.label}>
             {formatMoney(t.amountMinor, inv.currency)}
           </SummaryItem>
         ))}
+        <SummaryItem label={inv.taxLines.length ? 'Total to pay' : 'Amount to pay'}>
+          {formatMoney(inv.totalMinor, inv.currency)}
+        </SummaryItem>
         {inv.receiptNumber ? <SummaryItem label="Receipt">{inv.receiptNumber}</SummaryItem> : null}
       </dl>
 

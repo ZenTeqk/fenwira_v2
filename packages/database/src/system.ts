@@ -257,6 +257,19 @@ export class SystemGateway {
     >`SELECT * FROM system.platform_revenue_by_month(${operatorId}::uuid, ${months}::int)`
   }
 
+  /** Operator plan price (launch: INR monthly); the function re-checks the operator's grant. */
+  async platformSetPlanPrice(
+    operatorId: string,
+    planKey: string,
+    currency: string,
+    amountMinor: number,
+  ) {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ plan_key: string; currency: string; amount_minor: bigint }>
+    >`SELECT * FROM system.platform_set_plan_price(${operatorId}::uuid, ${planKey}, ${currency}, ${amountMinor}::bigint)`
+    return rows[0]!
+  }
+
   /** X2 (WABA-level fields such as template and account updates). */
   async resolveTenantByWabaId(wabaId: string): Promise<string | null> {
     const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`

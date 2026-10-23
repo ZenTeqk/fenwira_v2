@@ -691,6 +691,31 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   GROUP BY 1, 2 ORDER BY 1 DESC, 2;
 $$;
 
+-- Operator-editable plan prices (launch: INR monthly). The runtime role can't write plan_prices;
+-- this function checks the operator's grant, upserts one (plan, currency, MONTH) row and returns it.
+GRANT SELECT (id, key) ON public.plans TO fenwira_system;
+GRANT SELECT, INSERT, UPDATE ON public.plan_prices TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.platform_set_plan_price(
+  p_operator uuid, p_plan_key text, p_currency text, p_amount_minor bigint)
+RETURNS TABLE (plan_key text, currency text, amount_minor bigint)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+DECLARE v_plan uuid;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL) THEN
+    RAISE EXCEPTION 'operator grant required' USING ERRCODE = '42501';
+  END IF;
+  IF p_amount_minor < 100 OR p_amount_minor > 100000000 OR p_currency <> 'INR' THEN
+    RAISE EXCEPTION 'invalid plan price' USING ERRCODE = '22023';
+  END IF;
+  SELECT id INTO v_plan FROM public.plans WHERE key = p_plan_key;
+  IF v_plan IS NULL THEN RAISE EXCEPTION 'unknown plan' USING ERRCODE = 'P0002'; END IF;
+  INSERT INTO public.plan_prices AS pp (id, plan_id, currency, interval, amount_minor, active)
+  VALUES (gen_random_uuid(), v_plan, p_currency, 'MONTH', p_amount_minor, true)
+  ON CONFLICT (plan_id, currency, interval)
+  DO UPDATE SET amount_minor = EXCLUDED.amount_minor, active = true;
+  RETURN QUERY SELECT p_plan_key, p_currency, p_amount_minor;
+END $$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -726,7 +751,8 @@ BEGIN
     'system.manual_billing_due(timestamptz, integer, integer, uuid)',
     'system.platform_pending_proofs(uuid, integer)',
     'system.platform_overdue_workspaces(uuid, timestamptz)',
-    'system.platform_revenue_by_month(uuid, integer)'
+    'system.platform_revenue_by_month(uuid, integer)',
+    'system.platform_set_plan_price(uuid, text, text, bigint)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

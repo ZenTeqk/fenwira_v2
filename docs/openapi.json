@@ -9689,6 +9689,104 @@
         "x-platform-permission": "audit.read"
       }
     },
+    "/api/v1/platform/plans": {
+      "get": {
+        "operationId": "PlatformPlans_list",
+        "tags": [
+          "PlatformPlans"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "commercial.read"
+      }
+    },
+    "/api/v1/platform/plans/{planKey}/price": {
+      "post": {
+        "operationId": "PlatformPlans_setPrice",
+        "tags": [
+          "PlatformPlans"
+        ],
+        "parameters": [
+          {
+            "name": "planKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currency": {
+                    "type": "string",
+                    "const": "INR"
+                  },
+                  "amountMinor": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 100000000
+                  }
+                },
+                "required": [
+                  "currency",
+                  "amountMinor"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "subscription.manage"
+      }
+    },
     "/api/v1/platform/workspaces": {
       "get": {
         "operationId": "CommercialRead_search",

@@ -12,6 +12,8 @@ import { PlatformAccountsService } from './platform-accounts.service'
 import { PlatformBillingController } from './platform-billing.controller'
 import { PlatformBillingService } from './platform-billing.service'
 import { PlatformGuard } from './platform.guard'
+import { PlatformPlansController } from './platform-plans.controller'
+import { PlatformPlansService } from './platform-plans.service'
 @Module({})
 export class PlatformOperationsModule {
   static forApi(identity: DynamicModule, billing: BillingOptions): DynamicModule {
@@ -24,6 +26,7 @@ export class PlatformOperationsModule {
         CommercialOperationController,
         PlatformBillingController,
         PlatformAccountsController,
+        PlatformPlansController,
       ],
       providers: [
         PlatformAuthService,
@@ -32,6 +35,7 @@ export class PlatformOperationsModule {
         CommercialOperationService,
         PlatformBillingService,
         PlatformAccountsService,
+        PlatformPlansService,
         { provide: BILLING_OPTIONS, useValue: billing },
       ],
       exports: [PlatformGuard, PlatformAuthService],

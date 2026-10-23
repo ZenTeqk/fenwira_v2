@@ -67,6 +67,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
     ['/platform/access-requests', 'Access requests'],
     ['/platform/payments', 'Payments'],
     ['/platform/billing-operations', 'Billing operations'],
+    ['/platform/plans', 'Plans & prices'],
     ['/platform/email', 'Email'],
     ['/platform/audit', 'Audit'],
   ]

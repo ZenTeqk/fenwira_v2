@@ -14,7 +14,7 @@ Subscription plans, entitlements, the prepaid wallet with its immutable ledger, 
 | `GROWTH` | Growth | customer plan; the trial resolves to its entitlements (P11-D5) |
 | `BUSINESS` | Business | customer plan |
 
-Plans, their names and entitlements are configuration rows (decision B1), provisioned by seed/deployment tooling; no generic plan-data editor is shipped. Feature authorization never references their keys. **Prices are not approved (P11-D4):** `plan_prices` holds no production value and the UI shows "Contact us". Monthly cadence at launch (P11-D3).
+Plans, their names and entitlements are configuration rows (decision B1), provisioned by seed/deployment tooling; no generic plan-data editor is shipped. Feature authorization never references their keys. **Launch prices (INR, monthly, before GST):** Starter ₹899, Growth ₹1,299, Business ₹1,999, seeded into `plan_prices` when missing (an operator's change is never overwritten). Operators edit them in `/platform` → Plans & prices (`subscription.manage`, fresh MFA) through `system.platform_set_plan_price`; the runtime role still cannot write `plan_prices`. Renewal invoices use the active price automatically; issued invoices keep their snapshot. Monthly cadence at launch (P11-D3).
 
 ### Entitlements (launch defaults, configuration)
 

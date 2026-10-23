@@ -2,7 +2,7 @@ import { PLAN_SEEDS } from '@fenwira/contracts'
 import { type ClientBase } from 'pg'
 
 /**
- * Inserts the launch-default plans and their entitlements (P11-D2, D15, D18) when missing.
+ * Inserts the launch-default plans, entitlements and INR monthly prices when missing.
  * Unlike RBAC, existing rows are never overwritten: plans are configuration operators may change.
  */
 export async function seedPlans(client: ClientBase): Promise<{ plans: number }> {
@@ -13,6 +13,13 @@ export async function seedPlans(client: ClientBase): Promise<{ plans: number }> 
         `INSERT INTO plans (id, key, name, sort) VALUES (gen_random_uuid(), $1, $2, $3)
          ON CONFLICT (key) DO UPDATE SET key = EXCLUDED.key RETURNING id`,
         [plan.key, plan.name, plan.sort],
+      )
+      // Launch price, missing rows only: an operator's edit in /platform is never overwritten.
+      await client.query(
+        `INSERT INTO plan_prices (id, plan_id, currency, interval, amount_minor)
+         VALUES (gen_random_uuid(), $1, 'INR', 'MONTH', $2)
+         ON CONFLICT (plan_id, currency, interval) DO NOTHING`,
+        [rows[0]!.id, plan.monthlyInrMinor],
       )
       for (const [key, value] of Object.entries(plan.entitlements))
         await client.query(
