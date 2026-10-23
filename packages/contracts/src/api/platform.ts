@@ -30,6 +30,8 @@ export const platformMeSchema = z.object({
   operatorId: z.uuid(),
   permissions: z.array(z.enum(PLATFORM_PERMISSIONS)),
   expiresAt: z.iso.datetime(),
+  /** Idle deadline (last declared activity + 3 h, capped at expiresAt). */
+  idleExpiresAt: z.iso.datetime().optional(),
   csrfToken: z.string(),
 })
 export type PlatformMe = z.infer<typeof platformMeSchema>

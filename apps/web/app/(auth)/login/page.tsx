@@ -1,7 +1,7 @@
 'use client'
 
 import { type LoginResult } from '@fenwira/contracts'
-import { Button, Field, Input } from '@fenwira/ui'
+import { Alert, Button, Field, Input } from '@fenwira/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -50,6 +50,12 @@ function LoginForm() {
       // (new customers use Request access on fenwira.com).
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+        {params.get('reason') === 'expired' ? (
+          <Alert tone="info" title="Your session expired">
+            For your security you were signed out after a period of inactivity or 12 hours. Please
+            sign in again.
+          </Alert>
+        ) : null}
         <FormError error={login.error} />
         <Field label="Email">
           <Input

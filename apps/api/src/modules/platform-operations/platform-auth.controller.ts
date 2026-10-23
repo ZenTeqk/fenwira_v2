@@ -1,4 +1,5 @@
 import { platformLoginSchema, platformVerifySchema, platformReauthSchema } from '@fenwira/contracts'
+import { ACTIVITY_HEADER } from '../../core/security/cookies'
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common'
 import { type Request, type Response } from 'express'
 import { type z } from 'zod'
@@ -54,6 +55,7 @@ export class PlatformAuthController {
       data: await this.auth.authenticate(
         req.cookies?.[PLATFORM_COOKIE],
         req.cookies?.[PLATFORM_CSRF_COOKIE],
+        req.header(ACTIVITY_HEADER) === '1',
       ),
     }
   }

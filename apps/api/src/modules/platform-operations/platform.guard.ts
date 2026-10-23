@@ -1,4 +1,5 @@
 import { type CanActivate, type ExecutionContext, Injectable, Inject } from '@nestjs/common'
+import { ACTIVITY_HEADER } from '../../core/security/cookies'
 import { Reflector } from '@nestjs/core'
 import { type Redis } from 'ioredis'
 import { PinoLogger } from 'nestjs-pino'
@@ -43,6 +44,7 @@ export class PlatformGuard implements CanActivate {
       const me = await this.auth.authenticate(
         cookies?.[PLATFORM_COOKIE],
         cookies?.[PLATFORM_CSRF_COOKIE],
+        req.header(ACTIVITY_HEADER) === '1',
       )
       if (!(me.permissions as string[]).includes(permission))
         throw new AppError('FORBIDDEN', 403, 'Platform permission required.')

@@ -1,9 +1,20 @@
 'use client'
 
+import { type Me } from '@fenwira/contracts'
 import { ErrorState, Skeleton } from '@fenwira/ui'
+import { useQueryClient } from '@tanstack/react-query'
 import { usePathname, useRouter } from 'next/navigation'
-import { type ReactNode, useEffect } from 'react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import {
+  onSessionDeadlines,
+  post,
+  refreshSession,
+  setActiveTenantId,
+  setSessionDeadlines,
+} from '@/lib/api/client'
+import { noteInteraction, parseDeadlines } from '@/lib/session-activity'
 import { SessionProvider, useMe } from './session-provider'
+import { SessionTimeout } from './session-timeout'
 
 /**
  * Client-side gate for the app shell (docs/ARCHITECTURE.md → Frontend): signed out → /login,
@@ -45,5 +56,33 @@ export function AuthGate({ children }: { children: ReactNode }) {
       </div>
     )
   }
-  return <SessionProvider me={me}>{children}</SessionProvider>
+  return (
+    <SessionProvider me={me}>
+      <AppSessionTimeout me={me} />
+      {children}
+    </SessionProvider>
+  )
+}
+
+/** 12 h absolute / 3 h idle (server-enforced); warns 5 minutes before the idle sign-out. */
+function AppSessionTimeout({ me }: { me: Me }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const queryClient = useQueryClient()
+  const [deadlines, setDeadlines] = useState(() => parseDeadlines(me.session))
+  useEffect(() => {
+    setSessionDeadlines(parseDeadlines(me.session))
+    return onSessionDeadlines(setDeadlines)
+  }, [me.session])
+  const keepAlive = useCallback(() => {
+    noteInteraction()
+    return refreshSession()
+  }, [])
+  const onExpired = useCallback(() => {
+    void post('/auth/logout').catch(() => undefined)
+    queryClient.clear()
+    setActiveTenantId(undefined)
+    router.replace(`/login?reason=expired&next=${encodeURIComponent(pathname)}`)
+  }, [pathname, queryClient, router])
+  return <SessionTimeout deadlines={deadlines} keepAlive={keepAlive} onExpired={onExpired} />
 }

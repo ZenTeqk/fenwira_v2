@@ -39,8 +39,20 @@ export class JwtService {
     if (this.privateKey.asymmetricKeyType !== 'ed25519') throw new Error('JWT keys must be Ed25519')
   }
 
-  signAccess(userId: string, sessionId: string, now = Math.floor(Date.now() / 1000)): string {
-    return this.sign({ sub: userId, sid: sessionId, iat: now, exp: now + ACCESS_TTL_SECONDS })
+  /** `until` caps the expiry at the session's idle/absolute deadline (never past it). */
+  signAccess(
+    userId: string,
+    sessionId: string,
+    now = Math.floor(Date.now() / 1000),
+    until?: Date,
+  ): string {
+    const cap = until ? Math.floor(until.getTime() / 1000) : Infinity
+    return this.sign({
+      sub: userId,
+      sid: sessionId,
+      iat: now,
+      exp: Math.min(now + ACCESS_TTL_SECONDS, cap),
+    })
   }
 
   signChallenge(userId: string, jti: string, now = Math.floor(Date.now() / 1000)): string {

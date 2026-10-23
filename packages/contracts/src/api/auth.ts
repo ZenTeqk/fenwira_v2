@@ -78,6 +78,8 @@ export const meSchema = z.object({
   user: userSchema,
   memberships: z.array(membershipSummarySchema),
   csrfToken: z.string(),
+  /** Session deadlines: absolute (12 h from sign-in) and idle (last activity + 3 h). */
+  session: z.object({ expiresAt: z.string(), idleExpiresAt: z.string() }).nullable().optional(),
   /** Platform product switches (ADR-0027 Managed Launch Mode). */
   features: z.object({ managedLaunch: z.boolean() }),
 })

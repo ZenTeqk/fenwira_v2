@@ -17,6 +17,7 @@ import { RequestMethod, type INestApplication } from '@nestjs/common'
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants'
 import { ModulesContainer } from '@nestjs/core'
 import request from 'supertest'
+import { Database } from '@fenwira/database'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { bootApi, bootWorker, PASSWORD } from './support/harness'
 import { createOwner, type Member } from './support/workspace'
@@ -207,5 +208,105 @@ describe('session cookies', () => {
       expect(issued[name]!.value, name).not.toBe(planted)
     }
     expect(login.body.data.csrfToken).not.toBe(planted)
+  })
+})
+
+describe('session timeouts: 12 h absolute, 3 h idle (server-side)', () => {
+  const server = () => api.getHttpServer()
+  const db = () => Database.connect({ url: process.env.DATABASE_URL! })
+  async function signIn(member: Member) {
+    const res = await request(server())
+      .post('/api/v1/auth/login')
+      .set('X-Forwarded-For', `10.7.${Math.floor(Math.random() * 250)}.1`)
+      .send({ email: member.email, password: PASSWORD })
+    expect(res.status, res.text).toBe(200)
+    return cookiesOf(res)
+  }
+  const refresh = (jar: ReturnType<typeof cookiesOf>, active: boolean) =>
+    request(server())
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `${REFRESH_COOKIE}=${jar[REFRESH_COOKIE]!.value}`)
+      .set('X-Forwarded-For', `10.6.${Math.floor(Math.random() * 250)}.1`)
+      .set(active ? { 'X-Fenwira-Active': '1' } : {})
+  const latest = (d: Database, email: string) =>
+    d.withGlobal(async (tx) => {
+      const user = await tx.user.findUniqueOrThrow({ where: { email } })
+      return tx.session.findFirstOrThrow({
+        where: { userId: user.id, revokedAt: null },
+        orderBy: { createdAt: 'desc' },
+      })
+    })
+
+  it('cookies expire with the server session (absolute 12 h from sign-in)', async () => {
+    const member = await createOwner(api, 'timeout-a', 'Timeout A Co')
+    const jar = await signIn(member)
+    const d = db()
+    try {
+      const row = await latest(d, member.email)
+      expect(row.expiresAt.getTime() - Date.now()).toBeGreaterThan(11.9 * 3600_000)
+      expect(row.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(12 * 3600_000)
+      const expires = jar[REFRESH_COOKIE]!.attrs.find((a) => a.startsWith('expires='))
+      expect(Math.abs(Date.parse(expires!.slice(8)) - row.expiresAt.getTime())).toBeLessThan(2000)
+    } finally {
+      await d.disconnect()
+    }
+  })
+
+  it('3 h without declared activity ends the session even if the tab keeps refreshing', async () => {
+    const member = await createOwner(api, 'timeout-b', 'Timeout B Co')
+    const jar = await signIn(member)
+    const d = db()
+    try {
+      const row = await latest(d, member.email)
+      await d.withGlobal((tx) =>
+        tx.session.update({
+          where: { id: row.id },
+          data: { lastUsedAt: new Date(Date.now() - (3 * 60 + 1) * 60_000) },
+        }),
+      )
+      const res = await refresh(jar, false)
+      expect(res.status).toBe(401)
+      expect(res.body.error.code).toBe('SESSION_EXPIRED')
+    } finally {
+      await d.disconnect()
+    }
+  })
+
+  it('activity extends the idle limit but not the absolute one', async () => {
+    const member = await createOwner(api, 'timeout-c', 'Timeout C Co')
+    const jar = await signIn(member)
+    const d = db()
+    try {
+      const row = await latest(d, member.email)
+      await d.withGlobal((tx) =>
+        tx.session.update({
+          where: { id: row.id },
+          data: { lastUsedAt: new Date(Date.now() - 2 * 3600_000) },
+        }),
+      )
+      const passive = await refresh(jar, false)
+      expect(passive.status, passive.text).toBe(200)
+      // Passive refresh keeps the old activity time: idle ends ~1 h from now.
+      expect(Date.parse(passive.body.data.session.idleExpiresAt) - Date.now()).toBeLessThan(
+        1.1 * 3600_000,
+      )
+      const next = cookiesOf(passive)
+      const active = await refresh(next, true)
+      expect(active.status, active.text).toBe(200)
+      expect(Date.parse(active.body.data.session.idleExpiresAt) - Date.now()).toBeGreaterThan(
+        2.9 * 3600_000,
+      )
+      expect(Date.parse(active.body.data.session.expiresAt)).toBe(row.expiresAt.getTime())
+      // Past the absolute end, even an active refresh is refused.
+      await d.withGlobal((tx) =>
+        tx.session.updateMany({
+          where: { familyId: row.familyId },
+          data: { expiresAt: new Date(Date.now() - 1000) },
+        }),
+      )
+      expect((await refresh(cookiesOf(active), true)).status).toBe(401)
+    } finally {
+      await d.disconnect()
+    }
   })
 })

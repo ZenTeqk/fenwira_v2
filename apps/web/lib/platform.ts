@@ -1,5 +1,6 @@
 import { platformMeSchema, type PlatformMe } from '@fenwira/contracts'
 import { ApiError } from './api/client'
+import { ACTIVITY_HEADER, noteInteraction, takeActivity } from './session-activity'
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1'
 let csrf = ''
 export let platformLastRequest = Date.now()
@@ -21,6 +22,8 @@ export async function platformRequest<T>(
       Accept: 'application/json',
       ...(method === 'GET' ? {} : { 'X-CSRF-Token': csrf }),
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      // The server's idle clock moves only when the operator actually interacted.
+      ...(takeActivity() ? { [ACTIVITY_HEADER]: '1' } : {}),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })
@@ -50,6 +53,15 @@ export async function platformMe(): Promise<PlatformMe> {
   const me = platformMeSchema.parse(await platformRequest('/auth/me'))
   csrf = me.csrfToken
   return me
+}
+/** Stay signed in: declares activity and returns the refreshed session, or null when it ended. */
+export async function platformKeepAlive(): Promise<PlatformMe | null> {
+  noteInteraction()
+  try {
+    return await platformMe()
+  } catch {
+    return null
+  }
 }
 export function platformCsrf(value: string) {
   csrf = value
