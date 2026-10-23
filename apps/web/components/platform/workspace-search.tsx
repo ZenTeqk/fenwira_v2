@@ -1,4 +1,5 @@
 'use client'
+import { ProvisionWorkspace } from './platform-accounts'
 import { platformWorkspaceIdentitySchema } from '@fenwira/contracts'
 import {
   Button,
@@ -37,6 +38,7 @@ export function WorkspaceSearch({ operations = false }: { operations?: boolean }
         title: operations ? 'Billing operations' : 'Workspaces',
         description:
           'Find a workspace by name, exact ID or slug. Only commercial state is available.',
+        actions: operations ? undefined : <ProvisionWorkspace />,
       }}
     >
       <form

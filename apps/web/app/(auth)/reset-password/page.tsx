@@ -10,7 +10,10 @@ import { fieldError, FormError } from '@/components/auth/form-error'
 import { post } from '@/lib/api/client'
 
 function ResetForm() {
-  const token = useSearchParams().get('token') ?? ''
+  const params = useSearchParams()
+  const token = params.get('token') ?? ''
+  // ADR-0027 step 4: an operator-created owner sets their first password with the same link type.
+  const setup = params.get('setup') === '1'
   const [password, setPassword] = useState('')
   const reset = useMutation({
     mutationFn: () => post('/auth/password/reset', { token, password }, { tenant: false }),
@@ -29,7 +32,7 @@ function ResetForm() {
     )
   }
   return (
-    <AuthCard title="Choose a new password">
+    <AuthCard title={setup ? 'Set your password' : 'Choose a new password'}>
       {!token ? <Alert tone="danger" title="This link is incomplete. Request a new one." /> : null}
       <form
         onSubmit={(e: FormEvent) => {

@@ -330,10 +330,10 @@ The launch happens before Tech Provider approval and without a payment gateway: 
 
 | Step | Branch | Status |
 | --- | --- | --- |
-| 1 Feature flag (`MANAGED_LAUNCH_MODE`) | `ml-1-flag` | 🔵 PR open |
-| 2 Operator-only manual Meta connection | `ml-2-meta-connect` | 🔵 PR open (mock only; real Meta in step 6) |
-| 3 Manual UPI QR billing | `ml-3-upi-billing` | 🔵 PR open |
-| 4 Workspace and team provisioning, SMTP optional | `ml-4-provisioning` | ⬜ |
+| 1 Feature flag (`MANAGED_LAUNCH_MODE`) | `ml-1-flag` | ✅ deployed 2026-10-23 (off in production) |
+| 2 Operator-only manual Meta connection | `ml-2-meta-connect` | ✅ deployed 2026-10-23 (mock only; real Meta in step 6) |
+| 3 Manual UPI QR billing | `ml-3-upi-billing` | ✅ deployed 2026-10-23 |
+| 4 Workspace and team provisioning, SMTP optional | `ml-4-provisioning` | 🔵 PR open |
 | 5 `docs/MANAGED_LAUNCH.md` and operator checklist | `ml-5-runbook` | ⬜ |
 | 6 First contact with real Meta (one test number) | `ml-6-real-meta` | ⬜ needs credentials |
 | 7 Hardening for the new routes, then Phase 12 | `ml-7-hardening` | ⬜ |

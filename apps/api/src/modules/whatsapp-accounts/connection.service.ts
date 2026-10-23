@@ -27,6 +27,7 @@ import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { RateLimitService } from '../../core/security/rate-limit.service'
 import { AuditService } from '../audit'
+import { EntitlementsService } from '../entitlements'
 import { currentTenant } from '../tenancy'
 import {
   CONNECTION_INCLUDE,
@@ -92,6 +93,7 @@ export class WhatsAppConnectionService {
     private readonly audit: AuditService,
     private readonly limits: RateLimitService,
     private readonly syncService: WhatsAppSyncService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   signupConfig(): WhatsAppSignupConfig {
@@ -284,6 +286,9 @@ export class WhatsAppConnectionService {
         const existing = await tx.whatsAppPhoneNumber.findUnique({
           where: { tenantId_phoneNumberId: { tenantId, phoneNumberId: phone.id } },
         })
+        // ADR-0027 step 4: a new live number counts toward the plan's `max_phone_numbers`.
+        if (!existing || existing.status === 'DISCONNECTED')
+          await this.entitlements.assertWithin(tx, tenantId, 'max_phone_numbers')
         const hasDefault =
           (await tx.whatsAppPhoneNumber.count({
             where: { isDefault: true, status: LIVE, NOT: { id: existing?.id } },

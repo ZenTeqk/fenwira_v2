@@ -241,10 +241,18 @@ export const workerEnvSchema = baseEnvSchema
     OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(50).max(60_000).default(250),
     /** Links in emails point here. */
     WEB_ORIGIN: z.url(),
-    SMTP_URL: z
-      .string()
-      .refine((v) => /^smtps?:\/\//.test(v), 'must be an smtp:// or smtps:// URL'),
-    MAIL_FROM: z.string().min(3),
+    /**
+     * ADR-0027 step 4: optional. Unset = no SMTP: emails are recorded as SKIPPED_NO_SMTP and the
+     * worker keeps running; links are copied from the operator console instead.
+     */
+    SMTP_URL: optionalString.pipe(
+      z
+        .string()
+        .refine((v) => /^smtps?:\/\//.test(v), 'must be an smtp:// or smtps:// URL')
+        .optional(),
+    ),
+    MAIL_FROM: z.string().min(3).default('Fenwira <no-reply@fenwira.com>'),
+    MAIL_REPLY_TO: optionalString.pipe(z.email().optional()),
     ENCRYPTION_KEYS: z.string().min(1),
     ENCRYPTION_ACTIVE_KEY_ID: z.string().min(1),
     ...metaEnv,

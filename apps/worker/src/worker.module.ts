@@ -95,9 +95,9 @@ export class WorkerModule {
       leaseSeconds: 30,
       maxAttempts: 20,
     })
-    const identity = IdentityWorkerModule.forWorker({ webOrigin: env.WEB_ORIGIN })
-    const tenancy = TenancyModule.forWorker({ webOrigin: env.WEB_ORIGIN })
     const keyRing = parseKeyRing(env.ENCRYPTION_KEYS, env.ENCRYPTION_ACTIVE_KEY_ID)
+    const identity = IdentityWorkerModule.forWorker({ webOrigin: env.WEB_ORIGIN, keyRing })
+    const tenancy = TenancyModule.forWorker({ webOrigin: env.WEB_ORIGIN, keyRing })
     const messaging = MessagingModule.forWorker(
       {
         keyRing,
@@ -205,6 +205,7 @@ export class WorkerModule {
         EmailModule.forRoot({
           smtpUrl: env.SMTP_URL,
           from: env.MAIL_FROM,
+          replyTo: env.MAIL_REPLY_TO,
           opsAlerts: { to: env.OPS_ALERT_EMAIL, environment: env.NODE_ENV },
         }),
         platform,

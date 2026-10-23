@@ -765,3 +765,6 @@ $$;
 ALTER FUNCTION system.platform_workspaces(uuid,text,integer) OWNER TO fenwira_system;
 REVOKE ALL ON FUNCTION system.platform_workspaces(uuid,text,integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION system.platform_workspaces(uuid,text,integer) TO fenwira_app;
+
+-- ADR-0027 step 4: the email delivery log is append-only for the runtime role.
+REVOKE UPDATE, DELETE, TRUNCATE ON public.email_deliveries FROM fenwira_app;

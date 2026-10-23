@@ -9631,6 +9631,35 @@
         "x-platform-permission": "payments.read"
       }
     },
+    "/api/v1/platform/email-deliveries": {
+      "get": {
+        "operationId": "PlatformAccounts_deliveries",
+        "tags": [
+          "PlatformAccounts"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "audit.read"
+      }
+    },
     "/api/v1/platform/workspaces": {
       "get": {
         "operationId": "CommercialRead_search",
@@ -9681,6 +9710,85 @@
           }
         ],
         "x-platform-permission": "commercial.read"
+      }
+    },
+    "/api/v1/platform/workspaces/provision": {
+      "post": {
+        "operationId": "PlatformAccounts_create",
+        "tags": [
+          "PlatformAccounts"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 80
+                  },
+                  "ownerName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "ownerEmail": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "country": {
+                    "default": "IN",
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 2
+                  },
+                  "timezone": {
+                    "default": "Asia/Kolkata",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  }
+                },
+                "required": [
+                  "workspaceName",
+                  "ownerName",
+                  "ownerEmail"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "workspaces.manage"
       }
     },
     "/api/v1/platform/workspaces/{workspaceId}": {
@@ -9786,6 +9894,7 @@
                           "max_users",
                           "max_contacts",
                           "max_active_flows",
+                          "max_phone_numbers",
                           "automation_execution_limit",
                           "analytics_retention"
                         ]
@@ -9856,6 +9965,7 @@
                           "max_users",
                           "max_contacts",
                           "max_active_flows",
+                          "max_phone_numbers",
                           "automation_execution_limit",
                           "analytics_retention"
                         ]
@@ -9960,6 +10070,7 @@
                           "max_users",
                           "max_contacts",
                           "max_active_flows",
+                          "max_phone_numbers",
                           "automation_execution_limit",
                           "analytics_retention"
                         ]
@@ -10030,6 +10141,7 @@
                           "max_users",
                           "max_contacts",
                           "max_active_flows",
+                          "max_phone_numbers",
                           "automation_execution_limit",
                           "analytics_retention"
                         ]
@@ -10320,6 +10432,101 @@
           }
         ],
         "x-platform-permission": "payments.manage"
+      }
+    },
+    "/api/v1/platform/workspaces/{workspaceId}/members": {
+      "get": {
+        "operationId": "PlatformAccounts_members",
+        "tags": [
+          "PlatformAccounts"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "commercial.read"
+      }
+    },
+    "/api/v1/platform/workspaces/{workspaceId}/members/{userId}/reset-link": {
+      "post": {
+        "operationId": "PlatformAccounts_resetLink",
+        "tags": [
+          "PlatformAccounts"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "workspaces.manage"
       }
     },
     "/api/v1/platform/workspaces/{workspaceId}/operations": {

@@ -1,4 +1,4 @@
-import { sha256 } from '@fenwira/config'
+import { encryptSecret, randomToken, sha256 } from '@fenwira/config'
 import {
   canAssignRole,
   type CreateInvitationRequest,
@@ -13,9 +13,18 @@ import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { RateLimitService } from '../../core/security/rate-limit.service'
 import { AuditService } from '../audit'
-import { currentAuth, IdentityService, type SessionTokens } from '../identity'
+import {
+  currentAuth,
+  IDENTITY_OPTIONS,
+  type IdentityOptions,
+  IdentityService,
+  type SessionTokens,
+} from '../identity'
 import { currentTenant } from './permission.guard'
 import { EntitlementsService } from '../entitlements'
+
+/** ADR-0027 step 4: one-time invitation links live 72 hours. */
+export const INVITATION_LINK_TTL_MS = 72 * 3600 * 1000
 
 const invalidLink = () =>
   new AppError(
@@ -52,7 +61,33 @@ export class InvitationService {
     private readonly identity: IdentityService,
     private readonly limits: RateLimitService,
     private readonly entitlements: EntitlementsService,
+    @Inject(IDENTITY_OPTIONS) private readonly options: IdentityOptions,
   ) {}
+
+  /**
+   * Issues a fresh single-use link (only its hash is stored; any older link stops working) and
+   * queues the email with the same token, encrypted, for when SMTP is configured.
+   */
+  private async issueLink(
+    tx: TenantTx,
+    tenantId: string,
+    invitationId: string,
+  ): Promise<{ link: string; expiresAt: Date }> {
+    const token = randomToken()
+    const now = new Date()
+    const expiresAt = new Date(now.getTime() + INVITATION_LINK_TTL_MS)
+    await tx.invitation.update({
+      where: { id: invitationId },
+      data: { tokenHash: sha256(token), sentAt: now, expiresAt },
+    })
+    await this.emitSend(
+      tx,
+      tenantId,
+      invitationId,
+      Buffer.from(encryptSecret(this.options.keyRing, token)).toString('base64'),
+    )
+    return { link: `${this.options.webOrigin}/invitations/${token}`, expiresAt }
+  }
 
   async list(): Promise<Invitation[]> {
     const { tenantId } = currentTenant()
@@ -114,33 +149,35 @@ export class InvitationService {
         },
         include: { invitedBy: { select: { name: true } } },
       })
-      await this.emitSend(tx, actor.tenantId, invitation.id)
+      const { link, expiresAt } = await this.issueLink(tx, actor.tenantId, invitation.id)
       await this.audit.write(tx, {
         action: 'team.invitation.sent',
         targetType: 'invitation',
         targetId: invitation.id,
         changes: { role: input.role },
       })
-      return toDto(invitation)
+      return { ...toDto({ ...invitation, expiresAt }), link }
     })
   }
 
-  async resend(invitationId: string): Promise<void> {
+  /** A new one-time link (copyable), also emailed when SMTP is configured. */
+  async resend(invitationId: string): Promise<{ link: string; expiresAt: string }> {
     const { tenantId } = currentTenant()
     await this.limits.consume([
       { bucket: 'invite-resend:invitation', key: invitationId, limit: 5, windowSeconds: 3600 },
     ])
-    await this.tenantDb.run(async (tx) => {
+    return this.tenantDb.run(async (tx) => {
       const inv = await tx.invitation.findFirst({
         where: { id: invitationId, tenantId, status: 'PENDING' },
       })
       if (!inv) throw AppError.notFound('Invitation not found.')
-      await this.emitSend(tx, tenantId, inv.id)
+      const issued = await this.issueLink(tx, tenantId, inv.id)
       await this.audit.write(tx, {
         action: 'team.invitation.resent',
         targetType: 'invitation',
         targetId: inv.id,
       })
+      return { link: issued.link, expiresAt: issued.expiresAt.toISOString() }
     })
   }
 
@@ -295,14 +332,19 @@ export class InvitationService {
     })
   }
 
-  private async emitSend(tx: TenantTx, tenantId: string, invitationId: string): Promise<void> {
+  private async emitSend(
+    tx: TenantTx,
+    tenantId: string,
+    invitationId: string,
+    tokenCiphertext: string,
+  ): Promise<void> {
     await tx.outboxEvent.create({
       data: {
         tenantId,
         eventType: 'tenancy.invitation.sent',
         aggregateType: 'invitation',
         aggregateId: invitationId,
-        payload: { invitationId },
+        payload: { invitationId, tokenCiphertext },
         correlationId: requestContext.correlationId() ?? null,
       },
     })

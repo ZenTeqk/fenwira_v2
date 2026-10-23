@@ -57,6 +57,8 @@ export const invitationSchema = z.object({
   invitedByName: z.string(),
   expiresAt: z.string().nullable(),
   createdAt: z.string(),
+  /** ADR-0027: the one-time link, returned only when it is issued (create / new link). */
+  link: z.string().optional(),
 })
 export type Invitation = z.infer<typeof invitationSchema>
 

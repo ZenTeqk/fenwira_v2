@@ -411,6 +411,17 @@ Platform session only. `payments.read` for GETs; `payments.manage` plus fresh MF
 | POST | `/platform/workspaces/:workspaceId/payment-proofs/:proofId/approve` | `{reference, note?}` → `{proofId, status, invoiceStatus, receiptNumber, operationId}`; idempotent; 409 `ALREADY_REVIEWED` |
 | POST | `/platform/workspaces/:workspaceId/payment-proofs/:proofId/reject` | `{reason}` → same shape |
 
+### Platform accounts (ADR-0027 step 4: onboarding without email)
+
+| Method | Path | Permission | Body → result |
+| --- | --- | --- | --- |
+| POST | `/platform/workspaces/provision` | `workspaces.manage` + fresh MFA | `{workspaceName, ownerName, ownerEmail, country?, timezone?}` → 201 `{workspaceId, ownerUserId, setupLink, setupExpiresAt}`. The setup link (72 h, single use) sets the first password and verifies the email (ML-D7). It is `null` when the email already has an account |
+| GET | `/platform/workspaces/:workspaceId/members` | `commercial.read` | → `[{userId, name, email, role, status, emailVerified, joinedAt}]` |
+| POST | `/platform/workspaces/:workspaceId/members/:userId/reset-link` | `workspaces.manage` + fresh MFA | → `{link, expiresAt}` (1 h, single use; ML-D4: operators only; members of that workspace only) |
+| GET | `/platform/email-deliveries` | `audit.read` | → the last 100 emails: `{kind, status: SENT\|FAILED\|SKIPPED_NO_SMTP\|SUPPRESSED, recipientHint, errorCode}` |
+
+Tenant: `POST /team/invitations` now returns `link` (72 h, single use; the email carries the same link when SMTP is configured). `POST /team/invitations/:id/resend` returns `{data: {link, expiresAt}}`, and the previous link stops working. Links are shown once; only their SHA-256 is stored. Seat (`max_users`) and WhatsApp number (`max_phone_numbers`) limits come from the entitlements (422 `LIMIT_EXCEEDED`).
+
 ### Platform WhatsApp (ADR-0027 Managed Launch Mode)
 
 Under `/platform/workspaces/:workspaceId/whatsapp`, platform session only (`whatsapp.read` for GETs; `whatsapp.manage` plus fresh MFA and platform CSRF for the rest). An unknown or deleted workspace, and a connection of another workspace, are 404. Every mutation writes a tenant audit entry (actor `PLATFORM_OPERATOR`) and a `platform_audit` row (`platform.whatsapp.*`, SUCCESS/FAILED). Responses carry `PlatformWhatsAppConnection` (the tenant connection plus `metaAppId`, `businessId`, `appSecret {maskedSecret, rotatedAt}`, `templatesSyncedAt`); no token or secret is ever returned.

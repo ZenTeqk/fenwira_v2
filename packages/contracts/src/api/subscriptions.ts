@@ -10,6 +10,7 @@ export const LIMIT_KEYS = [
   'max_users',
   'max_contacts',
   'max_active_flows',
+  'max_phone_numbers',
   'automation_execution_limit',
   'analytics_retention',
 ] as const
@@ -25,6 +26,7 @@ export const ENTITLEMENT_LABELS: Record<EntitlementKey, string> = {
   max_users: 'Team members',
   max_contacts: 'Contacts',
   max_active_flows: 'Active automations',
+  max_phone_numbers: 'WhatsApp numbers',
   automation_execution_limit: 'Automation runs per month',
   analytics_retention: 'Analytics history (days)',
 }
