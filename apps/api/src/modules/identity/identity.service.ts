@@ -1,4 +1,5 @@
 import { decryptSecret, encryptSecret, randomToken, sha256, uuidv7 } from '@fenwira/config'
+import { ACCESS_TTL_SECONDS } from '../../core/security/cookies'
 import { type LoginResult, type User as UserDto } from '@fenwira/contracts'
 import { Database, type TenantTx } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
@@ -14,7 +15,26 @@ import { SecurityEventsService } from './security-events.service'
 import { SessionService } from './session.service'
 import { generateBackupCodes, generateTotpSecret, otpauthUri, verifyTotp } from './totp'
 
-export type SessionTokens = { accessToken: string; refreshToken: string; csrfToken: string }
+export type SessionTokens = {
+  accessToken: string
+  refreshToken: string
+  csrfToken: string
+  /** Absolute end (12 h from sign-in) and idle end (last activity + 3 h). */
+  expiresAt: Date
+  idleExpiresAt: Date
+  accessExpiresAt: Date
+}
+
+/** The access token never outlives either session deadline. */
+function accessUntil(s: { expiresAt: Date; idleExpiresAt: Date }) {
+  return new Date(
+    Math.min(
+      Date.now() + ACCESS_TTL_SECONDS * 1000,
+      s.expiresAt.getTime(),
+      s.idleExpiresAt.getTime(),
+    ),
+  )
+}
 export type AuthOutcome = { result: LoginResult; tokens?: SessionTokens }
 
 type UserRow = {
@@ -173,15 +193,24 @@ export class IdentityService {
     return this.completeLogin(claims.sub)
   }
 
-  async refresh(refreshToken: string | undefined): Promise<SessionTokens> {
+  async refresh(refreshToken: string | undefined, active = false): Promise<SessionTokens> {
     if (!refreshToken) throw new AppError('UNAUTHENTICATED', 401, 'Please sign in.')
-    const rotated = await this.sessions.rotate(refreshToken)
+    const rotated = await this.sessions.rotate(refreshToken, active)
     if (!rotated.ok)
       throw new AppError('SESSION_EXPIRED', 401, 'Your session has ended. Please sign in again.')
+    const accessExpiresAt = accessUntil(rotated)
     return {
-      accessToken: this.jwt.signAccess(rotated.userId, rotated.familyId),
+      accessToken: this.jwt.signAccess(
+        rotated.userId,
+        rotated.familyId,
+        undefined,
+        accessExpiresAt,
+      ),
       refreshToken: rotated.refreshToken,
       csrfToken: randomToken(),
+      expiresAt: rotated.expiresAt,
+      idleExpiresAt: rotated.idleExpiresAt,
+      accessExpiresAt,
     }
   }
 
@@ -362,12 +391,21 @@ export class IdentityService {
     return user.id
   }
 
+  /** GET /auth/me: the current family's deadlines for the web inactivity warning. */
+  sessionDeadlines(familyId: string) {
+    return this.sessions.deadlines(familyId)
+  }
+
   async startSession(userId: string, tx?: TenantTx): Promise<SessionTokens> {
-    const { familyId, refreshToken } = await this.sessions.issue(userId, tx)
+    const issued = await this.sessions.issue(userId, tx)
+    const accessExpiresAt = accessUntil(issued)
     return {
-      accessToken: this.jwt.signAccess(userId, familyId),
-      refreshToken,
+      accessToken: this.jwt.signAccess(userId, issued.familyId, undefined, accessExpiresAt),
+      refreshToken: issued.refreshToken,
       csrfToken: randomToken(),
+      expiresAt: issued.expiresAt,
+      idleExpiresAt: issued.idleExpiresAt,
+      accessExpiresAt,
     }
   }
 

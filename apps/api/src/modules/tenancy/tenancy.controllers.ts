@@ -63,11 +63,18 @@ export class MeController {
   /** User, workspaces, product switches and the CSRF token for this browser session. */
   @Get('auth/me')
   async get(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<{ data: Me }> {
-    const { userId } = currentAuth()
-    const [user, memberships] = await Promise.all([
+    const { userId, sessionId } = currentAuth()
+    const [user, memberships, deadlines] = await Promise.all([
       this.identity.getUser(userId),
       this.me.memberships(userId),
+      this.identity.sessionDeadlines(sessionId),
     ])
+    const session = deadlines
+      ? {
+          expiresAt: deadlines.expiresAt.toISOString(),
+          idleExpiresAt: deadlines.idleExpiresAt.toISOString(),
+        }
+      : null
     let csrfToken = (req.cookies as Record<string, string | undefined>)[CSRF_COOKIE]
     if (!csrfToken) {
       csrfToken = randomToken()
@@ -80,7 +87,7 @@ export class MeController {
       })
     }
     const features = { managedLaunch: this.config.features?.managedLaunch ?? false }
-    return { data: { user, memberships, csrfToken, features } }
+    return { data: { user, memberships, csrfToken, features, session } }
   }
 }
 

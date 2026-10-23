@@ -3,16 +3,24 @@ import { Database, type TenantTx } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
 import type IORedis from 'ioredis'
 import { requestContext } from '../../core/context/request-context'
-import { ACCESS_TTL_SECONDS, REFRESH_TTL_SECONDS } from '../../core/security/cookies'
+import {
+  ACCESS_TTL_SECONDS,
+  SESSION_ABSOLUTE_SECONDS,
+  SESSION_IDLE_SECONDS,
+} from '../../core/security/cookies'
 import { REDIS } from '../../core/redis/redis.provider'
 import { SecurityEventsService } from './security-events.service'
 
-const IDLE_TIMEOUT_MS = 7 * 24 * 3600 * 1000
+const IDLE_TIMEOUT_MS = SESSION_IDLE_SECONDS * 1000
 const denyKey = (familyId: string) => `revoked_sid:${familyId}`
+const idleEnd = (lastUsedAt: Date, expiresAt: Date) =>
+  new Date(Math.min(lastUsedAt.getTime() + IDLE_TIMEOUT_MS, expiresAt.getTime()))
 
-export type IssuedSession = { familyId: string; refreshToken: string }
+/** The session's two deadlines: absolute (fixed at sign-in) and idle (last activity + 3 h). */
+export type SessionDeadlines = { expiresAt: Date; idleExpiresAt: Date }
+export type IssuedSession = { familyId: string; refreshToken: string } & SessionDeadlines
 export type RotateResult =
-  | { ok: true; userId: string; familyId: string; refreshToken: string }
+  | ({ ok: true; userId: string; familyId: string; refreshToken: string } & SessionDeadlines)
   | { ok: false; reason: 'UNKNOWN' | 'EXPIRED' | 'REVOKED' | 'REUSE_DETECTED' }
 
 /**
@@ -32,6 +40,8 @@ export class SessionService {
     const refreshToken = randomToken()
     const familyId = uuidv7()
     const ctx = requestContext.get()
+    const now = Date.now()
+    const expiresAt = new Date(now + SESSION_ABSOLUTE_SECONDS * 1000)
     const create = (t: TenantTx) =>
       t.session.create({
         data: {
@@ -40,15 +50,21 @@ export class SessionService {
           refreshTokenHash: sha256(refreshToken),
           userAgent: ctx?.userAgent ?? null,
           ip: ctx?.ip ?? null,
-          expiresAt: new Date(Date.now() + REFRESH_TTL_SECONDS * 1000),
+          lastUsedAt: new Date(now),
+          expiresAt,
         },
       })
     if (tx) await create(tx)
     else await this.db.withGlobal(create)
-    return { familyId, refreshToken }
+    return { familyId, refreshToken, expiresAt, idleExpiresAt: idleEnd(new Date(now), expiresAt) }
   }
 
-  async rotate(refreshToken: string): Promise<RotateResult> {
+  /**
+   * Rotates the refresh token. `active` = the user interacted since the last request (the web
+   * app's activity header): only then does the idle clock restart; background polling and
+   * passive refreshes carry the previous activity time forward. Neither extends the absolute limit.
+   */
+  async rotate(refreshToken: string, active = false): Promise<RotateResult> {
     const hash = sha256(refreshToken)
     const result = await this.db.withGlobal(async (tx): Promise<RotateResult> => {
       const current = await tx.session.findUnique({ where: { refreshTokenHash: hash } })
@@ -89,6 +105,7 @@ export class SessionService {
       if (claimed.count === 0) return { ok: false, reason: 'REVOKED' }
       const next = randomToken()
       const ctx = requestContext.get()
+      const lastUsedAt = active ? new Date(now) : current.lastUsedAt
       await tx.session.create({
         data: {
           userId: current.userId,
@@ -97,10 +114,18 @@ export class SessionService {
           refreshTokenHash: sha256(next),
           userAgent: ctx?.userAgent ?? current.userAgent,
           ip: ctx?.ip ?? current.ip,
+          lastUsedAt,
           expiresAt: current.expiresAt, // absolute lifetime is fixed at login
         },
       })
-      return { ok: true, userId: current.userId, familyId: current.familyId, refreshToken: next }
+      return {
+        ok: true,
+        userId: current.userId,
+        familyId: current.familyId,
+        refreshToken: next,
+        expiresAt: current.expiresAt,
+        idleExpiresAt: idleEnd(lastUsedAt, current.expiresAt),
+      }
     })
     return result
   }
@@ -163,6 +188,19 @@ export class SessionService {
     const families = tx ? await run(tx) : await this.db.withGlobal(run)
     await Promise.all(families.map((f) => this.deny(f)))
     return families.length
+  }
+
+  /** Deadlines of the family's live row (GET /auth/me), or null when it has ended. */
+  async deadlines(familyId: string): Promise<SessionDeadlines | null> {
+    const row = await this.db.withGlobal((tx) =>
+      tx.session.findFirst({
+        where: { familyId, revokedAt: null, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: 'desc' },
+      }),
+    )
+    return row
+      ? { expiresAt: row.expiresAt, idleExpiresAt: idleEnd(row.lastUsedAt, row.expiresAt) }
+      : null
   }
 
   async touch(familyId: string): Promise<void> {

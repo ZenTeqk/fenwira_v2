@@ -4,13 +4,15 @@ import { Button, ErrorState, Skeleton } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createContext, type ReactNode, useContext, useEffect } from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useEffect } from 'react'
+import { SessionTimeout } from '@/components/session/session-timeout'
 import {
   clearPlatformSession,
-  platformLastRequest,
+  platformKeepAlive,
   platformMe,
   platformRequest,
 } from '@/lib/platform'
+import { parseDeadlines } from '@/lib/session-activity'
 const PlatformContext = createContext<PlatformMe | null>(null)
 export const usePlatform = () => useContext(PlatformContext)
 export function PlatformShell({ children }: { children: ReactNode }) {
@@ -25,27 +27,22 @@ export function PlatformShell({ children }: { children: ReactNode }) {
     retry: false,
     staleTime: 0,
   })
+  // 12 h absolute / 3 h idle, enforced by the server; SessionTimeout warns 5 minutes ahead.
+  const expire = useCallback(() => {
+    clearPlatformSession()
+    cache.removeQueries({ queryKey: ['platform'] })
+    router.replace('/platform/login?reason=expired')
+  }, [cache, router])
+  const keepAlive = useCallback(async () => {
+    const next = await platformKeepAlive()
+    if (next) cache.setQueryData(['platform', 'me'], next)
+    return next !== null
+  }, [cache])
   useEffect(() => {
     if (login) return
-    const expire = () => {
-      clearPlatformSession()
-      cache.removeQueries({ queryKey: ['platform'] })
-      router.replace('/platform/login')
-    }
     window.addEventListener('platform-expired', expire)
-    const timer = window.setInterval(() => {
-      if (
-        me.data &&
-        (Date.now() >= new Date(me.data.expiresAt).getTime() ||
-          Date.now() - platformLastRequest >= 600000)
-      )
-        expire()
-    }, 5000)
-    return () => {
-      clearInterval(timer)
-      window.removeEventListener('platform-expired', expire)
-    }
-  }, [login, me.data, cache, router])
+    return () => window.removeEventListener('platform-expired', expire)
+  }, [login, expire])
   useEffect(() => {
     if (!login && me.isError) router.replace('/platform/login')
   }, [login, me.isError, router])
@@ -73,6 +70,11 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   ]
   return (
     <PlatformContext.Provider value={me.data}>
+      <SessionTimeout
+        deadlines={parseDeadlines(me.data)}
+        keepAlive={keepAlive}
+        onExpired={expire}
+      />
       <a href="#platform-main" className="sr-only focus:not-sr-only focus:p-3">
         Skip to platform content
       </a>

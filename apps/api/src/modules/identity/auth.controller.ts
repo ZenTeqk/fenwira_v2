@@ -32,7 +32,12 @@ import { type Request, type Response } from 'express'
 import { z } from 'zod'
 import { AppError } from '../../core/http/app-error'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
-import { clearSessionCookies, REFRESH_COOKIE, setSessionCookies } from '../../core/security/cookies'
+import {
+  ACTIVITY_HEADER,
+  clearSessionCookies,
+  REFRESH_COOKIE,
+  setSessionCookies,
+} from '../../core/security/cookies'
 import { Public, SkipCsrf } from '../../core/security/decorators'
 import { currentAuth } from './auth.guard'
 import { IDENTITY_OPTIONS, type IdentityOptions } from './identity.options'
@@ -91,12 +96,25 @@ export class AuthController {
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ data: { csrfToken: string } }> {
+  ): Promise<{
+    data: { csrfToken: string; session: { expiresAt: string; idleExpiresAt: string } }
+  }> {
     const cookies = req.cookies as Record<string, string | undefined>
     try {
-      const tokens = await this.identity.refresh(cookies[REFRESH_COOKIE])
+      const tokens = await this.identity.refresh(
+        cookies[REFRESH_COOKIE],
+        req.header(ACTIVITY_HEADER) === '1',
+      )
       setSessionCookies(res, this.options.cookies, tokens)
-      return { data: { csrfToken: tokens.csrfToken } }
+      return {
+        data: {
+          csrfToken: tokens.csrfToken,
+          session: {
+            expiresAt: tokens.expiresAt.toISOString(),
+            idleExpiresAt: tokens.idleExpiresAt.toISOString(),
+          },
+        },
+      }
     } catch (err) {
       clearSessionCookies(res, this.options.cookies)
       throw err

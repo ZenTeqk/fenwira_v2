@@ -37,6 +37,8 @@ export function corsOptionsFor(
       'Idempotency-Key',
       // Automation drafts: optimistic concurrency (PUT /flows/:id/draft).
       'If-Match',
+      // Session idle clock: the web app declares user activity (docs/SECURITY.md → Sessions).
+      'X-Fenwira-Active',
     ],
   }
   const site: CorsOptions = {

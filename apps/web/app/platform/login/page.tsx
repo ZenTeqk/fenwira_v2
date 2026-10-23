@@ -1,11 +1,12 @@
 'use client'
 import { platformLoginSchema, platformVerifySchema } from '@fenwira/contracts'
-import { Button, Card, CardContent, CardHeader, CardTitle, Field, Input } from '@fenwira/ui'
+import { Alert, Button, Card, CardContent, CardHeader, CardTitle, Field, Input } from '@fenwira/ui'
 import { useQueryClient } from '@tanstack/react-query'
-import { useRouter } from 'next/navigation'
-import { type FormEvent, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { type FormEvent, Suspense, useState } from 'react'
 import { platformCsrf, platformRequest } from '@/lib/platform'
-export default function Page() {
+function PlatformLogin() {
+  const expired = useSearchParams().get('reason') === 'expired'
   const [email, setEmail] = useState(''),
     [password, setPassword] = useState(''),
     [code, setCode] = useState(''),
@@ -55,6 +56,11 @@ export default function Page() {
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="flex flex-col gap-4">
+          {expired ? (
+            <Alert tone="info" title="Your session expired">
+              You were signed out after 3 hours of inactivity or 12 hours. Sign in again.
+            </Alert>
+          ) : null}
           {!challenge ? (
             <>
               <Field label="Email" required>
@@ -121,5 +127,13 @@ export default function Page() {
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense>
+      <PlatformLogin />
+    </Suspense>
   )
 }

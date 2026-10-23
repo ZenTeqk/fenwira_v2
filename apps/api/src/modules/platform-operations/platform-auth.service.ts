@@ -1,4 +1,5 @@
 import { decryptSecret, randomToken, safeEqual, sha256 } from '@fenwira/config'
+import { SESSION_ABSOLUTE_SECONDS, SESSION_IDLE_SECONDS } from '../../core/security/cookies'
 import { PLATFORM_PERMISSIONS, type PlatformMe } from '@fenwira/contracts'
 import { Database, type Prisma } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
@@ -20,8 +21,9 @@ import type IORedis from 'ioredis'
 
 export const PLATFORM_COOKIE = 'fw_platform'
 export const PLATFORM_CSRF_COOKIE = 'fw_platform_csrf'
-export const PRIVILEGE_MS = 30 * 60_000
-export const PRIVILEGE_IDLE_MS = 10 * 60_000
+/** Same limits as the customer app (docs/SECURITY.md → Sessions); writes still need FRESH_MFA_MS. */
+export const PRIVILEGE_MS = SESSION_ABSOLUTE_SECONDS * 1000
+export const PRIVILEGE_IDLE_MS = SESSION_IDLE_SECONDS * 1000
 export const FRESH_MFA_MS = 5 * 60_000
 
 @Injectable()
@@ -210,9 +212,11 @@ export class PlatformAuthService {
     return { token, csrfToken, expiresAt: session.expiresAt.toISOString() }
   }
 
+  /** `active`: the request declares user activity (ACTIVITY_HEADER); only then does idle reset. */
   async authenticate(
     token: string | undefined,
     csrfCookie: string | undefined,
+    active = false,
   ): Promise<PlatformMe> {
     if (!token || !csrfCookie)
       throw new AppError('UNAUTHENTICATED', 401, 'Sign in to Platform Operations.')
@@ -249,9 +253,11 @@ export class PlatformAuthService {
       )
     })
     if (!valid) throw new AppError('FORBIDDEN', 403, 'Platform authorization ended.')
-    await this.db.withGlobal((tx) =>
-      tx.platformSession.update({ where: { id: session.id }, data: { lastUsedAt: now } }),
-    )
+    const lastUsedAt = active ? now : session.lastUsedAt
+    if (active)
+      await this.db.withGlobal((tx) =>
+        tx.platformSession.update({ where: { id: session.id }, data: { lastUsedAt: now } }),
+      )
     requestContext.patch({
       platform: { operatorId: session.userId, sessionId: session.id, mfaAt: session.mfaAt },
       userId: session.userId,
@@ -260,6 +266,9 @@ export class PlatformAuthService {
       operatorId: session.userId,
       permissions: [...PLATFORM_PERMISSIONS],
       expiresAt: session.expiresAt.toISOString(),
+      idleExpiresAt: new Date(
+        Math.min(lastUsedAt.getTime() + PRIVILEGE_IDLE_MS, session.expiresAt.getTime()),
+      ).toISOString(),
       csrfToken: csrfCookie,
     }
   }

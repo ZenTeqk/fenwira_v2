@@ -161,7 +161,7 @@ it('revocation, idle expiration, backing session revocation and absolute expiry 
       await db.withGlobal((tx) =>
         tx.platformSession.updateMany({
           where: { userId: user.id },
-          data: { lastUsedAt: new Date(Date.now() - 11 * 60_000) },
+          data: { lastUsedAt: new Date(Date.now() - (3 * 60 + 1) * 60_000) },
         }),
       )
     if (kind === 'absolute')

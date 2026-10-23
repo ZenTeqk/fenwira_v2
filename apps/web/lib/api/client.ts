@@ -1,4 +1,10 @@
 import { type ErrorCode, type FieldError } from '@fenwira/contracts'
+import {
+  ACTIVITY_HEADER,
+  parseDeadlines,
+  type SessionDeadlines,
+  takeActivity,
+} from '@/lib/session-activity'
 
 /**
  * Browser API client (docs/API_SPEC.md). Sends cookies, the CSRF token (held in memory — the
@@ -29,6 +35,19 @@ let csrfToken = ''
 let activeTenantId: string | undefined
 let refreshing: Promise<boolean> | null = null
 let fetchingCsrf: Promise<void> | null = null
+let deadlines: SessionDeadlines | null = null
+const deadlineListeners = new Set<(d: SessionDeadlines | null) => void>()
+
+/** Session deadlines from the last refresh or /auth/me (for the inactivity warning). */
+export const getSessionDeadlines = () => deadlines
+export function setSessionDeadlines(d: SessionDeadlines | null) {
+  deadlines = d
+  deadlineListeners.forEach((l) => l(d))
+}
+export function onSessionDeadlines(listener: (d: SessionDeadlines | null) => void) {
+  deadlineListeners.add(listener)
+  return () => void deadlineListeners.delete(listener)
+}
 
 export const setCsrfToken = (token: string | undefined) => {
   if (token) csrfToken = token
@@ -60,13 +79,26 @@ async function send(method: string, path: string, opts: Options): Promise<Respon
   })
 }
 
-/** Single-flight refresh: concurrent 401s share one rotation (a second one would look like reuse). */
-async function refreshSession(): Promise<boolean> {
+/**
+ * Single-flight refresh: concurrent 401s share one rotation (a second one would look like reuse).
+ * Declares user activity when there was some since the last report (the server's idle clock).
+ */
+export async function refreshSession(): Promise<boolean> {
   refreshing ??= (async () => {
     try {
-      const res = await send('POST', '/auth/refresh', { tenant: false })
-      if (!res.ok) return false
-      setCsrfToken(((await res.json()) as { data: { csrfToken: string } }).data.csrfToken)
+      const res = await send('POST', '/auth/refresh', {
+        tenant: false,
+        headers: takeActivity() ? { [ACTIVITY_HEADER]: '1' } : {},
+      })
+      if (!res.ok) {
+        if (res.status === 401) setSessionDeadlines(null)
+        return false
+      }
+      const { data } = (await res.json()) as {
+        data: { csrfToken: string; session?: { expiresAt: string; idleExpiresAt: string } }
+      }
+      setCsrfToken(data.csrfToken)
+      if (data.session) setSessionDeadlines(parseDeadlines(data.session))
       return true
     } catch {
       return false
@@ -125,7 +157,12 @@ export async function api<T = unknown>(
         .clone()
         .json()
         .catch(() => null)) as { error?: { code?: string } } | null
-      if (body?.error?.code === 'SESSION_EXPIRED' && (await refreshSession()))
+      // The access cookie expires with its token, so an expired access token usually arrives as
+      // no cookie at all (UNAUTHENTICATED). Either way the refresh cookie decides.
+      if (
+        (body?.error?.code === 'SESSION_EXPIRED' || body?.error?.code === 'UNAUTHENTICATED') &&
+        (await refreshSession())
+      )
         res = await send(method, path, opts)
     }
   } catch {
