@@ -124,7 +124,7 @@ The SES account already has production access in ap-south-1 (no sandbox; 50,000 
 
 1. `terraform apply` creates the `app`, `api` and apex A records and the certbot permission for fenwira.com.
 2. On the server: `sudo certbot certonly --dns-route53 -d app.fenwira.com -d api.fenwira.com -d fenwira.com`.
-3. Re-render nginx with `--site-domain fenwira.com` and the `--legacy-*` options (the old certificate), then `sudo nginx -t && sudo systemctl reload nginx`. Before that, fill in the company details in `deploy/site/*.html`; rendering refuses while they still say `FILL-IN`.
+3. Re-render nginx with the `--legacy-*` options (the old certificate), then `sudo nginx -t && sudo systemctl reload nginx`. The apex `fenwira.com` and `www` are the marketing site (fenwira_marketing, CloudFront `E1NPM6L6RF4KJZ`); their records alias to it (`aws_route53_record.site`). The certificate keeps `fenwira.com` so DNS-01 renewals stay unchanged.
 4. Set `use_primary_domains = true` and apply, then set the repository variables `APP_URL=https://app.fenwira.com` and `API_URL=https://api.fenwira.com`, and redeploy.
 5. Update every customer app's webhook callback URL to `api.fenwira.com`. The old API host keeps serving until all are moved.
 6. After 30 days, remove the legacy server blocks and records.

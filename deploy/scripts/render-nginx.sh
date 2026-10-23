@@ -5,19 +5,16 @@
 #     --app-cert <fullchain.pem> --app-key <privkey.pem> \
 #     --api-cert <fullchain.pem> --api-key <privkey.pem> \
 #     [--static-dir /opt/fenwira/current/apps/web/.next/standalone/apps/web/.next/static] \
-#     [--site-domain fenwira.com [--site-root /var/www/fenwira-site]] \
 #     [--legacy-app-domain app.fenwira.zenteqk.com --legacy-api-domain api.fenwira.zenteqk.com \
 #      --legacy-cert <fullchain.pem> --legacy-key <privkey.pem>]
-# Output layout: sites-available/fenwira-{app,api,default}.conf (+ fenwira-site.conf,
-# fenwira-legacy-{app,api}.conf when asked), snippets/*.conf, conf.d/*.conf, site/ (static pages).
-# ADR-0027 item B: the site uses the app certificate (one certificate covers app, api and apex);
-# the legacy web host 301-redirects to the app domain; the legacy API host keeps serving the API so
+# Output layout: sites-available/fenwira-{app,api,default}.conf (+ fenwira-legacy-{app,api}.conf
+# when asked), snippets/*.conf, conf.d/*.conf. The apex fenwira.com is the marketing site on
+# CloudFront (fenwira_marketing), not this server. ADR-0027 item B: the legacy web host 301-redirects to the app domain; the legacy API host keeps serving the API so
 # webhooks configured on it don't break while Meta apps are updated.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 out="" app_domain="" api_domain="" app_cert="" app_key="" api_cert="" api_key=""
-site_domain="" site_root="/var/www/fenwira-site"
 legacy_app_domain="" legacy_api_domain="" legacy_cert="" legacy_key=""
 static_dir="/opt/fenwira/current/apps/web/.next/standalone/apps/web/.next/static"
 while (($#)); do
@@ -30,8 +27,6 @@ while (($#)); do
     --api-cert) api_cert="$2" ;;
     --api-key) api_key="$2" ;;
     --static-dir) static_dir="$2" ;;
-    --site-domain) site_domain="$2" ;;
-    --site-root) site_root="$2" ;;
     --legacy-app-domain) legacy_app_domain="$2" ;;
     --legacy-api-domain) legacy_api_domain="$2" ;;
     --legacy-cert) legacy_cert="$2" ;;
@@ -58,22 +53,14 @@ render "$src/fenwira-app.conf.template" "$app_domain" "$app_cert" "$app_key" "$o
 render "$src/fenwira-api.conf.template" "$api_domain" "$api_cert" "$api_key" "$out/sites-available/fenwira-api.conf"
 cp "$src/fenwira-default.conf" "$out/sites-available/fenwira-default.conf"
 
-extra() { # template output: the optional site/legacy placeholders
+extra() { # template output: the optional legacy placeholders
   sed -e "s|@@APP_DOMAIN@@|$app_domain|g" -e "s|@@API_DOMAIN@@|$legacy_api_domain|g" \
-    -e "s|@@SITE_DOMAIN@@|$site_domain|g" -e "s|@@SITE_ROOT@@|$site_root|g" \
     -e "s|@@LEGACY_APP_DOMAIN@@|$legacy_app_domain|g" \
     -e "s|@@LEGACY_TLS_CERT@@|$legacy_cert|g" -e "s|@@LEGACY_TLS_KEY@@|$legacy_key|g" \
     -e "s|@@TLS_CERT@@|$3|g" -e "s|@@TLS_KEY@@|$4|g" -e "s|@@WEB_STATIC_DIR@@|$static_dir|g" \
     "$1" >"$2"
   ! grep -q '@@[A-Z_]*@@' "$2" || die "unrendered placeholder left in $2"
 }
-if [[ -n "$site_domain" ]]; then
-  [[ "$site_domain" =~ $domain_re ]] || die "invalid --site-domain"
-  extra "$src/fenwira-site.conf.template" "$out/sites-available/fenwira-site.conf" "$app_cert" "$app_key"
-  mkdir -p "$out/site" && cp "$REPO_ROOT"/deploy/site/*.html "$out/site/"
-  # The company details must be real before the site is public (Meta business verification).
-  ! grep -q 'FILL-IN' "$out"/site/*.html || die "deploy/site still has FILL-IN placeholders"
-fi
 if [[ -n "$legacy_app_domain$legacy_api_domain" ]]; then
   for v in legacy_app_domain legacy_api_domain legacy_cert legacy_key; do
     [[ -n "${!v}" ]] || die "--${v//_/-} is required with the legacy domains" 2
