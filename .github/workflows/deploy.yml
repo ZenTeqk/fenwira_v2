@@ -29,8 +29,11 @@ env:
   INSTANCE_ID: i-0c5a3e148c5a81b9f
   ARTIFACT_BUCKET: zenteqk-internal-fenwira-v2-prod-imports
   ARTIFACT_PREFIX: _deploy-artifacts
-  # Compiled into the web bundle.
-  NEXT_PUBLIC_API_URL: https://api.fenwira.zenteqk.com/api/v1
+  # Public hosts (ADR-0027 item B): repository variables APP_URL / API_URL, so the move to
+  # fenwira.com is a configuration change. The API URL is compiled into the web bundle.
+  APP_URL: ${{ vars.APP_URL || 'https://app.fenwira.zenteqk.com' }}
+  API_URL: ${{ vars.API_URL || 'https://api.fenwira.zenteqk.com' }}
+  NEXT_PUBLIC_API_URL: ${{ vars.API_URL || 'https://api.fenwira.zenteqk.com' }}/api/v1
   PRISMA_HIDE_UPDATE_MESSAGE: '1'
   NEXT_TELEMETRY_DISABLED: '1'
   TURBO_TELEMETRY_DISABLED: '1'
@@ -102,16 +105,16 @@ jobs:
           fi
           {
             echo "### Deployed \`$GITHUB_SHA\`"
-            echo "- Web: https://app.fenwira.zenteqk.com"
-            echo "- API: https://api.fenwira.zenteqk.com"
+            echo "- Web: $APP_URL"
+            echo "- API: $API_URL"
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Public smoke test
         run: |
           set -e
-          curl -fsS -o /dev/null -w 'web /login %{http_code}\n' https://app.fenwira.zenteqk.com/login
-          curl -fsS -o /dev/null -w 'web /api/health %{http_code}\n' https://app.fenwira.zenteqk.com/api/health
-          curl -fsS -w ' api /health/live %{http_code}\n' https://api.fenwira.zenteqk.com/health/live
-          code="$(curl -s -o /dev/null -w '%{http_code}' https://api.fenwira.zenteqk.com/api/v1/auth/me)"
+          curl -fsS -o /dev/null -w 'web /login %{http_code}\n' "$APP_URL/login"
+          curl -fsS -o /dev/null -w 'web /api/health %{http_code}\n' "$APP_URL/api/health"
+          curl -fsS -w ' api /health/live %{http_code}\n' "$API_URL/health/live"
+          code="$(curl -s -o /dev/null -w '%{http_code}' "$API_URL/api/v1/auth/me")"
           echo "api /api/v1/auth/me $code (expected 401)"
           test "$code" = 401

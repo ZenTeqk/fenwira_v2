@@ -21,7 +21,7 @@ How Fenwira integrates with the Meta WhatsApp Cloud API: the platform app setup,
 | `META_GRAPH_BASE_URL` | Default `https://graph.facebook.com`. Overridden with a mock server in tests. |
 | `WHATSAPP_DEV_CONNECT` | Enables the manual dev connect path (never in production) |
 
-- The app webhook callback URL is `{PUBLIC_API_URL}/webhooks/whatsapp`, configured once in the Meta app dashboard. Local development needs a tunnel (for example `cloudflared`); see `DEPLOYMENT.md`.
+- The app webhook callback URL is `{PUBLIC_API_URL}/api/v1/webhooks/whatsapp` (production: `https://api.fenwira.com/api/v1/webhooks/whatsapp` after the fenwira.com cutover; the legacy `api.fenwira.zenteqk.com` keeps serving during the transition), configured once in the Meta app dashboard. Local development needs a tunnel (for example `cloudflared`); see `DEPLOYMENT.md`.
 
 ### Managed Launch Mode (ADR-0027)
 
