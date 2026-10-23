@@ -46,14 +46,8 @@ function LoginForm() {
     <AuthCard
       title="Sign in"
       description="Welcome back to Fenwira."
-      footer={
-        <>
-          New to Fenwira?{' '}
-          <Link href="/register" className="font-medium text-primary-strong hover:underline">
-            Create an account
-          </Link>
-        </>
-      }
+      // Managed Launch Mode: the operator creates workspaces, so no self-serve signup link here
+      // (new customers use Request access on fenwira.com).
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <FormError error={login.error} />
