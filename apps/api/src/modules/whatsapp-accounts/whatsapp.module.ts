@@ -3,7 +3,7 @@ import { GraphClient } from '@fenwira/whatsapp'
 import { AuditModule } from '../audit'
 import { WhatsAppConnectionService } from './connection.service'
 import { WhatsAppSyncService } from './sync.service'
-import { WhatsAppConnectionsController } from './whatsapp.controller'
+import { SelfServeConnectionGuard, WhatsAppConnectionsController } from './whatsapp.controller'
 import { WhatsAppSyncProcessor } from './whatsapp-sync.processor'
 import { WHATSAPP_OPTIONS, type WhatsAppOptions } from './whatsapp.options'
 
@@ -24,7 +24,9 @@ export class WhatsAppAccountsModule {
     return {
       module: WhatsAppAccountsModule,
       controllers: [WhatsAppConnectionsController],
-      providers: [...shared(options), WhatsAppConnectionService],
+      providers: [...shared(options), WhatsAppConnectionService, SelfServeConnectionGuard],
+      // ADR-0027: the operator console (PlatformWhatsAppModule) drives the same service.
+      exports: [WhatsAppConnectionService],
     }
   }
 

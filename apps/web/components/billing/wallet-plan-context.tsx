@@ -4,7 +4,13 @@ import { Alert, Button, Card, Skeleton, StatusBadge } from '@fenwira/ui'
 import { ArrowRight, CalendarClock, Check, Layers, Tag } from 'lucide-react'
 import Link from 'next/link'
 import { formatMoney } from '@/lib/billing'
-import { STATUS_LABEL, useEntitlements, usePlans, useSubscription } from '@/lib/subscription'
+import {
+  STATUS_BADGE,
+  STATUS_LABEL,
+  useEntitlements,
+  usePlans,
+  useSubscription,
+} from '@/lib/subscription'
 
 /** Read-only commercial context. Effective entitlements come from Step 4, never plan names. */
 export function WalletPlanContext() {
@@ -44,10 +50,7 @@ export function WalletPlanContext() {
               <p className="break-words text-md font-semibold">
                 {s.plan?.name ?? (s.status === 'TRIALING' ? 'Workspace trial' : 'No active plan')}
               </p>
-              <StatusBadge
-                status={s.status === 'TRIALING' ? 'PENDING' : s.status}
-                label={STATUS_LABEL[s.status]}
-              />
+              <StatusBadge status={STATUS_BADGE[s.status]} label={STATUS_LABEL[s.status]} />
             </div>
           </div>
           {entitlements.isPending ? (

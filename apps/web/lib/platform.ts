@@ -7,15 +7,20 @@ export function clearPlatformSession() {
   csrf = ''
 }
 /** Dedicated request boundary: no tenant header, tenant refresh, API key or persisted credential. */
-export async function platformRequest<T>(path: string, body?: unknown): Promise<T> {
+export async function platformRequest<T>(
+  path: string,
+  body?: unknown,
+  method: 'GET' | 'POST' | 'DELETE' = body === undefined ? 'GET' : 'POST',
+): Promise<T> {
   const res = await fetch(`${API_URL}/platform${path}`, {
-    method: body === undefined ? 'GET' : 'POST',
+    method,
     credentials: 'include',
     cache: 'no-store',
     redirect: 'error',
     headers: {
       Accept: 'application/json',
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }),
+      ...(method === 'GET' ? {} : { 'X-CSRF-Token': csrf }),
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })

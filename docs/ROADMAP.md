@@ -49,7 +49,7 @@ Templates     Templates · Create Template
 Automations   Flows · New automation (the builder opens per flow)
 Analytics
 Integrations  WhatsApp · Webhooks · API
-Billing       Subscription · Wallet · Usage
+Billing       Subscription · Invoices (ADR-0027) · Wallet · Usage
 Settings      Workspace · Team · Roles · WhatsApp · Security · Audit Logs
 ```
 
@@ -331,8 +331,8 @@ The launch happens before Tech Provider approval and without a payment gateway: 
 | Step | Branch | Status |
 | --- | --- | --- |
 | 1 Feature flag (`MANAGED_LAUNCH_MODE`) | `ml-1-flag` | 🔵 PR open |
-| 2 Operator-only manual Meta connection | `ml-2-meta-connect` | ⬜ |
-| 3 Manual UPI QR billing | `ml-3-upi-billing` | ⬜ |
+| 2 Operator-only manual Meta connection | `ml-2-meta-connect` | 🔵 PR open (mock only; real Meta in step 6) |
+| 3 Manual UPI QR billing | `ml-3-upi-billing` | 🔵 PR open |
 | 4 Workspace and team provisioning, SMTP optional | `ml-4-provisioning` | ⬜ |
 | 5 `docs/MANAGED_LAUNCH.md` and operator checklist | `ml-5-runbook` | ⬜ |
 | 6 First contact with real Meta (one test number) | `ml-6-real-meta` | ⬜ needs credentials |

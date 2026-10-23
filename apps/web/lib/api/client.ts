@@ -170,14 +170,19 @@ export const put = <T>(path: string, body: unknown, opts?: Options) =>
 export const del = <T>(path: string, opts?: Options) => api<T>('DELETE', path, opts)
 
 /**
- * POSTs `body` and saves the response as a file (CSV exports). Errors come back as the usual
- * JSON envelope and are thrown as ApiError.
+ * POSTs `body` (or GETs) and saves the response as a file (CSV exports, invoice documents). Errors
+ * come back as the usual JSON envelope and are thrown as ApiError.
  */
-export async function download(path: string, body: unknown, filename: string): Promise<void> {
-  await ensureCsrf()
+export async function download(
+  path: string,
+  body: unknown,
+  filename: string,
+  method: 'GET' | 'POST' = 'POST',
+): Promise<void> {
+  if (method === 'POST') await ensureCsrf()
   let res: Response
   try {
-    res = await send('POST', path, { body })
+    res = await send(method, path, method === 'POST' ? { body } : {})
   } catch {
     throw new ApiError(
       0,

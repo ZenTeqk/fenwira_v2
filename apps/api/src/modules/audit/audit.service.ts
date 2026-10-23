@@ -25,12 +25,23 @@ export class AuditService {
     if (!tenantId) throw new Error('Audit entry without tenant context')
     // An API-key request (docs/API_KEYS.md) has no human actor: the key itself is the actor,
     // recorded distinctly (ActorType.API_KEY) so audit readers never mistake it for a teammate.
+    // A platform operator acting on a workspace (ADR-0027 operator console) is recorded as such,
+    // never as a member of that workspace.
+    const operatorId = ctx?.platform?.operatorId
     const actorId =
-      entry.actorId === undefined ? (ctx?.apiKey?.id ?? ctx?.auth?.userId ?? null) : entry.actorId
+      entry.actorId === undefined
+        ? (ctx?.apiKey?.id ?? operatorId ?? ctx?.auth?.userId ?? null)
+        : entry.actorId
     await tx.auditLog.create({
       data: {
         tenantId,
-        actorType: ctx?.apiKey ? 'API_KEY' : actorId ? 'USER' : 'SYSTEM',
+        actorType: ctx?.apiKey
+          ? 'API_KEY'
+          : operatorId && actorId === operatorId
+            ? 'PLATFORM_OPERATOR'
+            : actorId
+              ? 'USER'
+              : 'SYSTEM',
         actorId,
         action: entry.action,
         targetType: entry.targetType,

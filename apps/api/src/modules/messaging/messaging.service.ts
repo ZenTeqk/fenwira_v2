@@ -150,6 +150,19 @@ export class MessagingService {
       )
     // 8. Compose lock: enforced by the inbox before it calls send (docs/INBOX.md).
 
+    // 8a. Suspension (ADR-0027, ML-D2): an unpaid workspace past its grace period sends nothing
+    // new — campaigns, automations, inbox replies and API alike. Only SYSTEM messages (consent
+    // and opt-out confirmations) still go out; inbound is never affected.
+    if (
+      input.source !== 'SYSTEM' &&
+      (await this.entitlements.subscriptionStatus(tx, tenantId)) === 'SUSPENDED'
+    )
+      throw new AppError(
+        'SUBSCRIPTION_SUSPENDED',
+        422,
+        'This workspace is suspended for an unpaid invoice. Pay it to resume sending.',
+      )
+
     // 8b. Subscription (P11-D6): an expired or cancelled workspace keeps receiving and replying
     // in-window for free, but customer-initiated billable (template) sends are refused.
     if (

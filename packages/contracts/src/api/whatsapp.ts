@@ -53,6 +53,8 @@ export const whatsappConnectionSchema = z.object({
   verifiedName: z.string(),
   label: z.string().nullable(),
   waba: z.object({ id: z.string(), name: z.string() }),
+  /** ADR-0027: MANAGED = connected by Fenwira support (platform operator), read-only for tenants. */
+  connectionMode: z.enum(['EMBEDDED_SIGNUP', 'MANAGED']),
   status: z.enum(PHONE_STATUSES),
   qualityRating: z.enum(QUALITY_RATINGS),
   messagingLimitTier: z.string().nullable(),
@@ -65,6 +67,10 @@ export const whatsappConnectionSchema = z.object({
       tokenType: z.enum(['BUSINESS_INTEGRATION', 'SYSTEM_USER', 'DEV']),
       maskedToken: z.string(),
       expiresAt: z.string().nullable(),
+      /** Last "Verify connection" (operator) and its outcome; null = never verified. */
+      verifiedAt: z.string().nullable(),
+      verifyOk: z.boolean().nullable(),
+      verifyErrorCode: z.string().nullable(),
     })
     .nullable(),
   steps: z.array(connectionStepSchema),
@@ -124,3 +130,79 @@ export const whatsappSignupConfigSchema = z.object({
   devConnect: z.boolean(),
 })
 export type WhatsAppSignupConfig = z.infer<typeof whatsappSignupConfigSchema>
+
+// ---------------------------------------------------------------------------------------------
+// ADR-0027 Managed Launch Mode: operator-managed connections (/platform/workspaces/:id/whatsapp).
+// Secrets travel only in these requests; responses carry masked values (last 4) and timestamps.
+// ---------------------------------------------------------------------------------------------
+
+const metaNumericId = z
+  .string()
+  .trim()
+  .regex(/^\d{5,25}$/, 'Must be the numeric ID from Meta')
+const metaToken = z.string().trim().min(20).max(2048).regex(/^\S+$/, 'No spaces in a token')
+/** Meta app secrets are 32 hex characters; accept a little more in case Meta changes length. */
+const metaAppSecret = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9]{16,128}$/, 'Paste the app secret from the Meta app dashboard')
+
+export const managedConnectRequestSchema = z
+  .object({
+    wabaId: metaNumericId,
+    phoneNumberId: metaNumericId,
+    /** As shown in WhatsApp Manager; checked against what Meta reports for the number. */
+    displayPhoneNumber: z.string().trim().min(5).max(32),
+    /** Permanent system-user access token (never returned, never logged). */
+    accessToken: metaToken,
+    /** The app secret of the Meta app that sends this WABA's webhooks (ML-D1). Omit = platform app. */
+    appSecret: metaAppSecret.optional(),
+    /** That Meta app's ID: lets "Verify connection" ask debug_token with the app's own token. */
+    appId: metaNumericId.optional(),
+    /** Meta business portfolio ID that owns the WABA. */
+    businessId: metaNumericId.optional(),
+  })
+  .strict()
+export type ManagedConnectRequest = z.infer<typeof managedConnectRequestSchema>
+
+export const managedRotateRequestSchema = z
+  .object({
+    accessToken: metaToken.optional(),
+    appSecret: metaAppSecret.optional(),
+    appId: metaNumericId.optional(),
+  })
+  .strict()
+  .refine((v) => v.accessToken || v.appSecret || v.appId, {
+    message: 'Provide a new access token, app secret or app ID.',
+  })
+export type ManagedRotateRequest = z.infer<typeof managedRotateRequestSchema>
+
+const checkSchema = z.object({
+  ok: z.boolean(),
+  error: z.object({ code: z.string(), message: z.string() }).optional(),
+})
+/** "Verify connection": three live Graph checks, stored on the credential. */
+export const verifyConnectionResultSchema = z.object({
+  ok: z.boolean(),
+  verifiedAt: z.string(),
+  checks: z.object({ token: checkSchema, phoneNumber: checkSchema, waba: checkSchema }),
+})
+export type VerifyConnectionResult = z.infer<typeof verifyConnectionResultSchema>
+
+export const platformWhatsAppConnectionSchema = whatsappConnectionSchema.extend({
+  metaAppId: z.string().nullable(),
+  businessId: z.string().nullable(),
+  /** `••••abcd` only. */
+  appSecret: z.object({ maskedSecret: z.string(), rotatedAt: z.string().nullable() }).nullable(),
+  templatesSyncedAt: z.string().nullable(),
+})
+export type PlatformWhatsAppConnection = z.infer<typeof platformWhatsAppConnectionSchema>
+
+export const templateSyncSummarySchema = z.object({
+  syncedAt: z.string(),
+  imported: z.number().int(),
+  updated: z.number().int(),
+  /** Templates Fenwira knows that Meta no longer returns. */
+  missing: z.number().int(),
+})
+export type TemplateSyncSummary = z.infer<typeof templateSyncSummarySchema>

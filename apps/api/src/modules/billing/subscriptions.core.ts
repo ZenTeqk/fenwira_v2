@@ -1,12 +1,13 @@
 import { type PERMISSIONS, type Role, ROLE_PERMISSIONS } from '@fenwira/contracts'
 import { type TenantTx } from '@fenwira/database'
+import { type ManualBilling } from './billing.options'
 
 /** Who hears about the subscription: members whose role can view billing. */
 export const BILLING_READER_ROLES = (Object.keys(ROLE_PERMISSIONS) as Role[]).filter((r) =>
   ROLE_PERMISSIONS[r].includes('billing.read' satisfies keyof typeof PERMISSIONS),
 )
 
-export type LifecycleNotice = 'T-3' | 'T-1' | 'EXPIRED' | 'CANCELLED'
+export type LifecycleNotice = 'T-3' | 'T-1' | 'EXPIRED' | 'CANCELLED' | 'PAST_DUE' | 'SUSPENDED'
 export type LifecycleResult = {
   notice: LifecycleNotice | null
   recipients: Array<{ id: string; name: string; email: string }>
@@ -28,11 +29,16 @@ const addMonth = (d: Date) => {
  *   sends are refused (SUBSCRIPTION_INACTIVE) and running campaigns pause at their next dispatch.
  * - ACTIVE past `current_period_end`: cancel if `cancel_at_period_end`, else roll a month (no
  *   charge — there is no gateway, P11-D19).
+ * - Manual billing (ADR-0027, `manual.enabled`): instead of rolling, an unpaid period end moves
+ *   ACTIVE → PAST_DUE (grace: everything works); after `graceDays` PAST_DUE → SUSPENDED (ML-D2).
+ *   The renewal invoice is issued separately (invoices.core issueRenewalIfDue). Paying extends
+ *   the period (ML-D6).
  */
 export async function stepSubscription(
   tx: TenantTx,
   tenantId: string,
   now: Date,
+  manual?: ManualBilling,
 ): Promise<LifecycleResult> {
   // Multiple scheduler instances/retries may read the same due subscription. Serialize before
   // reading notices/status so each warning, notification and recipient email is claimed once.
@@ -76,6 +82,41 @@ export async function stepSubscription(
         result.notice = notice
       }
     }
+  } else if (
+    manual?.enabled &&
+    sub.status === 'PAST_DUE' &&
+    sub.currentPeriodEnd &&
+    sub.currentPeriodEnd.getTime() + manual.graceDays * DAY <= now.getTime()
+  ) {
+    const moved = await tx.subscription.updateMany({
+      where: { tenantId, status: 'PAST_DUE' },
+      data: { status: 'SUSPENDED' },
+    })
+    if (moved.count) {
+      await audit(tx, tenantId, sub.id, 'subscription.suspended', {
+        periodEnd: sub.currentPeriodEnd,
+        graceDays: manual.graceDays,
+      })
+      result.notice = 'SUSPENDED'
+    }
+  } else if (
+    manual?.enabled &&
+    sub.status === 'ACTIVE' &&
+    !sub.cancelAtPeriodEnd &&
+    sub.currentPeriodEnd &&
+    sub.currentPeriodEnd <= now
+  ) {
+    const moved = await tx.subscription.updateMany({
+      where: { tenantId, status: 'ACTIVE', currentPeriodEnd: sub.currentPeriodEnd },
+      data: { status: 'PAST_DUE' },
+    })
+    if (moved.count) {
+      await audit(tx, tenantId, sub.id, 'subscription.past_due', {
+        periodEnd: sub.currentPeriodEnd,
+        graceDays: manual.graceDays,
+      })
+      result.notice = 'PAST_DUE'
+    }
   } else if (sub.status === 'ACTIVE' && sub.currentPeriodEnd && sub.currentPeriodEnd <= now) {
     if (sub.cancelAtPeriodEnd) {
       const moved = await tx.subscription.updateMany({
@@ -102,7 +143,7 @@ export async function stepSubscription(
     where: { status: 'ACTIVE', role: { in: BILLING_READER_ROLES } },
     select: { user: { select: { id: true, name: true, email: true } } },
   })
-  const copy = noticeCopy(result.notice, sub.trialEndsAt)
+  const copy = noticeCopy(result.notice, sub.trialEndsAt, manual?.graceDays)
   for (const { user } of members) {
     // Same shape and dedupe as notifications' createNotificationOnce (billing can't import the
     // notifications module: it depends on billing, so that would be a cycle).
@@ -124,7 +165,7 @@ export async function stepSubscription(
   return result
 }
 
-export function noticeCopy(notice: LifecycleNotice, trialEndsAt: Date | null) {
+export function noticeCopy(notice: LifecycleNotice, trialEndsAt: Date | null, graceDays = 0) {
   const when = trialEndsAt ? trialEndsAt.toUTCString().slice(0, 16) : ''
   switch (notice) {
     case 'T-3':
@@ -143,6 +184,18 @@ export function noticeCopy(notice: LifecycleNotice, trialEndsAt: Date | null) {
       return {
         title: 'Your trial has ended',
         body: 'Template messages, campaigns, API keys and webhooks are paused. Your data is kept and inbound messages continue. Request a plan to resume.',
+        severity: 'CRITICAL' as const,
+      }
+    case 'PAST_DUE':
+      return {
+        title: 'Your subscription payment is due',
+        body: `The billing period ended without a confirmed payment. Everything keeps working for ${graceDays} more day${graceDays === 1 ? '' : 's'}; pay the open invoice by UPI to avoid suspension.`,
+        severity: 'WARNING' as const,
+      }
+    case 'SUSPENDED':
+      return {
+        title: 'Your workspace is suspended',
+        body: 'New outbound messages and campaigns are paused until the open invoice is paid. Inbound messages keep arriving and your data is kept.',
         severity: 'CRITICAL' as const,
       }
     case 'CANCELLED':

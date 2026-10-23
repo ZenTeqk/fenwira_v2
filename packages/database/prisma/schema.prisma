@@ -272,6 +272,8 @@ model Tenant {
   webhookDeliveries        WebhookDelivery[]
   subscription             Subscription?
   entitlementOverrides     TenantEntitlementOverride[]
+  invoices                 Invoice[]
+  paymentProofs            PaymentProof[]
 
   @@map("tenants")
 }
@@ -428,6 +430,14 @@ model MetaBusinessAccount {
   @@map("meta_business_accounts")
 }
 
+/// ADR-0027: how a WABA was connected. MANAGED = by a platform operator with a system-user token.
+enum ConnectionMode {
+  EMBEDDED_SIGNUP
+  MANAGED
+
+  @@map("connection_mode")
+}
+
 enum WabaStatus {
   ACTIVE
   RESTRICTED
@@ -440,19 +450,26 @@ enum WabaStatus {
 /// One row per (tenant, WABA). A WABA in several tenants is prevented through its phone numbers
 /// (whatsapp_phone_numbers_active_number_unique), which is what actually carries traffic.
 model WhatsAppBusinessAccount {
-  id                       String     @id @default(uuid(7)) @db.Uuid
-  tenantId                 String     @map("tenant_id") @db.Uuid
-  metaBusinessAccountId    String?    @map("meta_business_account_id") @db.Uuid
-  wabaId                   String     @map("waba_id")
+  id                       String         @id @default(uuid(7)) @db.Uuid
+  tenantId                 String         @map("tenant_id") @db.Uuid
+  metaBusinessAccountId    String?        @map("meta_business_account_id") @db.Uuid
+  wabaId                   String         @map("waba_id")
   name                     String
-  currency                 String?    @db.Char(3)
-  timezoneId               String?    @map("timezone_id")
-  messageTemplateNamespace String?    @map("message_template_namespace")
-  status                   WabaStatus @default(ACTIVE)
+  currency                 String?        @db.Char(3)
+  timezoneId               String?        @map("timezone_id")
+  messageTemplateNamespace String?        @map("message_template_namespace")
+  status                   WabaStatus     @default(ACTIVE)
   /// Last successful template sync from Meta (docs/TEMPLATE_ENGINE.md → Sync from Meta).
-  templatesSyncedAt        DateTime?  @map("templates_synced_at") @db.Timestamptz(3)
-  createdAt                DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  templatesSyncedAt        DateTime?      @map("templates_synced_at") @db.Timestamptz(3)
+  connectionMode           ConnectionMode @default(EMBEDDED_SIGNUP) @map("connection_mode")
+  /// ML-D1: the Meta app whose webhooks this WABA sends (MANAGED only; null = the platform app).
+  metaAppId                String?        @map("meta_app_id")
+  /// ML-D1: that app's secret (AES-256-GCM, versioned keys). Verifies webhook signatures; never returned.
+  appSecretCiphertext      Bytes?         @map("app_secret_ciphertext")
+  appSecretLast4           String?        @map("app_secret_last4")
+  appSecretRotatedAt       DateTime?      @map("app_secret_rotated_at") @db.Timestamptz(3)
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   metaBusinessAccount  MetaBusinessAccount?  @relation(fields: [metaBusinessAccountId], references: [id], onDelete: SetNull)
@@ -550,6 +567,12 @@ model MetaCredential {
   status          CredentialStatus @default(VALID)
   lastCheckedAt   DateTime?        @map("last_checked_at") @db.Timestamptz(3)
   rotatedAt       DateTime?        @map("rotated_at") @db.Timestamptz(3)
+  /// ADR-0027 "Verify connection": last live check of token, phone number and WABA access.
+  verifiedAt      DateTime?        @map("verified_at") @db.Timestamptz(3)
+  verifyOk        Boolean?         @map("verify_ok")
+  /// Fenwira error code and Meta's message text (never contains the token).
+  verifyErrorCode String?          @map("verify_error_code")
+  verifyError     String?          @map("verify_error")
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -848,6 +871,7 @@ enum FilePurpose {
   EXPORT
   AVATAR
   TEMPLATE_SAMPLE
+  PAYMENT_PROOF
 
   @@map("file_purpose")
 }
@@ -880,6 +904,7 @@ model File {
   messages        Message[]
   importJobs      ImportJob[]       @relation("ImportFile")
   templateSamples TemplateVersion[] @relation("TemplateSampleFile")
+  paymentProofs   PaymentProof[]
 
   @@unique([bucket, objectKey])
   @@map("files")
@@ -1678,6 +1703,7 @@ model Plan {
   prices        PlanPrice[]
   subscriptions Subscription[]    @relation("SubscriptionPlan")
   requested     Subscription[]    @relation("SubscriptionRequestedPlan")
+  invoices      Invoice[]
 
   @@map("plans")
 }
@@ -1722,6 +1748,10 @@ enum SubscriptionStatus {
   ACTIVE
   EXPIRED
   CANCELLED
+  /// ADR-0027 manual billing: the period ended unpaid; everything keeps working for the grace days.
+  PAST_DUE
+  /// ML-D2: grace ran out. New outbound sends and campaigns are refused; inbound and data are kept.
+  SUSPENDED
 
   @@map("subscription_status")
 }
@@ -2341,4 +2371,104 @@ model NativeTransfer {
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, connectionId, createdAt])
   @@map("native_transfers")
+}
+
+// ---------------------------------------------------------------------------------------------
+// ADR-0027 Managed Launch Mode step 3: manual UPI billing (docs/BILLING.md → Manual invoices).
+// Payment requests ("invoices") are paid by UPI; customers submit proof; an operator verifies it.
+// ---------------------------------------------------------------------------------------------
+
+enum InvoiceKind {
+  PLAN_RENEWAL
+  WALLET_TOPUP
+
+  @@map("invoice_kind")
+}
+
+enum InvoiceStatus {
+  OPEN
+  PAID
+  VOID
+
+  @@map("invoice_status")
+}
+
+enum PaymentProofStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("payment_proof_status")
+}
+
+/// ML-D3: amounts are entered by an operator (or a configured plan price); GST lines only when
+/// configured. `number` doubles as the UPI note (tn) and the payment reference.
+model Invoice {
+  id                    String        @id @default(uuid(7)) @db.Uuid
+  tenantId              String        @map("tenant_id") @db.Uuid
+  /// Global, sequential: FW-INV-000001 (system.next_invoice_number()).
+  number                String        @unique
+  kind                  InvoiceKind
+  status                InvoiceStatus @default(OPEN)
+  currency              String        @default("INR") @db.Char(3)
+  subtotalMinor         BigInt        @map("subtotal_minor")
+  taxMinor              BigInt        @default(0) @map("tax_minor")
+  totalMinor            BigInt        @map("total_minor")
+  /// [{label, rateBps, amountMinor}] — empty unless GST is configured.
+  taxLines              Json          @default("[]") @map("tax_lines")
+  /// PLAN_RENEWAL only: the plan this pays for (one billing interval).
+  planId                String?       @map("plan_id") @db.Uuid
+  description           String
+  dueAt                 DateTime      @map("due_at") @db.Timestamptz(3)
+  /// Snapshot of the payee at issue time, so later config changes never alter an issued invoice.
+  payeeVpa              String        @map("payee_vpa")
+  payeeName             String        @map("payee_name")
+  gstin                 String?
+  createdByType         ActorType     @map("created_by_type")
+  createdById           String?       @map("created_by_id") @db.Uuid
+  issuedAt              DateTime      @default(now()) @map("issued_at") @db.Timestamptz(3)
+  paidAt                DateTime?     @map("paid_at") @db.Timestamptz(3)
+  voidedAt              DateTime?     @map("voided_at") @db.Timestamptz(3)
+  voidReason            String?       @map("void_reason")
+  commercialOperationId String?       @map("commercial_operation_id") @db.Uuid
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  /// Financial records: never cascade-deleted with a tenant (like commercial_operations).
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  plan   Plan?          @relation(fields: [planId], references: [id])
+  proofs PaymentProof[]
+
+  @@index([tenantId, status, dueAt])
+  @@index([tenantId, createdAt(sort: Desc), id])
+  @@map("invoices")
+}
+
+/// A customer's claim that they paid an invoice. A UTR can back one PENDING or APPROVED proof
+/// across all workspaces (partial unique index, post-migrate.sql); one PENDING proof per invoice.
+model PaymentProof {
+  id              String             @id @default(uuid(7)) @db.Uuid
+  tenantId        String             @map("tenant_id") @db.Uuid
+  invoiceId       String             @map("invoice_id") @db.Uuid
+  /// UPI transaction reference, normalized (upper-case alphanumerics).
+  utr             String
+  fileId          String?            @map("file_id") @db.Uuid
+  status          PaymentProofStatus @default(PENDING)
+  submittedById   String             @map("submitted_by_id") @db.Uuid
+  submittedAt     DateTime           @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  reviewedById    String?            @map("reviewed_by_id") @db.Uuid
+  reviewedAt      DateTime?          @map("reviewed_at") @db.Timestamptz(3)
+  rejectionReason String?            @map("rejection_reason")
+  /// Global, sequential, set on approval: FW-RCT-000001.
+  receiptNumber   String?            @unique @map("receipt_number")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  file    File?   @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, invoiceId])
+  @@index([status, submittedAt])
+  @@map("payment_proofs")
 }

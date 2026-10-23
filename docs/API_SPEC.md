@@ -382,6 +382,53 @@ All require platform-session cookies, never tenant/API-key authorization. `GET /
 
 Platform POST `/platform/workspaces/:workspaceId/subscription-operations` (`subscription.manage`): activate configured planId, cancel at period-end, billing_mode FREE/TRIAL/PREPAID. POST `entitlement-operations` (`entitlements.manage`): typed override_set/override_remove. Shared contracts require commercial metadata and accept expectedVersion; retries replay immutable receipts.
 
+### Invoices (ADR-0027 manual UPI billing)
+
+Tenant routes under `/billing/invoices`: `billing.read` for GETs, `billing.manage` (OWNER) to submit proof. Another workspace's invoice is 404. See BILLING.md → Manual invoices.
+
+| Method | Path | Body → result |
+| --- | --- | --- |
+| GET | `/billing/invoices` | → `Invoice[]` (newest first, at most 100) with `displayStatus` and `proofs[]` |
+| GET | `/billing/invoices/:id` | → `InvoiceDetail` = `Invoice` + `upi {deepLink, qrDataUrl}` while OPEN |
+| GET | `/billing/invoices/:id/document` | Payment request as self-contained HTML (`?download=1` → attachment); strict CSP |
+| GET | `/billing/invoices/:id/receipt` | Receipt HTML; 409 `INVOICE_NOT_OPEN` unless PAID |
+| POST | `/billing/invoices/:id/proof-uploads` | `{filename, mimeType: image/png\|image/jpeg\|application/pdf, sizeBytes ≤ 5 MB}` → 201 `{fileId, url, headers, expiresAt}` (presigned PUT) |
+| POST | `/billing/invoices/:id/proofs` | `{utr, fileId?}` → 201 `InvoiceDetail`. 409 `UTR_ALREADY_USED` (any workspace), `PAYMENT_PENDING`, `INVOICE_NOT_OPEN`; 422 for an invalid file |
+
+Rate limits per workspace: proof uploads 30/h, proofs 20/h. `GET /workspace/status` → `subscription` adds `paymentDue` and `graceEndsAt`. Subscription statuses add `PAST_DUE` and `SUSPENDED`. Sends from a SUSPENDED workspace return 422 `SUBSCRIPTION_SUSPENDED` (SYSTEM sends excepted), as do campaign launch and resume.
+
+### Platform billing (ADR-0027)
+
+Platform session only. `payments.read` for GETs; `payments.manage` plus fresh MFA and platform CSRF for writes. Writes are commercial operations with immutable receipts.
+
+| Method | Path | Body → result |
+| --- | --- | --- |
+| GET | `/platform/billing/dashboard` | → `{pending[], overdue[], revenue[]}` |
+| GET | `/platform/workspaces/:workspaceId/invoices` | → `PlatformInvoice[]` (amounts as strings) |
+| POST | `/platform/workspaces/:workspaceId/invoices` | `{kind, amountMinor, planKey?, description?, dueAt, idempotencyKey}` → 201 receipt (`result.invoiceId`). 409 `INVOICE_ALREADY_OPEN` (renewal); 422 `UPI_NOT_CONFIGURED` |
+| POST | `/platform/workspaces/:workspaceId/invoices/:invoiceId/void` | `{reason}` → receipt; 409 `PAYMENT_PENDING` / `INVOICE_NOT_OPEN` |
+| GET | `/platform/workspaces/:workspaceId/payment-proofs/:proofId/file` | → `{url, mimeType, expiresAt}` (2 minutes; audited) |
+| POST | `/platform/workspaces/:workspaceId/payment-proofs/:proofId/approve` | `{reference, note?}` → `{proofId, status, invoiceStatus, receiptNumber, operationId}`; idempotent; 409 `ALREADY_REVIEWED` |
+| POST | `/platform/workspaces/:workspaceId/payment-proofs/:proofId/reject` | `{reason}` → same shape |
+
+### Platform WhatsApp (ADR-0027 Managed Launch Mode)
+
+Under `/platform/workspaces/:workspaceId/whatsapp`, platform session only (`whatsapp.read` for GETs; `whatsapp.manage` plus fresh MFA and platform CSRF for the rest). An unknown or deleted workspace, and a connection of another workspace, are 404. Every mutation writes a tenant audit entry (actor `PLATFORM_OPERATOR`) and a `platform_audit` row (`platform.whatsapp.*`, SUCCESS/FAILED). Responses carry `PlatformWhatsAppConnection` (the tenant connection plus `metaAppId`, `businessId`, `appSecret {maskedSecret, rotatedAt}`, `templatesSyncedAt`); no token or secret is ever returned.
+
+| Method | Path | Body → result |
+| --- | --- | --- |
+| GET | `/connections` | → `PlatformWhatsAppConnection[]` |
+| GET | `/connections/:id` | → `PlatformWhatsAppConnection` |
+| POST | `/connections` | `{wabaId, phoneNumberId, displayPhoneNumber, accessToken, appSecret?, appId?, businessId?}` → 201. 422 `WHATSAPP_CONNECT_FAILED {step, steps}` before anything is stored; 409 `PHONE_NUMBER_ALREADY_CONNECTED` |
+| POST | `/connections/:id/verify` | → `{ok, verifiedAt, checks: {token, phoneNumber, waba}}`; stored on the credential (`verifiedAt`, `verifyOk`, `verifyErrorCode`); a rejected token becomes INVALID |
+| POST | `/connections/:id/subscribe` | Re-subscribes the app to the WABA's webhooks |
+| POST | `/connections/:id/sync` | Status, quality rating and messaging limit from Meta |
+| POST | `/connections/:id/sync-templates` | → `{syncedAt, imported, updated, missing}` |
+| POST | `/connections/:id/rotate` | `{accessToken?, appSecret?, appId?}` (at least one); a new token is verified first |
+| DELETE | `/connections/:id` | 204; unsubscribes and wipes the token and app secret (when no other live number uses the WABA) |
+
+Rate limits per workspace: connect/rotate 20/h, verify 30/h, sync 30/h, template sync 30/h. Tenant `GET /whatsapp/connections` now also returns `connectionMode` and `credential.{verifiedAt, verifyOk, verifyErrorCode}`.
+
 Platform POST `wallet-preview`, `subscription-preview`, `entitlement-preview` under `/platform/workspaces/:workspaceId` use the same corresponding permission/request contract. Domain calculations and validation run in a transaction that always rolls back; no receipt, ledger, subscription, override or outbox change persists. A separate immutable preview-access event is recorded. Preview returns version, before/after/result and effective configured entitlements. Confirmation submits expectedVersion; stale state is 409 VERSION_CONFLICT.
 
 ## Phase 11 closure verification

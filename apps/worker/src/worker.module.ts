@@ -25,6 +25,7 @@ import {
   BillingModule,
   billingPlatformFromEnv,
   billingSupportFromEnv,
+  manualBillingFromEnv,
   BillingUsageProcessor,
 } from '@fenwira/api/modules/billing'
 import {
@@ -128,6 +129,7 @@ export class WorkerModule {
       ...billingPlatform,
       reservationGraceMinutes: env.BILLING_RESERVATION_GRACE_MINUTES,
       webOrigin: env.WEB_ORIGIN,
+      manual: manualBillingFromEnv(env),
     })
     const notifications = NotificationsModule.forWorker({
       webOrigin: env.WEB_ORIGIN,

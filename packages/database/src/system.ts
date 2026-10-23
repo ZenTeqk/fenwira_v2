@@ -172,6 +172,91 @@ export class SystemGateway {
     return row ? { tenantId: row.tenant_id, phoneId: row.phone_id } : null
   }
 
+  /**
+   * X2 + ML-D1: where a webhook event goes and which secret must have signed it. `phoneId` is set
+   * for message/status events (the number must belong to `wabaId`); `appSecretCiphertext` null
+   * means the platform app secret. Null when the WABA or the number isn't live in any workspace.
+   */
+  async resolveWebhookRoute(
+    wabaId: string,
+    phoneNumberId: string | null,
+  ): Promise<{
+    tenantId: string
+    phoneId: string | null
+    appSecretCiphertext: Buffer | null
+  } | null> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ tenant_id: string; phone_id: string | null; app_secret_ciphertext: Buffer | null }>
+    >`SELECT * FROM system.resolve_webhook_route(${wabaId}, ${phoneNumberId})`
+    const row = rows[0]
+    return row
+      ? {
+          tenantId: row.tenant_id,
+          phoneId: row.phone_id,
+          appSecretCiphertext: row.app_secret_ciphertext,
+        }
+      : null
+  }
+
+  /** X22a (ADR-0027): a UTR already backs a PENDING or APPROVED proof in some workspace. */
+  async utrInUse(utr: string): Promise<boolean> {
+    const rows = await this.prisma.$queryRaw<Array<{ used: boolean }>>`
+      SELECT system.utr_in_use(${utr}) AS used`
+    return rows[0]?.used ?? false
+  }
+
+  /** X22b: ACTIVE subscriptions within the renewal lead time, and PAST_DUE ones (IDs only). */
+  async manualBillingDue(
+    now: Date,
+    leadDays: number,
+    limit: number,
+    after: string | null = null,
+  ): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
+      SELECT * FROM system.manual_billing_due(${now}, ${leadDays}::int, ${limit}::int, ${after}::uuid)`
+    return rows.map((r) => r.tenant_id)
+  }
+
+  /** X22c: the operator payment queue (oldest first). Requires an active platform grant. */
+  async platformPendingProofs(operatorId: string, limit: number) {
+    return this.prisma.$queryRaw<
+      Array<{
+        tenant_id: string
+        workspace_name: string
+        proof_id: string
+        invoice_id: string
+        invoice_number: string
+        kind: string
+        total_minor: bigint
+        currency: string
+        utr: string
+        has_file: boolean
+        submitted_at: Date
+      }>
+    >`SELECT * FROM system.platform_pending_proofs(${operatorId}::uuid, ${limit}::int)`
+  }
+
+  /** X22c: workspaces with overdue open invoices or a PAST_DUE / SUSPENDED subscription. */
+  async platformOverdueWorkspaces(operatorId: string, now: Date) {
+    return this.prisma.$queryRaw<
+      Array<{
+        tenant_id: string
+        workspace_name: string
+        subscription_status: string | null
+        open_invoices: number
+        open_total_minor: bigint
+        oldest_due_at: Date | null
+      }>
+    >`SELECT * FROM system.platform_overdue_workspaces(${operatorId}::uuid, ${now})`
+  }
+
+  /** X22c: paid invoices per month (Asia/Kolkata), newest first. */
+  async platformRevenueByMonth(operatorId: string, months: number) {
+    return this.prisma.$queryRaw<
+      Array<{ month: Date; currency: string; total_minor: bigint; payments: number }>
+    >`SELECT * FROM system.platform_revenue_by_month(${operatorId}::uuid, ${months}::int)`
+  }
+
   /** X2 (WABA-level fields such as template and account updates). */
   async resolveTenantByWabaId(wabaId: string): Promise<string | null> {
     const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`

@@ -274,6 +274,15 @@ export const NAVIGATION: NavItem[] = [
         early: true,
       },
       {
+        // ADR-0027 manual UPI billing: payment requests and payment proof.
+        id: 'billing-invoices',
+        label: 'Invoices',
+        href: '/billing/invoices',
+        phase: 11,
+        permission: 'billing.read',
+        early: true,
+      },
+      {
         id: 'billing-wallet',
         label: 'Wallet',
         href: '/billing/wallet',

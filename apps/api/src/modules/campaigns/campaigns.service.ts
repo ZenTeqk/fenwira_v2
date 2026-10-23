@@ -63,6 +63,17 @@ const TIER_LIMITS: Record<string, number> = {
   TIER_100K: 100_000,
 }
 
+/** ADR-0027 ML-D2: a SUSPENDED (unpaid past grace) workspace can't launch or resume campaigns. */
+async function assertNotSuspended(tx: TenantTx): Promise<void> {
+  const sub = await tx.subscription.findFirst({ select: { status: true } })
+  if (sub?.status === 'SUSPENDED')
+    throw new AppError(
+      'SUBSCRIPTION_SUSPENDED',
+      422,
+      'This workspace is suspended for an unpaid invoice. Pay it to launch or resume campaigns.',
+    )
+}
+
 /**
  * Campaigns API side (docs/CAMPAIGN_ENGINE.md): drafts, the Review estimate, launch and controls.
  * The worker snapshots and dispatches; every send goes through MessagingService.
@@ -347,6 +358,7 @@ export class CampaignsService {
     const { userId } = currentAuth()
     return this.transition(id, async (tx, c) => {
       if (c.status !== 'DRAFT') throw invalidState(c.status, 'launched')
+      await assertNotSuspended(tx)
       const ready = await this.readiness(tx, c)
       const problems = ready.problems.filter((p) => p.code !== 'AUDIENCE_EMPTY_WARNING')
       if (problems.length || !ready.template) throw notReady(problems)
@@ -422,6 +434,7 @@ export class CampaignsService {
         'PAUSED_TEMPLATE_UNAVAILABLE',
       ]
       if (!resumable.includes(c.status)) throw invalidState(c.status, 'resumed')
+      await assertNotSuspended(tx)
       // P9-D3: the campaign resumes only with the exact template version it started with.
       if (
         c.templateSnapshot &&

@@ -4,6 +4,8 @@ import { EntitlementsModule } from '../entitlements'
 import { BillingController, WorkspaceStatusController } from './billing.controller'
 import { BILLING_OPTIONS, type BillingOptions } from './billing.options'
 import { BillingService } from './billing.service'
+import { InvoicesController } from './invoices.controller'
+import { InvoicesService } from './invoices.service'
 import { SubscriptionsService } from './subscriptions.service'
 import { BillingMaintenanceProcessor } from './billing-maintenance.processor'
 import { BillingUsageProcessor } from './billing-usage.processor'
@@ -14,11 +16,12 @@ export class BillingModule {
     return {
       module: BillingModule,
       imports: [AuditModule, EntitlementsModule.forRoot()],
-      controllers: [BillingController, WorkspaceStatusController],
+      controllers: [BillingController, WorkspaceStatusController, InvoicesController],
       providers: [
         { provide: BILLING_OPTIONS, useValue: options },
         BillingService,
         SubscriptionsService,
+        InvoicesService,
       ],
     }
   }

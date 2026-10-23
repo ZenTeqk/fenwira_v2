@@ -14,7 +14,7 @@ How Fenwira integrates with the Meta WhatsApp Cloud API: the platform app setup,
 | Env | Use |
 | --- | --- |
 | `META_APP_ID` | FB JS SDK init, token exchange |
-| `META_APP_SECRET` | Token exchange, **webhook signature verification** |
+| `META_APP_SECRET` | Token exchange, **webhook signature verification** for WABAs without their own app secret (ML-D1) |
 | `META_WEBHOOK_VERIFY_TOKEN` | `GET /webhooks/whatsapp` handshake |
 | `META_ES_CONFIG_ID` | Embedded Signup configuration ID |
 | `META_GRAPH_API_VERSION` | Pinned Graph version (for example `v23.0`). Upgrades are deliberate and go through a PR. |
@@ -26,6 +26,10 @@ How Fenwira integrates with the Meta WhatsApp Cloud API: the platform app setup,
 ### Managed Launch Mode (ADR-0027)
 
 Until Tech Provider approval, `MANAGED_LAUNCH_MODE=true` hides Embedded Signup. A platform operator connects each customer's WABA from `/platform` with a system-user token, and each WABA can carry its own app secret for webhook signatures (ML-D1). Tenants see read-only connection status. The Embedded Signup flow below is unchanged and returns when the switch is off.
+
+- **Operator connect** (`POST /platform/workspaces/:id/whatsapp/connections`): the same steps as Embedded Signup without EXCHANGE. VERIFY calls `debug_token` with the customer app's own token (`appId|appSecret`) when both are given, otherwise the platform app token or the token itself. FETCH also checks the typed display number against Meta's (digits only, `META_DISPLAY_NUMBER_MISMATCH`). The credential is stored as `SYSTEM_USER`; the WABA as `connection_mode = MANAGED` with `meta_app_id` and the encrypted app secret (last 4 kept for display).
+- **Webhook verification (ML-D1):** the candidates are the app secrets of the live WABAs named in `entry[].id` (at most 100 per payload) plus the platform secret. The first one that verifies the raw bytes is the signer; none → 401, nothing stored. Each event is then accepted only if its WABA's own secret is that signer (or it has none and the signer is the platform secret), and a message/status event only when its `phone_number_id` is live under that same WABA. Unknown numbers, numbers of another WABA and events of another app are ignored (counted as `unknown_number` / `wrong_app`) and never stored. The `GET` handshake uses the platform `META_WEBHOOK_VERIFY_TOKEN` for every app.
+- **Not yet observed against real Meta (step 6):** whether `debug_token` accepts the customer app token for a system-user token, and whether a customer app with "Require app secret" needs `appsecret_proof` on Graph calls. Only the mock has run.
 
 ### Required permissions
 

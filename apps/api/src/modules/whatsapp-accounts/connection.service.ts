@@ -4,9 +4,13 @@ import {
   type ConnectionStepKey,
   type ConnectWhatsAppRequest,
   type DevConnectWhatsAppRequest,
+  type ManagedConnectRequest,
+  type ManagedRotateRequest,
+  type PlatformWhatsAppConnection,
   type RotateTokenRequest,
   type TestConnectionResult,
   type UpdateConnectionRequest,
+  type VerifyConnectionResult,
   type WhatsAppConnection,
   type WhatsAppSignupConfig,
 } from '@fenwira/contracts'
@@ -34,10 +38,13 @@ import {
   setStep,
   tokenParts,
   toConnection,
+  toPlatformConnection,
 } from './connection.mapper'
 import {
   decryptToken,
   emitConnectionChanged,
+  ownAppToken,
+  phoneDigits,
   StepFailure,
   stepError,
   SUBSCRIBED_FIELDS,
@@ -47,7 +54,19 @@ import {
 import { type SyncOutcome, WhatsAppSyncService } from './sync.service'
 import { WHATSAPP_OPTIONS, type WhatsAppOptions } from './whatsapp.options'
 
-type TokenType = 'BUSINESS_INTEGRATION' | 'DEV'
+type TokenType = 'BUSINESS_INTEGRATION' | 'DEV' | 'SYSTEM_USER'
+/** ADR-0027: what an operator-managed connection stores besides the token. */
+type ManagedExtras = {
+  displayPhoneNumber: string
+  appSecret?: string
+  appId?: string
+  businessId?: string
+}
+const METHOD: Record<TokenType, string> = {
+  BUSINESS_INTEGRATION: 'embedded_signup',
+  DEV: 'dev_connect',
+  SYSTEM_USER: 'operator_managed',
+}
 const isUniqueViolation = (err: unknown) =>
   typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002'
 const alreadyConnected = () =>
@@ -120,12 +139,23 @@ export class WhatsAppConnectionService {
     return this.runConnect(input.wabaId, input.phoneNumberId, 'DEV', null, input.accessToken)
   }
 
+  /**
+   * ADR-0027 Managed Launch Mode: a platform operator connects a customer's WABA with a permanent
+   * system-user token (and, ML-D1, the app secret that signs its webhooks). Runs in the operator's
+   * request with the workspace selected; the same steps as Embedded Signup minus the code exchange.
+   */
+  managedConnect(input: ManagedConnectRequest): Promise<WhatsAppConnection> {
+    const { accessToken, wabaId, phoneNumberId, ...managed } = input
+    return this.runConnect(wabaId, phoneNumberId, 'SYSTEM_USER', null, accessToken, managed)
+  }
+
   private async runConnect(
     wabaId: string,
     phoneNumberId: string,
     tokenType: TokenType,
     exchange: (() => Promise<string>) | null,
     pastedToken?: string,
+    managed?: ManagedExtras,
   ): Promise<WhatsAppConnection> {
     const { tenantId } = currentTenant()
     await this.limits.consume([
@@ -151,7 +181,10 @@ export class WhatsAppConnectionService {
       token = pastedToken!
       steps = setStep(steps, 'EXCHANGE', 'SKIPPED')
     }
-    const info = await step('VERIFY', () => verifyToken(this.graph, this.options, token, wabaId))
+    const appToken = ownAppToken(managed?.appId, managed?.appSecret)
+    const info = await step('VERIFY', () =>
+      verifyToken(this.graph, this.options, token, wabaId, appToken),
+    )
     const { waba, phone } = await step('FETCH', async () => {
       const waba = await this.graph.getWaba(token, wabaId)
       const phone = (await this.graph.listPhoneNumbers(token, wabaId)).find(
@@ -161,6 +194,14 @@ export class WhatsAppConnectionService {
         throw new StepFailure(
           'META_PHONE_NOT_IN_WABA',
           'That phone number is not part of this WhatsApp Business Account.',
+        )
+      if (
+        managed &&
+        phoneDigits(managed.displayPhoneNumber) !== phoneDigits(phone.display_phone_number)
+      )
+        throw new StepFailure(
+          'META_DISPLAY_NUMBER_MISMATCH',
+          `Meta shows this number as ${phone.display_phone_number}. Check the phone number ID.`,
         )
       return { waba, phone }
     })
@@ -179,6 +220,7 @@ export class WhatsAppConnectionService {
       scopes: info.scopes,
       credential: cred,
       steps,
+      managed,
     })
     return this.runRemaining(phoneId)
   }
@@ -192,11 +234,32 @@ export class WhatsAppConnectionService {
     scopes: string[]
     credential: { status: 'VALID' | 'EXPIRING'; expiresAt: Date | null }
     steps: ConnectionStep[]
+    managed?: ManagedExtras
   }): Promise<string> {
-    const { tenantId, waba, phone } = input
+    const { tenantId, waba, phone, managed } = input
     const ring = this.options.keyRing
     try {
       return await this.tenantDb.run(async (tx) => {
+        const business = managed?.businessId
+          ? await tx.metaBusinessAccount.upsert({
+              where: { tenantId_metaBusinessId: { tenantId, metaBusinessId: managed.businessId } },
+              create: { tenantId, metaBusinessId: managed.businessId, name: managed.businessId },
+              update: {},
+            })
+          : null
+        // ML-D1: the app secret that signs this WABA's webhooks (null = the platform app).
+        const managedFields = managed
+          ? {
+              connectionMode: 'MANAGED' as const,
+              metaAppId: managed.appId ?? null,
+              appSecretCiphertext: managed.appSecret
+                ? encryptSecret(ring, managed.appSecret)
+                : null,
+              appSecretLast4: managed.appSecret ? managed.appSecret.slice(-4) : null,
+              appSecretRotatedAt: null,
+              ...(business ? { metaBusinessAccountId: business.id } : {}),
+            }
+          : {}
         const wabaRow = await tx.whatsAppBusinessAccount.upsert({
           where: { tenantId_wabaId: { tenantId, wabaId: waba.id } },
           create: {
@@ -206,8 +269,10 @@ export class WhatsAppConnectionService {
             currency: waba.currency ?? null,
             timezoneId: waba.timezone_id ?? null,
             messageTemplateNamespace: waba.message_template_namespace ?? null,
+            ...managedFields,
           },
           update: {
+            ...managedFields,
             name: waba.name,
             currency: waba.currency ?? null,
             timezoneId: waba.timezone_id ?? null,
@@ -259,7 +324,10 @@ export class WhatsAppConnectionService {
           changes: {
             phoneNumberId: phone.id,
             wabaId: waba.id,
-            method: input.tokenType === 'DEV' ? 'dev_connect' : 'embedded_signup',
+            method: METHOD[input.tokenType],
+            ...(managed
+              ? { appSecret: Boolean(managed.appSecret), businessId: managed.businessId ?? null }
+              : {}),
           },
         })
         return row.id
@@ -513,7 +581,7 @@ export class WhatsAppConnectionService {
           action: 'whatsapp.token_rotated',
           targetType: 'whatsapp_phone_number',
           targetId: phone.id,
-          changes: { method: tokenType === 'DEV' ? 'dev_connect' : 'embedded_signup' },
+          changes: { method: METHOD[tokenType] },
         })
         await emitConnectionChanged(tx, tenantId, phone.id, 'CREDENTIAL_CHANGED')
       })
@@ -600,9 +668,10 @@ export class WhatsAppConnectionService {
           where: { wabaId: phone.waba.id },
           data: { status: 'REMOVED', lastCheckedAt: new Date() },
         })
+        // The app secret (ML-D1) goes with the token: nothing can verify this WABA's webhooks.
         await tx.whatsAppBusinessAccount.update({
           where: { id: phone.waba.id },
-          data: { status: 'DISCONNECTED' },
+          data: { status: 'DISCONNECTED', appSecretCiphertext: null },
         })
       }
       if (phone.isDefault) {
@@ -624,6 +693,211 @@ export class WhatsAppConnectionService {
   }
 
   // ------------------------------------------------------------------------------------------
+  // ADR-0027 operator actions (platform console). Each one is audited on the workspace with the
+  // operator as actor; none returns or logs a token or app secret.
+  // ------------------------------------------------------------------------------------------
+
+  /**
+   * "Verify connection": three live Graph checks with the stored token — the token itself
+   * (debug_token: valid, WhatsApp scopes, granted this WABA), the phone number lookup and WABA
+   * access. The outcome and error code are stored on the credential; a credential-class failure
+   * marks it INVALID so sends stop until it is rotated.
+   */
+  async verifyConnection(id: string): Promise<VerifyConnectionResult> {
+    const { tenantId } = currentTenant()
+    await this.limits.consume([
+      { bucket: 'whatsapp-verify:tenant', key: tenantId, limit: 30, windowSeconds: 3600 },
+    ])
+    const { phone, credential, token } = await this.tenantDb.run((tx) => this.loadWithToken(tx, id))
+    const verifiedAt = new Date()
+    type Check = VerifyConnectionResult['checks']['token']
+    const noToken = { code: 'NO_CREDENTIAL', message: 'This connection has no valid token.' }
+    let credentialRejected = false
+    const run = async (fn: () => Promise<unknown>): Promise<Check> => {
+      if (!token) return { ok: false, error: noToken }
+      try {
+        await fn()
+        return { ok: true }
+      } catch (err) {
+        const error = stepError(err)
+        if (!error) throw err
+        if (err instanceof GraphError && err.classification === 'CREDENTIAL')
+          credentialRejected = true
+        return { ok: false, error }
+      }
+    }
+    const appSecret = decryptToken(this.options, phone.waba.appSecretCiphertext)
+    const checks = {
+      token: await run(() =>
+        verifyToken(
+          this.graph,
+          this.options,
+          token!,
+          phone.waba.wabaId,
+          ownAppToken(phone.waba.metaAppId, appSecret),
+        ),
+      ),
+      phoneNumber: await run(() => this.graph.getPhoneNumber(token!, phone.phoneNumberId)),
+      waba: await run(() => this.graph.getWaba(token!, phone.waba.wabaId)),
+    }
+    const ok = checks.token.ok && checks.phoneNumber.ok && checks.waba.ok
+    const firstError = [checks.token, checks.phoneNumber, checks.waba].find((c) => !c.ok)?.error
+    await this.tenantDb.run(async (tx) => {
+      if (credential)
+        await tx.metaCredential.update({
+          where: { id: credential.id },
+          data: {
+            verifiedAt,
+            verifyOk: ok,
+            verifyErrorCode: firstError?.code ?? null,
+            verifyError: firstError?.message.slice(0, 500) ?? null,
+            lastCheckedAt: verifiedAt,
+            ...(credentialRejected ? { status: 'INVALID' as const } : {}),
+          },
+        })
+      await this.audit.write(tx, {
+        action: 'whatsapp.connection_verified',
+        targetType: 'whatsapp_phone_number',
+        targetId: phone.id,
+        changes: { ok, errorCode: firstError?.code ?? null },
+      })
+      if (credentialRejected && credential)
+        await emitConnectionChanged(tx, tenantId, phone.id, 'CREDENTIAL_CHANGED')
+    })
+    return { ok, verifiedAt: verifiedAt.toISOString(), checks }
+  }
+
+  /** (Re)subscribes the token's app to the WABA's webhooks (POST /{waba}/subscribed_apps). */
+  async subscribeWebhooks(id: string): Promise<WhatsAppConnection> {
+    const { tenantId } = currentTenant()
+    const { phone, token } = await this.tenantDb.run((tx) => this.loadWithToken(tx, id))
+    if (!token)
+      throw new AppError('CONFLICT', 409, 'This connection has no valid token. Rotate it first.')
+    let failure: { code: string; message: string } | null = null
+    try {
+      await this.graph.subscribeApp(token, phone.waba.wabaId)
+    } catch (err) {
+      failure = stepError(err)
+      if (!failure) throw err
+    }
+    await this.tenantDb.run(async (tx) => {
+      await this.upsertWebhook(tx, tenantId, phone.waba.id, failure ? 'FAILED' : 'ACTIVE')
+      await this.audit.write(tx, {
+        action: 'whatsapp.webhooks_subscribed',
+        targetType: 'whatsapp_phone_number',
+        targetId: phone.id,
+        changes: { ok: !failure, errorCode: failure?.code ?? null },
+      })
+    })
+    if (failure) throw new AppError('WHATSAPP_CONNECT_FAILED', 422, failure.message, failure)
+    return this.get(id)
+  }
+
+  /** Phone status, quality rating and messaging limit from Meta, audited (operator "Sync"). */
+  async syncAudited(id: string): Promise<WhatsAppConnection> {
+    const connection = await this.sync(id)
+    await this.tenantDb.run((tx) =>
+      this.audit.write(tx, {
+        action: 'whatsapp.synced',
+        targetType: 'whatsapp_phone_number',
+        targetId: id,
+        changes: {
+          status: connection.status,
+          qualityRating: connection.qualityRating,
+          messagingLimitTier: connection.messagingLimitTier,
+        },
+      }),
+    )
+    return connection
+  }
+
+  /**
+   * Rotation for operator-managed connections: a new system-user token (verified before it
+   * replaces the old one), a new app secret and/or app ID. The old token is revoked and wiped.
+   */
+  async rotateManaged(id: string, input: ManagedRotateRequest): Promise<WhatsAppConnection> {
+    const { tenantId } = currentTenant()
+    await this.limits.consume([
+      { bucket: 'whatsapp-connect:tenant', key: tenantId, limit: 20, windowSeconds: 3600 },
+    ])
+    const phone = await this.tenantDb.run((tx) => this.findLive(tx, id))
+    const appSecret =
+      input.appSecret ?? decryptToken(this.options, phone.waba.appSecretCiphertext) ?? undefined
+    const appId = input.appId ?? phone.waba.metaAppId ?? undefined
+    let verified: Awaited<ReturnType<typeof verifyToken>> | null = null
+    if (input.accessToken) {
+      try {
+        verified = await verifyToken(
+          this.graph,
+          this.options,
+          input.accessToken,
+          phone.waba.wabaId,
+          ownAppToken(appId, appSecret),
+        )
+      } catch (err) {
+        const error = stepError(err)
+        if (!error) throw err
+        throw new AppError('WHATSAPP_CONNECT_FAILED', 422, error.message, { reason: error.code })
+      }
+    }
+    await this.tenantDb.run(async (tx) => {
+      if (input.accessToken && verified)
+        await this.replaceCredential(
+          tx,
+          tenantId,
+          phone.waba.id,
+          {
+            token: input.accessToken,
+            tokenType: 'SYSTEM_USER',
+            scopes: verified.scopes,
+            credential: credentialStatusFor(verified.expiresAt),
+          },
+          true,
+        )
+      if (input.appSecret || input.appId)
+        await tx.whatsAppBusinessAccount.update({
+          where: { id: phone.waba.id },
+          data: {
+            connectionMode: 'MANAGED',
+            ...(input.appId ? { metaAppId: input.appId } : {}),
+            ...(input.appSecret
+              ? {
+                  appSecretCiphertext: encryptSecret(this.options.keyRing, input.appSecret),
+                  appSecretLast4: input.appSecret.slice(-4),
+                  appSecretRotatedAt: new Date(),
+                }
+              : {}),
+          },
+        })
+      await this.audit.write(tx, {
+        action: 'whatsapp.credentials_rotated',
+        targetType: 'whatsapp_phone_number',
+        targetId: phone.id,
+        changes: {
+          token: Boolean(input.accessToken),
+          appSecret: Boolean(input.appSecret),
+          appId: input.appId ?? null,
+        },
+      })
+      await emitConnectionChanged(tx, tenantId, phone.id, 'CREDENTIAL_CHANGED')
+    })
+    return this.get(id)
+  }
+
+  async getPlatform(id: string): Promise<PlatformWhatsAppConnection> {
+    return toPlatformConnection(await this.tenantDb.run((tx) => this.findLive(tx, id)))
+  }
+
+  async listPlatform(): Promise<PlatformWhatsAppConnection[]> {
+    const rows = await this.tenantDb.run((tx) =>
+      tx.whatsAppPhoneNumber.findMany({
+        where: { status: LIVE },
+        include: CONNECTION_INCLUDE,
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      }),
+    )
+    return rows.map(toPlatformConnection)
+  }
 
   private async findLive(tx: TenantTx, id: string) {
     const phone = await tx.whatsAppPhoneNumber.findFirst({

@@ -403,6 +403,27 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   LIMIT 1;
 $$;
 
+-- X2 (ADR-0027, ML-D1): signature-aware webhook routing. Called BEFORE the signature is verified,
+-- so it returns only what verification needs: the tenant, the live number (when the event names
+-- one) and the WABA's own app secret ciphertext (null = verify with the platform secret). A phone
+-- event resolves only when the number belongs to the very WABA the entry names, so a payload
+-- signed with one customer's app secret can never reach another customer's number.
+GRANT SELECT (waba_id) ON public.whatsapp_phone_numbers TO fenwira_system;
+GRANT SELECT (app_secret_ciphertext) ON public.whatsapp_business_accounts TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.resolve_webhook_route(p_waba_id text, p_phone_number_id text)
+RETURNS TABLE (tenant_id uuid, phone_id uuid, app_secret_ciphertext bytea)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT w.tenant_id, p.id, w.app_secret_ciphertext
+  FROM public.whatsapp_business_accounts w
+  LEFT JOIN public.whatsapp_phone_numbers p
+    ON p_phone_number_id IS NOT NULL
+   AND p.waba_id = w.id AND p.tenant_id = w.tenant_id
+   AND p.phone_number_id = p_phone_number_id AND p.status <> 'DISCONNECTED'
+  WHERE w.waba_id = p_waba_id AND w.status <> 'DISCONNECTED'
+    AND (p_phone_number_id IS NULL OR p.id IS NOT NULL)
+  LIMIT 1;
+$$;
+
 -- X13: inbox maintenance. Conversations whose snooze ended (→ OPEN) or whose takeover should be
 -- released (RESOLVED, tenant opted in, no agent message for N hours). IDs only; the job re-enters
 -- withTenant for each.
@@ -580,6 +601,96 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   ORDER BY s.tenant_id LIMIT least(greatest(p_limit, 1), 500);
 $$;
 
+-- ---------------------------------------------------------------------------------------------
+-- ADR-0027 step 3: manual UPI billing (docs/BILLING.md → Manual invoices). invoices and
+-- payment_proofs are tenant tables (forced RLS from the loop above). Financial history: the
+-- runtime role can't delete them; numbers come from global sequences.
+-- ---------------------------------------------------------------------------------------------
+CREATE SEQUENCE IF NOT EXISTS public.invoice_number_seq;
+CREATE SEQUENCE IF NOT EXISTS public.receipt_number_seq;
+GRANT USAGE ON SEQUENCE public.invoice_number_seq, public.receipt_number_seq TO fenwira_app;
+REVOKE DELETE, TRUNCATE ON public.invoices, public.payment_proofs FROM fenwira_app;
+-- A UTR backs at most one live (PENDING or APPROVED) proof across ALL workspaces; a rejected
+-- proof frees it. One PENDING proof per invoice at a time.
+CREATE UNIQUE INDEX IF NOT EXISTS payment_proofs_live_utr_unique
+  ON public.payment_proofs (utr) WHERE status IN ('PENDING', 'APPROVED');
+CREATE UNIQUE INDEX IF NOT EXISTS payment_proofs_one_pending_per_invoice
+  ON public.payment_proofs (invoice_id) WHERE status = 'PENDING';
+-- At most one open renewal invoice per workspace (the system never issues a second one).
+CREATE UNIQUE INDEX IF NOT EXISTS invoices_one_open_renewal
+  ON public.invoices (tenant_id, kind) WHERE status = 'OPEN' AND kind = 'PLAN_RENEWAL';
+
+-- X22a: is this UTR already backing a live proof anywhere? A yes/no only (no tenant, no invoice):
+-- it is what "block duplicate UTRs" must reveal, and nothing more.
+GRANT SELECT (utr, status) ON public.payment_proofs TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.utr_in_use(p_utr text)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.payment_proofs p
+                 WHERE p.utr = p_utr AND p.status IN ('PENDING', 'APPROVED'));
+$$;
+
+-- X22b: subscriptions the manual-billing lifecycle must look at: ACTIVE within the renewal-invoice
+-- lead time of their period end, and PAST_DUE ones (grace may have run out). IDs only, keyset.
+CREATE OR REPLACE FUNCTION system.manual_billing_due(
+  p_now timestamptz, p_lead_days integer, p_limit integer, p_after uuid)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT s.tenant_id FROM public.subscriptions s
+  WHERE ((s.status = 'ACTIVE' AND s.current_period_end <= p_now + make_interval(days => p_lead_days))
+      OR s.status = 'PAST_DUE')
+    AND (p_after IS NULL OR s.tenant_id > p_after)
+  ORDER BY s.tenant_id LIMIT least(greatest(p_limit, 1), 500);
+$$;
+
+-- X22c: the operator payment queue, overdue list and revenue (platform only: every function
+-- requires an active platform grant for p_operator). Billing fields only, never customer content.
+GRANT SELECT (id, tenant_id, number, kind, status, currency, total_minor, due_at, paid_at)
+  ON public.invoices TO fenwira_system;
+GRANT SELECT (id, tenant_id, invoice_id, file_id, submitted_at)
+  ON public.payment_proofs TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.platform_pending_proofs(p_operator uuid, p_limit integer)
+RETURNS TABLE (tenant_id uuid, workspace_name text, proof_id uuid, invoice_id uuid,
+               invoice_number text, kind text, total_minor bigint, currency text, utr text,
+               has_file boolean, submitted_at timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT p.tenant_id, t.name, p.id, i.id, i.number, i.kind::text, i.total_minor, i.currency,
+         p.utr, p.file_id IS NOT NULL, p.submitted_at
+  FROM public.payment_proofs p
+  JOIN public.invoices i ON i.id = p.invoice_id AND i.tenant_id = p.tenant_id
+  JOIN public.tenants t ON t.id = p.tenant_id
+  WHERE p.status = 'PENDING'
+    AND EXISTS (SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL)
+  ORDER BY p.submitted_at, p.id LIMIT least(greatest(p_limit, 1), 200);
+$$;
+CREATE OR REPLACE FUNCTION system.platform_overdue_workspaces(p_operator uuid, p_now timestamptz)
+RETURNS TABLE (tenant_id uuid, workspace_name text, subscription_status text,
+               open_invoices integer, open_total_minor bigint, oldest_due_at timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT t.id, t.name, s.status::text,
+         count(i.id)::integer, coalesce(sum(i.total_minor), 0)::bigint, min(i.due_at)
+  FROM public.tenants t
+  LEFT JOIN public.subscriptions s ON s.tenant_id = t.id
+  LEFT JOIN public.invoices i ON i.tenant_id = t.id AND i.status = 'OPEN' AND i.due_at <= p_now
+  WHERE t.deleted_at IS NULL
+    AND EXISTS (SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL)
+  GROUP BY t.id, t.name, s.status
+  HAVING count(i.id) > 0 OR s.status IN ('PAST_DUE', 'SUSPENDED')
+  ORDER BY min(i.due_at) NULLS LAST, t.name LIMIT 200;
+$$;
+CREATE OR REPLACE FUNCTION system.platform_revenue_by_month(p_operator uuid, p_months integer)
+RETURNS TABLE (month date, currency text, total_minor bigint, payments integer)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT date_trunc('month', i.paid_at AT TIME ZONE 'Asia/Kolkata')::date, i.currency,
+         sum(i.total_minor)::bigint, count(*)::integer
+  FROM public.invoices i
+  WHERE i.status = 'PAID'
+    AND i.paid_at >= date_trunc('month', now() AT TIME ZONE 'Asia/Kolkata')
+                     - make_interval(months => least(greatest(p_months, 1), 36) - 1)
+    AND EXISTS (SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL)
+  GROUP BY 1, 2 ORDER BY 1 DESC, 2;
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -593,6 +704,7 @@ BEGIN
     'system.phone_numbers_due_for_sync(timestamptz, integer)',
     'system.resolve_tenant_by_phone_number_id(text)',
     'system.resolve_tenant_by_waba_id(text)',
+    'system.resolve_webhook_route(text, text)',
     'system.inbox_maintenance_due(timestamptz, integer)',
     'system.wabas_due_for_template_sync(timestamptz, integer)',
     'system.due_scheduled_campaigns(timestamptz, integer)',
@@ -609,7 +721,12 @@ BEGIN
     'system.tenants_with_stale_webhook_deliveries(timestamptz, integer)',
     'system.webhook_deliveries_due(timestamptz, integer, uuid)',
     'system.subscriptions_due(timestamptz, integer)',
-    'system.subscriptions_due(timestamptz, integer, uuid)'
+    'system.subscriptions_due(timestamptz, integer, uuid)',
+    'system.utr_in_use(text)',
+    'system.manual_billing_due(timestamptz, integer, integer, uuid)',
+    'system.platform_pending_proofs(uuid, integer)',
+    'system.platform_overdue_workspaces(uuid, timestamptz)',
+    'system.platform_revenue_by_month(uuid, integer)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

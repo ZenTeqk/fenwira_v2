@@ -7,6 +7,8 @@ import { CommercialReadController } from './commercial-read.controller'
 import { CommercialReadService } from './commercial-read.service'
 import { PlatformAuthController } from './platform-auth.controller'
 import { PlatformAuthService } from './platform-auth.service'
+import { PlatformBillingController } from './platform-billing.controller'
+import { PlatformBillingService } from './platform-billing.service'
 import { PlatformGuard } from './platform.guard'
 @Module({})
 export class PlatformOperationsModule {
@@ -18,12 +20,14 @@ export class PlatformOperationsModule {
         PlatformAuthController,
         CommercialReadController,
         CommercialOperationController,
+        PlatformBillingController,
       ],
       providers: [
         PlatformAuthService,
         PlatformGuard,
         CommercialReadService,
         CommercialOperationService,
+        PlatformBillingService,
         { provide: BILLING_OPTIONS, useValue: billing },
       ],
       exports: [PlatformGuard, PlatformAuthService],
