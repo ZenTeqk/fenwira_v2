@@ -241,3 +241,30 @@ variable "github_deploy_branch" {
   type        = string
   default     = "main"
 }
+
+# ---------------------------------------------------------------------------------------------
+# Email (ses.tf, ADR-0027 item C)
+# ---------------------------------------------------------------------------------------------
+variable "manage_ses" {
+  description = "Provision SES for mail_domain: identity (Easy DKIM), MAIL FROM, DMARC, bounce/complaint SNS + alarms, SMTP-only IAM user."
+  type        = bool
+  default     = false
+}
+
+variable "mail_domain" {
+  description = "Domain Fenwira sends email from (SES identity in the primary zone). MAIL_FROM uses an address here."
+  type        = string
+  default     = "fenwira.com"
+}
+
+variable "mail_from_subdomain" {
+  description = "Label of the custom MAIL FROM (bounce) domain: <label>.<mail_domain>."
+  type        = string
+  default     = "bounce"
+}
+
+variable "dmarc_report_email" {
+  description = "DMARC aggregate report address (rua)."
+  type        = string
+  default     = "fenwira@zenteqk.com"
+}
