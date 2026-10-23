@@ -2508,3 +2508,29 @@ model EmailSuppression {
 
   @@map("email_suppressions")
 }
+
+enum AccessRequestStatus {
+  QUEUED
+  EMAILED
+  EMAIL_FAILED
+  EMAIL_SKIPPED
+
+  @@map("access_request_status")
+}
+
+/// Marketing-site Request access leads (global, pre-tenant). Status follows the email job.
+model AccessRequest {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  name           String
+  company        String
+  email          String
+  phone          String
+  volume         String
+  status         AccessRequestStatus @default(QUEUED)
+  emailErrorCode String?             @map("email_error_code")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([createdAt(sort: Desc), id])
+  @@map("access_requests")
+}

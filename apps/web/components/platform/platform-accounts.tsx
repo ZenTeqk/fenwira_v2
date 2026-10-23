@@ -1,5 +1,6 @@
 'use client'
 import {
+  accessRequestItemSchema,
   createWorkspaceWithOwnerSchema,
   emailDeliverySchema,
   oneTimeLinkSchema,
@@ -271,6 +272,78 @@ export function EmailDeliveriesView() {
                     status={tone[d.status]}
                     label={`${d.status.replaceAll('_', ' ').toLowerCase()}${d.errorCode ? ` (${d.errorCode})` : ''}`}
                   />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </ListPage>
+  )
+}
+
+/** Request access leads from fenwira.com, newest first (email outcome per lead). */
+export function AccessRequestsView() {
+  const leads = useQuery({
+    queryKey: ['platform', 'access-requests'],
+    retry: false,
+    queryFn: async () =>
+      z.array(accessRequestItemSchema).parse(await platformRequest('/access-requests')),
+  })
+  const tone = {
+    QUEUED: 'WAITING',
+    EMAILED: 'SUCCEEDED',
+    EMAIL_FAILED: 'FAILED',
+    EMAIL_SKIPPED: 'SKIPPED',
+  } as const
+  const label = {
+    QUEUED: 'Email queued',
+    EMAILED: 'Emailed',
+    EMAIL_FAILED: 'Email failed',
+    EMAIL_SKIPPED: 'Email skipped',
+  } as const
+  return (
+    <ListPage
+      header={{
+        title: 'Access requests',
+        description:
+          'Requests from the fenwira.com form, newest first. Every request is kept even when its email fails.',
+      }}
+    >
+      {leads.isPending ? (
+        <Skeleton className="h-32 w-full" />
+      ) : leads.isError ? (
+        <ErrorState onRetry={() => void leads.refetch()} />
+      ) : leads.data.length === 0 ? (
+        <EmptyState title="No access requests yet" />
+      ) : (
+        <Table containerLabel="Access requests">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Volume</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {leads.data.map((l) => (
+              <TableRow key={l.id}>
+                <TableCell>{new Date(l.createdAt).toLocaleString()}</TableCell>
+                <TableCell>{l.name}</TableCell>
+                <TableCell>{l.company}</TableCell>
+                <TableCell>
+                  <a className="text-primary-strong hover:underline" href={`mailto:${l.email}`}>
+                    {l.email}
+                  </a>
+                </TableCell>
+                <TableCell>{l.phone}</TableCell>
+                <TableCell>{l.volume}</TableCell>
+                <TableCell>
+                  <StatusBadge status={tone[l.status]} label={label[l.status]} />
                 </TableCell>
               </TableRow>
             ))}

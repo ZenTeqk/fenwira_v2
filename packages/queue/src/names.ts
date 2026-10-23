@@ -12,6 +12,7 @@ export const QUEUES = {
   templatesSync: 'templates.sync',
   identityEvents: 'identity.events',
   tenancyEvents: 'tenancy.events',
+  leadsEvents: 'leads.events',
   contactsEvents: 'contacts.events',
   nativeTransfer: 'native.transfer',
   contactsImport: 'contacts.import',

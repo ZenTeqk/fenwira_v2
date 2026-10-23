@@ -17,3 +17,4 @@ export * from './invoices'
 export * from './platform'
 
 export * from './native-connectors'
+export * from './access-requests'

@@ -768,3 +768,6 @@ GRANT EXECUTE ON FUNCTION system.platform_workspaces(uuid,text,integer) TO fenwi
 
 -- ADR-0027 step 4: the email delivery log is append-only for the runtime role.
 REVOKE UPDATE, DELETE, TRUNCATE ON public.email_deliveries FROM fenwira_app;
+
+-- Request access leads: the runtime role inserts and updates the email status; never deletes.
+REVOKE DELETE, TRUNCATE ON public.access_requests FROM fenwira_app;

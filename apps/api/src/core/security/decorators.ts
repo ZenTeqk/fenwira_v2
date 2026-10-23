@@ -9,6 +9,7 @@ export const ROLE_KEY = 'fenwira:role'
 export const SKIP_CSRF_KEY = 'fenwira:skip-csrf'
 export const ALLOW_UNENROLLED_2FA_KEY = 'fenwira:allow-unenrolled-2fa'
 export const PUBLIC_API_KEY = 'fenwira:public-api'
+export const PUBLIC_SITE_KEY = 'fenwira:public-site'
 
 /** No authentication required (default is deny: every route needs a session). */
 export const Public = () => SetMetadata(PUBLIC_KEY, true)
@@ -30,6 +31,13 @@ export const SkipCsrf = () => SetMetadata(SKIP_CSRF_KEY, true)
  * other route answers 404 to an API key, never 403, so the private surface isn't discoverable.
  */
 export const PublicApi = () => SetMetadata(PUBLIC_API_KEY, true)
+
+/**
+ * Cookieless route for the marketing site (under /api/v1/public/). The CSRF guard accepts only
+ * PUBLIC_SITE_ORIGINS (or no Origin) here, and CORS allows those origins for /api/v1/public/* only,
+ * without credentials. Combine with `@Public()`; the handler must never read a session.
+ */
+export const PublicSite = () => SetMetadata(PUBLIC_SITE_KEY, true)
 
 export const PLATFORM_PERMISSION_KEY = 'fenwira:platform-permission'
 export const PlatformAccess = (permission: PlatformPermission) =>

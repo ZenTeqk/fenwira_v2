@@ -27,6 +27,8 @@ export type CoreConfig = {
   redisUrl: string
   /** Allowed browser origin for CORS/CSRF (api only). */
   webOrigin?: string
+  /** Marketing-site origins allowed on `@PublicSite()` routes only (api only). */
+  publicSiteOrigins?: string[]
   /** MinIO/S3; required by processes that touch files (api, worker). */
   storage?: StorageConfig
   /** API only: internal /metrics listener port (never published). Unset = off. */

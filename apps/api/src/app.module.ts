@@ -14,6 +14,7 @@ import { CsrfGuard } from './core/security/csrf.guard'
 import { AuditApiModule, AuditModule } from './modules/audit'
 import { AuthGuard, IdentityModule } from './modules/identity'
 import { PlatformGuard, PlatformOperationsModule } from './modules/platform-operations'
+import { LeadsModule } from './modules/leads'
 import { PlatformApiModule } from './modules/platform/platform-api.module'
 import { RealtimeModule } from './modules/realtime'
 import { PermissionGuard, TenancyModule, TenantGuard } from './modules/tenancy'
@@ -50,6 +51,7 @@ export function coreConfigFromApiEnv(
     dbPoolSize: env.DB_POOL_SIZE,
     redisUrl: env.REDIS_URL,
     webOrigin: env.WEB_ORIGIN,
+    publicSiteOrigins: env.PUBLIC_SITE_ORIGINS,
     storage: storageConfigFromEnv(env),
     metricsPort: env.METRICS_PORT,
     metricsHost: env.METRICS_HOST,
@@ -110,6 +112,7 @@ export class ApiModule {
           manual: manualBillingFromEnv(env),
         }),
         tenancy,
+        LeadsModule.forApi(),
         AuditApiModule,
         ContactsModule.forApi(),
         NativeModule.forApi(nativeOptions(env, keyRing)),
