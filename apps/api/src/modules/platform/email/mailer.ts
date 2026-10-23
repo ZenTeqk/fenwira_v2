@@ -8,7 +8,8 @@ import nodemailer, { type Transporter } from 'nodemailer'
 export type MailerOptions = { smtpUrl?: string; from: string; replyTo?: string }
 export const MAILER_OPTIONS = Symbol('MAILER_OPTIONS')
 
-export type Email = { to: string; subject: string; text: string; html: string }
+/** `replyTo` overrides the configured Reply-To for this one email (e.g. a lead's own address). */
+export type Email = { to: string; subject: string; text: string; html: string; replyTo?: string }
 export type MailOutcome = 'SENT' | 'FAILED' | 'SKIPPED_NO_SMTP' | 'SUPPRESSED'
 
 /** "a•••@example.com": enough for an operator to recognize, not a full address. */

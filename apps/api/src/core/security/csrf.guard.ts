@@ -6,7 +6,7 @@ import { CORE_CONFIG, type CoreConfig } from '../config/core-config'
 import { AppError } from '../http/app-error'
 import { safeEqual } from '@fenwira/config'
 import { ACCESS_COOKIE, CSRF_COOKIE } from './cookies'
-import { SKIP_CSRF_KEY } from './decorators'
+import { PUBLIC_SITE_KEY, SKIP_CSRF_KEY } from './decorators'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
@@ -31,6 +31,16 @@ export class CsrfGuard implements CanActivate {
     if (requestContext.get()?.apiKey) return true
 
     const origin = req.header('origin')
+    const publicSite = this.reflector.getAllAndOverride<boolean>(PUBLIC_SITE_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ])
+    // Marketing-site routes use no cookies; only the site's own origins may post to them.
+    if (publicSite) {
+      if (origin && !(this.config.publicSiteOrigins ?? []).includes(origin))
+        throw new AppError('CSRF_FAILED', 403, 'Request origin is not allowed.')
+      return true
+    }
     if (origin && this.config.webOrigin && origin !== this.config.webOrigin) {
       throw new AppError('CSRF_FAILED', 403, 'Request origin is not allowed.')
     }

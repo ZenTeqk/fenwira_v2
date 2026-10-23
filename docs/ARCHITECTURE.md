@@ -118,6 +118,7 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `identity.email_verification.requested` | identity (platform event) | `userId` | `identity.events` |
 | `identity.password_reset.requested` | identity (platform event) | `userId` | `identity.events` |
 | `tenancy.invitation.sent` | tenancy | `invitationId` | `tenancy.events` |
+| `leads.access_request.submitted` | leads | `accessRequestId` | `leads.events` |
 | `message.outbound.requested` | messaging (`MessagingService.send`) | `messageId` | `whatsapp.outbound` |
 | `message.inbound.received` | messaging (inbound processor) | `messageId, conversationId, contactId, text?` | `contacts.events` (opt-in/out keywords), `automation.trigger`, `analytics.events`, `webhooks.deliver` |
 | `message.status.changed` | messaging (status processor) | `messageId, from, to, errorCode?, pricing?` | `campaign.events`, `analytics.events`, `billing.usage`, `contacts.events` (on 131050), `webhooks.deliver` |
@@ -153,6 +154,7 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `templates.sync` | repeatable scheduler + `whatsapp.connection.changed` | Template reconciliation with Meta every 6 h (X14), and a sync right after a number connects (Phase 8) | 2 |
 | `identity.events` | outbox relay | Verification and password-reset tokens plus emails (Phase 3) | 5 |
 | `tenancy.events` | outbox relay | Invitation tokens plus emails (Phase 3) | 5 |
+| `leads.events` | outbox relay | Request access lead emails to the team | 2 |
 | `contacts.events` | outbox relay | Opt-in/out keyword and 131050 consent handling | 10 |
 | `contacts.import` / `contacts.export` | contacts API | CSV import/export | 2 |
 | `inbox.events` | outbox relay | Auto-assignment | 10 |

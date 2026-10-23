@@ -64,6 +64,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   if (!me.data) return <ErrorState description="Privileged sign-in required." />
   const nav = [
     ['/platform/workspaces', 'Workspaces'],
+    ['/platform/access-requests', 'Access requests'],
     ['/platform/payments', 'Payments'],
     ['/platform/billing-operations', 'Billing operations'],
     ['/platform/email', 'Email'],

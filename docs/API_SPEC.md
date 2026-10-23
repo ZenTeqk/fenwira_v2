@@ -418,9 +418,18 @@ Platform session only. `payments.read` for GETs; `payments.manage` plus fresh MF
 | POST | `/platform/workspaces/provision` | `workspaces.manage` + fresh MFA | `{workspaceName, ownerName, ownerEmail, country?, timezone?}` → 201 `{workspaceId, ownerUserId, setupLink, setupExpiresAt}`. The setup link (72 h, single use) sets the first password and verifies the email (ML-D7). It is `null` when the email already has an account |
 | GET | `/platform/workspaces/:workspaceId/members` | `commercial.read` | → `[{userId, name, email, role, status, emailVerified, joinedAt}]` |
 | POST | `/platform/workspaces/:workspaceId/members/:userId/reset-link` | `workspaces.manage` + fresh MFA | → `{link, expiresAt}` (1 h, single use; ML-D4: operators only; members of that workspace only) |
+| GET | `/platform/access-requests` | `commercial.read` | → the last 200 Request access leads, newest first: `{id, name, company, email, phone, volume, status: QUEUED\|EMAILED\|EMAIL_FAILED\|EMAIL_SKIPPED, createdAt}` |
 | GET | `/platform/email-deliveries` | `audit.read` | → the last 100 emails: `{kind, status: SENT\|FAILED\|SKIPPED_NO_SMTP\|SUPPRESSED, recipientHint, errorCode}` |
 
 Tenant: `POST /team/invitations` now returns `link` (72 h, single use; the email carries the same link when SMTP is configured). `POST /team/invitations/:id/resend` returns `{data: {link, expiresAt}}`, and the previous link stops working. Links are shown once; only their SHA-256 is stored. Seat (`max_users`) and WhatsApp number (`max_phone_numbers`) limits come from the entitlements (422 `LIMIT_EXCEEDED`).
+
+### Public (marketing site). No auth, no cookies.
+
+| Method | Path | Body → result |
+| --- | --- | --- |
+| POST | `/public/request-access` | `{name, company, email, phone, volume, website?}` (strict; `volume` is one of `ACCESS_REQUEST_VOLUMES`) → 200 `{received: true}`. 400 on validation, 429 `RATE_LIMITED` after 5 per IP per hour (200 per hour overall). `website` is a honeypot: a non-empty value answers the same 200 and stores nothing. The lead (`access_requests`) and its outbox event commit together; the worker emails fenwira@zenteqk.com from MAIL_FROM with Reply-To the visitor, and records the outcome on the lead and in `email_deliveries` |
+
+CORS for `/public/*` allows only `PUBLIC_SITE_ORIGINS` (default `https://fenwira.com,https://www.fenwira.com`), POST, `Content-Type`, no credentials. `@PublicSite()` makes the CSRF guard accept only those origins (or none) on these routes; every other route keeps `WEB_ORIGIN`.
 
 ### Platform WhatsApp (ADR-0027 Managed Launch Mode)
 

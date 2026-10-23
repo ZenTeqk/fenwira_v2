@@ -137,3 +137,26 @@ export function invitationEmail(inviter: string, workspace: string, role: string
     ),
   }
 }
+
+/** Request access lead for the Fenwira team (Reply-To is the visitor, set by the processor). */
+export function accessRequestEmail(
+  lead: { name: string; company: string; email: string; phone: string; volume: string },
+  consoleUrl: string,
+) {
+  return {
+    subject: `Request access: ${lead.company}`,
+    ...layout(
+      `New request from ${lead.company}`,
+      [
+        `Name: ${lead.name}`,
+        `Company: ${lead.company}`,
+        `Email: ${lead.email}`,
+        `Phone: ${lead.phone}`,
+        `Expected volume: ${lead.volume}`,
+        'Reply to this email to answer the visitor directly.',
+      ],
+      { label: 'Open in the operator console', url: consoleUrl },
+      'Sent by the Request access form on fenwira.com.',
+    ),
+  }
+}

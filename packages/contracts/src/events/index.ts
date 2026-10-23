@@ -35,6 +35,8 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     tokenCiphertext: z.string().optional(),
     kind: z.enum(['RESET', 'SETUP']).optional(),
   }),
+  // Marketing-site Request access (platform event). The worker emails the lead to the team.
+  'leads.access_request.submitted': z.object({ accessRequestId: z.uuid() }),
   // Tenancy (tenant events). The worker (re)generates the invitation token and emails it.
   'tenancy.invitation.sent': z.object({
     invitationId: z.uuid(),

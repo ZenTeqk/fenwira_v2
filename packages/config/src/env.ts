@@ -180,6 +180,17 @@ export const apiEnvSchema = baseEnvSchema
     TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
     /** e.g. ".fenwira.com" when web and API are on sibling subdomains; unset for localhost. */
     COOKIE_DOMAIN: z.string().optional(),
+    /** Marketing-site origins for POST /api/v1/public/* only (comma-separated, exact). */
+    PUBLIC_SITE_ORIGINS: z
+      .string()
+      .default('https://fenwira.com,https://www.fenwira.com')
+      .transform((v) =>
+        v
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.url())),
     ...metaEnv,
     META_WEBHOOK_VERIFY_TOKEN: optionalString,
     META_ES_CONFIG_ID: optionalString,

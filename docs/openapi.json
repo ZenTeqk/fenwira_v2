@@ -9363,6 +9363,35 @@
         "x-permission": "workspace.read"
       }
     },
+    "/api/v1/platform/access-requests": {
+      "get": {
+        "operationId": "PlatformLeads_list",
+        "tags": [
+          "PlatformLeads"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "commercial.read"
+      }
+    },
     "/api/v1/platform/audit": {
       "get": {
         "operationId": "CommercialRead_audit",
@@ -12149,6 +12178,86 @@
           }
         ],
         "x-platform-permission": "whatsapp.manage"
+      }
+    },
+    "/api/v1/public/request-access": {
+      "post": {
+        "operationId": "PublicLeads_requestAccess",
+        "tags": [
+          "PublicLeads"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100,
+                    "pattern": "^[^\\p{Cc}]*$"
+                  },
+                  "company": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200,
+                    "pattern": "^[^\\p{Cc}]*$"
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "pattern": "^\\+?[0-9 ()-]{7,20}$"
+                  },
+                  "volume": {
+                    "type": "string",
+                    "enum": [
+                      "Under 1,000 messages a month",
+                      "1,000–10,000 messages a month",
+                      "10,000–100,000 messages a month",
+                      "Over 100,000 messages a month",
+                      "Not sure yet"
+                    ]
+                  },
+                  "website": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "name",
+                  "company",
+                  "email",
+                  "phone",
+                  "volume"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
       }
     },
     "/api/v1/roles": {

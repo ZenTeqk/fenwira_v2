@@ -3,6 +3,10 @@ import 'reflect-metadata'
 import { type ApiEnv } from '@fenwira/config'
 import { json, type Request, type Response, type NextFunction } from 'express'
 import { type INestApplication, RequestMethod } from '@nestjs/common'
+import {
+  type CorsOptions,
+  type CorsOptionsDelegate,
+} from '@nestjs/common/interfaces/external/cors-options.interface'
 import { NestFactory } from '@nestjs/core'
 import { type NestExpressApplication } from '@nestjs/platform-express'
 import cookieParser from 'cookie-parser'
@@ -13,6 +17,39 @@ import { correlationMiddleware } from './core/http/correlation.middleware'
 import { RedisIoAdapter } from './modules/realtime'
 
 /** Builds the configured API application (used by main.ts and integration tests). */
+/**
+ * CORS: the app origin for every route (with credentials); the marketing-site origins only for
+ * the cookieless /api/v1/public/* routes (POST, no credentials). docs/SECURITY.md → CORS.
+ */
+export function corsOptionsFor(
+  webOrigin: string,
+  publicSiteOrigins: string[],
+): CorsOptionsDelegate<Request> {
+  const app: CorsOptions = {
+    origin: webOrigin,
+    credentials: true,
+    exposedHeaders: ['X-Correlation-Id', 'Retry-After', 'ETag'],
+    allowedHeaders: [
+      'Content-Type',
+      'X-Tenant-Id',
+      'X-CSRF-Token',
+      'X-Correlation-Id',
+      'Idempotency-Key',
+      // Automation drafts: optimistic concurrency (PUT /flows/:id/draft).
+      'If-Match',
+    ],
+  }
+  const site: CorsOptions = {
+    origin: publicSiteOrigins,
+    credentials: false,
+    methods: ['POST'],
+    allowedHeaders: ['Content-Type'],
+    exposedHeaders: ['Retry-After'],
+    maxAge: 600,
+  }
+  return (req, cb) => cb(null, req.path.startsWith('/api/v1/public/') ? site : app)
+}
+
 export type ApiAppOptions = { logDestination?: DestinationStream }
 
 /** Largest Meta webhook body accepted (Meta: up to 3 MB). */
@@ -56,20 +93,7 @@ export async function createApiApp(
   })
   app.use(helmet())
   app.use(cookieParser())
-  app.enableCors({
-    origin: env.WEB_ORIGIN,
-    credentials: true,
-    exposedHeaders: ['X-Correlation-Id', 'Retry-After', 'ETag'],
-    allowedHeaders: [
-      'Content-Type',
-      'X-Tenant-Id',
-      'X-CSRF-Token',
-      'X-Correlation-Id',
-      'Idempotency-Key',
-      // Automation drafts: optimistic concurrency (PUT /flows/:id/draft).
-      'If-Match',
-    ],
-  })
+  app.enableCors(corsOptionsFor(env.WEB_ORIGIN, env.PUBLIC_SITE_ORIGINS))
   const ws = new RedisIoAdapter(app, env.REDIS_URL, env.WEB_ORIGIN)
   await ws.connect()
   app.useWebSocketAdapter(ws)
