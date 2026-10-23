@@ -160,3 +160,21 @@ export function accessRequestEmail(
     ),
   }
 }
+
+/** Manual UPI billing emails (ADR-0027): issued, due soon, overdue, approved, rejected. */
+export function invoiceNoticeEmail(
+  name: string,
+  workspace: string,
+  copy: { subject: string; title: string; lines: string[]; cta: string },
+  url: string,
+) {
+  return {
+    subject: copy.subject,
+    ...layout(
+      `Hi ${name}, ${copy.title}`,
+      copy.lines,
+      { label: copy.cta, url },
+      `You receive this because you manage billing for ${workspace} on Fenwira. Meta's WhatsApp charges are billed by Meta separately.`,
+    ),
+  }
+}

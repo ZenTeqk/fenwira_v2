@@ -33,6 +33,8 @@ export type NavLeaf = {
    * §8), so its pages appear one by one; remove the flag once SHIPPED_PHASE reaches 11.
    */
   early?: true
+  /** Hidden from customers in Managed Launch Mode (ADR-0027: one simple billing view). */
+  hideInManagedLaunch?: true
   /** `action` leaves (create …) go to the command palette's Create group, not the module tabs. */
   kind?: 'page' | 'action'
 }
@@ -216,6 +218,7 @@ export const NAVIGATION: NavItem[] = [
         label: 'Usage',
         href: '/analytics/usage',
         phase: 11,
+        hideInManagedLaunch: true,
         permission: 'billing.read',
         early: true,
       },
@@ -270,6 +273,7 @@ export const NAVIGATION: NavItem[] = [
         label: 'Subscription',
         href: '/billing/subscription',
         phase: 11,
+        hideInManagedLaunch: true,
         permission: 'billing.read',
         early: true,
       },
@@ -287,6 +291,7 @@ export const NAVIGATION: NavItem[] = [
         label: 'Wallet',
         href: '/billing/wallet',
         phase: 11,
+        hideInManagedLaunch: true,
         permission: 'billing.read',
         early: true,
       },
@@ -295,6 +300,7 @@ export const NAVIGATION: NavItem[] = [
         label: 'Usage',
         href: '/billing/usage',
         phase: 11,
+        hideInManagedLaunch: true,
         permission: 'billing.read',
       },
     ],
@@ -348,9 +354,15 @@ export const NAVIGATION: NavItem[] = [
 
 export const navPreviewEnabled = (): boolean => process.env.NEXT_PUBLIC_NAV_PREVIEW === 'true'
 
-const visible = (leaf: NavLeaf, preview: boolean, permissions?: readonly Permission[]) =>
+const visible = (
+  leaf: NavLeaf,
+  preview: boolean,
+  permissions?: readonly Permission[],
+  managedLaunch = false,
+) =>
   (preview || leaf.phase <= SHIPPED_PHASE || leaf.early === true) &&
-  (!leaf.permission || !permissions || permissions.includes(leaf.permission))
+  (!leaf.permission || !permissions || permissions.includes(leaf.permission)) &&
+  !(managedLaunch && leaf.hideInManagedLaunch)
 
 /**
  * Visible navigation: unshipped leaves and leaves the member lacks permission for are removed;
@@ -360,10 +372,14 @@ export function visibleNavigation(
   preview: boolean,
   nav: NavItem[] = NAVIGATION,
   permissions?: readonly Permission[],
+  /** ADR-0027: wallet, usage and plan-request pages are hidden from customers in Managed Launch. */
+  managedLaunch = false,
 ): NavItem[] {
   return nav.flatMap((item) => {
-    if (!item.children) return visible(item, preview, permissions) ? [item] : []
-    const children = item.children.filter((child) => visible(child, preview, permissions))
+    if (!item.children) return visible(item, preview, permissions, managedLaunch) ? [item] : []
+    const children = item.children.filter((child) =>
+      visible(child, preview, permissions, managedLaunch),
+    )
     return children.length > 0 ? [{ ...item, children }] : []
   })
 }

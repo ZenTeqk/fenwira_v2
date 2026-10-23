@@ -35,6 +35,13 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     tokenCiphertext: z.string().optional(),
     kind: z.enum(['RESET', 'SETUP']).optional(),
   }),
+  // Manual UPI billing emails to billing readers (tenant event). The worker creates the in-app
+  // notification once per member and claims each email once (notifications.emailed_at).
+  'billing.invoice_notice': z.object({
+    invoiceId: z.uuid(),
+    notice: z.enum(['ISSUED', 'DUE_SOON', 'OVERDUE', 'PAID', 'REJECTED']),
+    proofId: z.uuid().optional(),
+  }),
   // Marketing-site Request access (platform event). The worker emails the lead to the team.
   'leads.access_request.submitted': z.object({ accessRequestId: z.uuid() }),
   // Tenancy (tenant events). The worker (re)generates the invitation token and emails it.

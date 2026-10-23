@@ -164,7 +164,11 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
         action: 'Review connection',
       })
   }
-  if (ws && (ws.state === 'INSUFFICIENT_FUNDS' || ws.state === 'LOW_BALANCE')) {
+  if (
+    !me.features.managedLaunch &&
+    ws &&
+    (ws.state === 'INSUFFICIENT_FUNDS' || ws.state === 'LOW_BALANCE')
+  ) {
     const empty = ws.state === 'INSUFFICIENT_FUNDS'
     const available =
       ws.availableMinor === null ? null : formatMoney(ws.availableMinor, ws.currency)
@@ -435,35 +439,37 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
               )
             }
           />
-          <MetricCard
-            compact
-            className="p-2"
-            label="Wallet"
-            icon={<Wallet />}
-            loading={can('billing.read') && wallet.isPending}
-            value={
-              !wallet.data
-                ? '—'
-                : wallet.data.enforced
-                  ? formatMoney(wallet.data.availableMinor, wallet.data.currency)
-                  : 'Not charged'
-            }
-            hint={
-              !wallet.data ? (
-                can('billing.read') ? (
-                  'Wallet balance is unavailable'
+          {me.features.managedLaunch ? null : (
+            <MetricCard
+              compact
+              className="p-2"
+              label="Wallet"
+              icon={<Wallet />}
+              loading={can('billing.read') && wallet.isPending}
+              value={
+                !wallet.data
+                  ? '—'
+                  : wallet.data.enforced
+                    ? formatMoney(wallet.data.availableMinor, wallet.data.currency)
+                    : 'Not charged'
+              }
+              hint={
+                !wallet.data ? (
+                  can('billing.read') ? (
+                    'Wallet balance is unavailable'
+                  ) : (
+                    'Your role can’t view billing'
+                  )
                 ) : (
-                  'Your role can’t view billing'
+                  <span className="flex flex-wrap items-center gap-2">
+                    <Link className="underline-offset-4 hover:underline" href="/billing/wallet">
+                      Open wallet
+                    </Link>
+                  </span>
                 )
-              ) : (
-                <span className="flex flex-wrap items-center gap-2">
-                  <Link className="underline-offset-4 hover:underline" href="/billing/wallet">
-                    Open wallet
-                  </Link>
-                </span>
-              )
-            }
-          />
+              }
+            />
+          )}
         </>
       }
     >

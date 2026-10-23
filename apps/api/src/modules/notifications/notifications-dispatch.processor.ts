@@ -7,15 +7,24 @@ import { PinoLogger } from 'nestjs-pino'
 import { MetricsService } from '../../core/metrics/metrics.service'
 import { type QueueProcessor } from '../../core/queue/queue-processor'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
-import { BILLING_OPTIONS, billingEnforcedFor, type BillingOptions } from '../billing'
-import { Mailer, OpsAlerts, walletLowBalanceEmail } from '../platform'
+import {
+  BILLING_OPTIONS,
+  billingEnforcedFor,
+  type BillingOptions,
+  invoiceNoticeKey,
+} from '../billing'
+import { invoiceNoticeEmail, Mailer, OpsAlerts, walletLowBalanceEmail } from '../platform'
+import { invoiceNoticeCopy } from './invoice-notices'
 import { createNotificationOnce } from './notifications'
 import { NOTIFICATIONS_OPTIONS, type NotificationsOptions } from './notifications.options'
 
 type WalletJob =
   EventJob<'wallet.low_balance'> | EventJob<'wallet.recovered'> | EventJob<'wallet.funded'>
 type DispatchJob =
-  WalletJob | EventJob<'subscription.plan_requested'> | EventJob<'commercial.operation_completed'>
+  | WalletJob
+  | EventJob<'subscription.plan_requested'>
+  | EventJob<'commercial.operation_completed'>
+  | EventJob<'billing.invoice_notice'>
 
 /** Roles that can view billing (ROLE_PERMISSIONS is the single source, never a hard-coded list). */
 const BILLING_READERS = (Object.keys(ROLE_PERMISSIONS) as Role[]).filter((r) =>
@@ -66,7 +75,105 @@ export class NotificationsDispatchProcessor implements QueueProcessor<DispatchJo
       return this.wallet(e.tenantId, e)
     if (e.eventType === 'subscription.plan_requested')
       return this.planRequested(e.tenantId, e.payload)
+    if (e.eventType === 'billing.invoice_notice') return this.invoiceNotice(e.tenantId, e.payload)
     return 'ignored'
+  }
+
+  /**
+   * Manual UPI billing emails (ADR-0027). The in-app notification is created once per member
+   * (the API already created it for ISSUED/PAID/REJECTED); each member's email is then claimed
+   * once by setting notifications.emailed_at, so redelivered events and the daily reminder job
+   * never send twice. Reminders for an invoice that is no longer open (or has a pending proof)
+   * are superseded. The Mailer never throws (fail soft, recorded in email_deliveries).
+   */
+  private async invoiceNotice(
+    tenantId: string,
+    p: {
+      invoiceId: string
+      notice: 'ISSUED' | 'DUE_SOON' | 'OVERDUE' | 'PAID' | 'REJECTED'
+      proofId?: string
+    },
+  ): Promise<string> {
+    const key = invoiceNoticeKey(p.invoiceId, p.notice, p.proofId)
+    const result = await this.db.withTenant(tenantId, async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:${key}`}))`
+      const inv = await tx.invoice.findFirst({
+        where: { id: p.invoiceId },
+        include: {
+          proofs: {
+            select: { id: true, status: true, rejectionReason: true, receiptNumber: true },
+          },
+        },
+      })
+      if (!inv) return 'missing' as const
+      const reminder = p.notice === 'DUE_SOON' || p.notice === 'OVERDUE'
+      if (reminder && (inv.status !== 'OPEN' || inv.proofs.some((x) => x.status === 'PENDING')))
+        return 'superseded' as const
+      const tenant = await tx.tenant.findUniqueOrThrow({
+        where: { id: tenantId },
+        select: { name: true },
+      })
+      const proof = p.proofId ? inv.proofs.find((x) => x.id === p.proofId) : undefined
+      const copy = invoiceNoticeCopy(p.notice, {
+        number: inv.number,
+        amount: formatMoney(Number(inv.totalMinor), inv.currency),
+        dueDate: inv.dueAt.toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'Asia/Kolkata',
+        }),
+        receiptNumber: inv.proofs.find((x) => x.status === 'APPROVED')?.receiptNumber ?? null,
+        reason: proof?.rejectionReason ?? null,
+      })
+      const members = await tx.membership.findMany({
+        where: { status: 'ACTIVE', role: { in: BILLING_READERS } },
+        select: { user: { select: { id: true, name: true, email: true } } },
+      })
+      const created: Array<{ userId: string; notification: Notification }> = []
+      for (const { user } of members) {
+        const notification = await createNotificationOnce(tx, {
+          tenantId,
+          userId: user.id,
+          type: `billing.invoice_${p.notice.toLowerCase()}`,
+          title: copy.subject,
+          body: copy.lines[0]!,
+          severity: copy.severity,
+          link: `/billing/invoices?invoice=${inv.id}`,
+          dedupeKey: key,
+        })
+        if (notification) created.push({ userId: user.id, notification })
+      }
+      const claimed = await tx.$queryRaw<Array<{ user_id: string }>>`
+        UPDATE notifications SET emailed_at = now()
+        WHERE tenant_id = ${tenantId}::uuid AND dedupe_key = ${key} AND emailed_at IS NULL
+        RETURNING user_id`
+      const ids = new Set(claimed.map((c) => c.user_id))
+      return {
+        workspace: tenant.name,
+        copy,
+        invoiceId: inv.id,
+        created,
+        recipients: members.map((m) => m.user).filter((u) => ids.has(u.id)),
+      }
+    })
+    if (typeof result === 'string') return result
+    for (const c of result.created)
+      this.realtime.toUser(c.userId, 'notification.created', c.notification)
+    for (const user of result.recipients)
+      await this.mailer.send(
+        {
+          to: user.email,
+          ...invoiceNoticeEmail(
+            user.name,
+            result.workspace,
+            result.copy,
+            `${this.options.webOrigin}/billing/invoices?invoice=${result.invoiceId}`,
+          ),
+        },
+        `invoice_${p.notice.toLowerCase()}`,
+      )
+    return `invoice-notice:${p.notice}:${result.recipients.length}`
   }
 
   private async commercial(tenantId: string, operationId: string): Promise<string> {

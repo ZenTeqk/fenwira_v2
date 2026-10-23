@@ -15,6 +15,7 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'identity.password_reset.requested': [QUEUES.identityEvents],
   'tenancy.invitation.sent': [QUEUES.tenancyEvents],
   'leads.access_request.submitted': [QUEUES.leadsEvents],
+  'billing.invoice_notice': [QUEUES.notificationsDispatch],
   // A newly connected number's WABA gets its templates imported (docs/TEMPLATE_ENGINE.md).
   'whatsapp.connection.changed': [QUEUES.templatesSync],
   // Campaigns subscribe in Phase 9.

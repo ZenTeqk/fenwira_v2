@@ -143,3 +143,23 @@ describe('navigation', () => {
     ])
   })
 })
+
+describe('Managed Launch billing navigation', () => {
+  it('hides wallet, usage and plan-request pages from customers, keeping invoices', async () => {
+    const { NAVIGATION, visibleNavigation, flattenLeaves } = await import('../lib/navigation')
+    const hrefs = (managed: boolean) =>
+      flattenLeaves(visibleNavigation(false, NAVIGATION, undefined, managed)).map((l) => l.href)
+    const managed = hrefs(true)
+    for (const hidden of [
+      '/billing/wallet',
+      '/billing/usage',
+      '/billing/subscription',
+      '/analytics/usage',
+    ])
+      expect(managed).not.toContain(hidden)
+    expect(managed).toContain('/billing/invoices')
+    expect(hrefs(false)).toEqual(
+      expect.arrayContaining(['/billing/wallet', '/billing/subscription']),
+    )
+  })
+})

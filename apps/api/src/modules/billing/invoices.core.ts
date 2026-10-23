@@ -205,6 +205,7 @@ export async function issueInvoice(
     body: `${invoice.description}. Pay ${invoice.currency} ${majorAmount(invoice.totalMinor)} by UPI before ${invoice.dueAt.toUTCString().slice(0, 16)}.`,
     link: `/billing/invoices?invoice=${invoice.id}`,
   })
+  await emitInvoiceNotice(tx, tenantId, invoice.id, 'ISSUED')
   return invoice
 }
 
@@ -270,6 +271,7 @@ export async function applyApprovedPayment(
     body: `Receipt ${receiptNumber}. Thank you.`,
     link: `/billing/invoices?invoice=${invoice.id}`,
   })
+  await emitInvoiceNotice(tx, tenantId, invoice.id, 'PAID')
   return { invoiceId: invoice.id, receiptNumber, effect }
 }
 
@@ -372,6 +374,7 @@ export async function rejectPayment(
     body: `${reason} You can submit the payment proof again.`,
     link: `/billing/invoices?invoice=${proof.invoice.id}`,
   })
+  await emitInvoiceNotice(tx, tenantId, proof.invoice.id, 'REJECTED', proofId)
   return { invoiceId: proof.invoice.id, rejected: true }
 }
 
@@ -405,6 +408,33 @@ type NotificationCopy = {
   title: string
   body: string
   link: string
+}
+
+export type InvoiceNotice = 'ISSUED' | 'DUE_SOON' | 'OVERDUE' | 'PAID' | 'REJECTED'
+
+/** Notification dedupe key per notice; ISSUED/PAID/REJECTED match notifyBillingReaders' keys. */
+export const invoiceNoticeKey = (invoiceId: string, notice: InvoiceNotice, proofId?: string) =>
+  notice === 'REJECTED'
+    ? `proof:${proofId}:rejected`
+    : `invoice:${invoiceId}:${{ ISSUED: 'issued', DUE_SOON: 'due-soon', OVERDUE: 'overdue', PAID: 'paid' }[notice]}`
+
+/** Queues the billing email for this notice (worker: notifications.dispatch), in the same tx. */
+export async function emitInvoiceNotice(
+  tx: TenantTx,
+  tenantId: string,
+  invoiceId: string,
+  notice: InvoiceNotice,
+  proofId?: string,
+) {
+  await tx.outboxEvent.create({
+    data: {
+      tenantId,
+      eventType: 'billing.invoice_notice',
+      aggregateType: 'invoice',
+      aggregateId: invoiceId,
+      payload: { invoiceId, notice, ...(proofId ? { proofId } : {}) },
+    },
+  })
 }
 
 /** In-app notification for members who can view billing, once per dedupe key and member. */

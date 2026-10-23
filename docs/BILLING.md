@@ -229,6 +229,11 @@ A retried approval returns the same result. A second, different review (for exam
 
 "Payment due" is ACTIVE with an open renewal, reported as `subscription.paymentDue` by `GET /workspace/status`. Without managed launch the old behaviour applies (periods roll monthly). Suspension takes effect only where subscriptions are enforced (`BILLING_SUBSCRIPTIONS_ENFORCED`).
 
+### Customer view and emails (Managed Launch)
+
+- Customers see one billing page (`/billing/invoices`): plan, monthly price, next due date (or trial end), and the open payment request with the UPI QR, a copyable UPI link and the UTR form. Wallet, usage/price and plan-request pages are hidden from navigation and redirect there; operators manage wallets in `/platform`. Wallet logic is unchanged.
+- Emails to billing readers (worker `notifications.dispatch`, event `billing.invoice_notice`): invoice issued, due in 3 days, overdue, payment approved (receipt) and payment rejected (reason). The daily `invoice-reminders` job (09:00 IST) queues due-soon and overdue notices for open invoices without a pending proof. Each member's email is claimed once via `notifications.emailed_at`, so reruns and redeliveries never send twice; the Mailer fails soft and records every attempt in `email_deliveries`.
+
 ### Operator dashboard
 
 `GET /platform/billing/dashboard` (`payments.read`) shows the pending proofs (oldest first), workspaces with overdue open invoices or a PAST_DUE/SUSPENDED subscription, and paid totals per month (Asia/Kolkata) for the last 12 months. Each comes from an operator-scoped SECURITY DEFINER function (X22c) that returns billing fields only.
