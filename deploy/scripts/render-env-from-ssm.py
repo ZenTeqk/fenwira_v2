@@ -48,7 +48,13 @@ CONFIG = {
     "config/s3-bucket-media": "S3_BUCKET_MEDIA",
     "config/s3-bucket-imports": "S3_BUCKET_IMPORTS",
     "config/s3-bucket-exports": "S3_BUCKET_EXPORTS",
+    # ADR-0027 manual UPI billing (docs/MANAGED_LAUNCH.md → Configuration). Non-secret Strings.
+    "config/upi-vpa": "UPI_VPA",
+    "config/upi-payee-name": "UPI_PAYEE_NAME",
+    "config/billing-gstin": "BILLING_GSTIN",
 }
+# Read by both api and worker (invoices, renewals, Managed Launch gating).
+BILLING_VARS = ["UPI_VPA", "UPI_PAYEE_NAME", "BILLING_GSTIN"]
 
 SHARED_SERVER = {
     "NODE_ENV": "production",
@@ -60,9 +66,15 @@ SHARED_SERVER = {
     "META_GRAPH_API_VERSION": "v23.0",
     "BILLING_ENFORCED": "false",
     "BILLING_SUBSCRIPTIONS_ENFORCED": "false",
-    # ADR-0027: switching production to Managed Launch Mode is an explicit rollout decision.
-    "MANAGED_LAUNCH_MODE": "false",
 }
+
+
+def managed_launch_mode(params: dict) -> str:
+    """ADR-0027: an explicit rollout decision, set in SSM config/managed-launch-mode. Absent = false."""
+    value = params.get("config/managed-launch-mode", "false").strip().lower()
+    if value not in ("true", "false"):
+        sys.exit("[fenwira] ERROR: config/managed-launch-mode must be 'true' or 'false'")
+    return value
 SERVER_VARS = [
     "DATABASE_URL", "ENCRYPTION_KEYS", "ENCRYPTION_ACTIVE_KEY_ID", "S3_REGION", "S3_ENDPOINT",
     "S3_BUCKET_MEDIA", "S3_BUCKET_IMPORTS", "S3_BUCKET_EXPORTS", "META_APP_ID", "META_APP_SECRET",
@@ -123,23 +135,27 @@ def main() -> None:
     cookie_domain = "." + app_domain.split(".", 1)[1]
 
     pick = lambda names: {n: src[n] for n in names if n in src}
+    managed = {"MANAGED_LAUNCH_MODE": managed_launch_mode(params)}
     files = {
         "api": {
-            **SHARED_SERVER, "APP_VERSION": args.release, "HOST": "127.0.0.1", "PORT": "4000",
+            **SHARED_SERVER, **managed, "APP_VERSION": args.release, "HOST": "127.0.0.1",
+            "PORT": "4000",
             "METRICS_HOST": "127.0.0.1", "WEB_ORIGIN": web_origin,
             "PUBLIC_API_URL": f"https://{api_domain}", "COOKIE_SECURE": "true",
             "COOKIE_DOMAIN": cookie_domain, "TRUST_PROXY": "1", "WHATSAPP_DEV_CONNECT": "false",
             "SYSTEM_PING_ENABLED": "false", "NODE_OPTIONS": "--max-old-space-size=512",
-            **pick(SERVER_VARS + ["JWT_PRIVATE_KEY", "JWT_PUBLIC_KEY", "API_KEY_PEPPER",
-                                  "META_WEBHOOK_VERIFY_TOKEN", "META_ES_CONFIG_ID"]),
+            **pick(SERVER_VARS + BILLING_VARS + ["JWT_PRIVATE_KEY", "JWT_PUBLIC_KEY",
+                                                 "API_KEY_PEPPER", "META_WEBHOOK_VERIFY_TOKEN",
+                                                 "META_ES_CONFIG_ID"]),
         },
         "worker": {
-            **SHARED_SERVER, "APP_VERSION": args.release, "WORKER_HEALTH_HOST": "127.0.0.1",
+            **SHARED_SERVER, **managed, "APP_VERSION": args.release,
+            "WORKER_HEALTH_HOST": "127.0.0.1",
             "WORKER_HEALTH_PORT": "4100", "WEB_ORIGIN": web_origin,
             "NODE_OPTIONS": "--max-old-space-size=768",
             # ADR-0027 item C: replies to no-reply@fenwira.com go to the team mailbox.
             "MAIL_REPLY_TO": params.get("config/mail-reply-to", "fenwira@zenteqk.com"),
-            **pick(SERVER_VARS + ["SMTP_URL", "MAIL_FROM", "OPS_ALERT_EMAIL"]),
+            **pick(SERVER_VARS + BILLING_VARS + ["SMTP_URL", "MAIL_FROM", "OPS_ALERT_EMAIL"]),
         },
         "web": {
             "NODE_ENV": "production", "NEXT_TELEMETRY_DISABLED": "1", "HOSTNAME": "127.0.0.1",

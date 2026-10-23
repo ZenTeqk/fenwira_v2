@@ -6,6 +6,19 @@ How the operator onboards and runs customers in Managed Launch Mode (ADR-0027, d
 
 > Nothing here has been tested against real Meta yet; only the Meta mock has. Treat the first customer as the first real test (step 6 of the brief).
 
+## 0. Configuration (SSM, read on every deploy)
+
+`deploy/scripts/render-env-from-ssm.py` reads these non-secret `String` parameters into the api and worker env:
+
+| Parameter | Env | Notes |
+| --- | --- | --- |
+| `/fenwira/prod/config/managed-launch-mode` | `MANAGED_LAUNCH_MODE` | `true` or `false`; absent = `false`. Turns on Managed Launch Mode: Embedded Signup and tenant Meta-connection routes return 404, and manual UPI billing is enabled |
+| `/fenwira/prod/config/upi-vpa` | `UPI_VPA` | UPI ID shown on invoices (e.g. `name@bank`). Without it and the payee name, invoices show no UPI QR |
+| `/fenwira/prod/config/upi-payee-name` | `UPI_PAYEE_NAME` | Payee name on the UPI QR/link |
+| `/fenwira/prod/config/billing-gstin` | `BILLING_GSTIN` | Optional. GST stays off unless configured (ML-D3) |
+
+`BILLING_SUBSCRIPTIONS_ENFORCED` stays `false` (ML-D5 business decision). After changing a parameter, redeploy (or re-render the env and restart api and worker).
+
 ## 1. One-time Meta prerequisites (per customer app)
 
 ML-D1: each customer usually has their own Meta app and system user. Before the call, the customer (or you, with their access) must have:
