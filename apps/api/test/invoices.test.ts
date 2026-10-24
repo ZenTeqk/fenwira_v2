@@ -4,6 +4,7 @@ import {
   displayStatusOf,
   majorAmount,
   taxFor,
+  toInvoiceDetail,
   upiDeepLink,
 } from '../src/modules/billing/invoices.core'
 import { manualBillingFromEnv } from '../src/modules/billing/billing.options'
@@ -22,6 +23,51 @@ describe('UPI payment request', () => {
     expect(upiDeepLink(inv)).toBe(
       'upi://pay?pa=fenwira%40okaxis&pn=ZenteqK%20Fenwira%20%26%20Co&am=1499.50&cu=INR&tn=FW-INV-000042',
     )
+  })
+
+  it('puts the exact amount, payee, VPA and invoice number in a ~512 px QR', async () => {
+    const now = new Date()
+    const detail = await toInvoiceDetail({
+      id: '00000000-0000-7000-8000-000000000001',
+      tenantId: '00000000-0000-7000-8000-000000000002',
+      number: inv.number,
+      kind: 'PLAN_RENEWAL',
+      status: 'OPEN',
+      currency: 'INR',
+      subtotalMinor: inv.totalMinor,
+      taxMinor: 0n,
+      totalMinor: inv.totalMinor,
+      taxLines: [],
+      planId: null,
+      plan: null,
+      description: 'Growth plan',
+      dueAt: now,
+      payeeVpa: inv.payeeVpa,
+      payeeName: inv.payeeName,
+      gstin: null,
+      createdByType: 'SYSTEM',
+      createdById: null,
+      issuedAt: now,
+      paidAt: null,
+      voidedAt: null,
+      voidReason: null,
+      commercialOperationId: null,
+      createdAt: now,
+      updatedAt: now,
+      proofs: [],
+    })
+    const link = new URL(detail.upi!.deepLink.replace('upi://pay', 'https://upi.invalid/pay'))
+    expect(Object.fromEntries(link.searchParams)).toEqual({
+      pa: 'fenwira@okaxis',
+      pn: 'ZenteqK Fenwira & Co',
+      am: '1499.50',
+      cu: 'INR',
+      tn: 'FW-INV-000042',
+    })
+    const png = Buffer.from(detail.upi!.qrDataUrl.split(',')[1]!, 'base64')
+    // IHDR width/height: whole pixels per module, so within a module of 512.
+    expect(png.readUInt32BE(16)).toBeGreaterThanOrEqual(500)
+    expect(png.readUInt32BE(20)).toBe(png.readUInt32BE(16))
   })
 
   it('formats minor units exactly, without floating point', () => {
