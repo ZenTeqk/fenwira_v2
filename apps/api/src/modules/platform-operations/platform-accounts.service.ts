@@ -1,6 +1,7 @@
 import { encryptSecret, randomToken, sha256, uuidv7 } from '@fenwira/config'
 import { CORE_CONFIG, type CoreConfig } from '../../core/config/core-config'
 import {
+  type DeleteWorkspaceRequest,
   type CreateWorkspaceWithOwner,
   type EmailDelivery,
   type OneTimeLink,
@@ -183,6 +184,51 @@ export class PlatformAccountsService {
       link: `${this.identity.webOrigin}/reset-password?token=${token}`,
       expiresAt: expiresAt.toISOString(),
     }
+  }
+
+  /**
+   * Soft delete (same as an owner's DELETE /workspace): the workspace disappears for everyone at
+   * once and its data is kept. Never the internal workspace; a live WhatsApp number must be
+   * disconnected first so it can be connected elsewhere and nothing keeps sending.
+   */
+  async deleteWorkspace(workspaceId: string, input: DeleteWorkspaceRequest): Promise<void> {
+    const operatorId = this.operator()
+    await this.workspace(workspaceId)
+    await this.db.withTenant(workspaceId, async (tx) => {
+      const tenant = await tx.tenant.findFirst({
+        where: { id: workspaceId, deletedAt: null },
+        select: { name: true, isInternal: true },
+      })
+      if (!tenant) throw new AppError('TENANT_NOT_FOUND', 404, 'Workspace not found.')
+      if (tenant.isInternal)
+        throw new AppError('CONFLICT', 409, 'The internal workspace cannot be deleted.')
+      if (input.confirmName !== tenant.name)
+        throw AppError.validation(
+          [
+            {
+              path: 'confirmName',
+              code: 'mismatch',
+              message: 'Type the workspace name exactly as shown.',
+            },
+          ],
+          'The name does not match this workspace.',
+        )
+      const live = await tx.whatsAppPhoneNumber.count({
+        where: { status: { not: 'DISCONNECTED' } },
+      })
+      if (live)
+        throw new AppError(
+          'CONFLICT',
+          409,
+          'This workspace still has a connected WhatsApp number. Disconnect it in the WhatsApp section first.',
+        )
+      await tx.tenant.update({ where: { id: workspaceId }, data: { deletedAt: new Date() } })
+      await this.audit(tx, workspaceId, operatorId, 'workspace.deleted', 'workspace', workspaceId, {
+        reason: input.reason,
+        by: 'PLATFORM_OPERATOR',
+      })
+    })
+    await this.platformAudit(operatorId, workspaceId, 'platform.workspace_deleted')
   }
 
   async emailDeliveries(): Promise<EmailDelivery[]> {

@@ -32,6 +32,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { platformMoney, platformRequest } from '@/lib/platform'
 import { CommercialActions, ReceiptDetails } from './commercial-actions'
+import { DeleteWorkspace } from './delete-workspace'
 import { usePlatform } from './platform-shell'
 import { WorkspaceMembers } from './platform-accounts'
 import { WorkspaceInvoices } from './workspace-invoices'
@@ -304,6 +305,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
       <div id="operations">
         <CommercialActions data={data} />
       </div>
+      <DeleteWorkspace workspace={workspace} />
     </DetailPage>
   )
 }

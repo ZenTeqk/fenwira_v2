@@ -297,3 +297,27 @@ test('consequential funding needs preview and impact confirmation; retry retains
   expect(commands[0]).toEqual(commands[1])
   await page.keyboard.press('Escape')
 })
+
+test('operator deletes an unwanted workspace after typing its name and a reason', async ({
+  page,
+}) => {
+  const deleted: unknown[] = []
+  await mock(page, [...permissions, 'workspaces.manage'])
+  await page.route(`**/api/v1/platform/workspaces/${id}/delete`, async (route) => {
+    deleted.push(route.request().postDataJSON())
+    await route.fulfill({ status: 204 })
+  })
+  await page.goto(`/platform/workspaces/${id}`)
+  await page.getByRole('button', { name: 'Delete workspace' }).click()
+  const drawer = page.getByRole('dialog', { name: 'Delete Commercial fixture?' })
+  const submit = drawer.getByRole('button', { name: 'Delete workspace' })
+  await drawer.getByLabel('Type the workspace name to confirm').fill('Commercial')
+  await drawer.getByLabel('Reason').fill('Duplicate test workspace')
+  await expect(submit).toBeDisabled()
+  await drawer.getByLabel('Type the workspace name to confirm').fill('Commercial fixture')
+  await submit.click()
+  await expect(page).toHaveURL(/\/platform\/workspaces$/)
+  expect(deleted).toEqual([
+    { confirmName: 'Commercial fixture', reason: 'Duplicate test workspace' },
+  ])
+})

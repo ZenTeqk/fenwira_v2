@@ -278,6 +278,13 @@ export const platformGrantCommandSchema = z.object({
 // ---------------------------------------------------------------------------------------------
 // ADR-0027 step 4: provisioning without email. Links are returned once, when issued.
 // ---------------------------------------------------------------------------------------------
+/** POST /platform/workspaces/:id/delete: the operator types the exact name and gives a reason. */
+export const deleteWorkspaceRequestSchema = z.strictObject({
+  confirmName: z.string().trim().min(1).max(200),
+  reason: z.string().trim().min(5).max(500),
+})
+export type DeleteWorkspaceRequest = z.infer<typeof deleteWorkspaceRequestSchema>
+
 export const createWorkspaceWithOwnerSchema = z
   .object({
     workspaceName: z.string().trim().min(2).max(80),
