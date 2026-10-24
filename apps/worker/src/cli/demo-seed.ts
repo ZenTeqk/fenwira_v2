@@ -40,7 +40,7 @@ async function main() {
       })
     process.stdout.write(
       r.seeded
-        ? `Added demo data: ${r.contacts} contacts, ${r.conversations} conversations, ${r.templates} templates${r.campaign ? ', 1 draft campaign' : ''}.\n`
+        ? `Added demo data: ${r.contacts} contacts, ${r.conversations} conversations, ${r.templates} templates${r.campaign ? ', 1 draft campaign' : ''}${r.repaired ? `, ${r.repaired} demo templates repaired` : ''}.\n`
         : 'Demo data already complete; nothing changed.\n',
     )
   } finally {

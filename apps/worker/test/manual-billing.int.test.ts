@@ -1,3 +1,4 @@
+import { templateComponentsSchema } from '@fenwira/contracts'
 import { BillingMaintenanceProcessor } from '@fenwira/api/modules/billing'
 import { sha256, uuidv7 } from '@fenwira/config'
 import { Database } from '@fenwira/database'
@@ -856,6 +857,43 @@ describe('internal workspace (operator flag)', () => {
     expect(campaigns).toHaveLength(1)
     expect(campaigns[0]).toMatchObject({ status: 'DRAFT' })
     expect(campaigns[0]!.name).toContain('[DEMO]')
+    // The app reads the demo data with its own schemas (an earlier seed wrote a shape it can't).
+    const componentsIn = (value: unknown): unknown[] =>
+      Array.isArray(value)
+        ? value.flatMap(componentsIn)
+        : value && typeof value === 'object'
+          ? Object.entries(value).flatMap(([k, v]) => (k === 'components' ? [v] : componentsIn(v)))
+          : []
+    const templates = await internal.client.get('/templates')
+    expect(templates.status, templates.text).toBe(200)
+    for (const t of templates.body.data as Array<{ id: string }>) {
+      const one = await internal.client.get(`/templates/${t.id}`)
+      expect(one.status, one.text).toBe(200)
+      const found = componentsIn(one.body)
+      expect(found.length).toBeGreaterThan(0)
+      for (const c of found)
+        expect(templateComponentsSchema.safeParse(c).success, JSON.stringify(c)).toBe(true)
+    }
+    const campaign = await internal.client.get(`/campaigns/${campaigns[0]!.id}`)
+    expect(campaign.status, campaign.text).toBe(200)
+    for (const c of componentsIn(campaign.body))
+      expect(templateComponentsSchema.safeParse(c).success, JSON.stringify(c)).toBe(true)
+    // Old list-shaped components are repaired on the next run.
+    await db.withTenant(internal.tenantId, async (tx) => {
+      const t = await tx.template.findFirstOrThrow({ where: { name: 'demo_welcome' } })
+      await tx.templateVersion.update({
+        where: { id: t.currentVersionId! },
+        data: { components: [{ type: 'BODY', text: '[DEMO] old shape' }] },
+      })
+    })
+    expect(await seed()).toMatchObject({ seeded: true, repaired: 1, contacts: 0 })
+    const repaired = await db.withTenant(internal.tenantId, async (tx) => {
+      const t = await tx.template.findFirstOrThrow({ where: { name: 'demo_welcome' } })
+      return tx.templateVersion.findUniqueOrThrow({ where: { id: t.currentVersionId! } })
+    })
+    expect(repaired.components).toEqual({
+      body: { text: expect.stringMatching(/^\[DEMO\] Welcome/) },
+    })
   })
 
   it('turning the flag off restores normal billing', async () => {
