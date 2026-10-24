@@ -9912,6 +9912,11 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 64
+                  },
+                  "planKey": {
+                    "default": "GROWTH",
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
                   }
                 },
                 "required": [

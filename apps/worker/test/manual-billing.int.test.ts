@@ -38,6 +38,10 @@ let worker: INestApplication
 let db: Database
 let migration: Database
 let operator: Client
+// Managed Launch refuses wallet top-up invoices; the top-up flows are exercised through a second
+// API instance with Managed Launch off (same database, same operator console HTTP API).
+let classicApi: INestApplication
+let classicOperator: Client
 let ownerA: Member
 let ownerB: Member
 let testPlan: { id: string; key: string }
@@ -46,8 +50,18 @@ const metaId = () => String(Date.now()).slice(-9) + String(Math.random()).slice(
 const utr = () => `${Date.now()}${Math.floor(Math.random() * 1e6)}`.slice(-12)
 const ws = (tenantId: string) => `/platform/workspaces/${tenantId}`
 
+const claimedEmail = (tenantId: string, key: string) =>
+  waitFor(
+    () =>
+      db.withTenant(tenantId, (tx) =>
+        tx.notification.findMany({ where: { dedupeKey: key }, select: { emailedAt: true } }),
+      ),
+    (rows) => rows.length > 0 && rows.every((r) => r.emailedAt !== null),
+  )
+
 async function issue(tenantId: string, body: Record<string, unknown>) {
-  const res = await operator.post(`${ws(tenantId)}/invoices`, {
+  const via = body.kind === 'WALLET_TOPUP' ? classicOperator : operator
+  const res = await via.post(`${ws(tenantId)}/invoices`, {
     dueAt: new Date(Date.now() + 7 * DAY).toISOString(),
     idempotencyKey: randomUUID(),
     ...body,
@@ -105,11 +119,18 @@ beforeAll(async () => {
   ownerA = await createOwner(api, 'mb-a', 'Acme <script>alert(1)</script> Foods')
   ownerB = await createOwner(api, 'mb-b')
   ;({ client: operator } = await createOperator(api, db, migration, 'mb-operator'))
+  classicApi = await bootApi({
+    ...ENV,
+    MANAGED_LAUNCH_MODE: 'false',
+    META_GRAPH_BASE_URL: mock.url,
+  })
+  ;({ client: classicOperator } = await createOperator(classicApi, db, migration, 'mb-classic'))
 }, 120_000)
 
 afterAll(async () => {
   await worker?.close()
   await api?.close()
+  await classicApi?.close()
   await db?.disconnect()
   await migration?.disconnect()
   await new Promise<void>((r) => mock?.server.close(() => r()))
@@ -500,6 +521,86 @@ describe('billing emails: issued, due soon, overdue, rejected, approved', () => 
       tx.notification.count({ where: { dedupeKey: `invoice:${id}:overdue` } }),
     )
     expect(overdue).toBe(0)
+  })
+})
+
+describe('first invoice before the trial ends', () => {
+  const provision = async (planKey?: string) => {
+    const res = await operator.post('/platform/workspaces/provision', {
+      workspaceName: `Trial ${randomUUID().slice(0, 8)}`,
+      ownerName: 'Trial Owner',
+      ownerEmail: `trial-${randomUUID().slice(0, 8)}@example.com`,
+      ...(planKey ? { planKey } : {}),
+    })
+    expect(res.status, res.text).toBe(201)
+    return res.body.data.workspaceId as string
+  }
+  const endTrialIn = (tenantId: string, days: number) =>
+    db.withTenant(tenantId, (tx) =>
+      tx.subscription.update({
+        where: { tenantId },
+        data: { trialEndsAt: new Date(Date.now() + days * DAY) },
+      }),
+    )
+  const invoicesOf = (tenantId: string) =>
+    db.withTenant(tenantId, (tx) =>
+      tx.invoice.findMany({
+        select: { kind: true, status: true, subtotalMinor: true, planId: true },
+      }),
+    )
+
+  it('issues the chosen plan once, 3 days before the trial ends; reruns do nothing', async () => {
+    const t = await provision('BUSINESS')
+    await endTrialIn(t, 2)
+    const job = worker.get(BillingMaintenanceProcessor)
+    await job.remindInvoices()
+    await job.remindInvoices()
+    const inv = await invoicesOf(t)
+    expect(inv).toHaveLength(1)
+    expect(inv[0]).toMatchObject({ kind: 'PLAN_RENEWAL', status: 'OPEN', subtotalMinor: 199900n })
+    await claimedEmail(
+      t,
+      `invoice:${(await db.withTenant(t, (tx) => tx.invoice.findFirstOrThrow())).id}:issued`,
+    )
+  })
+
+  it('defaults to Growth, waits until 3 days before the end, skips when an invoice is open', async () => {
+    const t = await provision()
+    await endTrialIn(t, 10)
+    const job = worker.get(BillingMaintenanceProcessor)
+    await job.remindInvoices()
+    expect(await invoicesOf(t)).toHaveLength(0)
+    const open = await issue(t, { kind: 'PLAN_RENEWAL', amountMinor: 1000, planKey: 'GROWTH' })
+    await endTrialIn(t, 2)
+    await job.remindInvoices()
+    const inv = await invoicesOf(t)
+    expect(inv).toHaveLength(1)
+    expect((await db.withTenant(t, (tx) => tx.invoice.findFirstOrThrow())).id).toBe(open)
+  })
+
+  it('skips workspaces that are not trialing', async () => {
+    const t = await provision()
+    await db.withTenant(t, (tx) =>
+      tx.subscription.update({
+        where: { tenantId: t },
+        data: { status: 'ACTIVE', trialEndsAt: new Date(Date.now() + DAY) },
+      }),
+    )
+    await worker.get(BillingMaintenanceProcessor).remindInvoices()
+    expect(await invoicesOf(t)).toHaveLength(0)
+  })
+})
+
+describe('Managed Launch: no wallet top-up invoices', () => {
+  it('refuses a wallet top-up with 422 WALLET_TOPUP_DISABLED and creates nothing', async () => {
+    const res = await operator.post(`${ws(ownerB.tenantId)}/invoices`, {
+      kind: 'WALLET_TOPUP',
+      amountMinor: 10_000,
+      dueAt: new Date(Date.now() + 7 * DAY).toISOString(),
+      idempotencyKey: randomUUID(),
+    })
+    expect(res.status, res.text).toBe(422)
+    expect(res.body.error.code).toBe('WALLET_TOPUP_DISABLED')
   })
 })
 

@@ -4,6 +4,7 @@ import {
   createWorkspaceWithOwnerSchema,
   emailDeliverySchema,
   oneTimeLinkSchema,
+  platformPlanSchema,
   platformMemberSchema,
   provisionedWorkspaceSchema,
   type OneTimeLink,
@@ -34,6 +35,7 @@ import Link from 'next/link'
 import { type FormEvent, useState } from 'react'
 import { z } from 'zod'
 import { CopyLink } from '@/components/copy-link'
+import { formatMoney } from '@/lib/billing'
 import { ownerWelcomeMessage } from '@/lib/onboarding'
 import { ApiError } from '@/lib/api/client'
 import { platformRequest } from '@/lib/platform'
@@ -50,7 +52,17 @@ const failure = (err: unknown) =>
 export function ProvisionWorkspace() {
   const me = usePlatform()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState({ workspaceName: '', ownerName: '', ownerEmail: '' })
+  const [form, setForm] = useState({
+    workspaceName: '',
+    ownerName: '',
+    ownerEmail: '',
+    planKey: 'GROWTH',
+  })
+  const plans = useQuery({
+    queryKey: ['platform', 'plans'],
+    retry: false,
+    queryFn: async () => z.array(platformPlanSchema).parse(await platformRequest('/plans')),
+  })
   const [result, setResult] = useState<ProvisionedWorkspace | null>(null)
   // Kept for the welcome message after the form resets.
   const [created, setCreated] = useState({ ownerName: '', workspaceName: '' })
@@ -72,7 +84,7 @@ export function ProvisionWorkspace() {
           await platformRequest('/workspaces/provision', parsed.data),
         ),
       )
-      setForm({ workspaceName: '', ownerName: '', ownerEmail: '' })
+      setForm({ workspaceName: '', ownerName: '', ownerEmail: '', planKey: 'GROWTH' })
     } catch (err) {
       setError(failure(err))
     } finally {
@@ -131,6 +143,25 @@ export function ProvisionWorkspace() {
             </Field>
             <Field label="Owner email" required>
               <Input required type="email" value={form.ownerEmail} onChange={set('ownerEmail')} />
+            </Field>
+            <Field
+              label="Plan"
+              hint="The first invoice for this plan is sent 3 days before the 14-day trial ends."
+            >
+              <select
+                className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
+                value={form.planKey}
+                onChange={set('planKey')}
+              >
+                {(plans.data ?? [{ key: 'GROWTH', name: 'Growth', monthly: null }]).map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.name}
+                    {p.monthly
+                      ? ` · ${formatMoney(p.monthly.amountMinor, p.monthly.currency)}/month`
+                      : ''}
+                  </option>
+                ))}
+              </select>
             </Field>
             {error ? (
               <Alert tone="danger" title="Not created">
