@@ -16,6 +16,7 @@ How the operator onboards and runs customers in Managed Launch Mode (ADR-0027, d
 | `/fenwira/prod/config/upi-vpa` | `UPI_VPA` | UPI ID shown on invoices (e.g. `name@bank`). Without it and the payee name, invoices show no UPI QR |
 | `/fenwira/prod/config/upi-payee-name` | `UPI_PAYEE_NAME` | Payee name on the UPI QR/link |
 | `/fenwira/prod/config/billing-gstin` | `BILLING_GSTIN` | Optional. GST stays off unless configured (ML-D3) |
+| `/fenwira/prod/config/billing-gst-rate` | `BILLING_GST_RATE_BPS` | Optional percentage, e.g. `18` (rendered as basis points). GST is added only when both this and the GSTIN are set |
 
 `BILLING_SUBSCRIPTIONS_ENFORCED` stays `false` (ML-D5 business decision). After changing a parameter, redeploy (or re-render the env and restart api and worker).
 
