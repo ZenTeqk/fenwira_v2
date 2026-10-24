@@ -285,6 +285,13 @@ export class SystemGateway {
     return rows[0]!.o
   }
 
+  /** TRIALING workspaces whose trial ends within `days` (IDs only). */
+  async trialsEnding(now: Date, days: number, limit: number, after: string | null) {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
+      SELECT * FROM system.trials_ending(${now}::timestamptz, ${days}::int, ${limit}::int, ${after}::uuid)`
+    return rows.map((r) => r.tenant_id)
+  }
+
   /** X2 (WABA-level fields such as template and account updates). */
   async resolveTenantByWabaId(wabaId: string): Promise<string | null> {
     const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`

@@ -46,6 +46,15 @@ const metaId = () => String(Date.now()).slice(-9) + String(Math.random()).slice(
 const utr = () => `${Date.now()}${Math.floor(Math.random() * 1e6)}`.slice(-12)
 const ws = (tenantId: string) => `/platform/workspaces/${tenantId}`
 
+const claimedEmail = (tenantId: string, key: string) =>
+  waitFor(
+    () =>
+      db.withTenant(tenantId, (tx) =>
+        tx.notification.findMany({ where: { dedupeKey: key }, select: { emailedAt: true } }),
+      ),
+    (rows) => rows.length > 0 && rows.every((r) => r.emailedAt !== null),
+  )
+
 async function issue(tenantId: string, body: Record<string, unknown>) {
   const res = await operator.post(`${ws(tenantId)}/invoices`, {
     dueAt: new Date(Date.now() + 7 * DAY).toISOString(),
@@ -500,6 +509,73 @@ describe('billing emails: issued, due soon, overdue, rejected, approved', () => 
       tx.notification.count({ where: { dedupeKey: `invoice:${id}:overdue` } }),
     )
     expect(overdue).toBe(0)
+  })
+})
+
+describe('first invoice before the trial ends', () => {
+  const provision = async (planKey?: string) => {
+    const res = await operator.post('/platform/workspaces/provision', {
+      workspaceName: `Trial ${randomUUID().slice(0, 8)}`,
+      ownerName: 'Trial Owner',
+      ownerEmail: `trial-${randomUUID().slice(0, 8)}@example.com`,
+      ...(planKey ? { planKey } : {}),
+    })
+    expect(res.status, res.text).toBe(201)
+    return res.body.data.workspaceId as string
+  }
+  const endTrialIn = (tenantId: string, days: number) =>
+    migration.withGlobal((tx) =>
+      tx.subscription.update({
+        where: { tenantId },
+        data: { trialEndsAt: new Date(Date.now() + days * DAY) },
+      }),
+    )
+  const invoicesOf = (tenantId: string) =>
+    db.withTenant(tenantId, (tx) =>
+      tx.invoice.findMany({
+        select: { kind: true, status: true, subtotalMinor: true, planId: true },
+      }),
+    )
+
+  it('issues the chosen plan once, 3 days before the trial ends; reruns do nothing', async () => {
+    const t = await provision('BUSINESS')
+    await endTrialIn(t, 2)
+    const job = worker.get(BillingMaintenanceProcessor)
+    await job.remindInvoices()
+    await job.remindInvoices()
+    const inv = await invoicesOf(t)
+    expect(inv).toHaveLength(1)
+    expect(inv[0]).toMatchObject({ kind: 'PLAN_RENEWAL', status: 'OPEN', subtotalMinor: 199900n })
+    await claimedEmail(
+      t,
+      `invoice:${(await db.withTenant(t, (tx) => tx.invoice.findFirstOrThrow())).id}:issued`,
+    )
+  })
+
+  it('defaults to Growth, waits until 3 days before the end, skips when an invoice is open', async () => {
+    const t = await provision()
+    await endTrialIn(t, 10)
+    const job = worker.get(BillingMaintenanceProcessor)
+    await job.remindInvoices()
+    expect(await invoicesOf(t)).toHaveLength(0)
+    const open = await issue(t, { kind: 'PLAN_RENEWAL', amountMinor: 1000, planKey: 'GROWTH' })
+    await endTrialIn(t, 2)
+    await job.remindInvoices()
+    const inv = await invoicesOf(t)
+    expect(inv).toHaveLength(1)
+    expect((await db.withTenant(t, (tx) => tx.invoice.findFirstOrThrow())).id).toBe(open)
+  })
+
+  it('skips workspaces that are not trialing', async () => {
+    const t = await provision()
+    await migration.withGlobal((tx) =>
+      tx.subscription.update({
+        where: { tenantId: t },
+        data: { status: 'ACTIVE', trialEndsAt: new Date(Date.now() + DAY) },
+      }),
+    )
+    await worker.get(BillingMaintenanceProcessor).remindInvoices()
+    expect(await invoicesOf(t)).toHaveLength(0)
   })
 })
 

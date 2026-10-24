@@ -203,6 +203,10 @@ Decisions ML-D2, ML-D3, ML-D5, ML-D6. There's still no payment gateway (P11-D19)
 - **Payee:** `UPI_VPA` and `UPI_PAYEE_NAME` (configuration, never code), snapshotted on each invoice. Issuing is refused (422 `UPI_NOT_CONFIGURED`) while unset.
 - **Paying:** `upi://pay?pa=<VPA>&pn=<name>&am=<total, 2 decimals>&cu=INR&tn=<number>`, percent-encoded. The API also returns it as a PNG QR data URL. Documents are self-contained HTML (no scripts, strict CSP, every value escaped).
 
+### First invoice before the trial ends (Managed Launch)
+
+The operator picks the plan when creating a workspace (default Growth); it is stored as the subscription's requested plan. The daily `invoice-reminders` job (09:00 IST) issues one `PLAN_RENEWAL` invoice at that plan's active INR price for each TRIALING workspace whose trial ends within 3 days and that has no open invoice. It is issued once per trial period (key `TRIAL_INVOICE:<trialEndsAt>` in `subscriptions.notices_sent`), emailed through the normal "invoice issued" notice, and due at the trial end. Approving it activates the plan from the approval date (ML-D6).
+
 ### Payment proofs
 
 - `payment_proofs` (tenant, forced RLS, never deleted): UTR (normalized: spaces and dashes removed, upper case, 6–35 alphanumerics), an optional screenshot, status `PENDING`, `APPROVED` or `REJECTED`, reviewer, reason and receipt number.
