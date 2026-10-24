@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -59,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
       - name: Build and verify the release
@@ -121,7 +121,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       # No `cache: pnpm` here: this job never runs `pnpm install` (pnpm audit reads
       # pnpm-lock.yaml directly), so there is no pnpm store to cache or restore.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
       - name: Dependency audit (production deps, high+)
