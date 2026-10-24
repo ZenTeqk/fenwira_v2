@@ -53,9 +53,12 @@ CONFIG = {
     "config/upi-payee-name": "UPI_PAYEE_NAME",
     "config/billing-gstin": "BILLING_GSTIN",
     "config/billing-payment-confirm-hours": "BILLING_PAYMENT_CONFIRM_HOURS",
+    # Billing contact shown to customers and in billing emails (P11-D20). Optional.
+    "config/billing-support-email": "BILLING_SUPPORT_EMAIL",
 }
 # Read by both api and worker (invoices, renewals, Managed Launch gating).
-BILLING_VARS = ["UPI_VPA", "UPI_PAYEE_NAME", "BILLING_GSTIN", "BILLING_PAYMENT_CONFIRM_HOURS"]
+BILLING_VARS = ["UPI_VPA", "UPI_PAYEE_NAME", "BILLING_GSTIN", "BILLING_PAYMENT_CONFIRM_HOURS",
+                "BILLING_SUPPORT_EMAIL"]
 
 
 # ML-D5 production values (docs/MANAGED_LAUNCH.md → Configuration). SSM overrides them; the env
