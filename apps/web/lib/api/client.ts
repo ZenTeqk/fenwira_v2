@@ -20,6 +20,8 @@ export class ApiError extends Error {
     readonly details?: Record<string, unknown>,
     readonly fieldErrors?: FieldError[],
     readonly correlationId?: string,
+    /** Plain-English next step from the server. */
+    readonly hint?: string,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -29,6 +31,14 @@ export class ApiError extends Error {
   field(path: string): string | undefined {
     return this.fieldErrors?.find((f) => f.path === path)?.message
   }
+}
+
+/** One line for toasts and inline alerts: what happened, what to do next, and the request ID. */
+export function errorText(err: unknown, fallback = 'Something went wrong. Please try again.') {
+  if (!(err instanceof ApiError)) return fallback
+  return [err.message, err.hint, err.correlationId ? `Request ID: ${err.correlationId}` : '']
+    .filter(Boolean)
+    .join(' ')
 }
 
 let csrfToken = ''
@@ -181,6 +191,7 @@ export async function api<T = unknown>(
       details?: Record<string, unknown>
       fieldErrors?: FieldError[]
       correlationId?: string
+      hint?: string
     }
   } | null
   if (!res.ok) {
@@ -192,6 +203,7 @@ export async function api<T = unknown>(
       e?.details,
       e?.fieldErrors,
       e?.correlationId,
+      e?.hint,
     )
   }
   return json as T

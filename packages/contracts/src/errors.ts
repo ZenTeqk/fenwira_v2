@@ -96,7 +96,63 @@ export const errorEnvelopeSchema = z.object({
     message: z.string(),
     details: z.record(z.string(), z.unknown()).optional(),
     fieldErrors: z.array(fieldErrorSchema).optional(),
+    /** Plain-English next step for the reader. */
+    hint: z.string().optional(),
     correlationId: z.string(),
+    /** Same value as correlationId; quote it to support. */
+    requestId: z.string().optional(),
   }),
 })
 export type ErrorEnvelope = z.infer<typeof errorEnvelopeSchema>
+
+// Plain-English field messages (shared by the API envelope and browser-side validation).
+const ZOD_DEFAULT = /^(Invalid|Too (small|big)|Unrecognized key|Expected|Required)/i
+
+/** One plain sentence per field problem; custom schema messages are already plain and kept. */
+export function plainIssue(issue: {
+  code: string
+  message: string
+  input?: unknown
+  minimum?: unknown
+  maximum?: unknown
+  origin?: unknown
+}): string {
+  if (!ZOD_DEFAULT.test(issue.message)) return issue.message
+  const text = issue.origin === 'string'
+  switch (issue.code) {
+    case 'invalid_type':
+      return issue.input === undefined
+        ? 'This field is required.'
+        : 'This value has the wrong type.'
+    case 'too_small':
+      return text
+        ? Number(issue.minimum) <= 1
+          ? 'This field is required.'
+          : `Must be at least ${String(issue.minimum)} characters.`
+        : `Must be at least ${String(issue.minimum)}.`
+    case 'too_big':
+      return text
+        ? `Must be at most ${String(issue.maximum)} characters.`
+        : `Must be at most ${String(issue.maximum)}.`
+    case 'invalid_format':
+    case 'invalid_string':
+      return 'This value is not in the expected format.'
+    case 'invalid_value':
+    case 'invalid_enum_value':
+      return 'Choose one of the allowed options.'
+    case 'unrecognized_keys':
+      return 'This field is not accepted here.'
+    default:
+      return 'This value is not valid.'
+  }
+}
+
+export function plainFieldErrors(
+  issues: ReadonlyArray<Parameters<typeof plainIssue>[0] & { path: PropertyKey[] }>,
+): FieldError[] {
+  return issues.map((i) => ({
+    path: i.path.map(String).join('.'),
+    code: i.code,
+    message: plainIssue(i),
+  }))
+}

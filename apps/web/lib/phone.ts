@@ -14,3 +14,6 @@ export function formatPhone(e164: string): string {
     return `+1 ${digits.slice(1, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`
   return e164
 }
+
+/** Meta's developer test numbers are US +1 555 numbers (pre-registered, limited recipients). */
+export const isMetaTestNumber = (display: string) => /^1555\d{7}$/.test(display.replace(/\D/g, ''))

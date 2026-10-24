@@ -33,7 +33,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
 import { z } from 'zod'
-import { ApiError } from '@/lib/api/client'
+import { errorText } from '@/lib/api/client'
 import { platformMoney, platformRequest } from '@/lib/platform'
 import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
@@ -45,12 +45,7 @@ const STATUS: Record<PlatformInvoice['displayStatus'], { status: StatusKey; labe
   PAID: { status: 'COMPLETED', label: 'Paid' },
   VOID: { status: 'CANCELLED', label: 'Void' },
 }
-const failure = (err: unknown) =>
-  err instanceof ApiError
-    ? err.code === 'TOTP_REQUIRED'
-      ? 'Identity check not completed. Use Verify identity at the top of this page, then retry.'
-      : err.message
-    : 'Request failed.'
+const failure = (err: unknown) => errorText(err, 'The request failed. Try again.')
 
 /** "1499" or "1499.50" rupees → minor units; anything else is refused. */
 function minorFrom(value: string): number | null {

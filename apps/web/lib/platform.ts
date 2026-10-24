@@ -29,7 +29,14 @@ export async function platformRequest<T>(
   })
   if (!res.ok) {
     const payload = (await res.json().catch(() => ({}))) as {
-      error?: { code?: string; message?: string; correlationId?: string }
+      error?: {
+        code?: string
+        message?: string
+        correlationId?: string
+        hint?: string
+        details?: Record<string, unknown>
+        fieldErrors?: { path: string; code: string; message: string }[]
+      }
     }
     // A wrong password or code during the identity check is not a session end.
     const ended =
@@ -42,10 +49,11 @@ export async function platformRequest<T>(
     throw new ApiError(
       res.status,
       (payload.error?.code ?? 'NETWORK') as never,
-      payload.error?.message ?? 'Platform request failed.',
-      undefined,
-      undefined,
+      payload.error?.message ?? 'The request failed. Try again.',
+      payload.error?.details,
+      payload.error?.fieldErrors,
       payload.error?.correlationId,
+      payload.error?.hint,
     )
   }
   platformLastRequest = Date.now()

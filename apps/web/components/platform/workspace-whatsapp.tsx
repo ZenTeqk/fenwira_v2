@@ -1,6 +1,7 @@
 'use client'
 import {
   managedConnectRequestSchema,
+  plainFieldErrors,
   managedRotateRequestSchema,
   platformWhatsAppConnectionSchema,
   templateSyncSummarySchema,
@@ -29,7 +30,9 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
 import { z } from 'zod'
-import { ApiError } from '@/lib/api/client'
+import { FormError } from '@/components/auth/form-error'
+import { ApiError, errorText } from '@/lib/api/client'
+import { isMetaTestNumber } from '@/lib/phone'
 import { platformRequest } from '@/lib/platform'
 import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
@@ -37,12 +40,7 @@ import { usePlatform } from './platform-shell'
 type Action = 'verify' | 'sync' | 'sync-templates' | 'subscribe' | 'disconnect'
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : 'Never')
-const failure = (err: unknown) => {
-  if (!(err instanceof ApiError)) return 'Request failed.'
-  if (err.code === 'TOTP_REQUIRED')
-    return 'Identity check not completed. Use Verify identity at the top of this page, then retry.'
-  return err.message
-}
+const failure = (err: unknown) => errorText(err, 'The request failed. Try again.')
 
 /**
  * ADR-0027 Managed Launch Mode: the operator connects and maintains a customer's Meta connection.
@@ -335,19 +333,29 @@ function ConnectDrawer({
   const request = useIdentityRequest()
   const [form, setForm] = useState(EMPTY)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const set = (k: keyof typeof EMPTY) => (e: { target: { value: string } }) =>
+  const [error, setError] = useState<unknown>(null)
+  const [fields, setFields] = useState<Record<string, string>>({})
+  const set = (k: keyof typeof EMPTY) => (e: { target: { value: string } }) => {
     setForm((f) => ({ ...f, [k]: e.target.value }))
+    setFields(({ [k]: _, ...rest }) => rest)
+  }
+  const test = isMetaTestNumber(form.displayPhoneNumber)
   async function submit(event: FormEvent) {
     event.preventDefault()
     setBusy(true)
-    setError('')
+    setError(null)
+    setFields({})
     try {
+      // Checked here first, so Meta is only called with well-formed values.
       const parsed = managedConnectRequestSchema.safeParse(
         Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim() !== '')),
       )
       if (!parsed.success) {
-        setError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(' · '))
+        setFields(
+          Object.fromEntries(
+            plainFieldErrors(parsed.error.issues).map((f) => [f.path, f.message] as const),
+          ),
+        )
         return
       }
       await request(path, parsed.data)
@@ -356,11 +364,9 @@ function ConnectDrawer({
       onOpenChange(false)
       onDone()
     } catch (err) {
-      const step =
-        err instanceof ApiError && typeof err.details?.step === 'string'
-          ? ` (step ${err.details.step})`
-          : ''
-      setError(`${failure(err)}${step}`)
+      setError(err)
+      if (err instanceof ApiError && err.fieldErrors)
+        setFields(Object.fromEntries(err.fieldErrors.map((f) => [f.path, f.message] as const)))
     } finally {
       // Secrets never stay in memory longer than the request.
       setForm((f) => ({ ...f, accessToken: '', appSecret: '' }))
@@ -380,10 +386,10 @@ function ConnectDrawer({
       description={`For ${workspaceName}. The token and app secret are encrypted and never shown again.`}
     >
       <form onSubmit={submit} className="flex flex-col gap-4" autoComplete="off">
-        <Field label="WABA ID" required>
+        <Field label="WABA ID" required error={fields.wabaId}>
           <Input required inputMode="numeric" value={form.wabaId} onChange={set('wabaId')} />
         </Field>
-        <Field label="Phone number ID" required>
+        <Field label="Phone number ID" required error={fields.phoneNumberId}>
           <Input
             required
             inputMode="numeric"
@@ -391,10 +397,20 @@ function ConnectDrawer({
             onChange={set('phoneNumberId')}
           />
         </Field>
-        <Field label="Display phone number" hint="As shown in WhatsApp Manager" required>
+        <Field
+          label="Display phone number"
+          hint="As shown in WhatsApp Manager, for example +91 98765 43210"
+          required
+          error={fields.displayPhoneNumber}
+        >
           <Input required value={form.displayPhoneNumber} onChange={set('displayPhoneNumber')} />
         </Field>
-        <Field label="System-user access token" hint="Permanent token, never expiring" required>
+        <Field
+          label="System-user access token"
+          hint="Permanent token, never expiring"
+          required
+          error={fields.accessToken}
+        >
           <Input
             required
             type="password"
@@ -403,7 +419,11 @@ function ConnectDrawer({
             onChange={set('accessToken')}
           />
         </Field>
-        <Field label="App secret" hint="Of the Meta app that sends this WABA's webhooks">
+        <Field
+          label="App secret"
+          hint="Of the Meta app that sends this WABA's webhooks"
+          error={fields.appSecret}
+        >
           <Input
             type="password"
             autoComplete="new-password"
@@ -411,17 +431,20 @@ function ConnectDrawer({
             onChange={set('appSecret')}
           />
         </Field>
-        <Field label="Meta app ID">
+        <Field label="Meta app ID" error={fields.appId}>
           <Input inputMode="numeric" value={form.appId} onChange={set('appId')} />
         </Field>
-        <Field label="Business portfolio ID">
+        <Field label="Business portfolio ID" error={fields.businessId}>
           <Input inputMode="numeric" value={form.businessId} onChange={set('businessId')} />
         </Field>
-        {error ? (
-          <Alert tone="danger" title="Not connected">
-            {error}
+        {test ? (
+          <Alert tone="info" title="Meta test number">
+            Test numbers (+1 555…) are already registered by Meta, so Fenwira skips registration.
+            They can only message the recipient numbers added under WhatsApp → API Setup in the Meta
+            app, and they are not for real customer traffic.
           </Alert>
         ) : null}
+        <FormError error={error} />
         <Button type="submit" loading={busy}>
           Connect and verify
         </Button>

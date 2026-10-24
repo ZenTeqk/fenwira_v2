@@ -14,6 +14,7 @@ import { Database } from '@fenwira/database'
 import { MetricsService } from '../metrics/metrics.service'
 import { requestContext } from '../context/request-context'
 import { AppError } from './app-error'
+import { ERROR_COPY, META_COPY, REPLACE_MESSAGE, maskSecrets, plainFieldErrors } from './error-copy'
 
 const STATUS_TO_CODE: Partial<Record<number, ErrorCode>> = {
   400: 'VALIDATION_FAILED',
@@ -27,10 +28,52 @@ const STATUS_TO_CODE: Partial<Record<number, ErrorCode>> = {
   503: 'UPSTREAM_UNAVAILABLE',
 }
 
-export function toErrorEnvelope(
-  exception: unknown,
-  correlationId: string,
-): { status: number; body: ErrorEnvelope } {
+type Envelope = { status: number; body: ErrorEnvelope }
+
+/**
+ * Adds the plain-English message and next-step hint (error-copy.ts) and the request ID. Meta
+ * connection failures name the form field to fix. Never adds causes, stacks, SQL or schemas.
+ */
+function withCopy({ status, body }: Envelope): Envelope {
+  const e = body.error
+  const copy = ERROR_COPY[e.code]
+  let message =
+    copy?.message &&
+    (REPLACE_MESSAGE.has(e.code) ||
+      status >= 500 ||
+      (e.code === 'VALIDATION_FAILED' && e.message === 'The request is invalid.'))
+      ? copy.message
+      : e.message
+  let hint = e.hint ?? copy?.hint
+  let fieldErrors = e.fieldErrors
+  const reason = e.details?.reason ?? e.details?.code
+  const meta =
+    e.code === 'WHATSAPP_CONNECT_FAILED' && typeof reason === 'string' && META_COPY[reason]
+  if (meta) {
+    message = meta.message
+    hint = meta.hint
+    if (meta.field)
+      fieldErrors = [...(fieldErrors ?? []), { path: meta.field, code: reason, message: meta.hint }]
+  }
+  return {
+    status,
+    body: {
+      error: {
+        ...e,
+        message,
+        ...(hint ? { hint } : {}),
+        ...(fieldErrors ? { fieldErrors } : {}),
+        requestId: e.correlationId,
+      },
+    },
+  }
+}
+
+export function toErrorEnvelope(exception: unknown, correlationId: string): Envelope {
+  return withCopy(rawEnvelope(exception, correlationId))
+}
+
+function rawEnvelope(exception: unknown, correlationId: string): Envelope {
   if (exception instanceof AppError) {
     return {
       status: exception.status,
@@ -52,11 +95,7 @@ export function toErrorEnvelope(
         error: {
           code: 'VALIDATION_FAILED',
           message: 'The request is invalid.',
-          fieldErrors: exception.issues.map((i) => ({
-            path: i.path.join('.'),
-            code: i.code,
-            message: i.message,
-          })),
+          fieldErrors: plainFieldErrors(exception.issues),
           correlationId,
         },
       },
@@ -70,6 +109,7 @@ export function toErrorEnvelope(
         error: {
           code: STATUS_TO_CODE[bodyError.status] ?? 'VALIDATION_FAILED',
           message: bodyError.message,
+          hint: 'Check the request size and format, then try again.',
           correlationId,
         },
       },
@@ -175,7 +215,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
       res.setHeader('Retry-After', String(retryAfter))
     if (status >= 500)
       this.logger.error(
-        platform ? { code: body.error.code } : { err: exception, code: body.error.code },
+        platform
+          ? {
+              code: body.error.code,
+              requestId: correlationId,
+              // Platform logs carry only the masked cause, never the request or the stack.
+              cause:
+                exception instanceof Error
+                  ? maskSecrets(`${exception.name}: ${exception.message}`)
+                  : typeof exception,
+            }
+          : { err: exception, code: body.error.code, requestId: correlationId },
         'request failed',
       )
     res.status(status).json(body)

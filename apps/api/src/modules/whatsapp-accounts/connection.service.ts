@@ -46,6 +46,7 @@ import {
   emitConnectionChanged,
   ownAppToken,
   phoneDigits,
+  isMetaTestNumber,
   StepFailure,
   stepError,
   SUBSCRIBED_FIELDS,
@@ -173,7 +174,11 @@ export class WhatsAppConnectionService {
         const error = stepError(err)
         if (!error) throw err
         steps = setStep(steps, key, 'FAILED', error)
-        throw new AppError('WHATSAPP_CONNECT_FAILED', 422, error.message, { step: key, steps })
+        throw new AppError('WHATSAPP_CONNECT_FAILED', 422, error.message, {
+          step: key,
+          reason: error.code,
+          steps,
+        })
       }
     }
 
@@ -403,9 +408,14 @@ export class WhatsAppConnectionService {
       }
       current = 'REGISTER'
       if (pending('REGISTER')) {
-        // Test numbers (dev connect) come pre-registered; so do numbers Meta already reports live.
+        // Test numbers (dev connect, Meta's +1 555 test numbers) come pre-registered; so do numbers
+        // Meta already reports live.
         const live = await this.graph.getPhoneNumber(token, phone.phoneNumberId)
-        if (credential.tokenType === 'DEV' || live.status === 'CONNECTED') {
+        if (
+          credential.tokenType === 'DEV' ||
+          live.status === 'CONNECTED' ||
+          isMetaTestNumber(phone.displayPhoneNumber)
+        ) {
           steps = setStep(steps, 'REGISTER', 'SKIPPED')
         } else {
           const pin = decryptToken(this.options, phone.registrationPinCiphertext)

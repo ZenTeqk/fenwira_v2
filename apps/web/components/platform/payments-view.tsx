@@ -34,18 +34,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { type FormEvent, useState } from 'react'
 import { z } from 'zod'
-import { ApiError } from '@/lib/api/client'
+import { errorText } from '@/lib/api/client'
 import { platformMoney, platformRequest } from '@/lib/platform'
 import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—')
-const failure = (err: unknown) =>
-  err instanceof ApiError
-    ? err.code === 'TOTP_REQUIRED'
-      ? 'Identity check not completed. Use Verify identity at the top of this page, then retry.'
-      : err.message
-    : 'Request failed.'
+const failure = (err: unknown) => errorText(err, 'The request failed. Try again.')
 
 /**
  * ADR-0027 manual UPI billing — the operator's payments dashboard: proofs waiting for

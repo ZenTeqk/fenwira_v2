@@ -37,17 +37,12 @@ import { z } from 'zod'
 import { CopyLink } from '@/components/copy-link'
 import { formatMoney } from '@/lib/billing'
 import { ownerWelcomeMessage } from '@/lib/onboarding'
-import { ApiError } from '@/lib/api/client'
+import { errorText } from '@/lib/api/client'
 import { platformRequest } from '@/lib/platform'
 import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
 
-const failure = (err: unknown) =>
-  err instanceof ApiError
-    ? err.code === 'TOTP_REQUIRED'
-      ? 'Identity check not completed. Use Verify identity at the top of this page, then retry.'
-      : err.message
-    : 'Request failed.'
+const failure = (err: unknown) => errorText(err, 'The request failed. Try again.')
 
 /** ADR-0027 step 4: create a workspace and its owner in one step; hand the owner a setup link. */
 export function ProvisionWorkspace() {
