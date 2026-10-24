@@ -788,12 +788,65 @@ describe('internal workspace (operator flag)', () => {
         timeoutMs: 60_000,
       }),
     ).rejects.toThrow(/internal workspace/)
-    const seed = () =>
-      db.withTenant(internal.tenantId, (tx) => seedDemoWorkspace(tx, internal.tenantId), {
-        timeoutMs: 60_000,
+    // A real number is already the workspace default (only one default per workspace): the
+    // seed used to make its fake number the default too and failed on that unique index.
+    const realId = metaId()
+    await db.withTenant(internal.tenantId, async (tx) => {
+      const waba = await tx.whatsAppBusinessAccount.create({
+        data: {
+          tenantId: internal.tenantId,
+          wabaId: metaId(),
+          name: 'Real WABA',
+          status: 'ACTIVE',
+        },
       })
-    expect(await seed()).toMatchObject({ seeded: true, contacts: 12, conversations: 6 })
-    expect((await seed()).seeded).toBe(false)
+      await tx.whatsAppPhoneNumber.create({
+        data: {
+          tenantId: internal.tenantId,
+          wabaId: waba.id,
+          phoneNumberId: realId,
+          displayPhoneNumber: '+1 555-676-0408',
+          verifiedName: 'Zenteqk test number',
+          status: 'CONNECTED',
+          isDefault: true,
+        },
+      })
+    })
+    const seed = (name = 'mb-internal Workspace') =>
+      db.withTenant(
+        internal.tenantId,
+        (tx) => seedDemoWorkspace(tx, internal.tenantId, new Date(), name),
+        { timeoutMs: 60_000 },
+      )
+    await expect(seed('Some other workspace')).rejects.toThrow(/not named/)
+    expect(await seed()).toMatchObject({
+      seeded: true,
+      contacts: 12,
+      conversations: 6,
+      templates: 3,
+      campaign: true,
+    })
+    expect(await seed()).toMatchObject({ seeded: false, contacts: 0, conversations: 0 })
+    const defaults = await db.withTenant(internal.tenantId, (tx) =>
+      tx.whatsAppPhoneNumber.findMany({ where: { isDefault: true } }),
+    )
+    expect(defaults.map((p) => p.phoneNumberId)).toEqual([realId])
+    // Partly removed demo data is restored on the next run; nothing is duplicated.
+    await db.withTenant(internal.tenantId, async (tx) => {
+      await tx.campaign.deleteMany({ where: { name: { startsWith: '[DEMO]' } } })
+      const c = await tx.contact.findFirstOrThrow({ where: { name: '[DEMO] Rohan Kapoor' } })
+      await tx.contact.update({ where: { id: c.id }, data: { deletedAt: new Date() } })
+    })
+    expect(await seed()).toMatchObject({
+      seeded: true,
+      contacts: 1,
+      conversations: 0,
+      campaign: true,
+    })
+    const messages = await db.withTenant(internal.tenantId, (tx) =>
+      tx.message.findMany({ select: { content: true } }),
+    )
+    for (const m of messages) expect((m.content as { text: string }).text).toMatch(/^\[DEMO\] /)
     const [contacts, campaigns] = await Promise.all([
       internal.client.post('/contacts/search', {}),
       db.withTenant(internal.tenantId, (tx) => tx.campaign.findMany()),
