@@ -1641,6 +1641,64 @@
         "x-permission": "billing.manage"
       }
     },
+    "/api/v1/billing/subscription/upgrade": {
+      "post": {
+        "operationId": "Billing_upgrade",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "planId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "planId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "billing.manage"
+      }
+    },
     "/api/v1/billing/wallet": {
       "get": {
         "operationId": "Billing_wallet",
@@ -16627,6 +16685,9 @@
                   "PAYMENT_PENDING",
                   "ALREADY_REVIEWED",
                   "UTR_ALREADY_USED",
+                  "UPGRADE_UNAVAILABLE",
+                  "PLAN_ACTIVE",
+                  "PLAN_NOT_PRICED",
                   "EXPORT_TOO_LARGE",
                   "WEBHOOK_URL_INVALID",
                   "WEBHOOK_BLOCKED_DESTINATION",

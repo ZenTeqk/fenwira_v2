@@ -591,6 +591,121 @@ describe('first invoice before the trial ends', () => {
   })
 })
 
+describe('upgrade now: choose a plan and pay at once', () => {
+  let owner: Member
+  let plans: Record<string, string>
+  const choose = (m: Member, key: string) =>
+    m.client.post('/billing/subscription/upgrade', { planId: plans[key] })
+  const openPlanInvoices = (tenantId: string) =>
+    db.withTenant(tenantId, (tx) =>
+      tx.invoice.findMany({ where: { kind: 'PLAN_RENEWAL', status: 'OPEN' } }),
+    )
+
+  beforeAll(async () => {
+    owner = await createOwner(api, 'mb-up')
+    const res = await owner.client.get('/billing/plans')
+    plans = Object.fromEntries(res.body.data.map((p: { key: string; id: string }) => [p.key, p.id]))
+    const sub = await owner.client.get('/billing/subscription')
+    expect(sub.body.data).toMatchObject({ status: 'TRIALING', canUpgrade: true })
+  })
+
+  it('issues the plan invoice at once with a UPI QR, and only once per plan', async () => {
+    const first = await choose(owner, 'GROWTH')
+    expect(first.status, first.text).toBe(201)
+    expect(first.body.data).toMatchObject({
+      kind: 'PLAN_RENEWAL',
+      status: 'OPEN',
+      plan: { key: 'GROWTH' },
+      upi: { deepLink: expect.stringContaining(`tn=${first.body.data.number}`) },
+    })
+    expect(first.body.data.upi.qrDataUrl).toMatch(/^data:image\/png;base64,/)
+    const again = await choose(owner, 'GROWTH')
+    expect(again.status, again.text).toBe(200)
+    expect(again.body.data.id).toBe(first.body.data.id)
+    expect(await openPlanInvoices(owner.tenantId)).toHaveLength(1)
+  })
+
+  it('replaces the open invoice when another plan is chosen', async () => {
+    const before = (await openPlanInvoices(owner.tenantId))[0]!
+    const res = await choose(owner, 'BUSINESS')
+    expect(res.status, res.text).toBe(201)
+    const open = await openPlanInvoices(owner.tenantId)
+    expect(open).toHaveLength(1)
+    expect(open[0]!.id).toBe(res.body.data.id)
+    const old = await db.withTenant(owner.tenantId, (tx) =>
+      tx.invoice.findFirstOrThrow({ where: { id: before.id } }),
+    )
+    expect(old.status).toBe('VOID')
+  })
+
+  it('the trial invoice job skips a workspace that already has an open invoice', async () => {
+    await db.withTenant(owner.tenantId, (tx) =>
+      tx.subscription.update({
+        where: { tenantId: owner.tenantId },
+        data: { trialEndsAt: new Date(Date.now() + 2 * DAY) },
+      }),
+    )
+    await worker.get(BillingMaintenanceProcessor).remindInvoices()
+    expect(await openPlanInvoices(owner.tenantId)).toHaveLength(1)
+  })
+
+  it('refuses a plan change while a payment is waiting for review', async () => {
+    const [open] = await openPlanInvoices(owner.tenantId)
+    expect((await submitProof(owner, open!.id, utr())).status).toBe(201)
+    const res = await choose(owner, 'GROWTH')
+    expect(res.status, res.text).toBe(409)
+    expect(res.body.error.code).toBe('PAYMENT_PENDING')
+  })
+
+  it('approval activates the plan from the approval date; the trial remainder is dropped', async () => {
+    const [open] = await openPlanInvoices(owner.tenantId)
+    const proofId = await pendingProofOf(owner, open!.id)
+    const before = Date.now()
+    const res = await operator.post(`${ws(owner.tenantId)}/payment-proofs/${proofId}/approve`, {
+      reference: 'upgrade now',
+    })
+    expect(res.status, res.text).toBe(200)
+    const sub = await db.withTenant(owner.tenantId, (tx) =>
+      tx.subscription.findUniqueOrThrow({
+        where: { tenantId: owner.tenantId },
+        include: { plan: true },
+      }),
+    )
+    expect(sub.status).toBe('ACTIVE')
+    expect(sub.plan?.key).toBe('BUSINESS')
+    expect(sub.currentPeriodStart!.getTime()).toBeGreaterThanOrEqual(before - 1000)
+    const month = sub.currentPeriodEnd!.getTime() - sub.currentPeriodStart!.getTime()
+    expect(month).toBeGreaterThanOrEqual(28 * DAY)
+    expect(month).toBeLessThanOrEqual(31 * DAY)
+  })
+
+  it('a paid workspace cannot upgrade directly; it requests a change instead', async () => {
+    const sub = await owner.client.get('/billing/subscription')
+    expect(sub.body.data.canUpgrade).toBe(false)
+    const res = await choose(owner, 'GROWTH')
+    expect(res.status, res.text).toBe(409)
+    expect(res.body.error.code).toBe('PLAN_ACTIVE')
+    const req = await owner.client.post('/billing/subscription/request', { planId: plans.GROWTH })
+    expect(req.status, req.text).toBe(200)
+    expect(req.body.data.requestedPlan.key).toBe('GROWTH')
+    expect(await openPlanInvoices(owner.tenantId)).toHaveLength(0)
+  })
+
+  it('stays inside the workspace: another workspace never sees or replaces it', async () => {
+    const other = await createOwner(api, 'mb-up-b')
+    const mine = await choose(other, 'STARTER')
+    expect(mine.status, mine.text).toBe(201)
+    expect((await owner.client.get(`/billing/invoices/${mine.body.data.id}`)).status).toBe(404)
+    expect(await openPlanInvoices(owner.tenantId)).toHaveLength(0)
+    expect(await openPlanInvoices(other.tenantId)).toHaveLength(1)
+  })
+
+  it('needs billing.manage', async () => {
+    const agent = await addMember(api, owner, 'AGENT')
+    expect((await choose(agent, 'GROWTH')).status).toBe(403)
+  })
+})
+
 describe('Managed Launch: no wallet top-up invoices', () => {
   it('refuses a wallet top-up with 422 WALLET_TOPUP_DISABLED and creates nothing', async () => {
     const res = await operator.post(`${ws(ownerB.tenantId)}/invoices`, {

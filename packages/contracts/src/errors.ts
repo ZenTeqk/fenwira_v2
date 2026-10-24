@@ -65,6 +65,10 @@ export const ERROR_CODES = [
   'PAYMENT_PENDING',
   'ALREADY_REVIEWED',
   'UTR_ALREADY_USED',
+  /** Upgrade now: off outside Managed Launch / plan already active / plan has no price. */
+  'UPGRADE_UNAVAILABLE',
+  'PLAN_ACTIVE',
+  'PLAN_NOT_PRICED',
   'EXPORT_TOO_LARGE',
   'WEBHOOK_URL_INVALID',
   'WEBHOOK_BLOCKED_DESTINATION',

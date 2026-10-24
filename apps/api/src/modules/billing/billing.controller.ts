@@ -1,11 +1,14 @@
 import {
   type RequestPlan,
   requestPlanSchema,
+  type UpgradePlan,
+  upgradePlanSchema,
   type WalletTransactionsQuery,
   walletTransactionsQuerySchema,
   type WorkspaceStatus,
 } from '@fenwira/contracts'
-import { Body, Controller, Get, Header, HttpCode, Post, Query } from '@nestjs/common'
+import { Body, Controller, Get, Header, HttpCode, Post, Query, Res } from '@nestjs/common'
+import { type Response } from 'express'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
 import { RequirePermission } from '../../core/security/decorators'
 import { currentTenant } from '../tenancy'
@@ -48,6 +51,21 @@ export class BillingController {
   @RequirePermission('billing.manage')
   async requestPlan(@Body(new ZodValidationPipe(requestPlanSchema)) body: RequestPlan) {
     return { data: await this.subscriptions.requestPlan(body.planId) }
+  }
+
+  /**
+   * Upgrade now (Managed Launch): issues the plan invoice at once; 201 when a new invoice was
+   * issued, 200 when the same plan's open invoice is returned.
+   */
+  @Post('subscription/upgrade')
+  @RequirePermission('billing.manage')
+  async upgrade(
+    @Body(new ZodValidationPipe(upgradePlanSchema)) body: UpgradePlan,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { invoice, created } = await this.subscriptions.upgrade(body.planId)
+    res.status(created ? 201 : 200)
+    return { data: invoice }
   }
 
   /** Ends the active subscription at the end of its period. */
