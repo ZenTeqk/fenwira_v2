@@ -168,6 +168,8 @@ Ledger rows carry `fund_type` `PAID` (default) or `PROMOTIONAL` (trial and promo
 
 ### Price book structure (decision P9-D2)
 
+**Unapproved (Managed Launch).** Every entry is marked `is_placeholder` with the note "Unapproved: not commercial pricing" (migration `20261028000000_managed_wallet_free`; entries are kept). In production the api and worker refuse to start with `BILLING_ENFORCED=true` while any active entry is a placeholder (`PriceBookGuard`). In Managed Launch every workspace uses wallet mode FREE: existing ones were moved by that migration (no balances or ledger rows changed), and new workspaces are created FREE.
+
 `customer_price_minor` is what the tenant is charged. `provider_cost_minor` is Meta's cost (reporting and margin), `markup_bps` and `tax_code`/`tax_bps` are metadata for future accounting validation, and `is_placeholder` plus `note` flag values that aren't commercial pricing. Usage events store the charge and the provider cost. Configured plans are implemented. Production subscription prices, customer price book, tax rules and invoices remain unapproved/deferred.
 
 ### Implemented in Phase 9 (the wallet core B3/B4 needs)

@@ -9,6 +9,7 @@ import { InvoicesService } from './invoices.service'
 import { SubscriptionsService } from './subscriptions.service'
 import { BillingMaintenanceProcessor } from './billing-maintenance.processor'
 import { BillingUsageProcessor } from './billing-usage.processor'
+import { PriceBookGuard } from './price-book.guard'
 
 @Module({})
 export class BillingModule {
@@ -22,6 +23,7 @@ export class BillingModule {
         BillingService,
         SubscriptionsService,
         InvoicesService,
+        PriceBookGuard,
       ],
     }
   }
@@ -33,6 +35,7 @@ export class BillingModule {
         { provide: BILLING_OPTIONS, useValue: options },
         BillingUsageProcessor,
         BillingMaintenanceProcessor,
+        PriceBookGuard,
       ],
       exports: [BillingUsageProcessor, BillingMaintenanceProcessor],
     }

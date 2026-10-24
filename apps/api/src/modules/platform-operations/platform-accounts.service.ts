@@ -88,6 +88,8 @@ export class PlatformAccountsService {
             defaultCountry: input.country,
             timezone: input.timezone,
             ownerUserId,
+            // Managed Launch: no customer wallet (Meta bills messages directly).
+            ...(this.core.features?.managedLaunch ? { billingMode: 'FREE' as const } : {}),
           },
         })
         await tx.membership.create({ data: { tenantId, userId: ownerUserId, role: 'OWNER' } })
