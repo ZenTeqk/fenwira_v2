@@ -19,7 +19,7 @@ import { AuthCard } from '@/components/auth/auth-card'
 import { fieldError, FormError } from '@/components/auth/form-error'
 import { useMe } from '@/components/session/session-provider'
 import { post } from '@/lib/api/client'
-import { COUNTRIES, timezones } from '@/lib/locale'
+import { COUNTRIES, INDIA_TIMEZONE, INDIA_TIMEZONE_LABEL } from '@/lib/locale'
 
 const TENANT_KEY = 'fenwira.tenant'
 
@@ -30,7 +30,6 @@ export default function OnboardingPage() {
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
   const [country, setCountry] = useState('IN')
-  const [timezone, setTimezone] = useState('Asia/Kolkata')
 
   useEffect(() => {
     if (me === null) router.replace('/login?next=/onboarding')
@@ -39,7 +38,11 @@ export default function OnboardingPage() {
 
   const create = useMutation({
     mutationFn: () =>
-      post<{ data: Workspace }>('/tenants', { name, country, timezone }, { tenant: false }),
+      post<{ data: Workspace }>(
+        '/tenants',
+        { name, country, timezone: INDIA_TIMEZONE },
+        { tenant: false },
+      ),
     onSuccess: async ({ data }) => {
       try {
         localStorage.setItem(TENANT_KEY, data.id)
@@ -103,18 +106,7 @@ export default function OnboardingPage() {
                 <label htmlFor="onboarding-timezone" className="text-sm font-medium text-slate">
                   Timezone
                 </label>
-                <Select value={timezone} onValueChange={setTimezone}>
-                  <SelectTrigger id="onboarding-timezone">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timezones().map((tz) => (
-                      <SelectItem key={tz} value={tz}>
-                        {tz}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input id="onboarding-timezone" readOnly value={INDIA_TIMEZONE_LABEL} />
               </div>
             </div>
             <Button type="submit" loading={create.isPending} disabled={name.trim().length < 2}>

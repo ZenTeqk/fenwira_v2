@@ -14,19 +14,9 @@ export const COUNTRIES = [
   { code: 'NG', name: 'Nigeria' },
 ] as const
 
-const FALLBACK_TIMEZONES = [
-  'Asia/Kolkata',
-  'Asia/Dubai',
-  'Asia/Singapore',
-  'Europe/London',
-  'America/New_York',
-  'UTC',
-]
-
-export function timezones(): string[] {
-  try {
-    return Intl.supportedValuesOf('timeZone')
-  } catch {
-    return FALLBACK_TIMEZONES
-  }
-}
+/**
+ * Fenwira runs on India time only: every workspace uses IST, so customers never pick from the
+ * world list (it confused new clients). The API default is the same zone.
+ */
+export const INDIA_TIMEZONE = 'Asia/Kolkata'
+export const INDIA_TIMEZONE_LABEL = 'India Standard Time (IST, UTC+5:30)'

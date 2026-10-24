@@ -36,7 +36,7 @@ import { fieldError, FormError } from '@/components/auth/form-error'
 import { useSession } from '@/components/session/session-provider'
 import { del, get, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
-import { COUNTRIES, timezones } from '@/lib/locale'
+import { COUNTRIES, INDIA_TIMEZONE, INDIA_TIMEZONE_LABEL } from '@/lib/locale'
 
 export default function WorkspaceSettingsPage() {
   const { tenantId, can, membership } = useSession()
@@ -60,14 +60,20 @@ export default function WorkspaceSettingsPage() {
   const [form, setForm] = useState({
     name: '',
     country: 'IN',
-    timezone: 'Asia/Kolkata',
+    timezone: INDIA_TIMEZONE,
     require2fa: false,
   })
   const [transferTo, setTransferTo] = useState('')
   useEffect(() => {
     if (workspace.data) {
       const w = workspace.data
-      setForm({ name: w.name, country: w.country, timezone: w.timezone, require2fa: w.require2fa })
+      // Every workspace runs on India time; saving also moves an older workspace to IST.
+      setForm({
+        name: w.name,
+        country: w.country,
+        timezone: INDIA_TIMEZONE,
+        require2fa: w.require2fa,
+      })
     }
   }, [workspace.data])
 
@@ -156,22 +162,7 @@ export default function WorkspaceSettingsPage() {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="ws-timezone">Timezone</Label>
-                    <Select
-                      value={form.timezone}
-                      onValueChange={(timezone) => setForm((f) => ({ ...f, timezone }))}
-                      disabled={!canManage}
-                    >
-                      <SelectTrigger id="ws-timezone">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timezones().map((tz) => (
-                          <SelectItem key={tz} value={tz}>
-                            {tz}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input id="ws-timezone" readOnly value={INDIA_TIMEZONE_LABEL} />
                   </div>
                 </div>
                 <div className="flex items-start justify-between gap-4 rounded-md border border-border p-4">
