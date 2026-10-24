@@ -77,6 +77,8 @@ export type DemoSeedResult = {
   conversations: number
   templates: number
   campaign: boolean
+  /** Demo template versions rewritten from the old (list) component shape. */
+  repaired: number
 }
 
 export async function seedDemoWorkspace(
@@ -95,7 +97,7 @@ export async function seedDemoWorkspace(
     throw new Error('Refused: demo data goes only into an internal workspace (is_internal)')
   if (expectName !== undefined && tenant.name !== expectName)
     throw new Error(`Refused: this workspace is not named "${expectName}"`)
-  const created = { contacts: 0, conversations: 0, templates: 0, campaign: false }
+  const created = { contacts: 0, conversations: 0, templates: 0, campaign: false, repaired: 0 }
 
   const tag =
     (await tx.tag.findFirst({ where: { name: DEMO_TAG } })) ??
@@ -139,6 +141,20 @@ export async function seedDemoWorkspace(
       select: { currentVersionId: true },
     })
     if (existing) {
+      // Repair: the first seeds wrote components as a list, which the app cannot read.
+      if (existing.currentVersionId) {
+        const version = await tx.templateVersion.findUnique({
+          where: { id: existing.currentVersionId },
+          select: { components: true },
+        })
+        if (Array.isArray(version?.components)) {
+          await tx.templateVersion.update({
+            where: { id: existing.currentVersionId },
+            data: { components: { body: { text: t.body } } },
+          })
+          created.repaired++
+        }
+      }
       firstVersionId ??= existing.currentVersionId
       continue
     }
@@ -158,7 +174,7 @@ export async function seedDemoWorkspace(
         tenantId,
         templateId: template.id,
         version: 1,
-        components: [{ type: 'BODY', text: t.body }],
+        components: { body: { text: t.body } },
         variableSamples: { body: ['Asha', 'DEMO-1001'].slice(0, t.body.split('{{').length - 1) },
         status: 'APPROVED',
         origin: 'FENWIRA',
@@ -260,7 +276,8 @@ export async function seedDemoWorkspace(
     created.campaign = true
   }
   const seeded =
-    created.campaign || created.contacts + created.conversations + created.templates > 0
+    created.campaign ||
+    created.contacts + created.conversations + created.templates + created.repaired > 0
   if (seeded)
     await tx.auditLog.create({
       data: {
