@@ -405,7 +405,7 @@ Platform session only. `payments.read` for GETs; `payments.manage` plus fresh MF
 | --- | --- | --- |
 | GET | `/platform/billing/dashboard` | → `{pending[], overdue[], revenue[]}` |
 | GET | `/platform/workspaces/:workspaceId/invoices` | → `PlatformInvoice[]` (amounts as strings) |
-| POST | `/platform/workspaces/:workspaceId/invoices` | `{kind, amountMinor, planKey?, description?, dueAt, idempotencyKey}` → 201 receipt (`result.invoiceId`). 409 `INVOICE_ALREADY_OPEN` (renewal); 422 `UPI_NOT_CONFIGURED` |
+| POST | `/platform/workspaces/:workspaceId/invoices` | `{kind, amountMinor, planKey?, description?, dueAt, idempotencyKey}` → 201 receipt (`result.invoiceId`). 409 `INVOICE_ALREADY_OPEN` (renewal); 422 `UPI_NOT_CONFIGURED`; 422 `WALLET_TOPUP_DISABLED` for `WALLET_TOPUP` in Managed Launch |
 | POST | `/platform/workspaces/:workspaceId/invoices/:invoiceId/void` | `{reason}` → receipt; 409 `PAYMENT_PENDING` / `INVOICE_NOT_OPEN` |
 | GET | `/platform/workspaces/:workspaceId/payment-proofs/:proofId/file` | → `{url, mimeType, expiresAt}` (2 minutes; audited) |
 | POST | `/platform/workspaces/:workspaceId/payment-proofs/:proofId/approve` | `{reference, note?}` → `{proofId, status, invoiceStatus, receiptNumber, operationId}`; idempotent; 409 `ALREADY_REVIEWED` |

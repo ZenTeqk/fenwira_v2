@@ -218,6 +218,7 @@ function CreateInvoiceDrawer({
   plans: Array<{ key: string; name: string }>
   onDone: () => void
 }) {
+  const managed = usePlatform()?.managedLaunch ?? false
   const [kind, setKind] = useState<'PLAN_RENEWAL' | 'WALLET_TOPUP'>('PLAN_RENEWAL')
   const [planKey, setPlanKey] = useState(plans[0]?.key ?? '')
   const [amount, setAmount] = useState('')
@@ -273,7 +274,8 @@ function CreateInvoiceDrawer({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="PLAN_RENEWAL">Plan renewal (1 month)</SelectItem>
-              <SelectItem value="WALLET_TOPUP">Wallet top-up</SelectItem>
+              {/* Managed Launch: no customer wallet, so no top-up invoices (API refuses them). */}
+              {managed ? null : <SelectItem value="WALLET_TOPUP">Wallet top-up</SelectItem>}
             </SelectContent>
           </Select>
         </Field>

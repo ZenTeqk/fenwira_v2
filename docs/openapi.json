@@ -16616,6 +16616,7 @@
                   "SUBSCRIPTION_INACTIVE",
                   "SUBSCRIPTION_SUSPENDED",
                   "UPI_NOT_CONFIGURED",
+                  "WALLET_TOPUP_DISABLED",
                   "INVOICE_ALREADY_OPEN",
                   "INVOICE_NOT_OPEN",
                   "PAYMENT_PENDING",
