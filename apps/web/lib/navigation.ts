@@ -295,14 +295,6 @@ export const NAVIGATION: NavItem[] = [
         permission: 'billing.read',
         early: true,
       },
-      {
-        id: 'billing-usage',
-        label: 'Usage',
-        href: '/billing/usage',
-        phase: 11,
-        hideInManagedLaunch: true,
-        permission: 'billing.read',
-      },
     ],
   },
   {

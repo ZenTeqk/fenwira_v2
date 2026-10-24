@@ -1,7 +1,6 @@
 'use client'
 
 import {
-  Breadcrumb,
   Button,
   CommandPalette,
   cn,
@@ -16,14 +15,7 @@ import { SubscriptionBanner } from '@/components/billing/subscription-banner'
 import { Menu, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  breadcrumbsFor,
-  flattenLeaves,
-  moduleTabs,
-  NAVIGATION,
-  type NavItem,
-  visibleNavigation,
-} from '@/lib/navigation'
+import { moduleTabs, NAVIGATION, type NavItem, visibleNavigation } from '@/lib/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
@@ -68,32 +60,15 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   const home = pathname === '/dashboard'
   // The inbox fills the viewport under the header with its own panes (docs/INBOX.md → Layout).
   const fullBleed = pathname === '/inbox' || pathname.startsWith('/inbox/')
-  // Contacts reuses the approved shell variant and owns its contextual links below its heading.
-  const contactsDirectory = pathname === '/contacts'
-  const templatesLibrary = pathname === '/templates'
-  const campaignsModule = pathname === '/campaigns' || pathname.startsWith('/campaigns/')
-  const automationsModule = pathname === '/automations' || pathname.startsWith('/automations/')
-  const analyticsModule = pathname === '/analytics' || pathname.startsWith('/analytics/')
-  const integrationsModule = pathname === '/integrations' || pathname.startsWith('/integrations/')
-  const billingWallet = pathname === '/billing/wallet'
-  const compactModule =
-    pathname === '/templates' ||
-    pathname.startsWith('/templates/') ||
-    campaignsModule ||
-    automationsModule ||
-    analyticsModule ||
-    integrationsModule ||
-    billingWallet
-  const communicationShell =
-    home ||
-    fullBleed ||
-    contactsDirectory ||
-    templatesLibrary ||
-    campaignsModule ||
-    automationsModule ||
-    analyticsModule ||
-    integrationsModule ||
-    billingWallet
+  // One shell for every module (sidebar, logo, top bar, spacing). Pages that render their own
+  // sub-navigation inside the page keep the shell's module tabs hidden to avoid two rows.
+  const pageOwnsTabs =
+    pathname === '/contacts' ||
+    pathname === '/integrations' ||
+    pathname === '/analytics' ||
+    pathname.startsWith('/analytics/') ||
+    ((pathname === '/campaigns' || pathname.startsWith('/campaigns/')) &&
+      pathname !== '/campaigns/analytics')
   const { membership, tenantId, can, me } = useSession()
   const unread = useQuery({
     queryKey: keys.tenant(tenantId, 'inbox-unread'),
@@ -131,10 +106,6 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   const [search, setSearch] = useState('')
   const palette = useCommandGroups({ nav, search, open: paletteOpen, galleryEnabled })
 
-  // Section pages get the breadcrumb here; record pages (/contacts/:id …) render a more specific
-  // one in their own header, so the top bar leaves it out to avoid two trails.
-  const onSectionPage = flattenLeaves(nav).some((l) => l.href === pathname)
-  const crumbs = onSectionPage ? breadcrumbsFor(pathname, nav) : []
   const { module: currentModule, tabs } = moduleTabs(pathname, nav)
 
   return (
@@ -150,7 +121,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       <aside
         className={cn(
           'sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 border-r border-sidebar-border bg-sidebar p-3 transition-all lg:flex',
-          collapsed ? 'w-16' : communicationShell ? 'w-56' : 'w-58',
+          collapsed ? 'w-16' : 'w-56',
         )}
       >
         <Link
@@ -161,12 +132,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             focusRing,
           )}
         >
-          <BrandMark
-            tone="light"
-            compact={collapsed}
-            size="md"
-            className={communicationShell ? 'text-xl' : undefined}
-          />
+          <BrandMark tone="light" compact={collapsed} size="md" className="text-xl" />
           <span className="sr-only">Fenwira home</span>
         </Link>
         <div className="flex-1 overflow-y-auto">
@@ -241,13 +207,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             <TenantSwitcher variant="topbar" />
           </div>
           <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
-          <div
-            className={cn('min-w-0 flex-1', communicationShell && 'lg:w-0 lg:flex-none xl:w-24')}
-          >
-            {!communicationShell && crumbs.length > 0 ? (
-              <Breadcrumb items={crumbs} linkAs={Link} />
-            ) : null}
-          </div>
+          <div className="min-w-0 flex-1 lg:w-0 lg:flex-none xl:w-24" />
           <Button
             variant="secondary"
             size="sm"
@@ -255,7 +215,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             aria-label="Search and jump to (Control K)"
             className={cn(
               'min-w-0 gap-2 bg-sidebar text-secondary shadow-raised lg:justify-start',
-              communicationShell ? 'lg:mr-auto lg:w-72 xl:w-96' : 'lg:w-72',
+              'lg:mr-auto lg:w-72 xl:w-96',
             )}
           >
             <Search aria-hidden="true" />
@@ -269,13 +229,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           <AccountMenu />
         </header>
 
-        {tabs.length &&
-        !fullBleed &&
-        !contactsDirectory &&
-        !analyticsModule &&
-        !billingWallet &&
-        pathname !== '/integrations' &&
-        (!campaignsModule || pathname === '/campaigns/analytics') ? (
+        {tabs.length > 1 && !fullBleed && !pageOwnsTabs ? (
           <ModuleTabs
             items={tabs}
             label={`${currentModule?.label ?? 'Module'} pages`}
@@ -289,9 +243,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             <div
               className={cn(
                 'mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 md:px-6',
-                home ? 'py-5' : compactModule ? 'py-4' : 'py-6',
-                compactModule &&
-                  '[&_[data-slot=page-header]_h1]:text-xl [&_[data-slot=page-header]_p]:text-sm',
+                home ? 'py-5' : 'py-6',
               )}
             >
               <SubscriptionBanner />

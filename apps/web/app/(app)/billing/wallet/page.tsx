@@ -13,7 +13,6 @@ import {
   Input,
   Label,
   Card,
-  ModuleTabs,
   Skeleton,
   PermissionState,
   SectionHeader,
@@ -154,7 +153,7 @@ function WalletPageContent() {
   return (
     <DetailPage
       header={{
-        title: 'Billing',
+        title: 'Wallet',
         description: 'Manage your plan, WhatsApp balance and usage.',
         actions: (
           <Button
@@ -193,22 +192,6 @@ function WalletPageContent() {
         ) : undefined
       }
     >
-      <ModuleTabs
-        label="Billing pages"
-        className="bg-transparent"
-        linkAs={Link}
-        items={[
-          {
-            id: 'subscription',
-            label: 'Subscription',
-            href: '/billing/subscription',
-            active: false,
-          },
-          { id: 'invoices', label: 'Invoices', href: '/billing/invoices', active: false },
-          { id: 'wallet', label: 'Wallet', href: '/billing/wallet', active: true },
-          { id: 'usage', label: 'Usage', href: '/billing/usage', active: false },
-        ]}
-      />
       <div className="grid min-w-0 gap-4 xl:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-4 xl:col-span-2">
           <Card className="flex flex-col gap-4 p-4" aria-labelledby="available-balance">
