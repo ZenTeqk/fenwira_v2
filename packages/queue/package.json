@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@fenwira/contracts": "workspace:*",
-    "bullmq": "5.81.5",
+    "bullmq": "6.3.16",
     "ioredis": "5.11.1"
   },
   "devDependencies": {
