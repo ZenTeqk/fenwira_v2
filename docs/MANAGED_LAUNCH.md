@@ -16,6 +16,10 @@ How the operator onboards and runs customers in Managed Launch Mode (ADR-0027, d
 | `/fenwira/prod/config/upi-vpa` | `UPI_VPA` | UPI ID shown on invoices (e.g. `name@bank`). Without it and the payee name, invoices show no UPI QR |
 | `/fenwira/prod/config/upi-payee-name` | `UPI_PAYEE_NAME` | Payee name on the UPI QR/link |
 | `/fenwira/prod/config/billing-gstin` | `BILLING_GSTIN` | Optional. GST stays off unless configured (ML-D3) |
+| `/fenwira/prod/config/billing-support-email` | `BILLING_SUPPORT_EMAIL` | Billing contact shown to customers and in billing emails. Prod: `fenwira@zenteqk.com` |
+| `/fenwira/prod/config/mail-reply-to` | `MAIL_REPLY_TO` | Where customer replies to Fenwira emails go. Absent = `fenwira@zenteqk.com` |
+| `/fenwira/prod/secrets/ops-alert-email` | `OPS_ALERT_EMAIL` | Operator alerts (ledger drift, stuck jobs). Prod: `fenwira@zenteqk.com` |
+| `/fenwira/prod/secrets/mail-from` | `MAIL_FROM` | Sender. Must be an SES-verified identity (`fenwira.com` domain or a verified address). Access-request leads always go to `fenwira@zenteqk.com` |
 | `/fenwira/prod/config/billing-gst-rate` | `BILLING_GST_RATE_BPS` | Optional percentage, e.g. `18` (rendered as basis points). GST is added only when both this and the GSTIN are set |
 | `/fenwira/prod/config/billing-grace-days` | `BILLING_GRACE_DAYS` | Days a PAST_DUE workspace keeps working before SUSPENDED. Production default **7** when unset |
 | `/fenwira/prod/config/billing-invoice-lead-days` | `BILLING_INVOICE_LEAD_DAYS` | Days before the period end that the renewal invoice is issued. Production default **3** when unset |
