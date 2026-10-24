@@ -86,6 +86,7 @@ export function InvoicesView() {
   })
   const open = (id: string | null) =>
     router.replace(id ? `/billing/invoices?invoice=${id}` : '/billing/invoices', { scroll: false })
+  const internal = useSubscription().data?.internal ?? false
 
   if (!can('billing.read')) return <PermissionState what="billing" />
   const due = list.data?.filter((i) => i.status === 'OPEN') ?? []
@@ -105,7 +106,12 @@ export function InvoicesView() {
         </Alert>
       }
     >
-      {managed ? (
+      {managed && internal ? (
+        <Alert tone="info" title="Internal workspace">
+          This is a Fenwira internal workspace: Business limits with every feature on, and billing
+          is off.
+        </Alert>
+      ) : managed ? (
         <>
           <CurrentPlan hasOpenInvoice={due.length > 0} />
           {due[0] ? <OpenInvoice id={due[0].id} /> : null}
@@ -160,7 +166,7 @@ export function InvoicesView() {
           </Table>
         )}
       </section>
-      {managed ? <HowToPay /> : null}
+      {managed && !internal ? <HowToPay /> : null}
       <InvoiceDrawer id={openId} onClose={() => open(null)} />
     </DetailPage>
   )
