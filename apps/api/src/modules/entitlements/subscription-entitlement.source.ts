@@ -11,6 +11,9 @@ export type ResolvedEntitlements = {
   values: Map<string, EntitlementValue>
 }
 
+/** Internal workspaces resolve to this plan's limits with every capability on. */
+export const INTERNAL_PLAN_KEY = 'BUSINESS'
+
 /** Capabilities withdrawn when a subscription is no longer active (P11-D6). */
 const OFF_WHEN_INACTIVE: readonly string[] = ['api_enabled', 'webhooks_enabled']
 
@@ -56,6 +59,11 @@ export class SubscriptionEntitlementSource {
 
   private async load(tx: TenantTx, tenantId: string): Promise<ResolvedEntitlements> {
     const now = new Date()
+    const tenant = await tx.tenant.findUnique({
+      where: { id: tenantId },
+      select: { isInternal: true },
+    })
+    if (tenant?.isInternal) return this.internal(tx)
     const sub = await this.ensureSubscription(tx, tenantId)
     const trialValid = sub.status === 'TRIALING' && sub.trialEndsAt && sub.trialEndsAt > now
     const status = sub.status === 'TRIALING' && !trialValid ? 'EXPIRED' : sub.status
@@ -81,6 +89,19 @@ export class SubscriptionEntitlementSource {
     })
     for (const o of overrides) values.set(o.key, o.value as EntitlementValue)
     return { status, values }
+  }
+
+  /** Internal workspace: always ACTIVE, Business limits, every capability on, no overrides. */
+  private async internal(tx: TenantTx): Promise<ResolvedEntitlements> {
+    const plan = await tx.plan.findUnique({
+      where: { key: INTERNAL_PLAN_KEY },
+      include: { entitlements: true },
+    })
+    const values = new Map<string, EntitlementValue>()
+    for (const e of plan?.entitlements ?? []) values.set(e.key, e.value as EntitlementValue)
+    for (const k of CAPABILITY_KEYS) values.set(k, true)
+    values.set(SUBSCRIPTION_ACTIVE, true)
+    return { status: 'ACTIVE', values }
   }
 
   /** Every workspace has a subscription; one created before Step 4 got a fresh trial on backfill. */

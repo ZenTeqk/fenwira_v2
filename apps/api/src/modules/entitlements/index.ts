@@ -9,6 +9,7 @@ export {
 } from './entitlements.service'
 export {
   type EntitlementOptions,
+  INTERNAL_PLAN_KEY,
   type ResolvedEntitlements,
   SUBSCRIPTION_ACTIVE,
   SubscriptionEntitlementSource,

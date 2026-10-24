@@ -193,6 +193,10 @@ export class CommercialOperationService {
           await tx.tenant.update({ where: { id: tenantId }, data: { billingMode: input.mode } })
           return { billingMode: input.mode }
         }
+        if (input.kind === 'internal_flag') {
+          await tx.tenant.update({ where: { id: tenantId }, data: { isInternal: input.internal } })
+          return { isInternal: input.internal }
+        }
         const moved = await tx.subscription.updateMany({
           where: { tenantId, status: 'ACTIVE' },
           data: { cancelAtPeriodEnd: true },

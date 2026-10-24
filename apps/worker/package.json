@@ -15,7 +15,9 @@
     "wallet:credit": "node dist/cli/wallet-credit.js",
     "subscription:activate": "node dist/cli/subscription-activate.js",
     "entitlement:override": "node dist/cli/entitlement-override.js",
-    "billing:mode": "node dist/cli/billing-mode.js"
+    "billing:mode": "node dist/cli/billing-mode.js",
+    "workspace:internal": "node dist/cli/workspace-internal.js",
+    "demo:seed": "node dist/cli/demo-seed.js"
   },
   "dependencies": {
     "@fenwira/api": "workspace:*",

@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto'
 import { type Server } from 'node:http'
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { seedDemoWorkspace } from '../src/demo/demo-seed'
 import { waitFor } from './support/campaigns'
 import { bootApi, bootWorker, type Client } from './support/harness'
 import { createOperator } from './support/platform'
@@ -703,6 +704,111 @@ describe('upgrade now: choose a plan and pay at once', () => {
   it('needs billing.manage', async () => {
     const agent = await addMember(api, owner, 'AGENT')
     expect((await choose(agent, 'GROWTH')).status).toBe(403)
+  })
+})
+
+describe('internal workspace (operator flag)', () => {
+  let internal: Member
+  const flag = (tenantId: string, value: boolean) =>
+    operator.post(`${ws(tenantId)}/subscription-operations`, {
+      kind: 'internal_flag',
+      internal: value,
+      reason: 'Fenwira internal demo workspace',
+      reference: 'internal-test',
+      idempotencyKey: randomUUID(),
+    })
+
+  beforeAll(async () => {
+    internal = await createOwner(api, 'mb-internal')
+    // Reading the subscription creates its row (the lazy trial), as any first visit does.
+    expect((await internal.client.get('/billing/subscription')).status).toBe(200)
+  })
+
+  it('is set only through the audited operator operation', async () => {
+    const res = await flag(internal.tenantId, true)
+    expect(res.status, res.text).toBe(200)
+    const ops = await db.withTenant(internal.tenantId, (tx) =>
+      tx.commercialOperation.findMany({ where: { operation: 'internal_flag' } }),
+    )
+    expect(ops).toHaveLength(1)
+    const sub = await internal.client.get('/billing/subscription')
+    expect(sub.body.data).toMatchObject({
+      status: 'ACTIVE',
+      internal: true,
+      plan: { key: 'BUSINESS' },
+      trialDaysLeft: null,
+    })
+    const status = await internal.client.get('/workspace/status')
+    expect(status.body.data.subscription).toMatchObject({ internal: true, paymentDue: false })
+    expect(sub.body.data.canUpgrade).toBe(false)
+    const plans = await internal.client.get('/billing/plans')
+    const up = await internal.client.post('/billing/subscription/upgrade', {
+      planId: plans.body.data[0].id,
+    })
+    expect(up.status, up.text).toBe(409)
+    expect(up.body.error.code).toBe('UPGRADE_UNAVAILABLE')
+  })
+
+  it('gets Business limits with every feature on, even when the row says SUSPENDED', async () => {
+    await db.withTenant(internal.tenantId, (tx) =>
+      tx.subscription.update({
+        where: { tenantId: internal.tenantId },
+        data: { status: 'SUSPENDED' },
+      }),
+    )
+    const res = await internal.client.get('/billing/entitlements')
+    expect(res.status, res.text).toBe(200)
+    const rows = res.body.data as Array<{ kind: string; enabled: boolean | null }>
+    expect(rows.filter((r) => r.kind === 'capability').every((r) => r.enabled)).toBe(true)
+    expect((await internal.client.get('/billing/subscription')).body.data.status).toBe('ACTIVE')
+  })
+
+  it('gets no trial invoice, no lifecycle step and no expiry', async () => {
+    await db.withTenant(internal.tenantId, (tx) =>
+      tx.subscription.update({
+        where: { tenantId: internal.tenantId },
+        data: { status: 'TRIALING', trialEndsAt: new Date(Date.now() - DAY), noticesSent: [] },
+      }),
+    )
+    const job = worker.get(BillingMaintenanceProcessor)
+    await job.remindInvoices()
+    await job.tickSubscriptions()
+    const [invoices, sub] = await Promise.all([
+      db.withTenant(internal.tenantId, (tx) => tx.invoice.count()),
+      subscriptionOf(internal.tenantId),
+    ])
+    expect(invoices).toBe(0)
+    expect(sub.status).toBe('TRIALING')
+    expect(sub.noticesSent).toEqual([])
+  })
+
+  it('demo seed refuses a normal workspace and seeds the internal one once', async () => {
+    await expect(
+      db.withTenant(ownerB.tenantId, (tx) => seedDemoWorkspace(tx, ownerB.tenantId), {
+        timeoutMs: 60_000,
+      }),
+    ).rejects.toThrow(/internal workspace/)
+    const seed = () =>
+      db.withTenant(internal.tenantId, (tx) => seedDemoWorkspace(tx, internal.tenantId), {
+        timeoutMs: 60_000,
+      })
+    expect(await seed()).toMatchObject({ seeded: true, contacts: 12, conversations: 6 })
+    expect((await seed()).seeded).toBe(false)
+    const [contacts, campaigns] = await Promise.all([
+      internal.client.post('/contacts/search', {}),
+      db.withTenant(internal.tenantId, (tx) => tx.campaign.findMany()),
+    ])
+    expect(contacts.status, contacts.text).toBe(200)
+    expect(contacts.body.data).toHaveLength(12)
+    expect(campaigns).toHaveLength(1)
+    expect(campaigns[0]).toMatchObject({ status: 'DRAFT' })
+    expect(campaigns[0]!.name).toContain('[DEMO]')
+  })
+
+  it('turning the flag off restores normal billing', async () => {
+    expect((await flag(internal.tenantId, false)).status).toBe(200)
+    const sub = await internal.client.get('/billing/subscription')
+    expect(sub.body.data.internal).toBe(false)
   })
 })
 

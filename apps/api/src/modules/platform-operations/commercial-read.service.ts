@@ -22,7 +22,14 @@ import { PlatformAuthService } from './platform-auth.service'
 export async function commercialSnapshot(tx: TenantTx, tenantId: string) {
   const workspace = await tx.tenant.findFirst({
     where: { id: tenantId, deletedAt: null },
-    select: { id: true, name: true, slug: true, createdAt: true, billingMode: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      createdAt: true,
+      billingMode: true,
+      isInternal: true,
+    },
   })
   if (!workspace) throw AppError.notFound('Workspace not found.')
   const [sub, wallet, overrides] = await Promise.all([

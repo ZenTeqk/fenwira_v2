@@ -15,11 +15,12 @@ import { requestContext } from '../../core/context/request-context'
 import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { AuditService } from '../audit'
-import { EntitlementsService } from '../entitlements'
+import { EntitlementsService, INTERNAL_PLAN_KEY } from '../entitlements'
 import { currentActorId, currentAuth } from '../identity'
 import { currentTenant } from '../tenancy'
 import { BILLING_OPTIONS, type BillingOptions } from './billing.options'
 import { INVOICE_INCLUDE, chooseUpgradePlan, toInvoiceDetail } from './invoices.core'
+import { isInternalWorkspace } from './wallet.core'
 
 const DAY = 86_400_000
 
@@ -201,7 +202,7 @@ export class SubscriptionsService {
     return this.tenantDb.run(async (tx) => {
       const s = await this.read(tx, tenantId)
       // ADR-0027 manual billing: "Payment due" while a renewal is open; grace end while PAST_DUE.
-      const manual = this.billing.manual
+      const manual = s.internal ? undefined : this.billing.manual
       const paymentDue = manual?.enabled
         ? (await tx.invoice.count({ where: { kind: 'PLAN_RENEWAL', status: 'OPEN' } })) > 0
         : false
@@ -216,6 +217,7 @@ export class SubscriptionsService {
         paymentDue,
         graceEndsAt,
         enforced: this.config.entitlements?.enforced ?? false,
+        internal: s.internal,
       }
     })
   }
@@ -228,6 +230,25 @@ export class SubscriptionsService {
       where: { tenantId },
       include: { plan: true, requestedPlan: true },
     })
+    const brief = (p: { id: string; key: string; name: string } | null | undefined) =>
+      p ? { id: p.id, key: p.key, name: p.name } : null
+    if (await isInternalWorkspace(tx, tenantId)) {
+      const plan = await tx.plan.findUnique({ where: { key: INTERNAL_PLAN_KEY } })
+      return {
+        status: 'ACTIVE',
+        plan: brief(plan),
+        requestedPlan: null,
+        requestedAt: null,
+        interval: 'MONTH',
+        trialEndsAt: null,
+        trialDaysLeft: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+        canUpgrade: false,
+        paymentConfirmHours: null,
+        internal: true,
+      }
+    }
     // No row yet (only possible while subscriptions aren't enforced): report the trial the
     // workspace would have — from its creation — without writing anything.
     const trialEndsAt =
@@ -245,8 +266,6 @@ export class SubscriptionsService {
           ))
     const now = Date.now()
     const resolved = status ?? sub?.status ?? 'TRIALING'
-    const brief = (p: { id: string; key: string; name: string } | null | undefined) =>
-      p ? { id: p.id, key: p.key, name: p.name } : null
     return {
       status: resolved,
       plan: brief(sub?.plan),
@@ -262,6 +281,7 @@ export class SubscriptionsService {
       cancelAtPeriodEnd: sub?.cancelAtPeriodEnd ?? false,
       canUpgrade: Boolean(this.billing.manual?.enabled) && resolved !== 'ACTIVE',
       paymentConfirmHours: this.billing.manual?.confirmHours ?? null,
+      internal: false,
     }
   }
 

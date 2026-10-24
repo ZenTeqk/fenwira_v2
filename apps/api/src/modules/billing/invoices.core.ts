@@ -9,7 +9,7 @@ import QRCode from 'qrcode'
 import { AppError } from '../../core/http/app-error'
 import { type ManualBilling } from './billing.options'
 import { BILLING_READER_ROLES, activatePlan } from './subscriptions.core'
-import { type BillingPlatform, postTransaction } from './wallet.core'
+import { type BillingPlatform, isInternalWorkspace, postTransaction } from './wallet.core'
 
 /**
  * ADR-0027 Managed Launch Mode step 3 — manual UPI billing (docs/BILLING.md → Manual invoices).
@@ -473,6 +473,8 @@ export async function chooseUpgradePlan(
 ): Promise<{ invoiceId: string; replaced: string | null; created: boolean }> {
   if (!manual.enabled)
     throw new AppError('UPGRADE_UNAVAILABLE', 409, 'Plans are activated by the Fenwira team.')
+  if (await isInternalWorkspace(tx, tenantId))
+    throw new AppError('UPGRADE_UNAVAILABLE', 409, 'This is an internal workspace; billing is off.')
   if (status === 'ACTIVE')
     throw new AppError(
       'PLAN_ACTIVE',
@@ -571,6 +573,7 @@ export async function issueTrialInvoiceIfDue(
   trialPlanKey: string,
 ): Promise<boolean> {
   if (!manual.enabled || !manual.payee) return false
+  if (await isInternalWorkspace(tx, tenantId)) return false
   await tx.$queryRaw`SELECT id FROM subscriptions WHERE tenant_id = ${tenantId}::uuid FOR UPDATE`
   const sub = await tx.subscription.findUnique({ where: { tenantId } })
   if (!sub || sub.status !== 'TRIALING' || !sub.trialEndsAt) return false
@@ -623,6 +626,7 @@ export async function issueRenewalIfDue(
   manual: ManualBilling,
 ): Promise<boolean> {
   if (!manual.enabled || !manual.payee) return false
+  if (await isInternalWorkspace(tx, tenantId)) return false
   const sub = await tx.subscription.findUnique({ where: { tenantId } })
   if (
     !sub ||
