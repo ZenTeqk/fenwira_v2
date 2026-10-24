@@ -31,7 +31,11 @@ export async function platformRequest<T>(
     const payload = (await res.json().catch(() => ({}))) as {
       error?: { code?: string; message?: string; correlationId?: string }
     }
-    if (res.status === 401 || (res.status === 403 && payload.error?.code === 'FORBIDDEN')) {
+    // A wrong password or code during the identity check is not a session end.
+    const ended =
+      path !== '/auth/reauth' &&
+      (res.status === 401 || (res.status === 403 && payload.error?.code === 'FORBIDDEN'))
+    if (ended) {
       clearPlatformSession()
       window.dispatchEvent(new Event('platform-expired'))
     }

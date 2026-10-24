@@ -13,6 +13,7 @@ import {
   platformRequest,
 } from '@/lib/platform'
 import { parseDeadlines } from '@/lib/session-activity'
+import { IdentityProvider } from './identity'
 const PlatformContext = createContext<PlatformMe | null>(null)
 export const usePlatform = () => useContext(PlatformContext)
 export function PlatformShell({ children }: { children: ReactNode }) {
@@ -108,7 +109,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
         <div className="flex flex-col md:flex-row">
           <nav
             aria-label="Platform"
-            className="flex gap-2 border-b border-border bg-surface p-4 md:min-h-screen md:w-56 md:flex-col md:border-r md:border-b-0"
+            className="flex gap-2 overflow-x-auto border-b border-border bg-surface p-4 md:min-h-screen md:w-56 md:flex-col md:border-r md:border-b-0"
           >
             {nav
               .filter(
@@ -138,7 +139,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
               ))}
           </nav>
           <main id="platform-main" className="min-w-0 flex-1 p-4 md:p-6">
-            {children}
+            <IdentityProvider>{children}</IdentityProvider>
           </main>
         </div>
       </div>

@@ -36,13 +36,14 @@ import { type FormEvent, useState } from 'react'
 import { z } from 'zod'
 import { ApiError } from '@/lib/api/client'
 import { platformMoney, platformRequest } from '@/lib/platform'
+import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—')
 const failure = (err: unknown) =>
   err instanceof ApiError
     ? err.code === 'TOTP_REQUIRED'
-      ? 'Verify your identity again (any workspace → Commercial operations), then retry.'
+      ? 'Identity check not completed. Use Verify identity at the top of this page, then retry.'
       : err.message
     : 'Request failed.'
 
@@ -258,6 +259,7 @@ function ReviewDrawer({
   onClose: () => void
   onDone: () => void
 }) {
+  const request = useIdentityRequest()
   const [reference, setReference] = useState('')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -272,14 +274,11 @@ function ReviewDrawer({
       const base = `/workspaces/${review.p.workspaceId}/payment-proofs/${review.p.proofId}`
       const result = paymentReviewResultSchema.parse(
         approve
-          ? await platformRequest(
+          ? await request(
               `${base}/approve`,
               approvePaymentRequestSchema.parse({ reference, ...(text ? { note: text } : {}) }),
             )
-          : await platformRequest(
-              `${base}/reject`,
-              rejectPaymentRequestSchema.parse({ reason: text }),
-            ),
+          : await request(`${base}/reject`, rejectPaymentRequestSchema.parse({ reason: text })),
       )
       toast.success(
         approve

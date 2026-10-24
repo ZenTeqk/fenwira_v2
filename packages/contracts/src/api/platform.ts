@@ -33,6 +33,8 @@ export const platformMeSchema = z.object({
   /** Idle deadline (last declared activity + 3 h, capped at expiresAt). */
   idleExpiresAt: z.iso.datetime().optional(),
   csrfToken: z.string(),
+  /** End of the short identity-check window (password + fresh code) for consequential actions. */
+  mfaFreshUntil: z.iso.datetime().optional(),
   /** Product switches the console adapts to (Managed Launch hides wallet top-ups). */
   managedLaunch: z.boolean().optional(),
 })

@@ -8,7 +8,6 @@ import {
   entitlementOperationSchema,
   subscriptionOperationSchema,
   walletOperationSchema,
-  platformReauthSchema,
   type CommercialPreview,
   type CommercialReceipt,
   type PlatformWorkspace,
@@ -34,7 +33,8 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
 import { ApiError } from '@/lib/api/client'
-import { platformMoney, platformRequest } from '@/lib/platform'
+import { platformMoney } from '@/lib/platform'
+import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
 const actions = [
   ['paid_credit', 'Paid credit', 'wallet.manage'],
@@ -135,6 +135,7 @@ export function ReceiptDetails({ receipt }: { receipt: CommercialReceipt }) {
   )
 }
 export function CommercialActions({ data }: { data: PlatformWorkspace }) {
+  const request = useIdentityRequest()
   const me = usePlatform(),
     cache = useQueryClient(),
     confirm = useConfirm()
@@ -156,9 +157,6 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [receipt, setReceipt] = useState<CommercialReceipt | null>(null)
-  const [password, setPassword] = useState(''),
-    [code, setCode] = useState(''),
-    [mfaMessage, setMfaMessage] = useState('')
   const isWallet = ['paid_credit', 'promotional_credit', 'adjustment', 'refund'].includes(kind),
     isOverride = kind.startsWith('override_')
   const endpoint = isWallet ? 'wallet' : isOverride ? 'entitlement' : 'subscription'
@@ -168,21 +166,6 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
     setCommand(null)
     setIdempotency(crypto.randomUUID())
     setError('')
-  }
-  async function reauth(event: FormEvent) {
-    event.preventDefault()
-    setBusy(true)
-    setMfaMessage('')
-    try {
-      await platformRequest('/auth/reauth', platformReauthSchema.parse({ password, code }))
-      setMfaMessage('Identity verified for consequential actions for five minutes.')
-    } catch {
-      setMfaMessage('Verification failed. Check password and current authenticator code.')
-    } finally {
-      setPassword('')
-      setCode('')
-      setBusy(false)
-    }
   }
   async function review(event: FormEvent) {
     event.preventDefault()
@@ -224,10 +207,7 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
               ...(kind === 'activate' ? { planId: plan } : kind === 'billing_mode' ? { mode } : {}),
             })
       const reviewed = commercialPreviewSchema.parse(
-        await platformRequest(
-          `/workspaces/${data.snapshot.workspace.id}/${endpoint}-preview`,
-          input,
-        ),
+        await request(`/workspaces/${data.snapshot.workspace.id}/${endpoint}-preview`, input),
       )
       setPreview(reviewed)
       setCommand(input)
@@ -285,10 +265,7 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
     setError('')
     try {
       const result = commercialReceiptSchema.parse(
-        await platformRequest(
-          `/workspaces/${data.snapshot.workspace.id}/${endpoint}-operations`,
-          command,
-        ),
+        await request(`/workspaces/${data.snapshot.workspace.id}/${endpoint}-operations`, command),
       )
       setReceipt(result)
       setOpen(false)
@@ -313,9 +290,21 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
     <>
       <Card>
         <CardHeader>
-          <CardTitle as="h2">Commercial support operations</CardTitle>
+          <CardTitle as="h2">Billing adjustments (rare)</CardTitle>
         </CardHeader>
         <CardContent>
+          <p className="mb-3 text-sm text-secondary">
+            For manual corrections to this workspace&apos;s plan, trial, billing mode, credit or
+            limits. Each adjustment is recorded permanently and cannot be edited.{' '}
+            <strong className="font-medium text-slate">
+              Not needed for connecting WhatsApp or approving payments.
+            </strong>
+          </p>
+          <p className="mb-3 text-sm text-secondary">
+            You need a reason, a reference (for example a support ticket), a preview and a
+            confirmation; identity is checked when you confirm. Afterwards you get a receipt and the
+            change appears in the audit log.
+          </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button
               onClick={() => {
@@ -326,44 +315,9 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
                 setOpen(true)
               }}
             >
-              Start commercial operation
+              Start billing adjustment
             </Button>
-            <p className="text-sm text-secondary">
-              Reason, reference, review and confirmation required. Financial history is immutable.
-            </p>
           </div>
-          <details className="mt-4">
-            <summary className="cursor-pointer text-sm font-medium">
-              Verify identity for consequential actions
-            </summary>
-            <form onSubmit={reauth} className="mt-3 flex max-w-md flex-col gap-3">
-              <Field label="Operator password" required>
-                <Input
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </Field>
-              <Field label="Current authenticator code" required>
-                <Input
-                  required
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
-              </Field>
-              <Button type="submit" variant="secondary" disabled={busy}>
-                Verify identity
-              </Button>
-              <p role="status" className="text-sm text-secondary">
-                {mfaMessage}
-              </p>
-            </form>
-          </details>
         </CardContent>
       </Card>
       <DetailDrawer

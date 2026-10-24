@@ -31,6 +31,7 @@ import { type FormEvent, useState } from 'react'
 import { z } from 'zod'
 import { ApiError } from '@/lib/api/client'
 import { platformRequest } from '@/lib/platform'
+import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
 
 type Action = 'verify' | 'sync' | 'sync-templates' | 'subscribe' | 'disconnect'
@@ -39,7 +40,7 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : 'Ne
 const failure = (err: unknown) => {
   if (!(err instanceof ApiError)) return 'Request failed.'
   if (err.code === 'TOTP_REQUIRED')
-    return 'Verify your identity again (Commercial operations card), then retry.'
+    return 'Identity check not completed. Use Verify identity at the top of this page, then retry.'
   return err.message
 }
 
@@ -49,6 +50,7 @@ const failure = (err: unknown) => {
  * and only ever shown back masked.
  */
 export function WorkspaceWhatsApp({ workspaceId, name }: { workspaceId: string; name: string }) {
+  const request = useIdentityRequest()
   const me = usePlatform()
   const queryClient = useQueryClient()
   const confirm = useConfirm()
@@ -87,21 +89,21 @@ export function WorkspaceWhatsApp({ workspaceId, name }: { workspaceId: string; 
     try {
       if (action === 'verify') {
         const result = verifyConnectionResultSchema.parse(
-          await platformRequest(`${base}/${c.id}/verify`, {}),
+          await request(`${base}/${c.id}/verify`, {}),
         )
         setVerified((v) => ({ ...v, [c.id]: result }))
         if (result.ok) toast.success('Connection verified with Meta')
         else toast.error('Meta rejected at least one check')
       } else if (action === 'sync-templates') {
         const s = templateSyncSummarySchema.parse(
-          await platformRequest(`${base}/${c.id}/sync-templates`, {}),
+          await request(`${base}/${c.id}/sync-templates`, {}),
         )
         toast.success(`Templates synced: ${s.imported} new, ${s.updated} updated`)
       } else if (action === 'disconnect') {
-        await platformRequest(`${base}/${c.id}`, undefined, 'DELETE')
+        await request(`${base}/${c.id}`, undefined, 'DELETE')
         toast.success(`${c.displayPhoneNumber} disconnected`)
       } else {
-        await platformRequest(`${base}/${c.id}/${action}`, {})
+        await request(`${base}/${c.id}/${action}`, {})
         toast.success(action === 'sync' ? 'Status synced from Meta' : 'Webhooks subscribed')
       }
     } catch (err) {
@@ -330,6 +332,7 @@ function ConnectDrawer({
   path: string
   onDone: () => void
 }) {
+  const request = useIdentityRequest()
   const [form, setForm] = useState(EMPTY)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -347,7 +350,7 @@ function ConnectDrawer({
         setError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(' · '))
         return
       }
-      await platformRequest(path, parsed.data)
+      await request(path, parsed.data)
       toast.success(`${parsed.data.displayPhoneNumber} connected to ${workspaceName}`)
       setForm(EMPTY)
       onOpenChange(false)
@@ -438,6 +441,7 @@ function RotateDrawer({
   path: string
   onDone: () => void
 }) {
+  const request = useIdentityRequest()
   const [accessToken, setToken] = useState('')
   const [appSecret, setSecret] = useState('')
   const [appId, setAppId] = useState('')
@@ -464,7 +468,7 @@ function RotateDrawer({
         setError(parsed.error.issues.map((i) => i.message).join(' · '))
         return
       }
-      await platformRequest(`${path}/${connection.id}/rotate`, parsed.data)
+      await request(`${path}/${connection.id}/rotate`, parsed.data)
       toast.success('Credentials rotated')
       reset()
       onOpenChange(false)

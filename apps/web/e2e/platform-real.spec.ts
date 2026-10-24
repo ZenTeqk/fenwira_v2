@@ -33,7 +33,7 @@ test('real platform MFA, membership-free discovery, confirmed funding and revoca
     await page.getByRole('button', { name: 'Search', exact: true }).click()
     await page.getByRole('link', { name: `Open ${customer.workspaceName}` }).click()
     await expect(page.getByText('Trial', { exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'Start commercial operation' }).click()
+    await page.getByRole('button', { name: 'Start billing adjustment' }).click()
     await page.getByLabel('Amount (INR)').fill('1.23')
     await page.getByLabel('Reason').fill('Approved local funding fixture')
     await page.getByLabel('Support / funding reference').fill('browser-test-funding')

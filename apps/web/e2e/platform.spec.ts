@@ -195,7 +195,7 @@ test('tenant session alone is redirected to platform login', async ({ page }) =>
     }),
   )
   await page.goto('/platform/workspaces')
-  await expect(page).toHaveURL(/\/platform\/login$/)
+  await expect(page).toHaveURL(/\/platform\/login(\?|$)/)
 })
 
 test('revoked privilege clears the commercial view after a denied request', async ({ page }) => {
@@ -209,7 +209,7 @@ test('revoked privilege clears the commercial view after a denied request', asyn
     }),
   )
   await page.getByRole('link', { name: 'Audit', exact: true }).click()
-  await expect(page).toHaveURL(/\/platform\/login$/)
+  await expect(page).toHaveURL(/\/platform\/login(\?|$)/)
   await expect(page.getByRole('heading', { level: 1, name: 'Commercial fixture' })).toHaveCount(0)
 })
 
@@ -254,7 +254,7 @@ test('consequential funding needs preview and impact confirmation; retry retains
     })
   })
   await page.goto(`/platform/workspaces/${id}`)
-  await page.getByRole('button', { name: 'Start commercial operation' }).click()
+  await page.getByRole('button', { name: 'Start billing adjustment' }).click()
   await page.getByLabel('Amount (INR)').fill('1.00')
   await page.getByLabel('Reason', { exact: false }).fill('Approved support credit')
   await page.getByLabel('Support / funding reference').fill('support-123')
