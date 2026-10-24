@@ -91,3 +91,7 @@ export const SUBSCRIBED_FIELDS = [
 ]
 
 export const THROUGHPUT_MPS: Record<string, number> = { HIGH: 1000, STANDARD: 80 }
+
+/** Meta's developer test numbers are US +1 555 numbers; they come pre-registered by Meta. */
+export const isMetaTestNumber = (display: string | null | undefined) =>
+  /^1555\d{7}$/.test(phoneDigits(display ?? ''))

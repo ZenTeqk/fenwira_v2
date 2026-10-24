@@ -19,18 +19,13 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { z } from 'zod'
-import { ApiError } from '@/lib/api/client'
+import { errorText } from '@/lib/api/client'
 import { formatMoney } from '@/lib/billing'
 import { platformRequest } from '@/lib/platform'
 import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
 
-const failure = (err: unknown) =>
-  err instanceof ApiError
-    ? err.code === 'TOTP_REQUIRED'
-      ? 'Identity check not completed. Use Verify identity at the top of this page, then retry.'
-      : err.message
-    : 'Request failed.'
+const failure = (err: unknown) => errorText(err, 'The request failed. Try again.')
 
 /** Monthly plan prices used for automatic renewal invoices (docs/BILLING.md → Manual invoices). */
 export function PlansView() {

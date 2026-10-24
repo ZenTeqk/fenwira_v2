@@ -16807,7 +16807,13 @@
                   ]
                 }
               },
+              "hint": {
+                "type": "string"
+              },
               "correlationId": {
+                "type": "string"
+              },
+              "requestId": {
                 "type": "string"
               }
             },

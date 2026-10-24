@@ -212,3 +212,61 @@ test('a lapsed identity check opens verification inline and retries the connect 
   const html = await page.content()
   for (const secret of ['Operator-Pw-e2e-1', TOKEN, SECRET]) expect(html).not.toContain(secret)
 })
+
+test('connect form names the wrong field before and after calling Meta; test numbers explained', async ({
+  page,
+}) => {
+  const posted: unknown[] = []
+  await mock(page, posted)
+  await page.route(`**/api/v1/platform/workspaces/${id}/whatsapp/connections`, (route) =>
+    route.request().method() === 'POST'
+      ? (posted.push(route.request().postDataJSON()),
+        route.fulfill({
+          status: 422,
+          json: {
+            error: {
+              code: 'WHATSAPP_CONNECT_FAILED',
+              message: 'Meta says the access token is invalid or expired.',
+              hint: 'Create a new permanent system-user token in Meta Business Settings and paste it again.',
+              fieldErrors: [
+                {
+                  path: 'accessToken',
+                  code: 'META_TOKEN_INVALID',
+                  message: 'Create a new permanent system-user token and paste it again.',
+                },
+              ],
+              correlationId: 'req-e2e-1',
+              requestId: 'req-e2e-1',
+            },
+          },
+        }))
+      : route.fallback(),
+  )
+  await page.goto(`/platform/workspaces/${id}`)
+  await page.getByRole('button', { name: 'Connect WhatsApp number' }).click()
+  const drawer = page.getByRole('dialog', { name: 'Connect WhatsApp number' })
+  await drawer.getByLabel('WABA ID').fill('my-waba')
+  await drawer.getByLabel('Phone number ID').fill('109876543210')
+  await drawer.getByLabel('Display phone number').fill('+1 555-676-0408')
+  await drawer.getByLabel('System-user access token').fill('short')
+  await expect(drawer.getByText('Meta test number')).toBeVisible()
+  await drawer.getByRole('button', { name: 'Connect and verify' }).click()
+  await expect(drawer.getByLabel('WABA ID')).toHaveAttribute('aria-invalid', 'true')
+  await expect(drawer.getByText('Must be the numeric ID from Meta')).toBeVisible()
+  await expect(drawer.getByText('Must be at least 20 characters.')).toBeVisible()
+  expect(posted).toHaveLength(0)
+
+  await drawer.getByLabel('WABA ID').fill('201234567890')
+  await drawer.getByLabel('System-user access token').fill(TOKEN)
+  await drawer.getByRole('button', { name: 'Connect and verify' }).click()
+  await expect(drawer.getByText('Meta says the access token is invalid or expired.')).toBeVisible()
+  await expect(drawer.getByText(/Meta Business Settings/)).toBeVisible()
+  await expect(drawer.getByLabel('System-user access token')).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  )
+  await expect(drawer.getByText('req-e2e-1')).toBeVisible()
+  await expect(drawer.getByRole('button', { name: 'Copy' })).toBeVisible()
+  expect(posted).toHaveLength(1)
+  expect(await page.content()).not.toContain(TOKEN)
+})
