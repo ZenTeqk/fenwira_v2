@@ -73,6 +73,8 @@ export type CommercialReceipt = z.infer<typeof commercialReceiptSchema>
 export const commercialSnapshotSchema = z.object({
   workspace: platformWorkspaceIdentitySchema.extend({
     billingMode: z.enum(['FREE', 'TRIAL', 'PREPAID']),
+    /** Fenwira's own workspace (Business limits, no billing). */
+    isInternal: z.boolean().optional(),
   }),
   subscription: z
     .object({
@@ -366,6 +368,7 @@ export const platformOverviewSchema = z.object({
         'UNHEALTHY_CONNECTION',
         'EMAIL_FAILURES',
         'UNSENT_LEADS',
+        'NEW_ACCESS_REQUESTS',
       ]),
       title: z.string(),
       href: z.string(),
@@ -373,6 +376,26 @@ export const platformOverviewSchema = z.object({
   ),
 })
 export type PlatformOverview = z.infer<typeof platformOverviewSchema>
+
+/** One row of GET /platform/workspace-list: commercial status and health, no customer content. */
+export const platformWorkspaceRowSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  slug: z.string(),
+  createdAt: z.string(),
+  internal: z.boolean(),
+  ownerEmail: z.string().nullable(),
+  plan: z.object({ key: z.string(), name: z.string() }).nullable(),
+  status: z.string().nullable(),
+  trialEndsAt: z.string().nullable(),
+  currentPeriodEnd: z.string().nullable(),
+  nextDueAt: z.string().nullable(),
+  openInvoices: z.number(),
+  openTotalMinor: z.string(),
+  whatsapp: z.enum(['NONE', 'HEALTHY', 'ATTENTION']),
+  lastMessageAt: z.string().nullable(),
+})
+export type PlatformWorkspaceRow = z.infer<typeof platformWorkspaceRowSchema>
 
 /** Workspace detail activity (GET /platform/workspaces/:id/activity): no message content. */
 export const platformWorkspaceActivitySchema = z.object({

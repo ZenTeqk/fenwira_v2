@@ -367,7 +367,7 @@ export function AccessRequestsView() {
       header={{
         title: 'Access requests',
         description:
-          'Leads from the fenwira.com form, newest first; reply, then create the workspace. Every request is kept even when its email fails. See docs/MANAGED_LAUNCH.md § Customer-friendly onboarding.',
+          'Leads from the fenwira.com form, newest first; reply, then create the workspace. Every request is kept even when its email fails. See docs/MANAGED_LAUNCH.md § 3 Onboard one customer.',
       }}
     >
       {leads.isPending ? (

@@ -278,6 +278,31 @@ export class SystemGateway {
     return rows.map((r) => ({ tenantId: r.tenant_id, invoiceId: r.invoice_id, notice: r.notice }))
   }
 
+  /** Operator workspace list (/platform/workspaces); the function re-checks the operator's grant. */
+  async platformWorkspaceList(operatorId: string) {
+    return this.prisma.$queryRaw<
+      Array<{
+        id: string
+        name: string
+        slug: string
+        created_at: Date
+        is_internal: boolean
+        owner_email: string | null
+        plan_key: string | null
+        plan_name: string | null
+        subscription_status: string | null
+        trial_ends_at: Date | null
+        current_period_end: Date | null
+        next_due_at: Date | null
+        open_invoices: number
+        open_total_minor: bigint
+        numbers: number
+        unhealthy_numbers: number
+        last_message_at: Date | null
+      }>
+    >`SELECT * FROM system.platform_workspace_list(${operatorId}::uuid)`
+  }
+
   /** Operator overview aggregates (/platform); the function re-checks the operator's grant. */
   async platformOverview(operatorId: string, now: Date): Promise<Record<string, unknown>> {
     const rows = await this.prisma.$queryRaw<Array<{ o: Record<string, unknown> }>>`

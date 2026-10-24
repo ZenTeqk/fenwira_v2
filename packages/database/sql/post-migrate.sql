@@ -785,6 +785,7 @@ BEGIN
           'verifyOk', c.verify_ok, 'verifyErrorCode', c.verify_error_code) ORDER BY t.name), '[]'::jsonb)
         FROM public.whatsapp_phone_numbers p
         JOIN public.tenants t ON t.id = p.tenant_id AND t.deleted_at IS NULL
+          AND p.phone_number_id <> 'demo-phone-not-real'
         LEFT JOIN LATERAL (SELECT ws.status, ws.last_event_at FROM public.webhook_subscriptions ws
                            WHERE ws.waba_id = p.waba_id ORDER BY ws.last_event_at DESC NULLS LAST LIMIT 1) w ON true
         LEFT JOIN LATERAL (SELECT mc.verify_ok, mc.verify_error_code FROM public.meta_credentials mc
@@ -895,6 +896,46 @@ $$;
 ALTER FUNCTION system.platform_workspaces(uuid,text,integer) OWNER TO fenwira_system;
 REVOKE ALL ON FUNCTION system.platform_workspaces(uuid,text,integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION system.platform_workspaces(uuid,text,integer) TO fenwira_app;
+
+-- Operator workspace list (/platform/workspaces): one row per workspace with commercial status,
+-- WhatsApp health and last message time. Identifiers, billing fields and the owner's email only;
+-- never message content, tokens, secrets or contact data. Requires an active platform grant.
+GRANT SELECT (is_internal, owner_user_id) ON public.tenants TO fenwira_system;
+GRANT SELECT (id, email) ON public.users TO fenwira_system;
+GRANT SELECT (phone_number_id) ON public.whatsapp_phone_numbers TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.platform_workspace_list(p_operator uuid)
+RETURNS TABLE (id uuid, name text, slug text, created_at timestamptz, is_internal boolean,
+               owner_email text, plan_key text, plan_name text, subscription_status text,
+               trial_ends_at timestamptz, current_period_end timestamptz, next_due_at timestamptz,
+               open_invoices integer, open_total_minor bigint, numbers integer,
+               unhealthy_numbers integer, last_message_at timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT t.id, t.name, t.slug, t.created_at, t.is_internal, u.email::text, pl.key, pl.name,
+         s.status::text, s.trial_ends_at, s.current_period_end, inv.next_due, coalesce(inv.n, 0),
+         coalesce(inv.total, 0)::bigint, coalesce(ph.n, 0), coalesce(ph.bad, 0), msg.at
+  FROM public.tenants t
+  LEFT JOIN public.users u ON u.id = t.owner_user_id
+  LEFT JOIN public.subscriptions s ON s.tenant_id = t.id
+  LEFT JOIN public.plans pl ON pl.id = s.plan_id
+  LEFT JOIN LATERAL (SELECT count(*)::integer AS n, sum(i.total_minor) AS total, min(i.due_at) AS next_due
+                     FROM public.invoices i WHERE i.tenant_id = t.id AND i.status = 'OPEN') inv ON true
+  LEFT JOIN LATERAL (
+    SELECT count(*)::integer AS n,
+           count(*) FILTER (WHERE p.status <> 'CONNECTED' OR p.quality_rating = 'RED'
+                              OR c.verify_ok IS FALSE)::integer AS bad
+    FROM public.whatsapp_phone_numbers p
+    LEFT JOIN LATERAL (SELECT mc.verify_ok FROM public.meta_credentials mc WHERE mc.waba_id = p.waba_id
+                       ORDER BY mc.verified_at DESC NULLS LAST LIMIT 1) c ON true
+    WHERE p.tenant_id = t.id AND p.phone_number_id <> 'demo-phone-not-real') ph ON true
+  LEFT JOIN LATERAL (SELECT m.created_at AS at FROM public.messages m WHERE m.tenant_id = t.id
+                     ORDER BY m.created_at DESC LIMIT 1) msg ON true
+  WHERE t.deleted_at IS NULL
+    AND EXISTS (SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL)
+  ORDER BY t.name, t.id LIMIT 500;
+$$;
+ALTER FUNCTION system.platform_workspace_list(uuid) OWNER TO fenwira_system;
+REVOKE ALL ON FUNCTION system.platform_workspace_list(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION system.platform_workspace_list(uuid) TO fenwira_app;
 
 -- ADR-0027 step 4: the email delivery log is append-only for the runtime role.
 REVOKE UPDATE, DELETE, TRUNCATE ON public.email_deliveries FROM fenwira_app;

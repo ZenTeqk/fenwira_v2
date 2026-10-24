@@ -1,4 +1,8 @@
-import { type PlatformOverview, type PlatformWorkspaceActivity } from '@fenwira/contracts'
+import {
+  type PlatformOverview,
+  type PlatformWorkspaceActivity,
+  type PlatformWorkspaceRow,
+} from '@fenwira/contracts'
 import { Database } from '@fenwira/database'
 import { ALL_QUEUE_NAMES } from '@fenwira/queue'
 import { Inject, Injectable } from '@nestjs/common'
@@ -79,6 +83,12 @@ export class PlatformOverviewService {
         title: `${raw.emailFailures7d} email${raw.emailFailures7d === 1 ? '' : 's'} failed in the last 7 days`,
         href: '/platform/email',
       })
+    if (raw.accessRequests.new7d)
+      attention.push({
+        kind: 'NEW_ACCESS_REQUESTS',
+        title: `${raw.accessRequests.new7d} new access request${raw.accessRequests.new7d === 1 ? '' : 's'} in the last 7 days`,
+        href: '/platform/access-requests',
+      })
     if (raw.accessRequests.unsent)
       attention.push({
         kind: 'UNSENT_LEADS',
@@ -98,6 +108,28 @@ export class PlatformOverviewService {
       queueBacklog: backlog,
       attention,
     }
+  }
+
+  async workspaceList(): Promise<PlatformWorkspaceRow[]> {
+    const iso = (d: Date | null) => (d ? d.toISOString() : null)
+    const rows = await this.db.system.platformWorkspaceList(this.operator())
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      slug: r.slug,
+      createdAt: r.created_at.toISOString(),
+      internal: r.is_internal,
+      ownerEmail: r.owner_email,
+      plan: r.plan_key && r.plan_name ? { key: r.plan_key, name: r.plan_name } : null,
+      status: r.subscription_status,
+      trialEndsAt: iso(r.trial_ends_at),
+      currentPeriodEnd: iso(r.current_period_end),
+      nextDueAt: iso(r.next_due_at),
+      openInvoices: r.open_invoices,
+      openTotalMinor: r.open_total_minor.toString(),
+      whatsapp: !r.numbers ? 'NONE' : r.unhealthy_numbers ? 'ATTENTION' : 'HEALTHY',
+      lastMessageAt: iso(r.last_message_at),
+    }))
   }
 
   async activity(workspaceId: string): Promise<PlatformWorkspaceActivity> {

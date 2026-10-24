@@ -245,7 +245,7 @@ export function PaymentsView() {
   )
 }
 
-function ReviewDrawer({
+export function ReviewDrawer({
   review,
   onClose,
   onDone,

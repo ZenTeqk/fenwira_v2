@@ -82,8 +82,12 @@ describe('platform overview', () => {
       'OVERDUE',
       'UNHEALTHY_CONNECTION',
       'EMAIL_FAILURES',
+      'NEW_ACCESS_REQUESTS',
       'UNSENT_LEADS',
     ])
+    expect(o.attention.find((a) => a.kind === 'NEW_ACCESS_REQUESTS')!.title).toBe(
+      '4 new access requests in the last 7 days',
+    )
     const unhealthy = o.attention.find((a) => a.kind === 'UNHEALTHY_CONNECTION')!
     expect(unhealthy.title).toContain('Asha Foods')
     expect(unhealthy.title).toContain('quality red')

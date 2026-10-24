@@ -64,6 +64,23 @@ async function mock(page: Page, allowed = permissions) {
         csrfToken: 'platform-csrf',
       }
     else if (path === '/workspaces') data = [workspace]
+    else if (path === '/workspace-list')
+      data = [
+        {
+          ...workspace,
+          internal: false,
+          ownerEmail: 'owner@fixture.test',
+          plan: null,
+          status: 'ACTIVE',
+          trialEndsAt: null,
+          currentPeriodEnd: '2026-11-01T00:00:00.000Z',
+          nextDueAt: null,
+          openInvoices: 0,
+          openTotalMinor: '0',
+          whatsapp: 'NONE',
+          lastMessageAt: null,
+        },
+      ]
     else if (path === `/workspaces/${id}`) data = detail
     else if (path.endsWith('/financial'))
       data = {
@@ -156,9 +173,8 @@ test('platform login requires credentials and authenticator, with accessible for
 test('workspace commercial read, permissions and responsive accessibility', async ({ page }) => {
   await mock(page)
   await page.goto('/platform/workspaces')
-  await page.getByRole('searchbox', { name: 'Find workspace' }).fill('Commercial')
-  await page.getByRole('button', { name: 'Search', exact: true }).click()
-  await page.getByRole('link', { name: 'Open Commercial fixture' }).click()
+  await page.getByRole('searchbox', { name: 'Search workspaces' }).fill('Commercial')
+  await page.getByRole('link', { name: 'Commercial fixture' }).click()
   await expect(page.getByRole('heading', { name: 'Internal financial visibility' })).toBeVisible()
   await expect(page.getByText('Missing historical cost', { exact: false })).toBeVisible()
   for (const width of [375, 768, 1024, 1440]) {
