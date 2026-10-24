@@ -119,7 +119,7 @@ Dependency versions are pinned exactly. Upgrading a major needs its own PR (ADR-
 
 ## Definition of done (every phase)
 
-- `pnpm lint && pnpm typecheck && pnpm test` pass locally and in CI; `pnpm test:integration` passes in CI before merging any database, billing, auth or queue change (add the `run-integration` label to the PR, or Actions → CI → Run workflow)
+- `pnpm lint && pnpm typecheck && pnpm test` pass locally before merging. CI no longer runs on PRs or pushes (merging to main deploys directly); for database, billing, auth or queue changes, start Actions → CI → Run workflow on the branch to run the integration suite
 - `docker compose up -d --wait` from a clean clone starts all services, they report healthy, and `pnpm smoke` passes
 - New tenant tables have RLS plus cross-tenant tests
 - New endpoints are in `docs/API_SPEC.md`, with Zod contracts and RBAC guards

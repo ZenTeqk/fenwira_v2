@@ -1,19 +1,12 @@
 name: CI
 
-# Checks only; never deploys. A merge to main runs only .github/workflows/deploy.yml.
-# Every PR: lint, typecheck, unit tests, release build, security scan (~3 min).
-# On demand (Docker-heavy, ~11 min): integration tests and the Compose boot smoke test run when
-# the PR has the `run-integration` label (adding it starts them; later pushes re-run them) or
-# from Actions → CI → Run workflow. Use it for database, billing, auth or queue changes.
+# Manual only (Actions → CI → Run workflow). Pull requests and pushes don't run it; merging to
+# main deploys directly via .github/workflows/deploy.yml, which builds and verifies the release.
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 concurrency:
-  # Adding a label starts its own run, so it never cancels the PR's normal checks.
-  group: ci-${{ github.ref }}-${{ github.event.action == 'labeled' && 'label' || 'checks' }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -27,7 +20,6 @@ env:
 jobs:
   verify:
     name: Lint, typecheck, unit tests, build
-    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +45,6 @@ jobs:
   release:
     name: Production release build (Ubuntu x86_64, verify-build)
     # Same build as the deploy workflow, without AWS credentials or upload.
-    if: github.event.action != 'labeled'
     runs-on: ubuntu-24.04
     needs: verify
     steps:
@@ -74,7 +65,6 @@ jobs:
 
   integration:
     name: Integration tests (Postgres + Redis, as fenwira_app)
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-integration')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -91,8 +81,7 @@ jobs:
     # Clean-clone startup gate (Phase 11 closure): every image builds, all services in
     # docker-compose.yml (with the meta-mock profile from .env.example) reach healthy or
     # complete, and scripts/smoke.sh passes (health + outbox round trip through the worker).
-    # Browser E2E and image scanning are not part of this job. On demand, like integration.
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-integration')
+    # Browser E2E and image scanning are not part of this job.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -110,7 +99,6 @@ jobs:
 
   security:
     name: Secret and dependency scanning
-    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
