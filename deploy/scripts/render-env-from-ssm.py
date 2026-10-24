@@ -56,6 +56,21 @@ CONFIG = {
 # Read by both api and worker (invoices, renewals, Managed Launch gating).
 BILLING_VARS = ["UPI_VPA", "UPI_PAYEE_NAME", "BILLING_GSTIN"]
 
+
+def gst_rate(params: dict) -> dict:
+    """config/billing-gst-rate is a percentage (e.g. "18"); the app reads basis points.
+    GST applies only when both this and config/billing-gstin are set (docs/BILLING.md)."""
+    raw = params.get("config/billing-gst-rate", "").strip()
+    if not raw:
+        return {}
+    try:
+        bps = round(float(raw) * 100)
+    except ValueError:
+        sys.exit("[fenwira] ERROR: config/billing-gst-rate must be a percentage such as 18")
+    if not 1 <= bps <= 10_000:
+        sys.exit("[fenwira] ERROR: config/billing-gst-rate must be between 0.01 and 100")
+    return {"BILLING_GST_RATE_BPS": str(bps)}
+
 SHARED_SERVER = {
     "NODE_ENV": "production",
     "LOG_LEVEL": "info",
@@ -135,7 +150,7 @@ def main() -> None:
     cookie_domain = "." + app_domain.split(".", 1)[1]
 
     pick = lambda names: {n: src[n] for n in names if n in src}
-    managed = {"MANAGED_LAUNCH_MODE": managed_launch_mode(params)}
+    managed = {"MANAGED_LAUNCH_MODE": managed_launch_mode(params), **gst_rate(params)}
     files = {
         "api": {
             **SHARED_SERVER, **managed, "APP_VERSION": args.release, "HOST": "127.0.0.1",
