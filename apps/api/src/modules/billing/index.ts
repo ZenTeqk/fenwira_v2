@@ -14,6 +14,7 @@ export { applyStatusPricing, ledgerFigures, recoverReservation } from './usage.c
 export {
   availableOf,
   billingEnforcedFor,
+  isInternalWorkspace,
   type BillingPlatform,
   DEFAULT_LOW_BALANCE_THRESHOLD_MINOR,
   fundsStateOf,

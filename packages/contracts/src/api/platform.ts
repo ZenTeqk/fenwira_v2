@@ -208,6 +208,8 @@ export const subscriptionOperationSchema = z.discriminatedUnion('kind', [
   operationBase
     .extend({ kind: z.literal('billing_mode'), mode: z.enum(['FREE', 'TRIAL', 'PREPAID']) })
     .strict(),
+  /** Marks Fenwira's own internal workspace (billing off, Business limits). Audited. */
+  operationBase.extend({ kind: z.literal('internal_flag'), internal: z.boolean() }).strict(),
 ])
 export type SubscriptionOperation = z.infer<typeof subscriptionOperationSchema>
 export const entitlementOperationSchema = z

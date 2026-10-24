@@ -5,6 +5,11 @@ import { EntitlementsService, SubscriptionEntitlementSource } from '../src/modul
 const PLANS = {
   growth: { id: 'p-growth', key: 'GROWTH', ents: { api_enabled: true, max_contacts: 25_000 } },
   starter: { id: 'p-starter', key: 'STARTER', ents: { api_enabled: false, max_contacts: 5_000 } },
+  business: {
+    id: 'p-business',
+    key: 'BUSINESS',
+    ents: { api_enabled: true, max_contacts: 100_000 },
+  },
 }
 const DAY = 86_400_000
 
@@ -12,6 +17,7 @@ function fakeTx(opts: {
   sub?: { status: string; planId?: string | null; trialEndsAt?: Date | null } | null
   overrides?: Array<{ key: string; value: unknown; expiresAt?: Date | null }>
   createdAt?: Date
+  internal?: boolean
 }) {
   let sub = opts.sub === undefined ? null : opts.sub
   const plan = (p: (typeof PLANS)[keyof typeof PLANS] | undefined) =>
@@ -31,7 +37,10 @@ function fakeTx(opts: {
         return { count: 1 }
       },
     },
-    tenant: { findUniqueOrThrow: async () => ({ createdAt: opts.createdAt ?? new Date() }) },
+    tenant: {
+      findUnique: async () => ({ isInternal: opts.internal ?? false }),
+      findUniqueOrThrow: async () => ({ createdAt: opts.createdAt ?? new Date() }),
+    },
     plan: {
       findUnique: async ({ where }: { where: { id?: string; key?: string } }) =>
         plan(Object.values(PLANS).find((p) => p.id === where.id || p.key === where.key)),
@@ -95,6 +104,18 @@ describe('SubscriptionEntitlementSource', () => {
     })
     expect(await s.apiEnabled(tx, 't')).toBe(true)
     expect(await s.getLimit(tx, 't', 'max_contacts')).toBe(5_000)
+  })
+
+  it('an internal workspace gets Business limits, every capability on, whatever its row says', async () => {
+    const s = service()
+    const tx = fakeTx({
+      sub: { status: 'SUSPENDED', planId: PLANS.starter.id },
+      overrides: [{ key: 'api_enabled', value: false }],
+      internal: true,
+    })
+    expect(await s.subscriptionStatus(tx, 't')).toBe('ACTIVE')
+    expect(await s.getLimit(tx, 't', 'max_contacts')).toBe(100_000)
+    expect(await s.isEnabled(tx, 't', 'api_enabled')).toBe(true)
   })
 
   it('unset keys stay enabled/unlimited', async () => {

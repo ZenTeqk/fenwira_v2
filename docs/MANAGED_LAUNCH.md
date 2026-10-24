@@ -88,6 +88,33 @@ ML-D1: each customer usually has their own Meta app and system user. Before the 
 - **Void** a wrong invoice from the workspace's Invoices section (only while no proof is pending).
 - **Watch:** the Payments dashboard (pending, overdue, revenue), and Email (every email attempt; *skipped* means SMTP is off).
 
+## 4a. Internal workspace (Zenteqk Internal)
+
+Fenwira's own demo and test workspace. `tenants.is_internal` is operator-only, and changing it is an audited commercial operation (`internal_flag`, recorded in `commercial_operations` and the platform audit):
+
+```sh
+pnpm --filter @fenwira/worker workspace:internal -- --tenant <workspace-id> --internal true \
+  --reason "Fenwira internal demo workspace" --reference "<ticket>" --idempotency-key <uuid>
+```
+
+(Same platform session variables as the other operator CLI commands.) While it is set, the workspace:
+
+- resolves to the **Business** plan's limits with every feature on (overrides are ignored) and always reports ACTIVE;
+- gets no trial or renewal invoices, no trial or lifecycle emails, and is never expired, moved to PAST_DUE or SUSPENDED;
+- has no wallet charges (billing is never enforced for it);
+- shows no billing prompts (no trial or payment banner).
+
+**Never connect the internal workspace to a customer's WABA or phone number.** It is for Fenwira's own test number only. Its demo data is fake, and anything sent from it would go out under the customer's business name, unbilled.
+
+Demo data (operator-run, internal workspaces only; refuses any other workspace; runs once):
+
+```sh
+cd /opt/fenwira/current && DATABASE_URL="$(grep '^DATABASE_URL=' /etc/fenwira/api.env | cut -d= -f2-)" \
+  node apps/worker/dist/cli/demo-seed.js --tenant <workspace-id>
+```
+
+It adds 12 `[DEMO]` contacts tagged "Demo data" (fictional +1 555-555-01xx numbers), 6 conversations, 3 approved `demo_*` templates and one DRAFT campaign. They sit on a fake WhatsApp account and number that are DISCONNECTED, so nothing syncs with Meta or sends.
+
 ## 5. Deploy and rollback
 
 - **Deploy:** merging to `main` builds the release, copies it through SSM, runs migrations, switches `/opt/fenwira/current` and restarts the enabled units (`.github/workflows/deploy.yml`). Watch the run, then:

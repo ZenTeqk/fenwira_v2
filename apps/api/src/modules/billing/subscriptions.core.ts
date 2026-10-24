@@ -52,7 +52,7 @@ export async function stepSubscription(
   const sub = await tx.subscription.findUnique({ where: { tenantId } })
   const tenant = await tx.tenant.findUniqueOrThrow({
     where: { id: tenantId },
-    select: { name: true },
+    select: { name: true, isInternal: true },
   })
   const result: LifecycleResult = {
     notice: null,
@@ -60,7 +60,8 @@ export async function stepSubscription(
     workspace: tenant.name,
     trialEndsAt: sub?.trialEndsAt ?? null,
   }
-  if (!sub) return result
+  // Internal workspaces never expire, roll, go past due or get lifecycle emails.
+  if (!sub || tenant.isInternal) return result
 
   if (sub.status === 'TRIALING' && sub.trialEndsAt) {
     if (sub.trialEndsAt <= now) {

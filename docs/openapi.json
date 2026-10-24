@@ -11181,6 +11181,45 @@
                       "mode"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 500
+                      },
+                      "reference": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 128
+                      },
+                      "expectedVersion": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "const": "internal_flag"
+                      },
+                      "internal": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "reason",
+                      "reference",
+                      "idempotencyKey",
+                      "kind",
+                      "internal"
+                    ],
+                    "additionalProperties": false
                   }
                 ]
               }
@@ -11354,6 +11393,45 @@
                       "idempotencyKey",
                       "kind",
                       "mode"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 500
+                      },
+                      "reference": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 128
+                      },
+                      "expectedVersion": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "const": "internal_flag"
+                      },
+                      "internal": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "reason",
+                      "reference",
+                      "idempotencyKey",
+                      "kind",
+                      "internal"
                     ],
                     "additionalProperties": false
                   }

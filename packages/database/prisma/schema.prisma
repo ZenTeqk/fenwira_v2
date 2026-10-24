@@ -212,6 +212,10 @@ model Tenant {
   takeoverAutoReleaseHours Int?                   @map("takeover_auto_release_hours")
   /// P9-D1: FREE (never enforced), TRIAL (trial credits, enforced), PREPAID (enforced). Set by operators.
   billingMode              BillingMode            @default(TRIAL) @map("billing_mode")
+  /// Operator-only (audited commercial operation `internal_flag`): Fenwira's own demo/test
+  /// workspace. Business limits, all features on, no trial/renewal invoices, lifecycle emails,
+  /// suspension or wallet charges. Never connect it to a customer's WABA (docs/MANAGED_LAUNCH.md).
+  isInternal               Boolean                @default(false) @map("is_internal")
   ownerUserId              String                 @map("owner_user_id") @db.Uuid
   createdAt                DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)

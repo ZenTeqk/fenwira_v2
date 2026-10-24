@@ -62,9 +62,15 @@ export async function billingEnforcedFor(
   if (!platform.enforced) return false
   const t = await tx.tenant.findUniqueOrThrow({
     where: { id: tenantId },
-    select: { billingMode: true },
+    select: { billingMode: true, isInternal: true },
   })
-  return t.billingMode !== 'FREE'
+  return t.billingMode !== 'FREE' && !t.isInternal
+}
+
+/** Fenwira's own internal workspace: exempt from every billing step (schema: tenants.is_internal). */
+export async function isInternalWorkspace(tx: TenantTx, tenantId: string): Promise<boolean> {
+  const t = await tx.tenant.findUnique({ where: { id: tenantId }, select: { isInternal: true } })
+  return t?.isInternal ?? false
 }
 
 /**

@@ -82,6 +82,8 @@ export const workspaceStatusSchema = z.object({
       graceEndsAt: z.string().nullable().optional(),
       /** BILLING_SUBSCRIPTIONS_ENFORCED: only then is anything paused (banner wording). */
       enforced: z.boolean().optional(),
+      /** Internal workspace (operator flag): the shell shows no billing prompts. */
+      internal: z.boolean().optional(),
       trialEndsAt: z.string().nullable(),
       trialDaysLeft: z.number().int().nullable(),
     })

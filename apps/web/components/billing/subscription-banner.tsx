@@ -12,7 +12,7 @@ import { useWorkspaceStatus } from '@/lib/workspace-status'
 export function SubscriptionBanner() {
   const { can, me } = useSession()
   const sub = useWorkspaceStatus().data?.subscription
-  if (!sub || !can('billing.read')) return null
+  if (!sub || sub.internal || !can('billing.read')) return null
   const managed = me.features.managedLaunch
   const enforced = sub.enforced ?? false
   // Managed Launch: one billing page; customers pay the invoice by UPI (no plan request page).

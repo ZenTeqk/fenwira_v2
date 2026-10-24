@@ -124,6 +124,8 @@ export const subscriptionSchema = z.object({
   canUpgrade: z.boolean(),
   /** "We confirm payments within X hours" (config); null hides the line. */
   paymentConfirmHours: z.number().int().nullable(),
+  /** Internal workspace (operator flag): Business limits, billing off, no billing prompts. */
+  internal: z.boolean(),
 })
 export type Subscription = z.infer<typeof subscriptionSchema>
 
