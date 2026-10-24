@@ -1,4 +1,5 @@
 import { randomToken, uuidv7 } from '@fenwira/config'
+import { CORE_CONFIG, type CoreConfig } from '../../core/config/core-config'
 import { type CreateWorkspaceRequest, type Workspace } from '@fenwira/contracts'
 import { Database } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
@@ -52,6 +53,7 @@ export class WorkspaceService {
     private readonly tenantDb: TenantDb,
     private readonly audit: AuditService,
     private readonly limits: RateLimitService,
+    @Inject(CORE_CONFIG) private readonly core: CoreConfig,
   ) {}
 
   /** Register → verify email → create workspace → OWNER (PRD AU-1). */
@@ -82,6 +84,8 @@ export class WorkspaceService {
             defaultCountry: input.country,
             timezone: input.timezone,
             ownerUserId: userId,
+            // Managed Launch: no customer wallet (Meta bills messages directly).
+            ...(this.core.features?.managedLaunch ? { billingMode: 'FREE' as const } : {}),
           },
         })
         await tx.membership.create({ data: { tenantId, userId, role: 'OWNER' } })
