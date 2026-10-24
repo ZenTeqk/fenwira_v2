@@ -19,13 +19,15 @@ How the operator onboards and runs customers in Managed Launch Mode (ADR-0027, d
 | `/fenwira/prod/config/billing-support-email` | `BILLING_SUPPORT_EMAIL` | Billing contact shown to customers and in billing emails. Prod: `fenwira@zenteqk.com` |
 | `/fenwira/prod/config/mail-reply-to` | `MAIL_REPLY_TO` | Where customer replies to Fenwira emails go. Absent = `fenwira@zenteqk.com` |
 | `/fenwira/prod/secrets/ops-alert-email` | `OPS_ALERT_EMAIL` | Operator alerts (ledger drift, stuck jobs). Prod: `fenwira@zenteqk.com` |
-| `/fenwira/prod/secrets/mail-from` | `MAIL_FROM` | Sender. Must be an SES-verified identity (`fenwira.com` domain or a verified address). Access-request leads always go to `fenwira@zenteqk.com` |
+| `/fenwira/prod/secrets/mail-from` | `MAIL_FROM` | Sender of every Fenwira email. Prod: `Fenwira <no-reply@fenwira.com>` (SES-verified `fenwira.com` domain). Access-request leads always go to `fenwira@zenteqk.com` |
 | `/fenwira/prod/config/billing-gst-rate` | `BILLING_GST_RATE_BPS` | Optional percentage, e.g. `18` (rendered as basis points). GST is added only when both this and the GSTIN are set |
 | `/fenwira/prod/config/billing-grace-days` | `BILLING_GRACE_DAYS` | Days a PAST_DUE workspace keeps working before SUSPENDED. Production default **7** when unset |
 | `/fenwira/prod/config/billing-invoice-lead-days` | `BILLING_INVOICE_LEAD_DAYS` | Days before the period end that the renewal invoice is issued. Production default **3** when unset |
 | `/fenwira/prod/config/billing-payment-confirm-hours` | `BILLING_PAYMENT_CONFIRM_HOURS` | Optional, 1–168. Billing shows "we confirm payments within X hours"; unset hides the line. Only promise what you can meet |
 
 The renderer always writes explicit grace and lead days (7 and 3 unless SSM overrides them), so production never uses the schema's development defaults. `BILLING_SUBSCRIPTIONS_ENFORCED` stays `false` (ML-D5 business decision). After changing a parameter, redeploy (or re-render the env and restart api and worker).
+
+**Mail addresses (decided 2026-10-24).** Fenwira sends every email as **`Fenwira <no-reply@fenwira.com>`**. Everything that comes back goes to **`fenwira@zenteqk.com`**: replies (Reply-To), the billing contact customers see, operator alerts and access-request leads. Emails that say "reply to this email" reach that mailbox. Use `fenwira@zenteqk.com` when you write to clients yourself.
 
 ## 1. One-time Meta prerequisites (per customer app)
 
@@ -111,7 +113,7 @@ pnpm --filter @fenwira/worker workspace:internal -- --tenant <workspace-id> --in
 - has no wallet charges (billing is never enforced for it);
 - shows no billing prompts (no trial or payment banner).
 
-**Never connect the internal workspace to a customer's WABA or phone number.** It is for Fenwira's own test number only. Its demo data is fake, and anything sent from it would go out under the customer's business name, unbilled.
+**Never connect the internal workspace to a customer's WABA or phone number.** It is for Fenwira's own test number only: Meta's test number **+1 555-676-0408** is connected here (moved from the Administrator workspace on 2026-10-24). Customer-simulation workspaces use a separate, real number. Its demo data is fake, and anything sent from it would go out under the customer's business name, unbilled.
 
 Demo data (operator-run; only for the internal workspace "Zenteqk Internal": it refuses a workspace that is not internal or whose name differs from `--name`; safe to re-run):
 
