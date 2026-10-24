@@ -35,6 +35,7 @@ import { CommercialActions, ReceiptDetails } from './commercial-actions'
 import { usePlatform } from './platform-shell'
 import { WorkspaceMembers } from './platform-accounts'
 import { WorkspaceInvoices } from './workspace-invoices'
+import { WorkspaceNextSteps, useWorkspaceParts } from './workspace-next-steps'
 import { WorkspaceWhatsApp } from './workspace-whatsapp'
 const valueLabel = (v: boolean | number | null) =>
   v === null
@@ -58,11 +59,13 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
     queryFn: async () =>
       platformFinancialSchema.parse(await platformRequest(`/workspaces/${id}/financial`)),
   })
+  const parts = useWorkspaceParts(id)
   if (result.isPending) return <Skeleton className="h-32 w-full" />
   if (result.isError) return <ErrorState onRetry={() => void result.refetch()} />
   const data = result.data,
     { workspace, wallet, subscription } = data.snapshot
   const plan = data.plans.find((p) => p.id === subscription?.planId)
+  const { members } = parts
   return (
     <DetailPage
       header={{
@@ -97,7 +100,15 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
               'No record'
             )}
           </SummaryItem>
-          <SummaryItem label="Plan">{plan?.name ?? 'Trial configuration'}</SummaryItem>
+          <SummaryItem label="Plan">
+            {workspace.isInternal ? 'Business (internal)' : (plan?.name ?? 'Not chosen yet')}
+          </SummaryItem>
+          <SummaryItem label="Workspace type">
+            {workspace.isInternal ? 'Internal (Fenwira, no billing)' : 'Customer'}
+          </SummaryItem>
+          <SummaryItem label="Owner">
+            {members.data?.find((m) => m.role === 'OWNER')?.email ?? '—'}
+          </SummaryItem>
           <SummaryItem label="Billing mode">{workspace.billingMode}</SummaryItem>
           <SummaryItem label="Available funds">
             {wallet
@@ -107,15 +118,11 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
         </>
       }
     >
-      <CommercialActions data={data} />
+      <WorkspaceNextSteps data={data} />
       <WorkspaceMembers workspaceId={workspace.id} />
       <WorkspaceWhatsApp workspaceId={workspace.id} name={workspace.name} />
       <WorkspaceActivity workspaceId={workspace.id} />
-      <WorkspaceInvoices
-        workspaceId={workspace.id}
-        name={workspace.name}
-        plans={data.plans.map((p) => ({ key: p.key, name: p.name }))}
-      />
+      <WorkspaceInvoices workspaceId={workspace.id} name={workspace.name} />
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
@@ -294,6 +301,9 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
           <EmptyState title="No wallet entries" />
         )}
       </section>
+      <div id="operations">
+        <CommercialActions data={data} />
+      </div>
     </DetailPage>
   )
 }

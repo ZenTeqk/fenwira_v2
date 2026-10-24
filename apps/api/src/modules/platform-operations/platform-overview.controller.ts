@@ -16,6 +16,12 @@ export class PlatformOverviewController {
   }
 
   @PlatformAccess('commercial.read')
+  @Get('workspace-list')
+  async list() {
+    return { data: await this.overview.workspaceList() }
+  }
+
+  @PlatformAccess('commercial.read')
   @Get('workspaces/:workspaceId/activity')
   async activity(@Param('workspaceId', new ZodValidationPipe(z.uuid())) workspaceId: string) {
     return { data: await this.overview.activity(workspaceId) }

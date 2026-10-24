@@ -9874,6 +9874,35 @@
         "x-platform-permission": "subscription.manage"
       }
     },
+    "/api/v1/platform/workspace-list": {
+      "get": {
+        "operationId": "PlatformOverview_list",
+        "tags": [
+          "PlatformOverview"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "commercial.read"
+      }
+    },
     "/api/v1/platform/workspaces": {
       "get": {
         "operationId": "CommercialRead_search",

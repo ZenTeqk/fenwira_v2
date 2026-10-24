@@ -1,13 +1,21 @@
 'use client'
 import { ProvisionWorkspace } from './platform-accounts'
-import { platformWorkspaceIdentitySchema } from '@fenwira/contracts'
+import { platformWorkspaceRowSchema, type PlatformWorkspaceRow } from '@fenwira/contracts'
 import {
-  Button,
+  Badge,
   EmptyState,
   ErrorState,
+  FilterBar,
   ListPage,
   SearchInput,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
+  StatusBadge,
+  type StatusKey,
   Table,
   TableBody,
   TableCell,
@@ -17,88 +25,230 @@ import {
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 import { z } from 'zod'
-import { platformRequest } from '@/lib/platform'
-export function WorkspaceSearch({ operations = false }: { operations?: boolean }) {
-  const [q, setQ] = useState(''),
-    [search, setSearch] = useState('')
-  const result = useQuery({
-    queryKey: ['platform', 'workspaces', search],
-    enabled: search.length >= 2,
+import { platformMoney, platformRequest } from '@/lib/platform'
+
+const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—')
+const STATUS: Record<string, { status: StatusKey; label: string }> = {
+  TRIALING: { status: 'PENDING', label: 'Trial' },
+  ACTIVE: { status: 'ACTIVE', label: 'Active' },
+  PAST_DUE: { status: 'ATTENTION', label: 'Past due' },
+  SUSPENDED: { status: 'PAUSED', label: 'Suspended' },
+  EXPIRED: { status: 'ERROR', label: 'Expired' },
+  CANCELLED: { status: 'DISCONNECTED', label: 'Cancelled' },
+}
+export const workspaceStatus = (w: Pick<PlatformWorkspaceRow, 'status' | 'internal'>) =>
+  w.internal ? (
+    <Badge tone="info">Internal</Badge>
+  ) : w.status && STATUS[w.status] ? (
+    <StatusBadge {...STATUS[w.status]!} />
+  ) : (
+    <span className="text-sm text-secondary">No subscription</span>
+  )
+
+export function useWorkspaceList() {
+  return useQuery({
+    queryKey: ['platform', 'workspace-list'],
     retry: false,
     queryFn: async () =>
-      z
-        .array(platformWorkspaceIdentitySchema)
-        .parse(await platformRequest(`/workspaces?q=${encodeURIComponent(search)}&limit=20`)),
+      z.array(platformWorkspaceRowSchema).parse(await platformRequest('/workspace-list')),
   })
+}
+
+/** Every workspace with plan, status, dates, owner, WhatsApp health and money owed. */
+export function WorkspaceSearch() {
+  const router = useRouter()
+  const list = useWorkspaceList()
+  const [q, setQ] = useState(''),
+    [status, setStatus] = useState('all'),
+    [plan, setPlan] = useState('all'),
+    [kind, setKind] = useState('all')
+  const plans = useMemo(
+    () => [
+      ...new Map((list.data ?? []).flatMap((w) => (w.plan ? [[w.plan.key, w.plan]] : []))).values(),
+    ],
+    [list.data],
+  )
+  const rows = (list.data ?? []).filter((w) => {
+    const needle = q.trim().toLowerCase()
+    return (
+      (!needle ||
+        w.name.toLowerCase().includes(needle) ||
+        w.slug === needle ||
+        w.id === needle ||
+        (w.ownerEmail ?? '').toLowerCase().includes(needle)) &&
+      (status === 'all' || (w.status ?? 'NONE') === status) &&
+      (plan === 'all' || (w.plan?.key ?? 'NONE') === plan) &&
+      (kind === 'all' || (kind === 'internal') === w.internal)
+    )
+  })
+  const active = [status, plan, kind].filter((v) => v !== 'all').length + (q ? 1 : 0)
   return (
     <ListPage
       header={{
-        title: operations ? 'Billing operations' : 'Workspaces',
-        description: operations
-          ? 'Change a workspace’s plan, wallet or limits with a receipt. Find it by name, exact ID or slug. See docs/MANAGED_LAUNCH.md § 4 Billing operations.'
-          : 'Create workspaces and find one by name, exact ID or slug to manage its team, WhatsApp, plan and invoices. See docs/MANAGED_LAUNCH.md § 3 Onboard one customer.',
-        actions: operations ? undefined : <ProvisionWorkspace />,
+        title: 'Workspaces',
+        description:
+          'Every customer workspace with its plan, status, next payment and WhatsApp health. Open one to manage its team, WhatsApp number and invoices. See docs/MANAGED_LAUNCH.md § 3 Onboard one customer.',
+        actions: <ProvisionWorkspace />,
       }}
     >
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          setSearch(q.trim())
+      <FilterBar
+        label="Workspace filters"
+        activeCount={active}
+        onClear={() => {
+          setQ('')
+          setStatus('all')
+          setPlan('all')
+          setKind('all')
         }}
-        className="flex flex-wrap gap-2"
       >
         <SearchInput
-          label="Find workspace"
+          label="Search workspaces"
+          placeholder="Name, owner email, slug or ID"
           value={q}
           onValueChange={setQ}
-          minLength={2}
           maxLength={120}
-          required
         />
-        <Button type="submit">Search</Button>
-      </form>
-      {result.isFetching ? (
+        <Choice
+          label="Status"
+          value={status}
+          onChange={setStatus}
+          options={[
+            ['all', 'All statuses'],
+            ...Object.entries(STATUS).map(([k, v]) => [k, v.label] as [string, string]),
+            ['NONE', 'No subscription'],
+          ]}
+        />
+        <Choice
+          label="Plan"
+          value={plan}
+          onChange={setPlan}
+          options={[
+            ['all', 'All plans'],
+            ...plans.map((p) => [p.key, p.name] as [string, string]),
+            ['NONE', 'No plan yet'],
+          ]}
+        />
+        <Choice
+          label="Type"
+          value={kind}
+          onChange={setKind}
+          options={[
+            ['all', 'Customers and internal'],
+            ['customer', 'Customers only'],
+            ['internal', 'Internal only'],
+          ]}
+        />
+      </FilterBar>
+      {list.isPending ? (
         <Skeleton className="h-24 w-full" />
-      ) : result.isError ? (
-        <ErrorState onRetry={() => void result.refetch()} />
-      ) : result.data?.length ? (
-        <Table containerLabel="Commercial records">
+      ) : list.isError ? (
+        <ErrorState onRetry={() => void list.refetch()} />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          title={list.data.length ? 'No workspace matches these filters' : 'No workspaces yet'}
+          description={
+            list.data.length
+              ? 'Clear the filters or search for a different name or email.'
+              : 'Create the first customer workspace with Create workspace; its owner gets a setup link.'
+          }
+        />
+      ) : (
+        <Table containerLabel="Workspaces">
           <TableHeader>
             <TableRow>
               <TableHead>Workspace</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Action</TableHead>
+              <TableHead>Plan</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Trial ends</TableHead>
+              <TableHead>Next due</TableHead>
+              <TableHead>Owner</TableHead>
+              <TableHead>WhatsApp</TableHead>
+              <TableHead>Last message</TableHead>
+              <TableHead>Open invoices</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {result.data.map((w) => (
-              <TableRow key={w.id}>
+            {rows.map((w) => (
+              <TableRow
+                key={w.id}
+                className="cursor-pointer hover:bg-background"
+                onClick={() => router.push(`/platform/workspaces/${w.id}`)}
+              >
                 <TableCell>
-                  <span className="font-medium">{w.name}</span>
-                  <p className="break-all font-mono text-xs text-secondary">{w.id}</p>
+                  <Link
+                    href={`/platform/workspaces/${w.id}`}
+                    className="font-medium text-primary-strong hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {w.name}
+                  </Link>
+                  <p className="text-xs text-secondary">{w.slug}</p>
                 </TableCell>
-                <TableCell>{w.slug}</TableCell>
-                <TableCell>{new Date(w.createdAt).toLocaleDateString()}</TableCell>
                 <TableCell>
-                  <Button asChild variant="secondary" size="sm">
-                    <Link href={`/platform/workspaces/${w.id}${operations ? '#operations' : ''}`}>
-                      Open {w.name}
-                    </Link>
-                  </Button>
+                  {w.internal ? 'Business (internal)' : (w.plan?.name ?? 'Not chosen')}
+                </TableCell>
+                <TableCell>{workspaceStatus(w)}</TableCell>
+                <TableCell>{w.status === 'TRIALING' ? day(w.trialEndsAt) : '—'}</TableCell>
+                <TableCell>
+                  {day(w.nextDueAt ?? (w.status === 'ACTIVE' ? w.currentPeriodEnd : null))}
+                </TableCell>
+                <TableCell className="break-all">{w.ownerEmail ?? '—'}</TableCell>
+                <TableCell>
+                  {w.whatsapp === 'NONE' ? (
+                    <span className="text-sm text-secondary">Not connected</span>
+                  ) : (
+                    <StatusBadge
+                      status={w.whatsapp === 'HEALTHY' ? 'CONNECTED' : 'ATTENTION'}
+                      label={w.whatsapp === 'HEALTHY' ? 'Healthy' : 'Needs attention'}
+                    />
+                  )}
+                </TableCell>
+                <TableCell>
+                  {w.lastMessageAt ? new Date(w.lastMessageAt).toLocaleString() : 'None yet'}
+                </TableCell>
+                <TableCell>
+                  {w.openInvoices ? `${w.openInvoices} · ${platformMoney(w.openTotalMinor)}` : '—'}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
-      ) : (
-        <EmptyState
-          title={search ? 'No matching workspaces' : 'Select a workspace'}
-          description="Search to inspect subscriptions, entitlements, wallet and commercial activity."
-        />
       )}
+      {list.data?.length === 500 ? (
+        <p className="text-sm text-secondary">
+          Showing the newest 500 workspaces; older ones are not listed here.
+        </p>
+      ) : null}
     </ListPage>
+  )
+}
+
+function Choice({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  options: Array<[string, string]>
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger aria-label={label} className="w-auto min-w-40">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map(([v, l]) => (
+          <SelectItem key={v} value={v}>
+            {l}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }

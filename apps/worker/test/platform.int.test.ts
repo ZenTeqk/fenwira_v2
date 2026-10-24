@@ -905,3 +905,94 @@ it('overview and workspace activity: operators only, aggregates only, no secrets
     expect(text).not.toContain(banned)
   expect((await operator.client.get(`/platform/workspaces/${uuidv7()}/activity`)).status).toBe(404)
 })
+
+it('workspace list: operators only, health and owner per workspace, no customer content or secrets', async () => {
+  const customer = await identity(false, false)
+  const a = uuidv7(),
+    b = uuidv7(),
+    marker = `List-${uuidv7()}`
+  await db.withTenant(a, async (tx) => {
+    await tx.tenant.create({
+      data: { id: a, ownerUserId: customer.id, name: `${marker} A`, slug: a },
+    })
+    const waba = await tx.whatsAppBusinessAccount.create({
+      data: { tenantId: a, wabaId: `w${a.slice(-12)}`, name: 'WABA', status: 'ACTIVE' },
+    })
+    await tx.whatsAppPhoneNumber.create({
+      data: {
+        tenantId: a,
+        wabaId: waba.id,
+        phoneNumberId: `p${a.slice(-12)}`,
+        displayPhoneNumber: '+1 555-676-0408',
+        verifiedName: 'Fixture',
+        status: 'CONNECTED',
+      },
+    })
+    await tx.contact.create({
+      data: {
+        tenantId: a,
+        phoneE164: '+919876500001',
+        name: `${marker} customer contact`,
+        country: 'IN',
+        source: 'MANUAL',
+      },
+    })
+  })
+  await db.withTenant(b, async (tx) => {
+    await tx.tenant.create({
+      data: { id: b, ownerUserId: customer.id, name: `${marker} B`, slug: b },
+    })
+    const waba = await tx.whatsAppBusinessAccount.create({
+      data: { tenantId: b, wabaId: 'demo-waba-not-real', name: '[DEMO]', status: 'DISCONNECTED' },
+    })
+    // The fake demo number never makes a workspace look unhealthy.
+    await tx.whatsAppPhoneNumber.create({
+      data: {
+        tenantId: b,
+        wabaId: waba.id,
+        phoneNumberId: 'demo-phone-not-real',
+        displayPhoneNumber: '+1 555-555-0100',
+        verifiedName: '[DEMO]',
+        status: 'DISCONNECTED',
+      },
+    })
+  })
+  await customer.client.post('/auth/login', { email: customer.email, password: PASSWORD })
+  expect((await customer.client.get('/platform/workspace-list')).status).toBe(401)
+  expect((await customer.client.get('/platform/workspace-list', { 'X-Tenant-Id': a })).status).toBe(
+    401,
+  )
+
+  const operator = await privileged()
+  const res = await operator.client.get('/platform/workspace-list')
+  expect(res.status, res.text).toBe(200)
+  const rows = (res.body.data as Array<Record<string, unknown>>).filter((r) =>
+    String(r.name).startsWith(marker),
+  )
+  // Newest first: B was created after A.
+  expect(rows).toEqual([
+    expect.objectContaining({ id: b, whatsapp: 'NONE' }),
+    expect.objectContaining({
+      id: a,
+      ownerEmail: customer.email,
+      internal: false,
+      whatsapp: 'HEALTHY',
+      openInvoices: 0,
+    }),
+  ])
+  const text = JSON.stringify(res.body)
+  for (const banned of [
+    '+919876500001',
+    'customer contact',
+    'Ciphertext',
+    'secret',
+    'token',
+    'passwordHash',
+  ])
+    expect(text).not.toContain(banned)
+  // A revoked grant ends access to the list at once.
+  await owner.withGlobal((tx) =>
+    tx.platformGrant.update({ where: { userId: operator.id }, data: { revokedAt: new Date() } }),
+  )
+  expect([401, 403]).toContain((await operator.client.get('/platform/workspace-list')).status)
+})

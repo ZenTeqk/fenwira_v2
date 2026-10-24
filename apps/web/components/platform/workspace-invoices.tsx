@@ -1,23 +1,16 @@
 'use client'
 import {
-  createInvoiceRequestSchema,
   platformInvoiceSchema,
   type PlatformInvoice,
   voidInvoiceRequestSchema,
 } from '@fenwira/contracts'
 import {
-  Alert,
   Button,
   DetailDrawer,
   EmptyState,
   ErrorState,
   Field,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Skeleton,
   StatusBadge,
   type StatusKey,
@@ -36,6 +29,7 @@ import { z } from 'zod'
 import { errorText } from '@/lib/api/client'
 import { platformMoney, platformRequest } from '@/lib/platform'
 import { useIdentityRequest } from './identity'
+import { CreateInvoiceFlow } from './create-invoice'
 import { usePlatform } from './platform-shell'
 
 const STATUS: Record<PlatformInvoice['displayStatus'], { status: StatusKey; label: string }> = {
@@ -47,23 +41,8 @@ const STATUS: Record<PlatformInvoice['displayStatus'], { status: StatusKey; labe
 }
 const failure = (err: unknown) => errorText(err, 'The request failed. Try again.')
 
-/** "1499" or "1499.50" rupees → minor units; anything else is refused. */
-function minorFrom(value: string): number | null {
-  const m = /^(\d{1,9})(?:\.(\d{1,2}))?$/.exec(value.trim())
-  if (!m) return null
-  return Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'))
-}
-
 /** ADR-0027 manual UPI billing: a workspace's payment requests, issued and voided by an operator. */
-export function WorkspaceInvoices({
-  workspaceId,
-  name,
-  plans,
-}: {
-  workspaceId: string
-  name: string
-  plans: Array<{ key: string; name: string }>
-}) {
+export function WorkspaceInvoices({ workspaceId, name }: { workspaceId: string; name: string }) {
   const request = useIdentityRequest()
   const me = usePlatform()
   const queryClient = useQueryClient()
@@ -188,134 +167,12 @@ export function WorkspaceInvoices({
           </Button>
         </form>
       </DetailDrawer>
-      <CreateInvoiceDrawer
+      <CreateInvoiceFlow
         open={open}
         onOpenChange={setOpen}
-        workspaceId={workspaceId}
-        name={name}
-        plans={plans}
+        workspace={{ id: workspaceId, name }}
         onDone={refresh}
       />
     </section>
-  )
-}
-
-function CreateInvoiceDrawer({
-  open,
-  onOpenChange,
-  workspaceId,
-  name,
-  plans,
-  onDone,
-}: {
-  open: boolean
-  onOpenChange: (v: boolean) => void
-  workspaceId: string
-  name: string
-  plans: Array<{ key: string; name: string }>
-  onDone: () => void
-}) {
-  const request = useIdentityRequest()
-  const managed = usePlatform()?.managedLaunch ?? false
-  const [kind, setKind] = useState<'PLAN_RENEWAL' | 'WALLET_TOPUP'>('PLAN_RENEWAL')
-  const [planKey, setPlanKey] = useState(plans[0]?.key ?? '')
-  const [amount, setAmount] = useState('')
-  const [due, setDue] = useState(() =>
-    new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10),
-  )
-  const [description, setDescription] = useState('')
-  const [idempotencyKey, setKey] = useState(() => crypto.randomUUID())
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    setError('')
-    const amountMinor = minorFrom(amount)
-    if (!amountMinor) return setError('Enter the amount in rupees, for example 1499 or 1499.50.')
-    const parsed = createInvoiceRequestSchema.safeParse({
-      kind,
-      amountMinor,
-      ...(kind === 'PLAN_RENEWAL' ? { planKey } : {}),
-      ...(description.trim() ? { description: description.trim() } : {}),
-      // End of the chosen day in India.
-      dueAt: new Date(`${due}T23:59:59+05:30`).toISOString(),
-      idempotencyKey,
-    })
-    if (!parsed.success) return setError(parsed.error.issues.map((i) => i.message).join(' · '))
-    setBusy(true)
-    try {
-      await request(`/workspaces/${workspaceId}/invoices`, parsed.data)
-      toast.success(`Invoice created for ${name}`)
-      setAmount('')
-      setDescription('')
-      setKey(crypto.randomUUID())
-      onOpenChange(false)
-      onDone()
-    } catch (err) {
-      setError(failure(err))
-    } finally {
-      setBusy(false)
-    }
-  }
-  return (
-    <DetailDrawer
-      open={open}
-      onOpenChange={(v) => !busy && onOpenChange(v)}
-      title="Create invoice"
-      description={`For ${name}. The customer pays by UPI and submits the UTR; you verify it in Payments.`}
-    >
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <Field label="Type" required>
-          <Select value={kind} onValueChange={(v) => setKind(v as typeof kind)}>
-            <SelectTrigger aria-label="Type">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="PLAN_RENEWAL">Plan renewal (1 month)</SelectItem>
-              {/* Managed Launch: no customer wallet, so no top-up invoices (API refuses them). */}
-              {managed ? null : <SelectItem value="WALLET_TOPUP">Wallet top-up</SelectItem>}
-            </SelectContent>
-          </Select>
-        </Field>
-        {kind === 'PLAN_RENEWAL' ? (
-          <Field label="Plan" required>
-            <Select value={planKey} onValueChange={setPlanKey}>
-              <SelectTrigger aria-label="Plan">
-                <SelectValue placeholder="Select…" />
-              </SelectTrigger>
-              <SelectContent>
-                {plans.map((p) => (
-                  <SelectItem key={p.key} value={p.key}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        ) : null}
-        <Field label="Amount before tax (₹)" hint="GST is added only if configured" required>
-          <Input
-            required
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </Field>
-        <Field label="Due date" required>
-          <Input required type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-        </Field>
-        <Field label="Description (optional)">
-          <Input value={description} onChange={(e) => setDescription(e.target.value)} />
-        </Field>
-        {error ? (
-          <Alert tone="danger" title="Not created">
-            {error}
-          </Alert>
-        ) : null}
-        <Button type="submit" loading={busy}>
-          Create invoice
-        </Button>
-      </form>
-    </DetailDrawer>
   )
 }

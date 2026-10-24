@@ -1,4 +1,4 @@
-import { WorkspaceSearch } from '@/components/platform/workspace-search'
+import { BillingOperations } from '@/components/platform/billing-operations'
 export default function Page() {
-  return <WorkspaceSearch operations />
+  return <BillingOperations />
 }

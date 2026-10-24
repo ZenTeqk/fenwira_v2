@@ -29,9 +29,8 @@ test('real platform MFA, membership-free discovery, confirmed funding and revoca
     await page.getByRole('button', { name: 'Verify and enter platform' }).click()
     await expect(page).toHaveURL(/\/platform\/workspaces$/)
     // Repeated runs preserve history; select the exact workspace rather than a reused fixture name.
-    await page.getByRole('searchbox', { name: 'Find workspace' }).fill(customer.tenantId)
-    await page.getByRole('button', { name: 'Search', exact: true }).click()
-    await page.getByRole('link', { name: `Open ${customer.workspaceName}` }).click()
+    await page.getByRole('searchbox', { name: 'Search workspaces' }).fill(customer.tenantId)
+    await page.getByRole('link', { name: customer.workspaceName, exact: true }).click()
     await expect(page.getByText('Trial', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Start billing adjustment' }).click()
     await page.getByLabel('Amount (INR)').fill('1.23')
