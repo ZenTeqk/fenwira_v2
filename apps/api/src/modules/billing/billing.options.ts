@@ -17,6 +17,8 @@ export type ManualBilling = {
   leadDays: number
   payee?: { vpa: string; name: string }
   gst?: { gstin: string; rateBps: number }
+  /** Hours within which an operator confirms a UPI payment (shown to customers). */
+  confirmHours?: number
 }
 
 export type BillingOptions = BillingPlatform & {
@@ -50,6 +52,7 @@ export function manualBillingFromEnv(env: {
   UPI_PAYEE_NAME?: string
   BILLING_GSTIN?: string
   BILLING_GST_RATE_BPS?: number
+  BILLING_PAYMENT_CONFIRM_HOURS?: number
 }): ManualBilling {
   return {
     enabled: env.MANAGED_LAUNCH_MODE,
@@ -60,6 +63,9 @@ export function manualBillingFromEnv(env: {
       : {}),
     ...(env.BILLING_GSTIN && env.BILLING_GST_RATE_BPS
       ? { gst: { gstin: env.BILLING_GSTIN, rateBps: env.BILLING_GST_RATE_BPS } }
+      : {}),
+    ...(env.BILLING_PAYMENT_CONFIRM_HOURS
+      ? { confirmHours: env.BILLING_PAYMENT_CONFIRM_HOURS }
       : {}),
   }
 }

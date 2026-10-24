@@ -3,6 +3,7 @@ import {
   ENTITLEMENT_KEYS,
   ENTITLEMENT_LABELS,
   type EntitlementStatus,
+  type InvoiceDetail,
   LIMIT_KEYS,
   type Plan,
   type Subscription,
@@ -15,9 +16,10 @@ import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { AuditService } from '../audit'
 import { EntitlementsService } from '../entitlements'
-import { currentActorId } from '../identity'
+import { currentActorId, currentAuth } from '../identity'
 import { currentTenant } from '../tenancy'
 import { BILLING_OPTIONS, type BillingOptions } from './billing.options'
+import { INVOICE_INCLUDE, chooseUpgradePlan, toInvoiceDetail } from './invoices.core'
 
 const DAY = 86_400_000
 
@@ -147,6 +149,32 @@ export class SubscriptionsService {
     })
   }
 
+  /** Upgrade now: issues (or replaces) the plan invoice for a workspace without an active plan. */
+  async upgrade(planId: string): Promise<{ invoice: InvoiceDetail; created: boolean }> {
+    const { tenantId } = currentTenant()
+    const manual = this.billing.manual ?? { enabled: false, graceDays: 0, leadDays: 0 }
+    const { row, created } = await this.tenantDb.run(async (tx) => {
+      const { status } = await this.read(tx, tenantId)
+      const r = await chooseUpgradePlan(
+        tx,
+        tenantId,
+        planId,
+        status,
+        new Date(),
+        manual,
+        currentAuth().userId,
+      )
+      return {
+        row: await tx.invoice.findFirstOrThrow({
+          where: { id: r.invoiceId },
+          include: INVOICE_INCLUDE,
+        }),
+        created: r.created,
+      }
+    })
+    return { invoice: await toInvoiceDetail(row), created }
+  }
+
   /** Ends an active subscription at the end of its period (never immediately, never deletes). */
   cancel(): Promise<Subscription> {
     const { tenantId } = currentTenant()
@@ -232,6 +260,8 @@ export class SubscriptionsService {
           : null,
       currentPeriodEnd: sub?.currentPeriodEnd?.toISOString() ?? null,
       cancelAtPeriodEnd: sub?.cancelAtPeriodEnd ?? false,
+      canUpgrade: Boolean(this.billing.manual?.enabled) && resolved !== 'ACTIVE',
+      paymentConfirmHours: this.billing.manual?.confirmHours ?? null,
     }
   }
 

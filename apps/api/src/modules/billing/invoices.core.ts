@@ -139,7 +139,7 @@ export async function issueInvoice(
     dueAt: Date
   },
   manual: ManualBilling,
-  actor: { type: 'PLATFORM_OPERATOR' | 'SYSTEM'; id?: string | null },
+  actor: { type: 'PLATFORM_OPERATOR' | 'SYSTEM' | 'USER'; id?: string | null },
 ) {
   if (!manual.payee)
     throw new AppError(
@@ -453,6 +453,105 @@ export async function notifyBillingReaders(
     data: members.map((m) => ({ tenantId, userId: m.userId, dedupeKey, ...copy })),
     skipDuplicates: true,
   })
+}
+
+/**
+ * Upgrade now (Managed Launch): a workspace without an active paid plan (trial, expired, past
+ * due, suspended) chooses a public plan and gets its plan invoice at once, at the configured
+ * monthly price. One open plan invoice per workspace: choosing the same plan again returns it,
+ * choosing another voids it (unless a payment proof is waiting) and issues the new one. Approval
+ * activates the plan from the approval date (ML-D6); no proration.
+ */
+export async function chooseUpgradePlan(
+  tx: TenantTx,
+  tenantId: string,
+  planId: string,
+  status: string,
+  now: Date,
+  manual: ManualBilling,
+  userId: string,
+): Promise<{ invoiceId: string; replaced: string | null; created: boolean }> {
+  if (!manual.enabled)
+    throw new AppError('UPGRADE_UNAVAILABLE', 409, 'Plans are activated by the Fenwira team.')
+  if (status === 'ACTIVE')
+    throw new AppError(
+      'PLAN_ACTIVE',
+      409,
+      'Your plan is active. Use Request change and the Fenwira team will send the invoice.',
+    )
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:plan-upgrade`}))`
+  const tenant = await tx.tenant.findUniqueOrThrow({
+    where: { id: tenantId },
+    select: { currency: true },
+  })
+  const plan = await tx.plan.findFirst({
+    where: { id: planId, isPublic: true },
+    include: { prices: { where: { active: true, interval: 'MONTH', currency: tenant.currency } } },
+  })
+  if (!plan) throw AppError.notFound('Plan not found.')
+  const price = plan.prices[0]
+  if (!price)
+    throw new AppError('PLAN_NOT_PRICED', 422, 'This plan has no price yet. Contact Fenwira.')
+
+  const open = await tx.invoice.findFirst({
+    where: { kind: 'PLAN_RENEWAL', status: 'OPEN' },
+    include: { proofs: { where: { status: 'PENDING' }, select: { id: true } } },
+  })
+  if (open?.planId === plan.id) return { invoiceId: open.id, replaced: null, created: false }
+  if (open?.proofs.length)
+    throw new AppError(
+      'PAYMENT_PENDING',
+      409,
+      `A payment for ${open.number} is waiting for review. You can change plan after it is reviewed.`,
+    )
+  if (open) {
+    await voidInvoice(tx, open.id, `Replaced by the ${plan.name} plan choice`, now)
+    await tx.auditLog.create({
+      data: {
+        tenantId,
+        actorType: 'USER',
+        actorId: userId,
+        action: 'billing.invoice_voided',
+        targetType: 'invoice',
+        targetId: open.id,
+        changes: { number: open.number, reason: 'replaced by plan choice' },
+      },
+    })
+  }
+  const sub = await tx.subscription.findUnique({
+    where: { tenantId },
+    select: { trialEndsAt: true },
+  })
+  const dueAt = new Date(Math.max(sub?.trialEndsAt?.getTime() ?? 0, now.getTime() + DAY))
+  const invoice = await issueInvoice(
+    tx,
+    tenantId,
+    {
+      kind: 'PLAN_RENEWAL',
+      subtotalMinor: price.amountMinor,
+      planId: plan.id,
+      description: `${plan.name} plan, 1 month from payment confirmation`,
+      dueAt,
+    },
+    manual,
+    { type: 'USER', id: userId },
+  )
+  await tx.subscription.updateMany({
+    where: { tenantId },
+    data: { requestedPlanId: plan.id, requestedAt: now },
+  })
+  await tx.auditLog.create({
+    data: {
+      tenantId,
+      actorType: 'USER',
+      actorId: userId,
+      action: 'subscription.upgrade_chosen',
+      targetType: 'invoice',
+      targetId: invoice.id,
+      changes: { plan: plan.key, number: invoice.number, replaced: open?.number ?? null },
+    },
+  })
+  return { invoiceId: invoice.id, replaced: open?.id ?? null, created: true }
 }
 
 /** Days before trial end when the first plan invoice is issued (Managed Launch). */

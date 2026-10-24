@@ -220,6 +220,7 @@ export class NotificationsDispatchProcessor implements QueueProcessor<DispatchJo
       `tenant ${tenantId} (${info.tenant.name})`,
       `plan ${info.plan?.key ?? p.planId} (${info.plan?.name ?? 'unknown'})`,
       `activate: pnpm --filter @fenwira/worker subscription:activate -- --tenant ${tenantId} --plan ${info.plan?.key ?? '<KEY>'}`,
+      'Managed Launch, paid workspace: issue a PLAN_RENEWAL invoice for this plan in /platform → Billing operations',
     ])
     return 'plan-requested'
   }

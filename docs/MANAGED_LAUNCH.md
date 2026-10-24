@@ -19,6 +19,7 @@ How the operator onboards and runs customers in Managed Launch Mode (ADR-0027, d
 | `/fenwira/prod/config/billing-gst-rate` | `BILLING_GST_RATE_BPS` | Optional percentage, e.g. `18` (rendered as basis points). GST is added only when both this and the GSTIN are set |
 | `/fenwira/prod/config/billing-grace-days` | `BILLING_GRACE_DAYS` | Days a PAST_DUE workspace keeps working before SUSPENDED. Production default **7** when unset |
 | `/fenwira/prod/config/billing-invoice-lead-days` | `BILLING_INVOICE_LEAD_DAYS` | Days before the period end that the renewal invoice is issued. Production default **3** when unset |
+| `/fenwira/prod/config/billing-payment-confirm-hours` | `BILLING_PAYMENT_CONFIRM_HOURS` | Optional, 1–168. Billing shows "we confirm payments within X hours"; unset hides the line. Only promise what you can meet |
 
 The renderer always writes explicit grace and lead days (7 and 3 unless SSM overrides them), so production never uses the schema's development defaults. `BILLING_SUBSCRIPTIONS_ENFORCED` stays `false` (ML-D5 business decision). After changing a parameter, redeploy (or re-render the env and restart api and worker).
 

@@ -48,6 +48,7 @@ Database passwords, `ENCRYPTION_KEYS`, JWT keys, `API_KEY_PEPPER`, `META_APP_SEC
 | `MAIL_FROM`, `MAIL_REPLY_TO` (worker) | — | `Fenwira <no-reply@fenwira.com>`, unset | Sender and Reply-To |
 | `UPI_VPA`, `UPI_PAYEE_NAME` | — | unset | ADR-0027 manual UPI billing: the payee on every payment request. Invoices can't be issued while unset |
 | `BILLING_GRACE_DAYS`, `BILLING_INVOICE_LEAD_DAYS` | — | 7, 7 | ML-D5: PAST_DUE grace before SUSPENDED; renewal-invoice lead time. Production values are business decisions |
+| `BILLING_PAYMENT_CONFIRM_HOURS` | — | unset | Upgrade now: Billing shows "we confirm payments within X hours" (1–168). Unset hides the line |
 | `BILLING_GSTIN`, `BILLING_GST_RATE_BPS` | — | unset | GST line only when both are set (Q22 open) |
 | `BILLING_TRIAL_DAYS`, `BILLING_TRIAL_PLAN`, `TRIAL_CREDIT_MINOR`, `BILLING_LOW_BALANCE_THRESHOLD_MINOR`, `BILLING_SUPPORT_EMAIL`, `BILLING_SUPPORT_URL` | — | 14, `GROWTH`, 0, 10000, unset | See docs/BILLING.md |
 | `NODE_OPTIONS` | — | — | Heap ceiling, e.g. `--max-old-space-size=512` (RESOURCE_BUDGET) |

@@ -324,6 +324,7 @@ Implemented in Phase 10:
 | GET | `/billing/subscription` | `billing.read` |
 | GET | `/billing/entitlements` | `workspace.read` |
 | POST | `/billing/subscription/request` | `billing.manage` |
+| POST | `/billing/subscription/upgrade` | `billing.manage` |
 | POST | `/billing/subscription/cancel` | `billing.manage` |
 | POST | `/billing/wallet/transactions/export` | `billing.read`. CSV |
 | GET | `/analytics/overview`, `/analytics/messaging`, `/analytics/campaigns`, `/analytics/inbox`, `/analytics/automations` | `analytics.read`. `?from&to` or `?days`, `compare` (Phase 11 Step 2, `ANALYTICS.md` → API) |
@@ -350,6 +351,7 @@ Phase 11 Step 4 (plans and subscriptions, `docs/BILLING.md` → Subscription):
 - `GET /billing/subscription` → `{data: {status: TRIALING|ACTIVE|EXPIRED|CANCELLED, plan, requestedPlan, requestedAt, interval, trialEndsAt, trialDaysLeft, currentPeriodEnd, cancelAtPeriodEnd}}` (`plan`/`requestedPlan` are `{id, key, name}` or null). A workspace without a row reports the trial it is entitled to.
 - `GET /billing/entitlements` → `{data: [{key, label, kind: capability|limit, enabled, limit, usage, overLimit}]}`. `limit` null = unlimited.
 - `POST /billing/subscription/request {planId}` → the subscription. Records the request and alerts the operator (`subscription.plan_requested`); it does not change entitlements (P11-D24). 404 for an unknown or non-public plan.
+- `POST /billing/subscription/upgrade {planId}` → the plan invoice (`InvoiceDetail` with UPI QR). Upgrade now (Managed Launch): for a workspace without an ACTIVE plan (trial, expired, past due, suspended). Issues the invoice at the plan's monthly price: 201 when issued, 200 when the same plan's open invoice already exists. Choosing another plan voids the open plan invoice and issues the new one. Approval activates the plan from the approval date (ML-D6, trial remainder dropped, no proration). 409 `PLAN_ACTIVE` (use `/subscription/request`), 409 `PAYMENT_PENDING`, 409 `UPGRADE_UNAVAILABLE` (Managed Launch off), 422 `PLAN_NOT_PRICED`, 422 `UPI_NOT_CONFIGURED`. The subscription now also returns `canUpgrade` and `paymentConfirmHours` (`BILLING_PAYMENT_CONFIRM_HOURS`).
 - `POST /billing/subscription/cancel` → the subscription with `cancelAtPeriodEnd: true`. 409 when there is no ACTIVE subscription.
 - Errors: 422 `LIMIT_EXCEEDED {key, limit, current}` on user-initiated growth past a limit; 403 `ENTITLEMENT_REQUIRED {key}` for a capability the plan lacks; 422 `SUBSCRIPTION_INACTIVE` for template sends after expiry or cancellation. Inbound is never refused.
 - `GET /api-keys` and `GET /webhook-endpoints` add `meta.entitled` (false = suspended by plan; records are kept).

@@ -87,6 +87,10 @@ export const baseEnvSchema = z.object({
   UPI_PAYEE_NAME: optionalString.pipe(z.string().max(99).optional()),
   /** ML-D5: days a PAST_DUE workspace keeps working before SUSPENDED (production value: business decision). */
   BILLING_GRACE_DAYS: z.coerce.number().int().min(0).max(90).default(7),
+  /** Upgrade now: shown as "we confirm payments within X hours" on Billing. Unset hides the line. */
+  BILLING_PAYMENT_CONFIRM_HOURS: optionalString
+    .transform((v) => (v === undefined ? undefined : Number(v)))
+    .pipe(z.number().int().min(1).max(168).optional()),
   /** ML-D5: days before a period ends that the system issues its renewal invoice (priced plans only). */
   BILLING_INVOICE_LEAD_DAYS: z.coerce.number().int().min(0).max(60).default(7),
   /** ML-D3/Q22: GST is added only when both are set (one "GST" line; the split is undecided). */

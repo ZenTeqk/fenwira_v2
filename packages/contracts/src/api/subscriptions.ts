@@ -120,6 +120,10 @@ export const subscriptionSchema = z.object({
   trialDaysLeft: z.number().int().nullable(),
   currentPeriodEnd: z.string().nullable(),
   cancelAtPeriodEnd: z.boolean(),
+  /** Upgrade now (Managed Launch): no active paid plan, so a plan can be chosen and paid now. */
+  canUpgrade: z.boolean(),
+  /** "We confirm payments within X hours" (config); null hides the line. */
+  paymentConfirmHours: z.number().int().nullable(),
 })
 export type Subscription = z.infer<typeof subscriptionSchema>
 
@@ -137,6 +141,10 @@ export type EntitlementStatus = z.infer<typeof entitlementStatusSchema>
 /** P11-D24: the OWNER requests a plan; an operator activates it (no gateway, no prices). */
 export const requestPlanSchema = z.object({ planId: z.uuid() })
 export type RequestPlan = z.infer<typeof requestPlanSchema>
+
+/** Upgrade now: choosing a plan issues (or replaces) the one open plan invoice. */
+export const upgradePlanSchema = z.strictObject({ planId: z.uuid() })
+export type UpgradePlan = z.infer<typeof upgradePlanSchema>
 
 /** Operator console: plan price list and edit (GET/PUT /platform/plans). */
 export const platformPlanSchema = z.object({
