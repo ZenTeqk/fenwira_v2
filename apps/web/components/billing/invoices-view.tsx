@@ -18,7 +18,6 @@ import {
   ErrorState,
   Field,
   Input,
-  ModuleTabs,
   PermissionState,
   Skeleton,
   StatusBadge,
@@ -34,7 +33,6 @@ import {
 } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy, Download, FileText, Receipt } from 'lucide-react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { type FormEvent, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
@@ -83,7 +81,7 @@ export function InvoicesView() {
   return (
     <DetailPage
       header={{
-        title: 'Billing',
+        title: 'Invoices',
         description: managed
           ? 'Your plan and payment requests. Pay by UPI, then enter the UTR so we can confirm it.'
           : 'Payment requests for your Fenwira subscription and WhatsApp credits.',
@@ -101,24 +99,7 @@ export function InvoicesView() {
           <PlanSummary />
           {due[0] ? <OpenInvoice id={due[0].id} /> : null}
         </>
-      ) : (
-        <ModuleTabs
-          label="Billing pages"
-          className="bg-transparent"
-          linkAs={Link}
-          items={[
-            {
-              id: 'subscription',
-              label: 'Subscription',
-              href: '/billing/subscription',
-              active: false,
-            },
-            { id: 'invoices', label: 'Invoices', href: '/billing/invoices', active: true },
-            { id: 'wallet', label: 'Wallet', href: '/billing/wallet', active: false },
-            { id: 'usage', label: 'Usage', href: '/billing/usage', active: false },
-          ]}
-        />
-      )}
+      ) : null}
       {list.isPending ? (
         <Skeleton className="h-48 w-full" />
       ) : list.isError ? (

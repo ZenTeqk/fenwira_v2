@@ -115,7 +115,7 @@ test('Billing wallet: compact reference composition, truthful financial states a
     }),
   )
   await page.goto('/billing/wallet')
-  await expect(page.getByRole('heading', { level: 1, name: 'Billing' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Wallet' })).toBeVisible()
   await expect(page.getByText('₹842.60', { exact: true })).toBeVisible()
   await expect(page.getByText('Textile Growth', { exact: true })).toBeVisible()
   await expect(page.getByText('API access · not included')).toBeVisible()
@@ -160,11 +160,9 @@ test('Billing wallet: compact reference composition, truthful financial states a
   failure = false
   await page.getByRole('button', { name: 'Try again', exact: true }).click()
   await expect(page.getByText('Couldn’t load the wallet')).toHaveCount(0)
-  await page
-    .getByRole('navigation', { name: 'Billing pages' })
-    .getByRole('link', { name: 'Usage', exact: true })
-    .click()
-  await expect(page).toHaveURL(/\/analytics\/usage$/)
+  // Billing has one row of tabs (the shell's) and no Usage tab; usage lives under Analytics.
+  await expect(page.getByRole('navigation', { name: 'Billing pages' })).toHaveCount(1)
+  await expect(page.getByRole('link', { name: 'Usage', exact: true })).toHaveCount(0)
 })
 
 test('Billing wallet denies readers without billing permission and makes no financial requests', async ({

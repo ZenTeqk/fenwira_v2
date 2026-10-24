@@ -140,7 +140,10 @@ export function BuilderPage({
   )
 }
 
-/** Settings: header → stacked cards, each saving on its own. */
+/**
+ * Settings: header → stacked cards, each saving on its own. The page uses the same content width
+ * as every other module; only the cards and forms inside it are capped for readable line length.
+ */
 export function SettingsPage({
   header,
   banner,
@@ -153,7 +156,13 @@ export function SettingsPage({
   className?: string
 }) {
   return (
-    <div data-pattern="settings-page" className={cn('flex max-w-4xl flex-col gap-6', className)}>
+    <div
+      data-pattern="settings-page"
+      className={cn(
+        'flex w-full flex-col gap-6 [&>:not([data-slot=page-header])]:max-w-4xl',
+        className,
+      )}
+    >
       <PageHeader {...header} />
       {banner}
       {children}

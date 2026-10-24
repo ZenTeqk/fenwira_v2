@@ -25,7 +25,7 @@ describe('navigation', () => {
       'Billing',
       'Settings',
     ])
-    expect(flattenLeaves(NAVIGATION)).toHaveLength(33)
+    expect(flattenLeaves(NAVIGATION)).toHaveLength(32)
     const hrefs = flattenLeaves(NAVIGATION).map((l) => l.href)
     expect(new Set(hrefs).size).toBe(hrefs.length)
   })
@@ -87,7 +87,7 @@ describe('navigation', () => {
   })
 
   it('reveals everything in preview mode', () => {
-    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(33)
+    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(32)
   })
 
   it('keeps partially shipped groups with only their shipped children', () => {
