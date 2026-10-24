@@ -277,6 +277,11 @@ export const createWorkspaceWithOwnerSchema = z
     ownerEmail: z.email().trim().toLowerCase(),
     country: z.string().length(2).toUpperCase().default('IN'),
     timezone: z.string().min(1).max(64).default('Asia/Kolkata'),
+    /** The plan the customer chose; its price is used for the first invoice before the trial ends. */
+    planKey: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]{1,39}$/)
+      .default('GROWTH'),
   })
   .strict()
 export type CreateWorkspaceWithOwner = z.infer<typeof createWorkspaceWithOwnerSchema>

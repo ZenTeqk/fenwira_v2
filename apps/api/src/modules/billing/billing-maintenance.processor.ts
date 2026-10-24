@@ -14,7 +14,12 @@ import { type QueueProcessor } from '../../core/queue/queue-processor'
 import { QueueRegistry } from '../../core/queue/queue-registry'
 import { Mailer, OpsAlerts, subscriptionNoticeEmail } from '../platform'
 import { BILLING_OPTIONS, type BillingOptions } from './billing.options'
-import { emitInvoiceNotice, issueRenewalIfDue } from './invoices.core'
+import {
+  emitInvoiceNotice,
+  issueRenewalIfDue,
+  issueTrialInvoiceIfDue,
+  TRIAL_INVOICE_DAYS,
+} from './invoices.core'
 import { noticeCopy, noticeLink, stepSubscription } from './subscriptions.core'
 import { CORE_CONFIG, type CoreConfig } from '../../core/config/core-config'
 import { ledgerFigures, recoverReservation } from './usage.core'
@@ -165,7 +170,29 @@ export class BillingMaintenanceProcessor
    * worker re-checks the invoice and claims each email once, so reruns never send duplicates.
    */
   async remindInvoices(now = new Date()): Promise<string> {
-    if (!this.options.manual?.enabled) return 'reminders:off'
+    const manual = this.options.manual
+    if (!manual?.enabled) return 'reminders:off'
+    // First plan invoice for trials ending within TRIAL_INVOICE_DAYS (once per trial period).
+    let trialInvoices = 0
+    let afterTenant: string | null = null
+    for (;;) {
+      const ids = await this.db.system.trialsEnding(now, TRIAL_INVOICE_DAYS, BATCH, afterTenant)
+      if (!ids.length) break
+      for (const tenantId of ids) {
+        try {
+          const trialPlanKey = this.core.entitlements?.trialPlanKey ?? 'GROWTH'
+          if (
+            await this.db.withTenant(tenantId, (tx) =>
+              issueTrialInvoiceIfDue(tx, tenantId, now, manual, trialPlanKey),
+            )
+          )
+            trialInvoices++
+        } catch (err) {
+          this.logger.error({ err, tenantId }, 'trial invoice not issued')
+        }
+      }
+      afterTenant = ids[ids.length - 1]!
+    }
     let after: string | null = null
     let queued = 0
     for (;;) {
@@ -183,7 +210,7 @@ export class BillingMaintenanceProcessor
       }
       after = due[due.length - 1]!.invoiceId
     }
-    return `reminders:${queued}`
+    return `trial-invoices:${trialInvoices}:reminders:${queued}`
   }
 
   /**

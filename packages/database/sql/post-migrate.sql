@@ -806,6 +806,17 @@ BEGIN
   );
 END $$;
 
+-- Trials ending soon (Managed Launch first invoice). IDs only; the worker re-checks per tenant.
+CREATE OR REPLACE FUNCTION system.trials_ending(p_now timestamptz, p_days integer, p_limit integer, p_after uuid)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT s.tenant_id FROM public.subscriptions s
+  WHERE s.status = 'TRIALING' AND s.trial_ends_at IS NOT NULL
+    AND s.trial_ends_at <= p_now + make_interval(days => p_days)
+    AND (p_after IS NULL OR s.tenant_id > p_after)
+  ORDER BY s.tenant_id LIMIT least(greatest(p_limit, 1), 500);
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
@@ -844,7 +855,8 @@ BEGIN
     'system.platform_revenue_by_month(uuid, integer)',
     'system.platform_set_plan_price(uuid, text, text, bigint)',
     'system.invoice_reminders_due(timestamptz, integer, uuid)',
-    'system.platform_overview(uuid, timestamptz)'
+    'system.platform_overview(uuid, timestamptz)',
+    'system.trials_ending(timestamptz, integer, integer, uuid)'
   ] LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO fenwira_system', f);
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);

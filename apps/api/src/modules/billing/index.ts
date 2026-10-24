@@ -38,6 +38,7 @@ export {
   upiDeepLink,
   INVOICE_INCLUDE,
   emitInvoiceNotice,
+  issueTrialInvoiceIfDue,
   invoiceNoticeKey,
   type InvoiceNotice,
   issueInvoice,

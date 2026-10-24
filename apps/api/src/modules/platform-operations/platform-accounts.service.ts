@@ -1,4 +1,5 @@
 import { encryptSecret, randomToken, sha256, uuidv7 } from '@fenwira/config'
+import { CORE_CONFIG, type CoreConfig } from '../../core/config/core-config'
 import {
   type CreateWorkspaceWithOwner,
   type EmailDelivery,
@@ -32,6 +33,7 @@ export class PlatformAccountsService {
     @Inject(IDENTITY_OPTIONS) private readonly identity: IdentityOptions,
     private readonly passwords: PasswordService,
     private readonly limits: RateLimitService,
+    @Inject(CORE_CONFIG) private readonly core: CoreConfig,
   ) {}
 
   private operator(): string {
@@ -58,6 +60,10 @@ export class PlatformAccountsService {
     const ownerUserId = existing?.id ?? uuidv7()
     const unusable = existing ? null : await this.passwords.hash(randomToken(32))
     const tenantId = uuidv7()
+    const plan = await this.db.withGlobal((tx) =>
+      tx.plan.findUnique({ where: { key: input.planKey }, select: { id: true } }),
+    )
+    if (!plan) throw new AppError('VALIDATION_FAILED', 400, `Unknown plan ${input.planKey}.`)
     const token = existing ? null : randomToken()
     const expiresAt = new Date(Date.now() + SETUP_LINK_TTL_MS)
     if (!existing)
@@ -85,6 +91,22 @@ export class PlatformAccountsService {
           },
         })
         await tx.membership.create({ data: { tenantId, userId: ownerUserId, role: 'OWNER' } })
+        // The trial starts now with the chosen plan recorded; the daily job invoices that plan
+        // before the trial ends (docs/BILLING.md → Manual invoices).
+        await tx.subscription.createMany({
+          data: [
+            {
+              tenantId,
+              status: 'TRIALING',
+              trialEndsAt: new Date(
+                Date.now() + (this.core.entitlements?.trialDays ?? 14) * 86_400_000,
+              ),
+              requestedPlanId: plan.id,
+              requestedAt: new Date(),
+            },
+          ],
+          skipDuplicates: true,
+        })
         await this.audit(
           tx,
           tenantId,
@@ -96,6 +118,7 @@ export class PlatformAccountsService {
             name: input.workspaceName,
             ownerUserId,
             newAccount: !existing,
+            planKey: input.planKey,
           },
         )
       },

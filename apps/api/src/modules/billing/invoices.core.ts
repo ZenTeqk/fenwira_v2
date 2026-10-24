@@ -455,6 +455,63 @@ export async function notifyBillingReaders(
   })
 }
 
+/** Days before trial end when the first plan invoice is issued (Managed Launch). */
+export const TRIAL_INVOICE_DAYS = 3
+
+/**
+ * First plan invoice before a trial ends (Managed Launch). Once per trial period: the key
+ * `TRIAL_INVOICE:<trialEndsAt>` is recorded on the subscription, so reruns never duplicate. Skips
+ * non-trial workspaces, trials ending later than TRIAL_INVOICE_DAYS, workspaces that already have
+ * an open invoice and plans without a price. Approving it activates the plan (ML-D6).
+ */
+export async function issueTrialInvoiceIfDue(
+  tx: TenantTx,
+  tenantId: string,
+  now: Date,
+  manual: ManualBilling,
+  trialPlanKey: string,
+): Promise<boolean> {
+  if (!manual.enabled || !manual.payee) return false
+  await tx.$queryRaw`SELECT id FROM subscriptions WHERE tenant_id = ${tenantId}::uuid FOR UPDATE`
+  const sub = await tx.subscription.findUnique({ where: { tenantId } })
+  if (!sub || sub.status !== 'TRIALING' || !sub.trialEndsAt) return false
+  if (sub.trialEndsAt.getTime() - now.getTime() > TRIAL_INVOICE_DAYS * DAY) return false
+  const key = `TRIAL_INVOICE:${sub.trialEndsAt.toISOString()}`
+  if (sub.noticesSent.includes(key)) return false
+  if (await tx.invoice.count({ where: { status: 'OPEN' } })) return false
+  const tenant = await tx.tenant.findUniqueOrThrow({
+    where: { id: tenantId },
+    select: { currency: true },
+  })
+  const plan = await tx.plan.findFirst({
+    where: sub.requestedPlanId ? { id: sub.requestedPlanId } : { key: trialPlanKey },
+    include: {
+      prices: { where: { active: true, interval: 'MONTH', currency: tenant.currency } },
+    },
+  })
+  const price = plan?.prices[0]
+  if (!plan || !price) return false
+  const dueAt = new Date(Math.max(sub.trialEndsAt.getTime(), now.getTime() + DAY))
+  await issueInvoice(
+    tx,
+    tenantId,
+    {
+      kind: 'PLAN_RENEWAL',
+      subtotalMinor: price.amountMinor,
+      planId: plan.id,
+      description: `${plan.name} plan, first month (after your free trial)`,
+      dueAt,
+    },
+    manual,
+    { type: 'SYSTEM' },
+  )
+  await tx.subscription.update({
+    where: { tenantId },
+    data: { noticesSent: { push: key } },
+  })
+  return true
+}
+
 /**
  * The system-issued renewal (ML-D3): once per period (any earlier renewal issued in this lead
  * window, even if voided by an operator, counts), and only when the plan has an active price in
