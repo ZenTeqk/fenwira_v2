@@ -61,8 +61,13 @@ const connection = {
   templatesSyncedAt: null,
 }
 
-async function mock(page: Page, posted: unknown[]) {
-  let connected = false
+async function mock(
+  page: Page,
+  posted: unknown[],
+  opts: { lapsed?: boolean; reauth?: unknown[] } = {},
+) {
+  let connected = false,
+    fresh = !opts.lapsed
   await page.route('**/api/v1/platform/**', async (route) => {
     const req = route.request()
     const path = new URL(req.url()).pathname.replace('/api/v1/platform', '')
@@ -73,13 +78,23 @@ async function mock(page: Page, posted: unknown[]) {
         permissions: ['commercial.read', 'whatsapp.read', 'whatsapp.manage'],
         expiresAt: new Date(Date.now() + 1800000).toISOString(),
         csrfToken: 'platform-csrf',
+        ...(fresh ? { mfaFreshUntil: new Date(Date.now() + 300_000).toISOString() } : {}),
       }
-    else if (path === `/workspaces/${id}`) data = detail
+    else if (path === '/auth/reauth') {
+      opts.reauth?.push(req.postDataJSON())
+      fresh = true
+      return route.fulfill({ status: 204 })
+    } else if (path === `/workspaces/${id}`) data = detail
     else if (path === `/workspaces/${id}/whatsapp/connections` && req.method() === 'GET')
       data = connected ? [connection] : []
     else if (path === `/workspaces/${id}/whatsapp/connections` && req.method() === 'POST') {
       expect(req.headers()['x-csrf-token']).toBe('platform-csrf')
       posted.push(req.postDataJSON())
+      if (!fresh)
+        return route.fulfill({
+          status: 403,
+          json: { error: { code: 'TOTP_REQUIRED', message: 'Fresh MFA required.' } },
+        })
       connected = true
       return route.fulfill({ status: 201, json: { data: connection } })
     } else if (path.endsWith('/verify'))
@@ -163,4 +178,37 @@ test('operator connects a number; secrets are sent once and only shown masked', 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
   await axe(page)
+})
+
+test('a lapsed identity check opens verification inline and retries the connect once', async ({
+  page,
+}) => {
+  const posted: unknown[] = [],
+    reauth: unknown[] = []
+  await mock(page, posted, { lapsed: true, reauth })
+  await page.goto(`/platform/workspaces/${id}`)
+  const bar = page.getByRole('region', { name: 'Identity verification' })
+  await expect(bar.getByText('Identity not verified')).toBeVisible()
+  await page.getByRole('button', { name: 'Connect WhatsApp number' }).click()
+  const drawer = page.getByRole('dialog', { name: 'Connect WhatsApp number' })
+  await drawer.getByLabel('WABA ID').fill('201234567890')
+  await drawer.getByLabel('Phone number ID').fill('109876543210')
+  await drawer.getByLabel('Display phone number').fill('+91 98765 43210')
+  await drawer.getByLabel('System-user access token').fill(TOKEN)
+  await drawer.getByLabel('App secret').fill(SECRET)
+  await drawer.getByRole('button', { name: 'Connect and verify' }).click()
+
+  const verify = page.getByRole('dialog', { name: 'Verify your identity' })
+  await expect(verify).toBeVisible()
+  await verify.getByLabel('Operator password').fill('Operator-Pw-e2e-1')
+  await verify.getByLabel('Authenticator code').fill('123456')
+  await verify.getByRole('button', { name: 'Verify and continue' }).click()
+
+  await expect(page.getByRole('region', { name: 'WhatsApp number +91 98765 43210' })).toBeVisible()
+  expect(reauth).toEqual([{ password: 'Operator-Pw-e2e-1', code: '123456' }])
+  expect(posted).toHaveLength(2)
+  await expect(bar.getByText(/Verified for 5 minutes/)).toBeVisible()
+  await expect(page.getByText('Commercial operations card')).toHaveCount(0)
+  const html = await page.content()
+  for (const secret of ['Operator-Pw-e2e-1', TOKEN, SECRET]) expect(html).not.toContain(secret)
 })

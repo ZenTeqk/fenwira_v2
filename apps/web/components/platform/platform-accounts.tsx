@@ -39,17 +39,19 @@ import { formatMoney } from '@/lib/billing'
 import { ownerWelcomeMessage } from '@/lib/onboarding'
 import { ApiError } from '@/lib/api/client'
 import { platformRequest } from '@/lib/platform'
+import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
 
 const failure = (err: unknown) =>
   err instanceof ApiError
     ? err.code === 'TOTP_REQUIRED'
-      ? 'Verify your identity again (Commercial operations card in any workspace), then retry.'
+      ? 'Identity check not completed. Use Verify identity at the top of this page, then retry.'
       : err.message
     : 'Request failed.'
 
 /** ADR-0027 step 4: create a workspace and its owner in one step; hand the owner a setup link. */
 export function ProvisionWorkspace() {
+  const request = useIdentityRequest()
   const me = usePlatform()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({
@@ -80,9 +82,7 @@ export function ProvisionWorkspace() {
     try {
       setCreated({ ownerName: parsed.data.ownerName, workspaceName: parsed.data.workspaceName })
       setResult(
-        provisionedWorkspaceSchema.parse(
-          await platformRequest('/workspaces/provision', parsed.data),
-        ),
+        provisionedWorkspaceSchema.parse(await request('/workspaces/provision', parsed.data)),
       )
       setForm({ workspaceName: '', ownerName: '', ownerEmail: '', planKey: 'GROWTH' })
     } catch (err) {
@@ -200,6 +200,7 @@ function WelcomeMessage({ text }: { text: string }) {
 
 /** Members of a workspace, with one-time password-reset links (ML-D4: operators only). */
 export function WorkspaceMembers({ workspaceId }: { workspaceId: string }) {
+  const request = useIdentityRequest()
   const me = usePlatform()
   const canManage = me?.permissions.includes('workspaces.manage') ?? false
   const members = useQuery({
@@ -214,7 +215,7 @@ export function WorkspaceMembers({ workspaceId }: { workspaceId: string }) {
   async function reset(userId: string, name: string) {
     try {
       const issued = oneTimeLinkSchema.parse(
-        await platformRequest(`/workspaces/${workspaceId}/members/${userId}/reset-link`, {}),
+        await request(`/workspaces/${workspaceId}/members/${userId}/reset-link`, {}),
       )
       setLink({ ...issued, name })
     } catch (err) {

@@ -22,12 +22,13 @@ import { z } from 'zod'
 import { ApiError } from '@/lib/api/client'
 import { formatMoney } from '@/lib/billing'
 import { platformRequest } from '@/lib/platform'
+import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
 
 const failure = (err: unknown) =>
   err instanceof ApiError
     ? err.code === 'TOTP_REQUIRED'
-      ? 'Verify your identity again (Commercial operations card in any workspace), then retry.'
+      ? 'Identity check not completed. Use Verify identity at the top of this page, then retry.'
       : err.message
     : 'Request failed.'
 
@@ -81,6 +82,7 @@ export function PlansView() {
 }
 
 function PriceEditor({ plan }: { plan: PlatformPlan }) {
+  const request = useIdentityRequest()
   const qc = useQueryClient()
   const [rupees, setRupees] = useState(plan.monthly ? String(plan.monthly.amountMinor / 100) : '')
   const [busy, setBusy] = useState(false)
@@ -92,7 +94,7 @@ function PriceEditor({ plan }: { plan: PlatformPlan }) {
       return setError('Enter a price of at least ₹1.')
     setBusy(true)
     try {
-      await platformRequest(`/plans/${plan.key}/price`, { currency: 'INR', amountMinor })
+      await request(`/plans/${plan.key}/price`, { currency: 'INR', amountMinor })
       toast.success(`${plan.name} price saved`)
       await qc.invalidateQueries({ queryKey: ['platform', 'plans'] })
     } catch (err) {

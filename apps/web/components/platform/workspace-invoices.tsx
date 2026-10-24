@@ -35,6 +35,7 @@ import { type FormEvent, useState } from 'react'
 import { z } from 'zod'
 import { ApiError } from '@/lib/api/client'
 import { platformMoney, platformRequest } from '@/lib/platform'
+import { useIdentityRequest } from './identity'
 import { usePlatform } from './platform-shell'
 
 const STATUS: Record<PlatformInvoice['displayStatus'], { status: StatusKey; label: string }> = {
@@ -47,7 +48,7 @@ const STATUS: Record<PlatformInvoice['displayStatus'], { status: StatusKey; labe
 const failure = (err: unknown) =>
   err instanceof ApiError
     ? err.code === 'TOTP_REQUIRED'
-      ? 'Verify your identity again (Commercial operations card), then retry.'
+      ? 'Identity check not completed. Use Verify identity at the top of this page, then retry.'
       : err.message
     : 'Request failed.'
 
@@ -68,6 +69,7 @@ export function WorkspaceInvoices({
   name: string
   plans: Array<{ key: string; name: string }>
 }) {
+  const request = useIdentityRequest()
   const me = usePlatform()
   const queryClient = useQueryClient()
   const confirm = useConfirm()
@@ -104,7 +106,7 @@ export function WorkspaceInvoices({
     )
       return
     try {
-      await platformRequest(`/workspaces/${workspaceId}/invoices/${inv.id}/void`, parsed.data)
+      await request(`/workspaces/${workspaceId}/invoices/${inv.id}/void`, parsed.data)
       toast.success(`${inv.number} voided`)
       setVoiding(null)
       setVoidReason('')
@@ -218,6 +220,7 @@ function CreateInvoiceDrawer({
   plans: Array<{ key: string; name: string }>
   onDone: () => void
 }) {
+  const request = useIdentityRequest()
   const managed = usePlatform()?.managedLaunch ?? false
   const [kind, setKind] = useState<'PLAN_RENEWAL' | 'WALLET_TOPUP'>('PLAN_RENEWAL')
   const [planKey, setPlanKey] = useState(plans[0]?.key ?? '')
@@ -246,7 +249,7 @@ function CreateInvoiceDrawer({
     if (!parsed.success) return setError(parsed.error.issues.map((i) => i.message).join(' · '))
     setBusy(true)
     try {
-      await platformRequest(`/workspaces/${workspaceId}/invoices`, parsed.data)
+      await request(`/workspaces/${workspaceId}/invoices`, parsed.data)
       toast.success(`Invoice created for ${name}`)
       setAmount('')
       setDescription('')

@@ -272,6 +272,7 @@ export class PlatformAuthService {
         Math.min(lastUsedAt.getTime() + PRIVILEGE_IDLE_MS, session.expiresAt.getTime()),
       ).toISOString(),
       csrfToken: csrfCookie,
+      mfaFreshUntil: new Date(session.mfaAt.getTime() + FRESH_MFA_MS).toISOString(),
       managedLaunch: this.core.features?.managedLaunch ?? false,
     }
   }
