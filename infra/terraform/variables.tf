@@ -216,6 +216,18 @@ variable "alarm_email" {
   default     = ""
 }
 
+variable "monthly_budget_usd" {
+  description = "AWS Budgets monthly cost limit in USD for the account; 0 = no budget. Alerts at 80% actual and 100% forecast."
+  type        = number
+  default     = 0
+}
+
+variable "budget_email" {
+  description = "Email that receives the AWS Budgets alerts."
+  type        = string
+  default     = "zenteqk@gmail.com"
+}
+
 variable "alarm_recovery_notifications" {
   description = "Also notify the alarm topic when an alarm returns to OK. Enable together with the SNS subscription (alarm_email)."
   type        = bool
