@@ -38,6 +38,10 @@ let worker: INestApplication
 let db: Database
 let migration: Database
 let operator: Client
+// Managed Launch refuses wallet top-up invoices; the top-up flows are exercised through a second
+// API instance with Managed Launch off (same database, same operator console HTTP API).
+let classicApi: INestApplication
+let classicOperator: Client
 let ownerA: Member
 let ownerB: Member
 let testPlan: { id: string; key: string }
@@ -56,7 +60,8 @@ const claimedEmail = (tenantId: string, key: string) =>
   )
 
 async function issue(tenantId: string, body: Record<string, unknown>) {
-  const res = await operator.post(`${ws(tenantId)}/invoices`, {
+  const via = body.kind === 'WALLET_TOPUP' ? classicOperator : operator
+  const res = await via.post(`${ws(tenantId)}/invoices`, {
     dueAt: new Date(Date.now() + 7 * DAY).toISOString(),
     idempotencyKey: randomUUID(),
     ...body,
@@ -114,11 +119,18 @@ beforeAll(async () => {
   ownerA = await createOwner(api, 'mb-a', 'Acme <script>alert(1)</script> Foods')
   ownerB = await createOwner(api, 'mb-b')
   ;({ client: operator } = await createOperator(api, db, migration, 'mb-operator'))
+  classicApi = await bootApi({
+    ...ENV,
+    MANAGED_LAUNCH_MODE: 'false',
+    META_GRAPH_BASE_URL: mock.url,
+  })
+  ;({ client: classicOperator } = await createOperator(classicApi, db, migration, 'mb-classic'))
 }, 120_000)
 
 afterAll(async () => {
   await worker?.close()
   await api?.close()
+  await classicApi?.close()
   await db?.disconnect()
   await migration?.disconnect()
   await new Promise<void>((r) => mock?.server.close(() => r()))
@@ -524,7 +536,7 @@ describe('first invoice before the trial ends', () => {
     return res.body.data.workspaceId as string
   }
   const endTrialIn = (tenantId: string, days: number) =>
-    migration.withGlobal((tx) =>
+    db.withTenant(tenantId, (tx) =>
       tx.subscription.update({
         where: { tenantId },
         data: { trialEndsAt: new Date(Date.now() + days * DAY) },
@@ -568,7 +580,7 @@ describe('first invoice before the trial ends', () => {
 
   it('skips workspaces that are not trialing', async () => {
     const t = await provision()
-    await migration.withGlobal((tx) =>
+    await db.withTenant(t, (tx) =>
       tx.subscription.update({
         where: { tenantId: t },
         data: { status: 'ACTIVE', trialEndsAt: new Date(Date.now() + DAY) },
@@ -576,6 +588,19 @@ describe('first invoice before the trial ends', () => {
     )
     await worker.get(BillingMaintenanceProcessor).remindInvoices()
     expect(await invoicesOf(t)).toHaveLength(0)
+  })
+})
+
+describe('Managed Launch: no wallet top-up invoices', () => {
+  it('refuses a wallet top-up with 422 WALLET_TOPUP_DISABLED and creates nothing', async () => {
+    const res = await operator.post(`${ws(ownerB.tenantId)}/invoices`, {
+      kind: 'WALLET_TOPUP',
+      amountMinor: 10_000,
+      dueAt: new Date(Date.now() + 7 * DAY).toISOString(),
+      idempotencyKey: randomUUID(),
+    })
+    expect(res.status, res.text).toBe(422)
+    expect(res.body.error.code).toBe('WALLET_TOPUP_DISABLED')
   })
 })
 
