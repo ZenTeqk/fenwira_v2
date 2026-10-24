@@ -217,6 +217,11 @@ export function WorkspaceSearch() {
           </TableBody>
         </Table>
       )}
+      {list.data?.length === 500 ? (
+        <p className="text-sm text-secondary">
+          Showing the newest 500 workspaces; older ones are not listed here.
+        </p>
+      ) : null}
     </ListPage>
   )
 }

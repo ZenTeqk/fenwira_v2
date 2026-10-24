@@ -931,7 +931,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
                      ORDER BY m.created_at DESC LIMIT 1) msg ON true
   WHERE t.deleted_at IS NULL
     AND EXISTS (SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL)
-  ORDER BY t.name, t.id LIMIT 500;
+  ORDER BY t.created_at DESC, t.id LIMIT 500;
 $$;
 ALTER FUNCTION system.platform_workspace_list(uuid) OWNER TO fenwira_system;
 REVOKE ALL ON FUNCTION system.platform_workspace_list(uuid) FROM PUBLIC;
