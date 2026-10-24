@@ -80,6 +80,8 @@ export const workspaceStatusSchema = z.object({
       /** ML-D2 manual billing: an open renewal invoice; `paymentDue` = shown as "Payment due". */
       paymentDue: z.boolean().optional(),
       graceEndsAt: z.string().nullable().optional(),
+      /** BILLING_SUBSCRIPTIONS_ENFORCED: only then is anything paused (banner wording). */
+      enforced: z.boolean().optional(),
       trialEndsAt: z.string().nullable(),
       trialDaysLeft: z.number().int().nullable(),
     })

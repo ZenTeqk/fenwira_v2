@@ -187,6 +187,7 @@ export class SubscriptionsService {
         trialDaysLeft: s.trialDaysLeft,
         paymentDue,
         graceEndsAt,
+        enforced: this.config.entitlements?.enforced ?? false,
       }
     })
   }

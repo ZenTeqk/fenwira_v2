@@ -39,7 +39,13 @@ export async function stepSubscription(
   tenantId: string,
   now: Date,
   manual?: ManualBilling,
+  enforced = false,
 ): Promise<LifecycleResult> {
+  const notice: NoticeContext = {
+    graceDays: manual?.graceDays ?? 0,
+    enforced,
+    managed: manual?.enabled ?? false,
+  }
   // Multiple scheduler instances/retries may read the same due subscription. Serialize before
   // reading notices/status so each warning, notification and recipient email is claimed once.
   await tx.$queryRaw`SELECT id FROM subscriptions WHERE tenant_id = ${tenantId}::uuid FOR UPDATE`
@@ -143,7 +149,7 @@ export async function stepSubscription(
     where: { status: 'ACTIVE', role: { in: BILLING_READER_ROLES } },
     select: { user: { select: { id: true, name: true, email: true } } },
   })
-  const copy = noticeCopy(result.notice, sub.trialEndsAt, manual?.graceDays)
+  const copy = noticeCopy(result.notice, sub.trialEndsAt, notice)
   for (const { user } of members) {
     // Same shape and dedupe as notifications' createNotificationOnce (billing can't import the
     // notifications module: it depends on billing, so that would be a cycle).
@@ -156,7 +162,7 @@ export async function stepSubscription(
         userId: user.id,
         type: 'subscription.lifecycle',
         ...copy,
-        link: '/billing/subscription',
+        link: noticeLink(notice.managed),
         dedupeKey,
       },
     })
@@ -165,47 +171,74 @@ export async function stepSubscription(
   return result
 }
 
-export function noticeCopy(notice: LifecycleNotice, trialEndsAt: Date | null, graceDays = 0) {
+/**
+ * What the lifecycle copy may promise (docs/BILLING.md → Lifecycle): `enforced` =
+ * BILLING_SUBSCRIPTIONS_ENFORCED (only then is anything paused); `managed` = Managed Launch
+ * (customers pay an invoice by UPI; there is no plan request page).
+ */
+export type NoticeContext = { graceDays: number; enforced: boolean; managed: boolean }
+
+export function noticeCopy(
+  notice: LifecycleNotice,
+  trialEndsAt: Date | null,
+  ctx: NoticeContext = { graceDays: 0, enforced: false, managed: false },
+) {
   const when = trialEndsAt ? trialEndsAt.toUTCString().slice(0, 16) : ''
+  const next = ctx.managed
+    ? 'Pay your invoice by UPI (scan the QR on the Billing page) or reply to this email.'
+    : 'Request a plan from the Billing page.'
+  const g = ctx.graceDays
   switch (notice) {
     case 'T-3':
       return {
         title: 'Your trial ends in 3 days',
-        body: `The trial ends ${when}. Request a plan to keep sending templates, campaigns and API access.`,
+        body: `The trial ends ${when}. ${next}${ctx.enforced ? ' After the trial, template messages, campaigns and API access pause until a plan is active.' : ''}`,
         severity: 'WARNING' as const,
       }
     case 'T-1':
       return {
         title: 'Your trial ends tomorrow',
-        body: `The trial ends ${when}. Request a plan to avoid interruption.`,
+        body: `The trial ends ${when}. ${next}${ctx.enforced ? ' This avoids any interruption.' : ''}`,
         severity: 'WARNING' as const,
       }
     case 'EXPIRED':
       return {
         title: 'Your trial has ended',
-        body: 'Template messages, campaigns, API keys and webhooks are paused. Your data is kept and inbound messages continue. Request a plan to resume.',
-        severity: 'CRITICAL' as const,
+        body: ctx.enforced
+          ? `Template messages, campaigns, API keys and webhooks are paused. Your data is kept and inbound messages continue. ${next}`
+          : `Your workspace keeps working and your data is kept. ${next}`,
+        severity: ctx.enforced ? ('CRITICAL' as const) : ('WARNING' as const),
       }
     case 'PAST_DUE':
       return {
         title: 'Your subscription payment is due',
-        body: `The billing period ended without a confirmed payment. Everything keeps working for ${graceDays} more day${graceDays === 1 ? '' : 's'}; pay the open invoice by UPI to avoid suspension.`,
+        body: ctx.enforced
+          ? `The billing period ended without a confirmed payment. Everything keeps working for ${g} more day${g === 1 ? '' : 's'}; pay the open invoice by UPI to avoid suspension.`
+          : 'The billing period ended without a confirmed payment. Please pay the open invoice by UPI or reply to this email.',
         severity: 'WARNING' as const,
       }
     case 'SUSPENDED':
       return {
-        title: 'Your workspace is suspended',
-        body: 'New outbound messages and campaigns are paused until the open invoice is paid. Inbound messages keep arriving and your data is kept.',
-        severity: 'CRITICAL' as const,
+        title: ctx.enforced ? 'Your workspace is suspended' : 'Your invoice is overdue',
+        body: ctx.enforced
+          ? 'New outbound messages and campaigns are paused until the open invoice is paid. Inbound messages keep arriving and your data is kept.'
+          : 'Your invoice is still unpaid. Please pay it by UPI (scan the QR on the Billing page) or reply to this email.',
+        severity: ctx.enforced ? ('CRITICAL' as const) : ('WARNING' as const),
       }
     case 'CANCELLED':
       return {
         title: 'Your subscription has ended',
-        body: 'Template messages, campaigns, API keys and webhooks are paused. Your data is kept. Request a plan to resume.',
-        severity: 'CRITICAL' as const,
+        body: ctx.enforced
+          ? `Template messages, campaigns, API keys and webhooks are paused. Your data is kept. ${next}`
+          : `Your data is kept. ${next}`,
+        severity: ctx.enforced ? ('CRITICAL' as const) : ('WARNING' as const),
       }
   }
 }
+
+/** Where lifecycle notices send the customer (Managed Launch: the one billing page). */
+export const noticeLink = (managed: boolean) =>
+  managed ? '/billing/invoices' : '/billing/subscription'
 
 async function audit(
   tx: TenantTx,
