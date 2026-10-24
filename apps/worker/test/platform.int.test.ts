@@ -996,3 +996,75 @@ it('workspace list: operators only, health and owner per workspace, no customer 
   )
   expect([401, 403]).toContain((await operator.client.get('/platform/workspace-list')).status)
 })
+
+it('delete workspace: operator only, typed name, never internal or with a live number; hidden after', async () => {
+  const customer = await identity(false, false)
+  const ws = uuidv7(),
+    internal = uuidv7(),
+    name = `Delete-${uuidv7()}`
+  let phoneId = ''
+  await db.withTenant(ws, async (tx) => {
+    await tx.tenant.create({ data: { id: ws, ownerUserId: customer.id, name, slug: ws } })
+    const waba = await tx.whatsAppBusinessAccount.create({
+      data: { tenantId: ws, wabaId: `d${ws.slice(-12)}`, name: 'WABA', status: 'ACTIVE' },
+    })
+    phoneId = (
+      await tx.whatsAppPhoneNumber.create({
+        data: {
+          tenantId: ws,
+          wabaId: waba.id,
+          phoneNumberId: `d${ws.slice(-12)}`,
+          displayPhoneNumber: '+1 555-676-0408',
+          verifiedName: 'Fixture',
+          status: 'CONNECTED',
+        },
+      })
+    ).id
+  })
+  await db.withTenant(internal, (tx) =>
+    tx.tenant.create({
+      data: { id: internal, ownerUserId: customer.id, name: 'Internal fixture', slug: internal },
+    }),
+  )
+  // is_internal is operator-only for the runtime role; the migration role sets the fixture.
+  await owner.withTenant(internal, (tx) =>
+    tx.tenant.update({ where: { id: internal }, data: { isInternal: true } }),
+  )
+  const body = { confirmName: name, reason: 'Duplicate test workspace' }
+
+  await customer.client.post('/auth/login', { email: customer.email, password: PASSWORD })
+  expect((await customer.client.post(`/platform/workspaces/${ws}/delete`, body)).status).toBe(401)
+
+  const operator = await privileged()
+  const del = (id: string, b: object) =>
+    operator.client.post(`/platform/workspaces/${id}/delete`, b)
+  const wrong = await del(ws, { ...body, confirmName: 'Not the name' })
+  expect(wrong.status).toBe(400)
+  expect(wrong.body.error.fieldErrors[0].path).toBe('confirmName')
+  const live = await del(ws, body)
+  expect(live.status, live.text).toBe(409)
+  expect(live.body.error.message).toMatch(/Disconnect it/)
+  expect(
+    (await del(internal, { confirmName: 'Internal fixture', reason: 'Should never work' })).status,
+  ).toBe(409)
+
+  await db.withTenant(ws, (tx) =>
+    tx.whatsAppPhoneNumber.update({ where: { id: phoneId }, data: { status: 'DISCONNECTED' } }),
+  )
+  const ok = await del(ws, body)
+  expect(ok.status, ok.text).toBe(204)
+  expect((await operator.client.get(`/platform/workspaces/${ws}`)).status).toBe(404)
+  const list = await operator.client.get('/platform/workspace-list')
+  expect(list.body.data.map((w: { id: string }) => w.id)).not.toContain(ws)
+  expect((await del(ws, body)).status).toBe(404)
+  const audit = await db.withTenant(ws, (tx) =>
+    tx.auditLog.findMany({ where: { action: 'workspace.deleted' } }),
+  )
+  expect(audit).toEqual([
+    expect.objectContaining({
+      actorType: 'PLATFORM_OPERATOR',
+      actorId: operator.id,
+      changes: { reason: body.reason, by: 'PLATFORM_OPERATOR' },
+    }),
+  ])
+})

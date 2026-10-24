@@ -1,4 +1,9 @@
-import { createWorkspaceWithOwnerSchema, type CreateWorkspaceWithOwner } from '@fenwira/contracts'
+import {
+  createWorkspaceWithOwnerSchema,
+  deleteWorkspaceRequestSchema,
+  type CreateWorkspaceWithOwner,
+  type DeleteWorkspaceRequest,
+} from '@fenwira/contracts'
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common'
 import { z } from 'zod'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
@@ -19,6 +24,16 @@ export class PlatformAccountsController {
     @Body(new ZodValidationPipe(createWorkspaceWithOwnerSchema)) body: CreateWorkspaceWithOwner,
   ) {
     return { data: await this.accounts.createWorkspace(body) }
+  }
+
+  @PlatformAccess('workspaces.manage')
+  @Post('workspaces/:workspaceId/delete')
+  @HttpCode(204)
+  async remove(
+    @Param('workspaceId', uuid) workspaceId: string,
+    @Body(new ZodValidationPipe(deleteWorkspaceRequestSchema)) body: DeleteWorkspaceRequest,
+  ) {
+    await this.accounts.deleteWorkspace(workspaceId, body)
   }
 
   @PlatformAccess('commercial.read')
