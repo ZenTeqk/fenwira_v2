@@ -4,7 +4,9 @@ import { type TenantTx } from '@fenwira/database'
  * Demo data for Fenwira's internal workspace only (tenants.is_internal). Everything is marked
  * [DEMO]: phone numbers are from the reserved fictional range +1 555-555-01xx, the WhatsApp
  * account and number are fake and DISCONNECTED (no Meta sync, no sends), and the campaign stays
- * a DRAFT. Runs once: a second run finds the demo account and does nothing.
+ * a DRAFT. Safe to re-run: every item is found by its demo identity first and only missing items
+ * are created, so a second run changes nothing. The demo number is never the workspace default,
+ * so it can sit next to a real connected number (one default per workspace).
  */
 export const DEMO_WABA_ID = 'demo-waba-not-real'
 const DEMO_PHONE_ID = 'demo-phone-not-real'
@@ -65,46 +67,81 @@ const THREADS: Array<Array<[dir: 'IN' | 'OUT', text: string]>> = [
   [['IN', 'MENU']],
 ]
 
+export const DEMO_TAG = 'Demo data'
+export const DEMO_CAMPAIGN = '[DEMO] Festive offer (sample, never sent)'
+
+export type DemoSeedResult = {
+  /** True when this run created anything. */
+  seeded: boolean
+  contacts: number
+  conversations: number
+  templates: number
+  campaign: boolean
+}
+
 export async function seedDemoWorkspace(
   tx: TenantTx,
   tenantId: string,
   now = new Date(),
-): Promise<{ seeded: boolean; contacts: number; conversations: number; templates: number }> {
+  /** When given, the workspace name must match exactly (the CLI passes "Zenteqk Internal"). */
+  expectName?: string,
+): Promise<DemoSeedResult> {
   const tenant = await tx.tenant.findUnique({
     where: { id: tenantId },
-    select: { isInternal: true, ownerUserId: true },
+    select: { isInternal: true, ownerUserId: true, name: true },
   })
   if (!tenant) throw new Error('Workspace not found')
   if (!tenant.isInternal)
     throw new Error('Refused: demo data goes only into an internal workspace (is_internal)')
-  if (await tx.whatsAppBusinessAccount.findFirst({ where: { wabaId: DEMO_WABA_ID } }))
-    return { seeded: false, contacts: 0, conversations: 0, templates: 0 }
+  if (expectName !== undefined && tenant.name !== expectName)
+    throw new Error(`Refused: this workspace is not named "${expectName}"`)
+  const created = { contacts: 0, conversations: 0, templates: 0, campaign: false }
 
-  const tag = await tx.tag.create({ data: { tenantId, name: 'Demo data', color: 'WARNING' } })
-  const waba = await tx.whatsAppBusinessAccount.create({
-    data: {
-      tenantId,
-      wabaId: DEMO_WABA_ID,
-      name: '[DEMO] Fenwira demo account (not connected)',
-      status: 'DISCONNECTED',
-      connectionMode: 'MANAGED',
-    },
-  })
-  const phone = await tx.whatsAppPhoneNumber.create({
-    data: {
-      tenantId,
-      wabaId: waba.id,
-      phoneNumberId: DEMO_PHONE_ID,
-      displayPhoneNumber: '+1 555-555-0100',
-      verifiedName: '[DEMO] Fenwira Demo Store',
-      label: 'Demo number (not real)',
-      status: 'DISCONNECTED',
-      isDefault: true,
-    },
-  })
+  const tag =
+    (await tx.tag.findFirst({ where: { name: DEMO_TAG } })) ??
+    (await tx.tag.create({ data: { tenantId, name: DEMO_TAG, color: 'WARNING' } }))
+  const waba =
+    (await tx.whatsAppBusinessAccount.findFirst({ where: { wabaId: DEMO_WABA_ID } })) ??
+    (await tx.whatsAppBusinessAccount.create({
+      data: {
+        tenantId,
+        wabaId: DEMO_WABA_ID,
+        name: '[DEMO] Fenwira demo account (not connected)',
+        status: 'DISCONNECTED',
+        connectionMode: 'MANAGED',
+      },
+    }))
+  let phone = await tx.whatsAppPhoneNumber.findFirst({ where: { phoneNumberId: DEMO_PHONE_ID } })
+  if (!phone)
+    phone = await tx.whatsAppPhoneNumber.create({
+      data: {
+        tenantId,
+        wabaId: waba.id,
+        phoneNumberId: DEMO_PHONE_ID,
+        displayPhoneNumber: '+1 555-555-0100',
+        verifiedName: '[DEMO] Fenwira Demo Store',
+        label: 'Demo number (not real)',
+        status: 'DISCONNECTED',
+        isDefault: false,
+      },
+    })
+  else if (phone.isDefault)
+    // Older seeds made the demo number the default, which blocked connecting a real number.
+    phone = await tx.whatsAppPhoneNumber.update({
+      where: { id: phone.id },
+      data: { isDefault: false },
+    })
 
   let firstVersionId: string | null = null
   for (const t of TEMPLATES) {
+    const existing = await tx.template.findFirst({
+      where: { wabaId: waba.id, name: t.name, language: 'en', deletedAt: null },
+      select: { currentVersionId: true },
+    })
+    if (existing) {
+      firstVersionId ??= existing.currentVersionId
+      continue
+    }
     const template = await tx.template.create({
       data: {
         tenantId,
@@ -134,25 +171,34 @@ export async function seedDemoWorkspace(
       data: { currentVersionId: version.id, approvedVersionId: version.id },
     })
     firstVersionId ??= version.id
+    created.templates++
   }
 
   const contacts = []
   for (const [i, person] of PEOPLE.entries()) {
-    const contact = await tx.contact.create({
-      data: {
-        tenantId,
-        phoneE164: `+1555555${String(101 + i).padStart(4, '0')}`,
-        name: `[DEMO] ${person}`,
-        country: 'US',
-        source: 'MANUAL',
-      },
+    const phoneE164 = `+1555555${String(101 + i).padStart(4, '0')}`
+    let contact = await tx.contact.findFirst({ where: { phoneE164, deletedAt: null } })
+    if (!contact) {
+      contact = await tx.contact.create({
+        data: { tenantId, phoneE164, name: `[DEMO] ${person}`, country: 'US', source: 'MANUAL' },
+      })
+      created.contacts++
+    }
+    await tx.contactTag.upsert({
+      where: { contactId_tagId: { contactId: contact.id, tagId: tag.id } },
+      create: { tenantId, contactId: contact.id, tagId: tag.id },
+      update: {},
     })
-    await tx.contactTag.create({ data: { tenantId, contactId: contact.id, tagId: tag.id } })
     contacts.push(contact)
   }
 
   for (const [i, thread] of THREADS.entries()) {
     const contact = contacts[i]!
+    const phoneId = phone.id
+    if (
+      await tx.conversation.findFirst({ where: { contactId: contact.id, phoneNumberId: phoneId } })
+    )
+      continue
     const conversation = await tx.conversation.create({
       data: {
         tenantId,
@@ -175,11 +221,11 @@ export async function seedDemoWorkspace(
           type: 'TEXT',
           status: dir === 'IN' ? 'RECEIVED' : 'READ',
           source: dir === 'IN' ? 'CUSTOMER' : 'INBOX',
-          content: { type: 'TEXT', text },
+          content: { type: 'TEXT', text: `[DEMO] ${text}` },
           createdAt: new Date(at),
         },
       })
-      last = { id: message.id, text, at: new Date(at) }
+      last = { id: message.id, text: `[DEMO] ${text}`, at: new Date(at) }
       if (dir === 'IN') lastInbound = new Date(at)
     }
     await tx.conversation.update({
@@ -194,35 +240,37 @@ export async function seedDemoWorkspace(
       },
     })
     await tx.contact.update({ where: { id: contact.id }, data: { lastInboundAt: lastInbound } })
+    created.conversations++
   }
 
-  await tx.campaign.create({
-    data: {
-      tenantId,
-      name: '[DEMO] Festive offer (sample, never sent)',
-      status: 'DRAFT',
-      phoneNumberId: phone.id,
-      templateVersionId: firstVersionId,
-      audience: { include: [{ kind: 'TAGS', tagIds: [tag.id], match: 'ANY' }], exclude: [] },
-      variableMapping: {},
-      timezone: 'Asia/Kolkata',
-      createdBy: tenant.ownerUserId,
-    },
-  })
-  await tx.auditLog.create({
-    data: {
-      tenantId,
-      actorType: 'SYSTEM',
-      action: 'demo.workspace_seeded',
-      targetType: 'tenant',
-      targetId: tenantId,
-      changes: { contacts: contacts.length, conversations: THREADS.length, templates: 3 },
-    },
-  })
-  return {
-    seeded: true,
-    contacts: contacts.length,
-    conversations: THREADS.length,
-    templates: TEMPLATES.length,
+  if (!(await tx.campaign.findFirst({ where: { name: DEMO_CAMPAIGN } }))) {
+    await tx.campaign.create({
+      data: {
+        tenantId,
+        name: DEMO_CAMPAIGN,
+        status: 'DRAFT',
+        phoneNumberId: phone.id,
+        templateVersionId: firstVersionId,
+        audience: { include: [{ kind: 'TAGS', tagIds: [tag.id], match: 'ANY' }], exclude: [] },
+        variableMapping: {},
+        timezone: 'Asia/Kolkata',
+        createdBy: tenant.ownerUserId,
+      },
+    })
+    created.campaign = true
   }
+  const seeded =
+    created.campaign || created.contacts + created.conversations + created.templates > 0
+  if (seeded)
+    await tx.auditLog.create({
+      data: {
+        tenantId,
+        actorType: 'SYSTEM',
+        action: 'demo.workspace_seeded',
+        targetType: 'tenant',
+        targetId: tenantId,
+        changes: created,
+      },
+    })
+  return { seeded, ...created }
 }

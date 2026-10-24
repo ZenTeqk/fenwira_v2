@@ -106,14 +106,14 @@ pnpm --filter @fenwira/worker workspace:internal -- --tenant <workspace-id> --in
 
 **Never connect the internal workspace to a customer's WABA or phone number.** It is for Fenwira's own test number only. Its demo data is fake, and anything sent from it would go out under the customer's business name, unbilled.
 
-Demo data (operator-run, internal workspaces only; refuses any other workspace; runs once):
+Demo data (operator-run; only for the internal workspace "Zenteqk Internal": it refuses a workspace that is not internal or whose name differs from `--name`; safe to re-run):
 
 ```sh
 cd /opt/fenwira/current && DATABASE_URL="$(grep '^DATABASE_URL=' /etc/fenwira/api.env | cut -d= -f2-)" \
-  node apps/worker/dist/cli/demo-seed.js --tenant <workspace-id>
+  node apps/worker/dist/cli/demo-seed.js --tenant <workspace-id> --name "Zenteqk Internal"
 ```
 
-It adds 12 `[DEMO]` contacts tagged "Demo data" (fictional +1 555-555-01xx numbers), 6 conversations, 3 approved `demo_*` templates and one DRAFT campaign. They sit on a fake WhatsApp account and number that are DISCONNECTED, so nothing syncs with Meta or sends.
+It adds 12 `[DEMO]` contacts tagged "Demo data" (fictional +1 555-555-01xx numbers), 6 conversations whose messages start with `[DEMO]`, 3 approved `demo_*` templates and one `[DEMO]` DRAFT campaign. They sit on a fake WhatsApp account and number that are DISCONNECTED, so nothing syncs with Meta or sends. The demo number is never the workspace default, so it can sit next to a real connected number. A re-run adds only missing items (prints "nothing changed" when complete); a failure changes nothing (one transaction) and prints the masked first line of the error. Add `--dry-run` to run everything and roll back (to check first or reproduce a failure).
 
 ## 5. Deploy and rollback
 
