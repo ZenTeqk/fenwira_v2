@@ -58,6 +58,8 @@ export const ERROR_CODES = [
   // ADR-0027 manual UPI billing
   'SUBSCRIPTION_SUSPENDED',
   'UPI_NOT_CONFIGURED',
+  /** Managed Launch: the wallet is off for customers, so no wallet top-up invoices. */
+  'WALLET_TOPUP_DISABLED',
   'INVOICE_ALREADY_OPEN',
   'INVOICE_NOT_OPEN',
   'PAYMENT_PENDING',

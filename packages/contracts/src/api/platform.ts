@@ -33,6 +33,8 @@ export const platformMeSchema = z.object({
   /** Idle deadline (last declared activity + 3 h, capped at expiresAt). */
   idleExpiresAt: z.iso.datetime().optional(),
   csrfToken: z.string(),
+  /** Product switches the console adapts to (Managed Launch hides wallet top-ups). */
+  managedLaunch: z.boolean().optional(),
 })
 export type PlatformMe = z.infer<typeof platformMeSchema>
 

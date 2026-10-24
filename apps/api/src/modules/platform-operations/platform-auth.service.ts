@@ -1,4 +1,5 @@
 import { decryptSecret, randomToken, safeEqual, sha256 } from '@fenwira/config'
+import { CORE_CONFIG, type CoreConfig } from '../../core/config/core-config'
 import { SESSION_ABSOLUTE_SECONDS, SESSION_IDLE_SECONDS } from '../../core/security/cookies'
 import { PLATFORM_PERMISSIONS, type PlatformMe } from '@fenwira/contracts'
 import { Database, type Prisma } from '@fenwira/database'
@@ -37,6 +38,7 @@ export class PlatformAuthService {
     private readonly limits: RateLimitService,
     @Inject(REDIS) private readonly redis: IORedis,
     @Inject(IDENTITY_OPTIONS) private readonly options: IdentityOptions,
+    @Inject(CORE_CONFIG) private readonly core: CoreConfig,
   ) {}
 
   async audit(
@@ -270,6 +272,7 @@ export class PlatformAuthService {
         Math.min(lastUsedAt.getTime() + PRIVILEGE_IDLE_MS, session.expiresAt.getTime()),
       ).toISOString(),
       csrfToken: csrfCookie,
+      managedLaunch: this.core.features?.managedLaunch ?? false,
     }
   }
 

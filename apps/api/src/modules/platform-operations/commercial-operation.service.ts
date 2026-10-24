@@ -336,6 +336,13 @@ export class CommercialOperationService {
 
   async issueInvoice(tenantId: string, input: CreateInvoiceRequest) {
     const manual = this.manual
+    // Managed Launch: customers have no wallet; Meta bills message charges directly.
+    if (manual.enabled && input.kind === 'WALLET_TOPUP')
+      throw new AppError(
+        'WALLET_TOPUP_DISABLED',
+        422,
+        'Wallet top-up invoices are off in Managed Launch. Issue a plan invoice instead.',
+      )
     return this.run(
       tenantId,
       {
