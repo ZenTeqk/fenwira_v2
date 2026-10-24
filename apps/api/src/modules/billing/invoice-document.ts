@@ -66,7 +66,7 @@ export function invoiceDocument(
   td.amount, th.amount { text-align: right; }
   tfoot td { font-weight: 600; border-bottom: none; }
   .pay { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; border: 1px solid #D6D9D4; border-radius: 8px; padding: 16px; }
-  .pay img { width: 180px; height: 180px; }
+  .pay img { width: 240px; height: 240px; image-rendering: pixelated; }
   .note { font-size: 13px; color: #4B5550; margin-top: 24px; }
   @media print { main { padding: 0; } }
 </style>

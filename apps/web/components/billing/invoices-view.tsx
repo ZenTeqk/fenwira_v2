@@ -276,7 +276,9 @@ function InvoiceBody({ inv }: { inv: InvoiceDetail }) {
           <img
             src={inv.upi.qrDataUrl}
             alt={`UPI QR code to pay ${formatMoney(inv.totalMinor, inv.currency)} for ${inv.number}`}
-            className="size-44 shrink-0 self-center"
+            width={256}
+            height={256}
+            className="size-64 shrink-0 self-center rounded-md bg-white [image-rendering:pixelated]"
           />
           <div className="flex min-w-0 flex-col gap-2">
             <p className="font-medium text-slate">Scan with any UPI app</p>

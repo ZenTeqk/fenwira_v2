@@ -107,7 +107,14 @@ export async function toInvoiceDetail(inv: InvoiceRow, now = new Date()): Promis
   const base = toInvoice(inv, now)
   if (inv.status !== 'OPEN') return { ...base, upi: null }
   const deepLink = upiDeepLink(inv)
-  const qrDataUrl = await QRCode.toDataURL(deepLink, { errorCorrectionLevel: 'M', margin: 2 })
+  // 512 px with the standard 4-module quiet zone: sharp when shown large on a laptop screen and
+  // scanned by a phone camera.
+  const qrDataUrl = await QRCode.toDataURL(deepLink, {
+    errorCorrectionLevel: 'M',
+    margin: 4,
+    width: 512,
+    color: { dark: '#000000', light: '#ffffff' },
+  })
   return { ...base, upi: { deepLink, qrDataUrl } }
 }
 
