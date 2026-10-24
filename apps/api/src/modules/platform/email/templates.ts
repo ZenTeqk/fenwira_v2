@@ -114,13 +114,20 @@ export function subscriptionNoticeEmail(
   workspace: string,
   copy: { title: string; body: string },
   url: string,
+  /** Managed Launch: customers pay invoices by UPI; no plan request page. */
+  managed = false,
 ) {
   return {
     subject: `${workspace}: ${copy.title.toLowerCase()}`,
     ...layout(
       `Hi ${name}, ${copy.title.charAt(0).toLowerCase()}${copy.title.slice(1)}`,
-      [copy.body, 'Plans are activated by the Fenwira team once you request one.'],
-      { label: 'Open subscription', url },
+      [
+        copy.body,
+        managed
+          ? 'Questions? Reply to this email and the Fenwira team will help.'
+          : 'Plans are activated by the Fenwira team once you request one.',
+      ],
+      { label: managed ? 'Open billing' : 'Open subscription', url },
       'You get this email because you can view billing for this workspace.',
     ),
   }

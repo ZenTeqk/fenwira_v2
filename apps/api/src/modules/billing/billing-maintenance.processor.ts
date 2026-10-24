@@ -15,7 +15,8 @@ import { QueueRegistry } from '../../core/queue/queue-registry'
 import { Mailer, OpsAlerts, subscriptionNoticeEmail } from '../platform'
 import { BILLING_OPTIONS, type BillingOptions } from './billing.options'
 import { emitInvoiceNotice, issueRenewalIfDue } from './invoices.core'
-import { noticeCopy, stepSubscription } from './subscriptions.core'
+import { noticeCopy, noticeLink, stepSubscription } from './subscriptions.core'
+import { CORE_CONFIG, type CoreConfig } from '../../core/config/core-config'
 import { ledgerFigures, recoverReservation } from './usage.core'
 
 export const RECOVER_JOB = 'recover-reservations'
@@ -42,6 +43,7 @@ export class BillingMaintenanceProcessor
   constructor(
     @Inject(Database) private readonly db: Database,
     @Inject(BILLING_OPTIONS) private readonly options: BillingOptions,
+    @Inject(CORE_CONFIG) private readonly core: CoreConfig,
     private readonly queues: QueueRegistry,
     private readonly alerts: OpsAlerts,
     private readonly metrics: MetricsService,
@@ -90,6 +92,11 @@ export class BillingMaintenanceProcessor
         Math.min(30_000, 1000 * 2 ** attempt),
       )
     }
+  }
+
+  /** BILLING_SUBSCRIPTIONS_ENFORCED: only then may lifecycle copy say anything is paused. */
+  private get enforced(): boolean {
+    return this.core.entitlements?.enforced ?? false
   }
 
   async process(job: Job): Promise<unknown> {
@@ -202,7 +209,7 @@ export class BillingMaintenanceProcessor
       for (const tenantId of tenantIds) {
         try {
           const r = await this.db.withTenant(tenantId, async (tx) => {
-            const step = await stepSubscription(tx, tenantId, now, manual)
+            const step = await stepSubscription(tx, tenantId, now, manual, this.enforced)
             if (manual?.enabled && (await issueRenewalIfDue(tx, tenantId, now, manual)))
               this.metrics.subscriptionTransitions.inc({ to: 'RENEWAL_INVOICED' })
             return step
@@ -211,7 +218,12 @@ export class BillingMaintenanceProcessor
           notices++
           this.metrics.subscriptionTransitions.inc({ to: r.notice })
           if (!this.mailer) continue
-          const copy = noticeCopy(r.notice, r.trialEndsAt)
+          const managed = manual?.enabled ?? false
+          const copy = noticeCopy(r.notice, r.trialEndsAt, {
+            graceDays: manual?.graceDays ?? 0,
+            enforced: this.enforced,
+            managed,
+          })
           for (const user of r.recipients)
             await this.mailer
               .send({
@@ -220,7 +232,8 @@ export class BillingMaintenanceProcessor
                   user.name,
                   r.workspace,
                   copy,
-                  `${this.options.webOrigin ?? ''}/billing/subscription`,
+                  `${this.options.webOrigin ?? ''}${noticeLink(managed)}`,
+                  managed,
                 ),
               })
               .catch((err: unknown) =>

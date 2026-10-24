@@ -12,6 +12,7 @@ const tick = () =>
   new BillingMaintenanceProcessor(
     db,
     NO_BILLING,
+    { entitlements: { enforced: true } } as never,
     {} as never,
     {} as never,
     { subscriptionTransitions: { inc() {} } } as never,
