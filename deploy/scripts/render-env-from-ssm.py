@@ -57,6 +57,24 @@ CONFIG = {
 BILLING_VARS = ["UPI_VPA", "UPI_PAYEE_NAME", "BILLING_GSTIN"]
 
 
+# ML-D5 production values (docs/MANAGED_LAUNCH.md → Configuration). SSM overrides them; the env
+# always carries an explicit value, so production never falls back to the schema's dev defaults.
+BILLING_DAYS = {
+    "config/billing-grace-days": ("BILLING_GRACE_DAYS", 7, 90),
+    "config/billing-invoice-lead-days": ("BILLING_INVOICE_LEAD_DAYS", 3, 60),
+}
+
+
+def billing_days(params: dict) -> dict:
+    out = {}
+    for name, (env, default, most) in BILLING_DAYS.items():
+        raw = params.get(name, str(default)).strip()
+        if not raw.isdigit() or not 0 <= int(raw) <= most:
+            sys.exit(f"[fenwira] ERROR: {name} must be a whole number of days (0-{most})")
+        out[env] = str(int(raw))
+    return out
+
+
 def gst_rate(params: dict) -> dict:
     """config/billing-gst-rate is a percentage (e.g. "18"); the app reads basis points.
     GST applies only when both this and config/billing-gstin are set (docs/BILLING.md)."""
@@ -150,7 +168,11 @@ def main() -> None:
     cookie_domain = "." + app_domain.split(".", 1)[1]
 
     pick = lambda names: {n: src[n] for n in names if n in src}
-    managed = {"MANAGED_LAUNCH_MODE": managed_launch_mode(params), **gst_rate(params)}
+    managed = {
+        "MANAGED_LAUNCH_MODE": managed_launch_mode(params),
+        **gst_rate(params),
+        **billing_days(params),
+    }
     files = {
         "api": {
             **SHARED_SERVER, **managed, "APP_VERSION": args.release, "HOST": "127.0.0.1",
