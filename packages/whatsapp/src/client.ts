@@ -49,6 +49,17 @@ export type MetaTemplate = {
   rejected_reason?: string
 }
 
+/** GET /{phone-number-id}?fields=health_status (Graph). */
+export type MetaHealthStatus = {
+  can_send_message?: string
+  entities?: Array<{
+    entity_type?: string
+    id?: string
+    can_send_message?: string
+    errors?: Array<{ error_code?: number; error_description?: string; possible_solution?: string }>
+  }>
+}
+
 export class GraphClient {
   private readonly http: GraphHttp
 
@@ -120,6 +131,14 @@ export class GraphClient {
           'id,display_phone_number,verified_name,quality_rating,messaging_limit_tier,throughput,status',
       },
     })
+  }
+
+  /** Meta's messaging health for this number: blocks/limits at number, WABA, business and app. */
+  getHealthStatus(
+    token: string,
+    phoneNumberId: string,
+  ): Promise<{ health_status?: MetaHealthStatus }> {
+    return this.request('GET', phoneNumberId, token, { query: { fields: 'health_status' } })
   }
 
   async subscribeApp(token: string, wabaId: string): Promise<void> {

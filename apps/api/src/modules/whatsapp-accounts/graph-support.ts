@@ -1,6 +1,12 @@
 import { decryptSecret } from '@fenwira/config'
 import { type TenantTx } from '@fenwira/database'
-import { type GraphClient, GraphError, type TokenInfo } from '@fenwira/whatsapp'
+import { type MetaHealth } from '@fenwira/contracts'
+import {
+  type GraphClient,
+  GraphError,
+  type MetaHealthStatus,
+  type TokenInfo,
+} from '@fenwira/whatsapp'
 import { requestContext } from '../../core/context/request-context'
 import { type WhatsAppOptions } from './whatsapp.options'
 
@@ -95,3 +101,34 @@ export const THROUGHPUT_MPS: Record<string, number> = { HIGH: 1000, STANDARD: 80
 /** Meta's developer test numbers are US +1 555 numbers; they come pre-registered by Meta. */
 export const isMetaTestNumber = (display: string | null | undefined) =>
   /^1555\d{7}$/.test(phoneDigits(display ?? ''))
+
+const LEVELS: Record<string, string> = {
+  PHONE_NUMBER: 'Phone number',
+  WABA: 'WhatsApp Business Account',
+  BUSINESS: 'Business portfolio',
+  APP: 'Meta app',
+}
+const SEND_STATES = ['AVAILABLE', 'LIMITED', 'BLOCKED'] as const
+
+/** Graph health_status → what blocks or limits messaging, in plain words (Meta's own text). */
+export function toMetaHealth(raw: MetaHealthStatus | undefined, now = new Date()): MetaHealth {
+  const state = (v: string | undefined) =>
+    (SEND_STATES as readonly string[]).includes(v ?? '')
+      ? (v as (typeof SEND_STATES)[number])
+      : 'UNKNOWN'
+  const problems = (raw?.entities ?? [])
+    .filter((e) => state(e.can_send_message) !== 'AVAILABLE')
+    .flatMap((e) => {
+      const level = LEVELS[e.entity_type ?? ''] ?? e.entity_type ?? 'Unknown'
+      const status = state(e.can_send_message)
+      const errors = e.errors?.length ? e.errors : [{}]
+      return errors.map((x) => ({
+        level,
+        status,
+        code: x.error_code ?? null,
+        description: x.error_description ?? `${level} messaging is ${status.toLowerCase()}.`,
+        solution: x.possible_solution ?? null,
+      }))
+    })
+  return { canSend: state(raw?.can_send_message), checkedAt: now.toISOString(), problems }
+}

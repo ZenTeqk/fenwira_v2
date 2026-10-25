@@ -64,9 +64,9 @@ const connection = {
 async function mock(
   page: Page,
   posted: unknown[],
-  opts: { lapsed?: boolean; reauth?: unknown[] } = {},
+  opts: { lapsed?: boolean; reauth?: unknown[]; health?: unknown; connected?: boolean } = {},
 ) {
-  let connected = false,
+  let connected = opts.connected ?? false,
     fresh = !opts.lapsed
   await page.route('**/api/v1/platform/**', async (route) => {
     const req = route.request()
@@ -97,7 +97,13 @@ async function mock(
         })
       connected = true
       return route.fulfill({ status: 201, json: { data: connection } })
-    } else if (path.endsWith('/verify'))
+    } else if (path.endsWith('/health'))
+      data = opts.health ?? {
+        canSend: 'AVAILABLE',
+        checkedAt: '2026-10-25T16:00:00.000Z',
+        problems: [],
+      }
+    else if (path.endsWith('/verify'))
       data = {
         ok: false,
         verifiedAt: '2026-10-22T11:00:00.000Z',
@@ -269,4 +275,33 @@ test('connect form names the wrong field before and after calling Meta; test num
   await expect(drawer.getByRole('button', { name: 'Copy' })).toBeVisible()
   expect(posted).toHaveLength(1)
   expect(await page.content()).not.toContain(TOKEN)
+})
+
+test('the WhatsApp card shows when Meta blocks sending, with Meta’s reason and fix', async ({
+  page,
+}) => {
+  await mock(page, [], {
+    connected: true,
+    health: {
+      canSend: 'BLOCKED',
+      checkedAt: '2026-10-25T16:00:00.000Z',
+      problems: [
+        {
+          level: 'Business portfolio',
+          status: 'BLOCKED',
+          code: 141010,
+          description: 'The Business has not passed business verification.',
+          solution:
+            'Visit business settings and start or resolve the business verification request.',
+        },
+      ],
+    },
+  })
+  await page.goto(`/platform/workspaces/${id}`)
+  const health = page.getByRole('region', { name: 'Meta messaging health' })
+  await expect(health.getByText('Meta: sending blocked')).toBeVisible()
+  await expect(health.getByText(/Business portfolio/)).toBeVisible()
+  await expect(health.getByText(/not passed business verification/)).toBeVisible()
+  await expect(health.getByText(/Fix: Visit business settings/)).toBeVisible()
+  await axe(page)
 })

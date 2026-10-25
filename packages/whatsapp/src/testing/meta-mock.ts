@@ -24,6 +24,8 @@ type Phone = {
   quality_rating: string
   messaging_limit_tier: string
   status: string
+  /** Optional health_status override (tests); default: everything AVAILABLE. */
+  health?: Record<string, unknown>
 }
 type Waba = {
   id: string
@@ -609,8 +611,19 @@ export function createMetaMockHandler(state: MetaMockState) {
     const phone = first ? findPhone(state, first) : undefined
     if (phone) {
       if (phone.waba.id !== granted) return graphError(res, 403, 200, 'Permissions error')
-      if (!second && method === 'GET')
-        return send(res, 200, { ...phone.phone, throughput: { level: 'STANDARD' } })
+      if (!second && method === 'GET') {
+        const { health, ...fields } = phone.phone
+        return send(res, 200, {
+          ...fields,
+          throughput: { level: 'STANDARD' },
+          health_status: health ?? {
+            can_send_message: 'AVAILABLE',
+            entities: [
+              { entity_type: 'PHONE_NUMBER', id: fields.id, can_send_message: 'AVAILABLE' },
+            ],
+          },
+        })
+      }
       if (second === 'register' && method === 'POST') {
         phone.phone.status = 'CONNECTED'
         return send(res, 200, { success: true })

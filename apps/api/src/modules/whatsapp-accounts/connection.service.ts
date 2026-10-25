@@ -13,6 +13,7 @@ import {
   type VerifyConnectionResult,
   type WhatsAppConnection,
   type WhatsAppSignupConfig,
+  type MetaHealth,
 } from '@fenwira/contracts'
 import { Database, type TenantTx } from '@fenwira/database'
 import {
@@ -47,6 +48,7 @@ import {
   ownAppToken,
   phoneDigits,
   isMetaTestNumber,
+  toMetaHealth,
   StepFailure,
   stepError,
   SUBSCRIBED_FIELDS,
@@ -718,6 +720,22 @@ export class WhatsAppConnectionService {
    * access. The outcome and error code are stored on the credential; a credential-class failure
    * marks it INVALID so sends stop until it is rotated.
    */
+  /** Meta's live messaging health for this number (read-only; nothing is stored). */
+  async healthStatus(id: string): Promise<MetaHealth> {
+    const { token, phone } = await this.tenantDb.run((tx) => this.loadWithToken(tx, id))
+    if (!token)
+      throw new AppError('CONFLICT', 409, 'This connection has no valid token. Rotate it first.')
+    try {
+      return toMetaHealth(
+        (await this.graph.getHealthStatus(token, phone.phoneNumberId)).health_status,
+      )
+    } catch (err) {
+      const error = stepError(err)
+      if (!error) throw err
+      throw new AppError('WHATSAPP_CONNECT_FAILED', 422, error.message, { reason: error.code })
+    }
+  }
+
   async verifyConnection(id: string): Promise<VerifyConnectionResult> {
     const { tenantId } = currentTenant()
     await this.limits.consume([

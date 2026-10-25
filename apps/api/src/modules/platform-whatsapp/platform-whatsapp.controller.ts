@@ -29,6 +29,12 @@ export class PlatformWhatsAppController {
     return { data: await this.service.get(workspaceId, id) }
   }
 
+  @PlatformAccess('whatsapp.read')
+  @Get('connections/:id/health')
+  async health(@Param('workspaceId', uuid) workspaceId: string, @Param('id', uuid) id: string) {
+    return { data: await this.service.health(workspaceId, id) }
+  }
+
   @PlatformAccess('whatsapp.manage')
   @Post('connections')
   @HttpCode(201)

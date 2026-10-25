@@ -84,6 +84,8 @@ ML-D1: each customer usually has their own Meta app and system user. Before the 
    - [ ] the first invoice is paid;
    - [ ] Meta billing is set up (the customer confirmed a payment method in WhatsApp Manager).
 
+**Meta health** (each connected number on the workspace page): a live check of Meta's `health_status` showing **Meta: can send / sending limited / sending blocked**. When Meta limits or blocks sending it lists the level (phone number, WhatsApp Business Account, business portfolio, Meta app), Meta's error code, description and suggested fix, for example *Business portfolio (141010): The Business has not passed business verification.* Error 131031 "Business account has been locked" on a message usually means this check shows a block. Calling-only (SIP) notices are not shown.
+
 ## 4. Billing operations
 
 - **Lifecycle** (with `MANAGED_LAUNCH_MODE=true` and `BILLING_SUBSCRIPTIONS_ENFORCED=true`):

@@ -209,6 +209,44 @@ describe('operator-managed connection (ADR-0027)', () => {
     expect(listed.body.data.credential.verifiedAt).toBe(ok.body.data.verifiedAt)
   })
 
+  it('reads Meta’s live messaging health (operators only), with Meta’s reason when blocked', async () => {
+    const path = `${ws(ownerA.tenantId)}/connections/${phoneA}/health`
+    expect((await ownerA.client.get(path)).status).toBe(401)
+    const ok = track(await operator.get(path))
+    expect(ok.status, ok.text).toBe(200)
+    expect(ok.body.data).toMatchObject({ canSend: 'AVAILABLE', problems: [] })
+    const phone = mock.state.wabas.get(a.wabaId)!.phones.get(a.phoneNumberId)!
+    phone.health = {
+      can_send_message: 'BLOCKED',
+      entities: [
+        {
+          entity_type: 'BUSINESS',
+          id: '1',
+          can_send_message: 'BLOCKED',
+          errors: [
+            {
+              error_code: 141010,
+              error_description: 'The Business has not passed business verification.',
+              possible_solution: 'Start business verification.',
+            },
+          ],
+        },
+      ],
+    }
+    try {
+      const blocked = track(await operator.get(path))
+      expect(blocked.status, blocked.text).toBe(200)
+      expect(blocked.body.data).toMatchObject({
+        canSend: 'BLOCKED',
+        problems: [
+          { level: 'Business portfolio', code: 141010, solution: 'Start business verification.' },
+        ],
+      })
+    } finally {
+      delete phone.health
+    }
+  })
+
   it('routes webhooks by WABA + number and verifies them with the matching app secret', async () => {
     const msg = (ids: { wabaId: string; phoneNumberId: string }) => {
       const wamid = `wamid.${randomUUID()}`
