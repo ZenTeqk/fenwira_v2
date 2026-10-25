@@ -132,10 +132,8 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     page.getByRole('log', { name: 'Messages' }).getByText('I’ll check the delivery for you.'),
   ).toBeVisible()
   await expect(page.getByLabel('Reply', { exact: true })).toHaveValue('')
-  await expect(page.getByRole('button', { name: 'Send', exact: true })).not.toHaveAttribute(
-    'aria-busy',
-    'true',
-  )
+  // Send swaps out once the reply is sent and the box is empty.
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeHidden()
   await page.getByRole('button', { name: 'Internal note', exact: true }).click()
   await page
     .getByLabel('Internal note', { exact: true })
@@ -145,7 +143,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     page.getByRole('log', { name: 'Messages' }).getByText('Delivery needs a follow-up tomorrow.'),
   ).toBeVisible()
   await expect(
-    page.getByRole('log', { name: 'Messages' }).getByText(/Internal note ·/),
+    page.getByRole('log', { name: 'Messages' }).getByText(/Private note ·/),
   ).toBeVisible()
   await page.getByRole('button', { name: 'Reply', exact: true }).click()
   for (const width of WIDTHS) {

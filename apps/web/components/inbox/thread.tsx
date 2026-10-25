@@ -11,8 +11,8 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import Image from 'next/image'
 import { followsSameSender } from '@/lib/message-grouping'
-import { Paperclip, StickyNote } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef } from 'react'
+import { Lock, Paperclip } from 'lucide-react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
@@ -130,14 +130,37 @@ function MediaBody({
   )
 }
 
+/**
+ * The bubble's pointer on the first message of a run. Drawn 1px into the bubble so it covers the
+ * inbound border where they meet; colors come from the same tokens as the bubble.
+ */
+function BubbleTail({ outbound }: { outbound: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 9 11"
+      className={cn(
+        'absolute h-2.75 w-2.25',
+        outbound
+          ? '-right-2 top-0 -scale-x-100 fill-message-outbound'
+          : '-left-2 -top-px fill-surface stroke-border contrast-more:stroke-border-strong',
+      )}
+    >
+      <path d="M0 0H9V11H7.5Z" stroke="none" />
+      {outbound ? null : <path d="M7.5 11 0.5 0.5H9" fill="none" strokeWidth={1} />}
+    </svg>
+  )
+}
+
 function Row({ item, grouped }: { item: Item; grouped: boolean }) {
   const { me } = useSession()
   if (item.kind === 'note')
     return (
-      <div className="mx-auto w-full max-w-5/6 rounded-lg border border-warning/20 bg-note-soft px-3 py-2 text-slate">
+      <div className="mx-auto w-full max-w-5/6 rounded-md border-l-4 border-warning bg-note-soft px-3 py-2 text-slate">
         <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-warning-strong">
-          <StickyNote className="size-3.5" aria-hidden="true" />
-          Internal note · {item.note.authorName}
+          <Lock className="size-3.5" aria-hidden="true" />
+          Private note · {item.note.authorName}
         </p>
         <p className="whitespace-pre-wrap break-words">{item.note.body}</p>
         <p className="text-xs text-secondary">{clockTime(item.note.createdAt)}</p>
@@ -147,7 +170,7 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
   if (m.direction === 'SYSTEM') {
     const c = m.content as { event?: string; data?: Record<string, unknown> }
     return (
-      <p className="mx-auto w-fit rounded-full bg-neutral-soft px-3 py-1 text-xs text-slate">
+      <p className="mx-auto w-fit rounded-full bg-neutral-soft px-3 py-1 text-xs text-muted">
         {(c.event && EVENT_TEXT[c.event]?.(c.data ?? {})) ?? c.event} · {clockTime(m.createdAt)}
       </p>
     )
@@ -157,12 +180,14 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
     <div className={cn('flex', outbound ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'flex min-w-0 max-w-5/6 flex-col gap-1 rounded-lg px-3 py-2 text-base text-slate shadow-raised',
+          'relative flex min-w-0 max-w-13/20 flex-col gap-1 rounded-md px-3 py-2 text-base text-slate',
           outbound
-            ? 'rounded-tr-sm bg-message-outbound'
-            : 'rounded-tl-sm border border-border/60 bg-surface',
+            ? 'bg-message-outbound'
+            : 'border border-border bg-surface contrast-more:border-border-strong',
+          !grouped && (outbound ? 'rounded-tr-none' : 'rounded-tl-none'),
         )}
       >
+        {grouped ? null : <BubbleTail outbound={outbound} />}
         {!grouped && outbound ? (
           <span className="text-xs font-medium text-secondary">
             {m.sentByUserId === me.user.id
@@ -178,7 +203,8 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
         <span
           className={cn(
             'flex items-center justify-end gap-2 text-xs',
-            outbound ? 'text-slate' : 'text-secondary',
+            // Muted fails AA on the outbound tint, so outbound metadata uses secondary.
+            outbound ? 'text-secondary' : 'text-muted',
           )}
         >
           {clockTime(m.createdAt)}
@@ -201,7 +227,6 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
 /** Virtualized thread, oldest at the top; scrolls to the newest on open and on new messages. */
 export function Thread({ conversationId }: { conversationId: string }) {
   const { tenantId } = useSession()
-  const patternId = useId()
   const queryClient = useQueryClient()
   const key = threadKey(tenantId, conversationId)
   const messages = useInfiniteQuery({
@@ -302,25 +327,12 @@ export function Thread({ conversationId }: { conversationId: string }) {
     )
   return (
     <div className="relative isolate min-h-0 flex-1 overflow-hidden bg-thread-soft">
-      <svg
+      {/* Decorative wallpaper: token color through an original line-art mask; hidden from AT
+          and from users who ask for more contrast. */}
+      <div
         aria-hidden="true"
-        focusable="false"
-        className="pointer-events-none absolute inset-0 size-full text-secondary opacity-5"
-      >
-        <defs>
-          <pattern id={patternId} width="64" height="64" patternUnits="userSpaceOnUse">
-            <path
-              d="M12 16h12a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-3l-5 4v-4h-4a4 4 0 0 1-4-4v-6a4 4 0 0 1 4-4Z M42 44h10 M47 39v10"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1"
-            />
-            <circle cx="48" cy="12" r="1" fill="currentColor" />
-            <circle cx="16" cy="50" r="1" fill="currentColor" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#${patternId})`} />
-      </svg>
+        className="chat-doodle pointer-events-none absolute inset-0 bg-slate-400 opacity-12 contrast-more:hidden"
+      />
       <div
         ref={scroller}
         tabIndex={0}
@@ -379,7 +391,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
                 style={{ transform: `translateY(${v.start}px)` }}
               >
                 {newDay ? (
-                  <p className="mx-auto mb-2 w-fit rounded-md bg-surface px-3 py-1 text-xs font-medium text-secondary shadow-raised">
+                  <p className="mx-auto mb-2 w-fit rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-secondary">
                     {date}
                   </p>
                 ) : null}
