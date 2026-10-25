@@ -1,6 +1,9 @@
 import {
   AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
   Ban,
+  Check,
   CheckCheck,
   CheckCircle2,
   Circle,
@@ -9,19 +12,25 @@ import {
   FileEdit,
   Hand,
   Loader2,
-  type LucideIcon,
+  type LucideProps,
+  Minus,
   Pause,
   PlugZap,
-  Send,
   SkipForward,
   Square,
   XCircle,
   Zap,
 } from 'lucide-react'
+import { type ComponentType } from 'react'
 import { cn } from '../lib/cn'
 import { Badge, type BadgeTone } from './badge'
 
-type StatusPreset = { tone: BadgeTone; label: string; icon: LucideIcon }
+type StatusPreset = { tone: BadgeTone; label: string; icon: ComponentType<LucideProps> }
+
+/** Read receipt: the delivered double tick drawn heavier, so read ≠ delivered without color. */
+function ReadTicks(props: LucideProps) {
+  return <CheckCheck strokeWidth={3} {...props} />
+}
 
 /**
  * The single mapping from domain status to tone, label and icon. Feature code passes a status;
@@ -48,9 +57,9 @@ export const STATUS_PRESETS = {
   CREATED: { tone: 'neutral', label: 'Created', icon: CircleDashed },
   QUEUED: { tone: 'neutral', label: 'Queued', icon: Clock },
   SENDING: { tone: 'info', label: 'Sending', icon: Loader2 },
-  SENT: { tone: 'info', label: 'Sent', icon: Send },
+  SENT: { tone: 'info', label: 'Sent', icon: Check },
   DELIVERED: { tone: 'success', label: 'Delivered', icon: CheckCheck },
-  READ: { tone: 'success', label: 'Read', icon: CheckCheck },
+  READ: { tone: 'success', label: 'Read', icon: ReadTicks },
   FAILED: { tone: 'danger', label: 'Failed', icon: XCircle },
   SKIPPED: { tone: 'neutral', label: 'Skipped', icon: SkipForward },
   // Lifecycle (templates, campaigns, flows)
@@ -62,7 +71,7 @@ export const STATUS_PRESETS = {
   ARCHIVED: { tone: 'neutral', label: 'Archived', icon: Square },
   SCHEDULED: { tone: 'info', label: 'Scheduled', icon: Clock },
   PREPARING: { tone: 'info', label: 'Preparing', icon: Loader2 },
-  PAUSED_INSUFFICIENT_FUNDS: { tone: 'danger', label: 'Paused: no credits', icon: Pause },
+  PAUSED_INSUFFICIENT_FUNDS: { tone: 'warning', label: 'Paused: no credits', icon: Pause },
   PAUSED_TEMPLATE_UNAVAILABLE: {
     tone: 'warning',
     label: 'Paused: template unavailable',
@@ -117,14 +126,20 @@ export const STATUS_PRESETS = {
   // Health
   UP: { tone: 'success', label: 'Up', icon: CheckCircle2 },
   DOWN: { tone: 'danger', label: 'Down', icon: AlertTriangle },
+  // Metric trends (MetricCard): the arrow carries direction, the tone whether it is good news.
+  TREND_UP_POSITIVE: { tone: 'success', label: 'Up', icon: ArrowUpRight },
+  TREND_UP_NEGATIVE: { tone: 'danger', label: 'Up', icon: ArrowUpRight },
+  TREND_UP_NEUTRAL: { tone: 'neutral', label: 'Up', icon: ArrowUpRight },
+  TREND_DOWN_POSITIVE: { tone: 'success', label: 'Down', icon: ArrowDownRight },
+  TREND_DOWN_NEGATIVE: { tone: 'danger', label: 'Down', icon: ArrowDownRight },
+  TREND_DOWN_NEUTRAL: { tone: 'neutral', label: 'Down', icon: ArrowDownRight },
+  TREND_FLAT: { tone: 'neutral', label: 'No change', icon: Minus },
 } as const satisfies Record<string, StatusPreset>
 
 export type StatusKey = keyof typeof STATUS_PRESETS
 
 export type StatusBadgeProps = {
   status: StatusKey
-  /** Campaign operations distinguish a running campaign from informational execution state. */
-  context?: 'campaign'
   /** Override the default label (e.g. "Delivered 2m ago"); the icon and tone stay. */
   label?: string
   className?: string
@@ -146,12 +161,8 @@ export function StatusBadge({
   label,
   className,
   appearance = 'default',
-  context,
 }: StatusBadgeProps) {
-  const preset: StatusPreset =
-    context === 'campaign' && status === 'RUNNING'
-      ? { tone: 'success', label: 'Running', icon: Circle }
-      : STATUS_PRESETS[status]
+  const preset: StatusPreset = STATUS_PRESETS[status]
   const Icon = preset.icon
   if (appearance === 'inline')
     return (

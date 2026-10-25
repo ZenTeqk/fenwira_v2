@@ -1,5 +1,6 @@
 'use client'
 
+import { AlertCircle } from 'lucide-react'
 import { Label as LabelPrimitive } from 'radix-ui'
 import { type ComponentProps, type ReactElement, cloneElement, isValidElement, useId } from 'react'
 import { cn } from '../lib/cn'
@@ -61,7 +62,12 @@ export function Field({ label, hint, error, required, className, children }: Fie
         </p>
       ) : null}
       {error ? (
-        <p id={errorId} role="alert" className="text-sm text-danger-strong">
+        <p
+          id={errorId}
+          role="alert"
+          className="flex items-start gap-1.5 text-sm text-danger-strong"
+        >
+          <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           {error}
         </p>
       ) : null}

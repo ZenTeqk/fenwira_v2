@@ -18,9 +18,18 @@ const itemBase = cn(
   focusRing,
   'focus-visible:outline-offset-0',
 )
-const inactive = 'text-secondary hover:bg-neutral-soft hover:text-slate'
-// Active: subtle emerald fill, strong emerald text (FENWIRA_EXPERIENCE_V2 → shell).
-const active = 'bg-primary-soft font-medium text-primary-strong'
+// Idle icons are slate-400 beside their label; with more contrast requested they take the label color.
+const inactive = cn(
+  'text-secondary hover:bg-neutral-soft hover:text-slate',
+  '[&_svg]:text-slate-400 contrast-more:[&_svg]:text-secondary',
+)
+// Collapsed, the icon is the only visible identifier, so it needs 3:1 (WCAG 1.4.11): label color.
+const inactiveCollapsed = 'text-secondary hover:bg-neutral-soft hover:text-slate'
+// Active: subtle emerald fill, strong emerald icon and label, 3px primary bar on the leading edge.
+const active = cn(
+  'bg-primary-soft font-medium text-primary-strong',
+  'before:absolute before:inset-y-1.5 before:left-0 before:w-0.75 before:rounded-full before:bg-primary',
+)
 
 /**
  * Modules only (UX_PATTERNS → Application shell). A module's sub-pages are the ModuleTabs under
@@ -46,7 +55,11 @@ export function SidebarNav({
         href={moduleHref(item)}
         onClick={onNavigate}
         aria-current={isActive ? 'page' : undefined}
-        className={cn(itemBase, isActive ? active : inactive, collapsed && 'justify-center px-0')}
+        className={cn(
+          itemBase,
+          isActive ? active : collapsed ? inactiveCollapsed : inactive,
+          collapsed && 'justify-center px-0',
+        )}
       >
         <Icon aria-hidden="true" />
         {collapsed ? (

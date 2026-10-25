@@ -197,7 +197,7 @@ export default function CampaignPage() {
         linkAs: Link,
         actions: (
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge status={c.status} context="campaign" />
+            <StatusBadge status={c.status} />
             {control && (c.status === 'RUNNING' || c.status === 'PREPARING') ? (
               <Button
                 variant="secondary"

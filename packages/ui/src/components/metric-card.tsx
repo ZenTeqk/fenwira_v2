@@ -1,14 +1,17 @@
-import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import { type ReactNode } from 'react'
 import { cn } from '../lib/cn'
 import { Card } from './card'
 import { Skeleton } from './skeleton'
+import { StatusBadge, type StatusKey } from './status-badge'
 
 export type MetricDelta = {
   /** Pre-formatted, e.g. "+4.2%" */
   value: string
   direction: 'up' | 'down' | 'flat'
-  /** Whether this direction is good news; decides the icon tone. The sign/arrow carries meaning too. */
+  /**
+   * Whether this direction is good news; decides the badge tone. Pass `negative` for an increase
+   * in a metric where up is bad (failures, spend). The sign/arrow carries meaning too.
+   */
   sentiment?: 'positive' | 'negative' | 'neutral'
   /** e.g. "vs last week" */
   label?: string
@@ -28,11 +31,21 @@ export type MetricCardProps = {
   className?: string
 }
 
-const deltaIcon = { up: ArrowUpRight, down: ArrowDownRight, flat: Minus }
-const sentimentTone = {
-  positive: 'text-primary-strong',
-  negative: 'text-danger-strong',
-  neutral: 'text-muted',
+/** Trends render through StatusBadge: arrow icon for direction, tone for good or bad news. */
+const trendStatus = ({ direction, sentiment = 'neutral' }: MetricDelta): StatusKey =>
+  direction === 'flat'
+    ? 'TREND_FLAT'
+    : `TREND_${direction === 'up' ? 'UP' : 'DOWN'}_${sentiment === 'positive' ? 'POSITIVE' : sentiment === 'negative' ? 'NEGATIVE' : 'NEUTRAL'}`
+
+function IconTile({ icon }: { icon: ReactNode }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary-strong [&_svg]:size-4"
+    >
+      {icon}
+    </span>
+  )
 }
 
 /** One key number with its label, optional trend and hint (UX_PATTERNS → Dashboard). */
@@ -47,21 +60,13 @@ export function MetricCard({
   appearance,
   className,
 }: MetricCardProps) {
-  const DeltaIcon = delta ? deltaIcon[delta.direction] : null
   if (appearance === 'analytics')
     return (
       <Card
         data-slot="metric-card"
         className={cn('flex items-start gap-3 rounded-none border-0 bg-transparent p-3', className)}
       >
-        {icon ? (
-          <span
-            aria-hidden="true"
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong [&_svg]:size-4"
-          >
-            {icon}
-          </span>
-        ) : null}
+        {icon ? <IconTile icon={icon} /> : null}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="text-sm font-medium text-secondary">{label}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -70,16 +75,8 @@ export function MetricCard({
             ) : (
               <p className="text-xl font-semibold text-slate tabular-nums">{value}</p>
             )}
-            {delta && DeltaIcon && !loading ? (
-              <p
-                className={cn(
-                  'flex items-center gap-1 text-xs font-medium',
-                  sentimentTone[delta.sentiment ?? 'neutral'],
-                )}
-              >
-                <DeltaIcon className="size-4" aria-hidden="true" />
-                {delta.value}
-              </p>
+            {delta && !loading ? (
+              <StatusBadge status={trendStatus(delta)} label={delta.value} />
             ) : null}
           </div>
           {delta?.label && !loading ? (
@@ -96,11 +93,7 @@ export function MetricCard({
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-secondary">{label}</p>
-        {icon ? (
-          <span className="text-muted [&_svg]:size-4" aria-hidden="true">
-            {icon}
-          </span>
-        ) : null}
+        {icon ? <IconTile icon={icon} /> : null}
       </div>
       {loading ? (
         <Skeleton className="h-8 w-24" />
@@ -109,13 +102,9 @@ export function MetricCard({
           {value}
         </p>
       )}
-      {delta && DeltaIcon && !loading ? (
-        <p className="flex items-center gap-1 text-sm text-muted">
-          <DeltaIcon
-            className={cn('size-4', sentimentTone[delta.sentiment ?? 'neutral'])}
-            aria-hidden="true"
-          />
-          <span className="font-medium text-slate">{delta.value}</span>
+      {delta && !loading ? (
+        <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted">
+          <StatusBadge status={trendStatus(delta)} label={delta.value} />
           {delta.label ? <span>{delta.label}</span> : null}
         </p>
       ) : null}

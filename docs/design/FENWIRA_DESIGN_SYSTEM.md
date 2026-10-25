@@ -138,7 +138,7 @@ Every component: built on Radix primitives via `@fenwira/ui` (feature code may n
 
 | Context                            | Treatment                                                                                                                                              |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Sidebar                            | `sidebar` background, `sidebar-border` divider, `secondary` items; active `primary-soft` fill and `primary-strong` text                                |
+| Sidebar                            | `sidebar` background, `sidebar-border` divider, `secondary` labels with `slate-400` icons; active `primary-soft` fill, `primary-strong` icon and text, 3px `primary` bar |
 | Inbox outbound / inbound bubble    | `primary-soft` / `surface` + `border`                                                                                                                  |
 | Inbox selected conversation        | `primary-soft` + 3px `primary` left border                                                                                                             |
 | Inbox system event / internal note | `neutral-soft` pill / `warning-soft` with an "Internal" label                                                                                          |
@@ -170,4 +170,4 @@ The outbound-only `message-outbound` surface is refined from #DDF4E8 to **#D2F2D
 
 ### Campaign operations running state
 
-`StatusBadge context="campaign"` renders the actual RUNNING status using the existing success-soft/success-strong tokens and a labelled circle icon. This narrowly scoped semantic context follows the Campaigns reference; the default RUNNING preset stays informational for other execution surfaces. Scheduled remains informational, paused warning, and failed danger. Feature code must not substitute ACTIVE for RUNNING or override status colors locally.
+Campaign statuses use the default `StatusBadge` mapping everywhere (the former `context="campaign"` success override is removed): draft/archived neutral; scheduled, running and processing info; paused, paused for no credits and low balance warning; completed, delivered and read success; failed danger. Message receipts are told apart by icon as well as label: sent a single tick, delivered a double tick, read a heavier double tick. Metric trends render through `StatusBadge` (`TREND_*` presets): the arrow carries direction, the tone carries good or bad news, inverted for metrics where up is bad (failures, spend). Feature code must not substitute ACTIVE for RUNNING or override status colors locally.

@@ -42,7 +42,7 @@ export function CampaignCard({
                 >
                   {c.name}
                 </Link>
-                <StatusBadge status={c.status} context="campaign" />
+                <StatusBadge status={c.status} />
               </div>
               {c.template ? (
                 <p
