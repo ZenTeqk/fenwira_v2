@@ -1068,3 +1068,54 @@ it('delete workspace: operator only, typed name, never internal or with a live n
     }),
   ])
 })
+
+it('restore workspace: operators list deleted workspaces and bring one back, audited', async () => {
+  const customer = await identity(false, false)
+  const ws = uuidv7(),
+    name = `Restore-${uuidv7()}`
+  await db.withTenant(ws, (tx) =>
+    tx.tenant.create({ data: { id: ws, ownerUserId: customer.id, name, slug: ws } }),
+  )
+  const operator = await privileged()
+  const del = await operator.client.post(`/platform/workspaces/${ws}/delete`, {
+    confirmName: name,
+    reason: 'Test workspace no longer needed',
+  })
+  expect(del.status, del.text).toBe(204)
+
+  await customer.client.post('/auth/login', { email: customer.email, password: PASSWORD })
+  expect((await customer.client.get('/platform/deleted-workspaces')).status).toBe(401)
+  expect(
+    (await customer.client.post(`/platform/workspaces/${ws}/restore`, { reason: 'Please restore' }))
+      .status,
+  ).toBe(401)
+
+  const listed = await operator.client.get('/platform/deleted-workspaces')
+  expect(listed.status, listed.text).toBe(200)
+  expect(listed.body.data).toContainEqual(
+    expect.objectContaining({ id: ws, name, ownerEmail: customer.email }),
+  )
+  expect(
+    (await operator.client.post(`/platform/workspaces/${ws}/restore`, { reason: 'x' })).status,
+  ).toBe(400)
+  const ok = await operator.client.post(`/platform/workspaces/${ws}/restore`, {
+    reason: 'Deleted by mistake',
+  })
+  expect(ok.status, ok.text).toBe(204)
+  expect((await operator.client.get(`/platform/workspaces/${ws}`)).status).toBe(200)
+  const after = await operator.client.get('/platform/deleted-workspaces')
+  expect(after.body.data.map((w: { id: string }) => w.id)).not.toContain(ws)
+  expect(
+    (await operator.client.post(`/platform/workspaces/${ws}/restore`, { reason: 'Again please' }))
+      .status,
+  ).toBe(404)
+  const audit = await db.withTenant(ws, (tx) =>
+    tx.auditLog.findMany({ where: { action: 'workspace.restored' } }),
+  )
+  expect(audit).toEqual([
+    expect.objectContaining({
+      actorType: 'PLATFORM_OPERATOR',
+      changes: { reason: 'Deleted by mistake', by: 'PLATFORM_OPERATOR' },
+    }),
+  ])
+})

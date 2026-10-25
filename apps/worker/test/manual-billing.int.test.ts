@@ -1,5 +1,5 @@
 import { templateComponentsSchema } from '@fenwira/contracts'
-import { BillingMaintenanceProcessor } from '@fenwira/api/modules/billing'
+import { BillingMaintenanceProcessor, indiaDay } from '@fenwira/api/modules/billing'
 import { sha256, uuidv7 } from '@fenwira/config'
 import { Database } from '@fenwira/database'
 import { signWebhookBody } from '@fenwira/whatsapp'
@@ -523,6 +523,44 @@ describe('billing emails: issued, due soon, overdue, rejected, approved', () => 
       tx.notification.count({ where: { dedupeKey: `invoice:${id}:overdue` } }),
     )
     expect(overdue).toBe(0)
+  })
+})
+
+describe('Send reminder (operator)', () => {
+  it('emails each open invoice once per India day and shows when it was last sent', async () => {
+    const id = await issue(ownerB.tenantId, { kind: 'WALLET_TOPUP', amountMinor: 20_000 })
+    expect((await ownerB.client.post(`${ws(ownerB.tenantId)}/invoices/remind`, {})).status).toBe(
+      401,
+    )
+    const first = await operator.post(`${ws(ownerB.tenantId)}/invoices/remind`, {})
+    expect(first.status, first.text).toBe(200)
+    expect(first.body.data.sent).toBeGreaterThanOrEqual(1)
+    const key = `invoice:${id}:reminder:${indiaDay()}`
+    await waitFor(
+      () =>
+        db.withTenant(ownerB.tenantId, (tx) =>
+          tx.notification.findMany({ where: { dedupeKey: key }, select: { emailedAt: true } }),
+        ),
+      (rows) => rows.length > 0 && rows.every((r) => r.emailedAt !== null),
+    )
+    const sentEmails = await migration.withGlobal((tx) =>
+      tx.emailDelivery.count({
+        where: { kind: 'invoice_reminder', recipientHash: sha256(ownerB.email.toLowerCase()) },
+      }),
+    )
+    expect(sentEmails).toBeGreaterThanOrEqual(1)
+    // Same day again: nothing new is sent.
+    const again = await operator.post(`${ws(ownerB.tenantId)}/invoices/remind`, {})
+    expect(again.status, again.text).toBe(200)
+    expect(again.body.data).toEqual({
+      sent: 0,
+      alreadyToday: first.body.data.sent + first.body.data.alreadyToday,
+    })
+    const list = await operator.get('/platform/workspace-list')
+    const row = (list.body.data as Array<{ id: string; lastRemindedAt: string | null }>).find(
+      (w) => w.id === ownerB.tenantId,
+    )
+    expect(row?.lastRemindedAt).not.toBeNull()
   })
 })
 

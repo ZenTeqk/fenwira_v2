@@ -41,6 +41,7 @@ export {
   emitInvoiceNotice,
   issueTrialInvoiceIfDue,
   invoiceNoticeKey,
+  indiaDay,
   type InvoiceNotice,
   issueInvoice,
   rejectPayment,

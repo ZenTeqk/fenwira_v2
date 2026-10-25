@@ -9718,6 +9718,35 @@
         "x-platform-permission": "payments.read"
       }
     },
+    "/api/v1/platform/deleted-workspaces": {
+      "get": {
+        "operationId": "PlatformAccounts_deleted",
+        "tags": [
+          "PlatformAccounts"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "commercial.read"
+      }
+    },
     "/api/v1/platform/email-deliveries": {
       "get": {
         "operationId": "PlatformAccounts_deliveries",
@@ -10712,6 +10741,50 @@
         "x-platform-permission": "payments.manage"
       }
     },
+    "/api/v1/platform/workspaces/{workspaceId}/invoices/remind": {
+      "post": {
+        "operationId": "PlatformBilling_remind",
+        "tags": [
+          "PlatformBilling"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "payments.manage"
+      }
+    },
     "/api/v1/platform/workspaces/{workspaceId}/invoices/{invoiceId}/void": {
       "post": {
         "operationId": "PlatformBilling_void",
@@ -11126,6 +11199,64 @@
           }
         ],
         "x-platform-permission": "payments.manage"
+      }
+    },
+    "/api/v1/platform/workspaces/{workspaceId}/restore": {
+      "post": {
+        "operationId": "PlatformAccounts_restore",
+        "tags": [
+          "PlatformAccounts"
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "platformSession": []
+          }
+        ],
+        "x-platform-permission": "workspaces.manage"
       }
     },
     "/api/v1/platform/workspaces/{workspaceId}/subscription-operations": {

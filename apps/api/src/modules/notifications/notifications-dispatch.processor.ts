@@ -90,11 +90,12 @@ export class NotificationsDispatchProcessor implements QueueProcessor<DispatchJo
     tenantId: string,
     p: {
       invoiceId: string
-      notice: 'ISSUED' | 'DUE_SOON' | 'OVERDUE' | 'PAID' | 'REJECTED'
+      notice: 'ISSUED' | 'DUE_SOON' | 'OVERDUE' | 'PAID' | 'REJECTED' | 'REMINDER'
       proofId?: string
+      day?: string
     },
   ): Promise<string> {
-    const key = invoiceNoticeKey(p.invoiceId, p.notice, p.proofId)
+    const key = invoiceNoticeKey(p.invoiceId, p.notice, p.proofId, p.day)
     const result = await this.db.withTenant(tenantId, async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:${key}`}))`
       const inv = await tx.invoice.findFirst({
@@ -106,7 +107,7 @@ export class NotificationsDispatchProcessor implements QueueProcessor<DispatchJo
         },
       })
       if (!inv) return 'missing' as const
-      const reminder = p.notice === 'DUE_SOON' || p.notice === 'OVERDUE'
+      const reminder = p.notice === 'DUE_SOON' || p.notice === 'OVERDUE' || p.notice === 'REMINDER'
       if (reminder && (inv.status !== 'OPEN' || inv.proofs.some((x) => x.status === 'PENDING')))
         return 'superseded' as const
       const tenant = await tx.tenant.findUniqueOrThrow({
@@ -114,7 +115,10 @@ export class NotificationsDispatchProcessor implements QueueProcessor<DispatchJo
         select: { name: true },
       })
       const proof = p.proofId ? inv.proofs.find((x) => x.id === p.proofId) : undefined
-      const copy = invoiceNoticeCopy(p.notice, {
+      // A manual reminder reads like the automatic one for the invoice's current state.
+      const notice =
+        p.notice === 'REMINDER' ? (inv.dueAt <= new Date() ? 'OVERDUE' : 'DUE_SOON') : p.notice
+      const copy = invoiceNoticeCopy(notice, {
         number: inv.number,
         amount: formatMoney(Number(inv.totalMinor), inv.currency),
         dueDate: inv.dueAt.toLocaleDateString('en-IN', {

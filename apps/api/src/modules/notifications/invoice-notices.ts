@@ -9,7 +9,7 @@ export type InvoiceFacts = {
 }
 
 /** Email and in-app copy for each manual-billing notice (plain, customer-facing). */
-export function invoiceNoticeCopy(notice: InvoiceNotice, f: InvoiceFacts) {
+export function invoiceNoticeCopy(notice: Exclude<InvoiceNotice, 'REMINDER'>, f: InvoiceFacts) {
   switch (notice) {
     case 'ISSUED':
       return {

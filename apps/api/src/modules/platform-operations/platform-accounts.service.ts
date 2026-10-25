@@ -2,6 +2,8 @@ import { encryptSecret, randomToken, sha256, uuidv7 } from '@fenwira/config'
 import { CORE_CONFIG, type CoreConfig } from '../../core/config/core-config'
 import {
   type DeleteWorkspaceRequest,
+  type PlatformDeletedWorkspace,
+  type RestoreWorkspaceRequest,
   type CreateWorkspaceWithOwner,
   type EmailDelivery,
   type OneTimeLink,
@@ -229,6 +231,42 @@ export class PlatformAccountsService {
       })
     })
     await this.platformAudit(operatorId, workspaceId, 'platform.workspace_deleted')
+  }
+
+  /** Soft-deleted workspaces, newest first (owner email only; no customer content). */
+  async deletedWorkspaces(): Promise<PlatformDeletedWorkspace[]> {
+    const rows = await this.db.system.platformDeletedWorkspaces(this.operator())
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      slug: r.slug,
+      deletedAt: r.deleted_at.toISOString(),
+      ownerEmail: r.owner_email,
+    }))
+  }
+
+  /** Undoes a soft delete: members get the workspace back with all its data. Audited. */
+  async restoreWorkspace(workspaceId: string, input: RestoreWorkspaceRequest): Promise<void> {
+    const operatorId = this.operator()
+    const deleted = await this.db.system.platformDeletedWorkspaces(operatorId)
+    if (!deleted.some((w) => w.id === workspaceId))
+      throw new AppError('TENANT_NOT_FOUND', 404, 'No deleted workspace with this ID.')
+    await this.db.withTenant(workspaceId, async (tx) => {
+      await tx.tenant.update({ where: { id: workspaceId }, data: { deletedAt: null } })
+      await this.audit(
+        tx,
+        workspaceId,
+        operatorId,
+        'workspace.restored',
+        'workspace',
+        workspaceId,
+        {
+          reason: input.reason,
+          by: 'PLATFORM_OPERATOR',
+        },
+      )
+    })
+    await this.platformAudit(operatorId, workspaceId, 'platform.workspace_restored')
   }
 
   async emailDeliveries(): Promise<EmailDelivery[]> {

@@ -46,6 +46,13 @@ export class PlatformBillingController {
   }
 
   @PlatformAccess('payments.manage')
+  @Post('workspaces/:workspaceId/invoices/remind')
+  @HttpCode(200)
+  async remind(@Param('workspaceId', uuid) workspaceId: string) {
+    return { data: await this.reads.remind(workspaceId) }
+  }
+
+  @PlatformAccess('payments.manage')
   @Post('workspaces/:workspaceId/invoices/:invoiceId/void')
   @HttpCode(200)
   async void(

@@ -1,8 +1,10 @@
 import {
   createWorkspaceWithOwnerSchema,
   deleteWorkspaceRequestSchema,
+  restoreWorkspaceRequestSchema,
   type CreateWorkspaceWithOwner,
   type DeleteWorkspaceRequest,
+  type RestoreWorkspaceRequest,
 } from '@fenwira/contracts'
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common'
 import { z } from 'zod'
@@ -34,6 +36,22 @@ export class PlatformAccountsController {
     @Body(new ZodValidationPipe(deleteWorkspaceRequestSchema)) body: DeleteWorkspaceRequest,
   ) {
     await this.accounts.deleteWorkspace(workspaceId, body)
+  }
+
+  @PlatformAccess('commercial.read')
+  @Get('deleted-workspaces')
+  async deleted() {
+    return { data: await this.accounts.deletedWorkspaces() }
+  }
+
+  @PlatformAccess('workspaces.manage')
+  @Post('workspaces/:workspaceId/restore')
+  @HttpCode(204)
+  async restore(
+    @Param('workspaceId', uuid) workspaceId: string,
+    @Body(new ZodValidationPipe(restoreWorkspaceRequestSchema)) body: RestoreWorkspaceRequest,
+  ) {
+    await this.accounts.restoreWorkspace(workspaceId, body)
   }
 
   @PlatformAccess('commercial.read')

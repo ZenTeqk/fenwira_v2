@@ -285,6 +285,27 @@ export const deleteWorkspaceRequestSchema = z.strictObject({
 })
 export type DeleteWorkspaceRequest = z.infer<typeof deleteWorkspaceRequestSchema>
 
+/** POST /platform/workspaces/:id/invoices/remind: one email per open invoice and India day. */
+export const invoiceReminderResultSchema = z.object({
+  sent: z.number().int(),
+  alreadyToday: z.number().int(),
+})
+export type InvoiceReminderResult = z.infer<typeof invoiceReminderResultSchema>
+
+/** GET /platform/deleted-workspaces: soft-deleted workspaces an operator can restore. */
+export const platformDeletedWorkspaceSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  slug: z.string(),
+  deletedAt: z.string(),
+  ownerEmail: z.string().nullable(),
+})
+export type PlatformDeletedWorkspace = z.infer<typeof platformDeletedWorkspaceSchema>
+export const restoreWorkspaceRequestSchema = z.strictObject({
+  reason: z.string().trim().min(5).max(500),
+})
+export type RestoreWorkspaceRequest = z.infer<typeof restoreWorkspaceRequestSchema>
+
 export const createWorkspaceWithOwnerSchema = z
   .object({
     workspaceName: z.string().trim().min(2).max(80),
@@ -401,6 +422,8 @@ export const platformWorkspaceRowSchema = z.object({
   openTotalMinor: z.string(),
   whatsapp: z.enum(['NONE', 'HEALTHY', 'ATTENTION']),
   lastMessageAt: z.string().nullable(),
+  /** Last invoice reminder email (automatic or manual) sent to this workspace. */
+  lastRemindedAt: z.string().nullable().optional(),
 })
 export type PlatformWorkspaceRow = z.infer<typeof platformWorkspaceRowSchema>
 
