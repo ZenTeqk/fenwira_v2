@@ -1,4 +1,5 @@
 'use client'
+import { DeletedWorkspaces } from './deleted-workspaces'
 import { ProvisionWorkspace } from './platform-accounts'
 import { platformWorkspaceRowSchema, type PlatformWorkspaceRow } from '@fenwira/contracts'
 import {
@@ -217,6 +218,7 @@ export function WorkspaceSearch() {
           </TableBody>
         </Table>
       )}
+      <DeletedWorkspaces />
       {list.data?.length === 500 ? (
         <p className="text-sm text-secondary">
           Showing the newest 500 workspaces; older ones are not listed here.

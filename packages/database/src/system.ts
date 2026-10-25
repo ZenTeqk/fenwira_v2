@@ -299,8 +299,22 @@ export class SystemGateway {
         numbers: number
         unhealthy_numbers: number
         last_message_at: Date | null
+        last_reminded_at: Date | null
       }>
     >`SELECT * FROM system.platform_workspace_list(${operatorId}::uuid)`
+  }
+
+  /** Soft-deleted workspaces for operator restore; the function re-checks the operator's grant. */
+  async platformDeletedWorkspaces(operatorId: string) {
+    return this.prisma.$queryRaw<
+      Array<{
+        id: string
+        name: string
+        slug: string
+        deleted_at: Date
+        owner_email: string | null
+      }>
+    >`SELECT * FROM system.platform_deleted_workspaces(${operatorId}::uuid)`
   }
 
   /** Operator overview aggregates (/platform); the function re-checks the operator's grant. */

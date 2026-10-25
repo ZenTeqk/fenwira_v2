@@ -903,16 +903,17 @@ GRANT EXECUTE ON FUNCTION system.platform_workspaces(uuid,text,integer) TO fenwi
 GRANT SELECT (is_internal, owner_user_id) ON public.tenants TO fenwira_system;
 GRANT SELECT (id, email) ON public.users TO fenwira_system;
 GRANT SELECT (phone_number_id) ON public.whatsapp_phone_numbers TO fenwira_system;
+DROP FUNCTION IF EXISTS system.platform_workspace_list(uuid);
 CREATE OR REPLACE FUNCTION system.platform_workspace_list(p_operator uuid)
 RETURNS TABLE (id uuid, name text, slug text, created_at timestamptz, is_internal boolean,
                owner_email text, plan_key text, plan_name text, subscription_status text,
                trial_ends_at timestamptz, current_period_end timestamptz, next_due_at timestamptz,
                open_invoices integer, open_total_minor bigint, numbers integer,
-               unhealthy_numbers integer, last_message_at timestamptz)
+               unhealthy_numbers integer, last_message_at timestamptz, last_reminded_at timestamptz)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   SELECT t.id, t.name, t.slug, t.created_at, t.is_internal, u.email::text, pl.key, pl.name,
          s.status::text, s.trial_ends_at, s.current_period_end, inv.next_due, coalesce(inv.n, 0),
-         coalesce(inv.total, 0)::bigint, coalesce(ph.n, 0), coalesce(ph.bad, 0), msg.at
+         coalesce(inv.total, 0)::bigint, coalesce(ph.n, 0), coalesce(ph.bad, 0), msg.at, rem.at
   FROM public.tenants t
   LEFT JOIN public.users u ON u.id = t.owner_user_id
   LEFT JOIN public.subscriptions s ON s.tenant_id = t.id
@@ -929,6 +930,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
     WHERE p.tenant_id = t.id AND p.phone_number_id <> 'demo-phone-not-real') ph ON true
   LEFT JOIN LATERAL (SELECT m.created_at AS at FROM public.messages m WHERE m.tenant_id = t.id
                      ORDER BY m.created_at DESC LIMIT 1) msg ON true
+  LEFT JOIN LATERAL (SELECT max(n.emailed_at) AS at FROM public.notifications n
+                     WHERE n.tenant_id = t.id AND n.emailed_at IS NOT NULL
+                       AND n.dedupe_key ~ '^invoice:[^:]+:(due-soon|overdue|reminder:)') rem ON true
   WHERE t.deleted_at IS NULL
     AND EXISTS (SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL)
   ORDER BY t.created_at DESC, t.id LIMIT 500;
@@ -936,6 +940,21 @@ $$;
 ALTER FUNCTION system.platform_workspace_list(uuid) OWNER TO fenwira_system;
 REVOKE ALL ON FUNCTION system.platform_workspace_list(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION system.platform_workspace_list(uuid) TO fenwira_app;
+
+-- Operator restore (/platform/workspaces): soft-deleted workspaces, newest first. Identifiers and
+-- the owner's email only. Requires an active platform grant.
+CREATE OR REPLACE FUNCTION system.platform_deleted_workspaces(p_operator uuid)
+RETURNS TABLE (id uuid, name text, slug text, deleted_at timestamptz, owner_email text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT t.id, t.name, t.slug, t.deleted_at, u.email::text
+  FROM public.tenants t LEFT JOIN public.users u ON u.id = t.owner_user_id
+  WHERE t.deleted_at IS NOT NULL
+    AND EXISTS (SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL)
+  ORDER BY t.deleted_at DESC, t.id LIMIT 200;
+$$;
+ALTER FUNCTION system.platform_deleted_workspaces(uuid) OWNER TO fenwira_system;
+REVOKE ALL ON FUNCTION system.platform_deleted_workspaces(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION system.platform_deleted_workspaces(uuid) TO fenwira_app;
 
 -- ADR-0027 step 4: the email delivery log is append-only for the runtime role.
 REVOKE UPDATE, DELETE, TRUNCATE ON public.email_deliveries FROM fenwira_app;

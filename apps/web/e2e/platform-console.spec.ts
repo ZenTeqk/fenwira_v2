@@ -11,6 +11,9 @@ const B = '019ceaaa-3333-7000-8000-000000000002'
 const I = '019ceaaa-3333-7000-8000-000000000003'
 const INV = '019ceaaa-3333-7000-8000-000000000004'
 const PROOF = '019ceaaa-3333-7000-8000-000000000005'
+const OLD = '019ceaaa-3333-7000-8000-000000000006'
+const reminded: string[] = [],
+  restoredWith: unknown[] = []
 const soon = new Date(Date.now() + 3 * 86_400_000).toISOString()
 const past = new Date(Date.now() - 5 * 86_400_000).toISOString()
 const row = (over: Record<string, unknown>) => ({
@@ -60,7 +63,8 @@ async function mock(
   opts: { lapsed?: boolean; reauth?: unknown[] } = {},
 ) {
   let fresh = !opts.lapsed,
-    invoiced = false
+    invoiced = false,
+    restored = false
   await page.route('**/api/v1/platform/**', async (route) => {
     const req = route.request()
     const path = new URL(req.url()).pathname.replace('/api/v1/platform', '')
@@ -80,7 +84,26 @@ async function mock(
         csrfToken: 'platform-csrf',
         managedLaunch: true,
       }
-    else if (path === '/auth/reauth') {
+    else if (path === `/workspaces/${B}/invoices/remind`) {
+      reminded.push(B)
+      data = { sent: 1, alreadyToday: 0 }
+    } else if (path === '/deleted-workspaces')
+      data = restored
+        ? []
+        : [
+            {
+              id: OLD,
+              name: 'Old Trial Shop',
+              slug: 'old-trial',
+              deletedAt: past,
+              ownerEmail: 'old@shop.test',
+            },
+          ]
+    else if (path === `/workspaces/${OLD}/restore`) {
+      restoredWith.push(req.postDataJSON())
+      restored = true
+      return route.fulfill({ status: 204 })
+    } else if (path === '/auth/reauth') {
       opts.reauth?.push(req.postDataJSON())
       fresh = true
       return route.fulfill({ status: 204 })
@@ -221,8 +244,13 @@ test('billing operations: cards, actions and the create-invoice flow with paymen
   ])
     await expect(page.getByText(label, { exact: true }).first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Approve FW-INV-0007' })).toBeVisible()
-  await page.getByRole('button', { name: 'Remind Bharat Foods' }).first().click()
+  await page.getByRole('button', { name: 'Copy reminder for Bharat Foods' }).first().click()
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('overdue since')
+  const overdueTable = page.getByRole('region', { name: 'Overdue workspaces', exact: true })
+  await expect(overdueTable.getByText('Never')).toBeVisible()
+  await overdueTable.getByRole('button', { name: 'Send reminder to Bharat Foods' }).click()
+  await expect(page.getByText('Reminder emailed to Bharat Foods for 1 invoice.')).toBeVisible()
+  expect(reminded).toEqual([B])
   await expect(page.getByRole('heading', { name: 'Revenue by month' })).toBeVisible()
   await axe(page)
 
@@ -301,4 +329,17 @@ test('operator verifies identity inline, creates an invoice and sees it on Billi
   await expect(unpaid.getByRole('row', { name: /Acme Sarees/ })).toContainText('1 · INR 1,768.82')
   await expect(page.getByText(/Verified for 5 minutes/)).toBeVisible()
   expect(await page.content()).not.toContain('Operator-Pw-e2e-2')
+})
+
+test('deleted workspaces can be restored with a reason', async ({ page }) => {
+  await mock(page, [])
+  await page.goto('/platform/workspaces')
+  await page.getByText('Deleted workspaces (1)').click()
+  await page.getByRole('button', { name: 'Restore Old Trial Shop' }).click()
+  const drawer = page.getByRole('dialog', { name: 'Restore Old Trial Shop?' })
+  await drawer.getByLabel('Reason').fill('Deleted by mistake')
+  await drawer.getByRole('button', { name: 'Restore workspace' }).click()
+  await expect(page.getByText('Old Trial Shop restored')).toBeVisible()
+  await expect(page.getByText('Deleted workspaces (0)')).toBeVisible()
+  expect(restoredWith).toEqual([{ reason: 'Deleted by mistake' }])
 })

@@ -1,10 +1,20 @@
-import { type BillingDashboard, type PlatformInvoice } from '@fenwira/contracts'
+import {
+  type BillingDashboard,
+  type InvoiceReminderResult,
+  type PlatformInvoice,
+} from '@fenwira/contracts'
 import { Database } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
 import { requestContext } from '../../core/context/request-context'
 import { AppError } from '../../core/http/app-error'
 import { StorageService } from '../../core/storage/storage.service'
-import { INVOICE_INCLUDE, toInvoice } from '../billing'
+import {
+  INVOICE_INCLUDE,
+  emitInvoiceNotice,
+  indiaDay,
+  invoiceNoticeKey,
+  toInvoice,
+} from '../billing'
 import { PlatformAuthService } from './platform-auth.service'
 
 /**
@@ -30,6 +40,55 @@ export class PlatformBillingService {
     const found = await this.db.system.platformWorkspaces(this.operator(), workspaceId, 1)
     if (!found.some((w) => w.id === workspaceId))
       throw new AppError('TENANT_NOT_FOUND', 404, 'Workspace not found.')
+  }
+
+  /**
+   * Send reminder: emails the workspace's billing readers about every open invoice that has no
+   * payment proof waiting, at most once per invoice and India day (the dedupe key carries the
+   * day; the notifications worker sends each email once).
+   */
+  async remind(workspaceId: string, now = new Date()): Promise<InvoiceReminderResult> {
+    const operatorId = this.operator()
+    await this.workspace(workspaceId)
+    const day = indiaDay(now)
+    const result = await this.db.withTenant(workspaceId, async (tx) => {
+      const invoices = await tx.invoice.findMany({
+        where: { status: 'OPEN', proofs: { none: { status: 'PENDING' } } },
+        select: { id: true },
+      })
+      if (!invoices.length)
+        throw new AppError(
+          'INVOICE_NOT_OPEN',
+          409,
+          'This workspace has no unpaid invoice to remind about (or its payment is being verified).',
+        )
+      let sent = 0,
+        alreadyToday = 0
+      for (const inv of invoices) {
+        const key = invoiceNoticeKey(inv.id, 'REMINDER', undefined, day)
+        if (await tx.notification.findFirst({ where: { dedupeKey: key }, select: { id: true } })) {
+          alreadyToday++
+          continue
+        }
+        await emitInvoiceNotice(tx, workspaceId, inv.id, 'REMINDER', undefined, day)
+        sent++
+      }
+      await tx.auditLog.create({
+        data: {
+          tenantId: workspaceId,
+          actorType: 'PLATFORM_OPERATOR',
+          actorId: operatorId,
+          action: 'invoice.reminder_sent',
+          targetType: 'workspace',
+          targetId: workspaceId,
+          changes: { sent, alreadyToday },
+          correlationId: requestContext.correlationId() ?? null,
+        },
+      })
+      return { sent, alreadyToday }
+    })
+    await this.auth.audit('platform.invoice_reminder_sent', 'SUCCESS', operatorId)
+    return result
   }
 
   async dashboard(now = new Date()): Promise<BillingDashboard> {

@@ -1,6 +1,7 @@
 'use client'
 import {
   billingDashboardSchema,
+  invoiceReminderResultSchema,
   platformOverviewSchema,
   type PendingPayment,
 } from '@fenwira/contracts'
@@ -26,9 +27,11 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { type ReactNode, useState } from 'react'
+import { errorText } from '@/lib/api/client'
 import { formatMoney } from '@/lib/billing'
 import { platformMoney, platformRequest } from '@/lib/platform'
 import { CreateInvoiceFlow } from './create-invoice'
+import { useIdentityRequest } from './identity'
 import { ReviewDrawer } from './payments-view'
 import { usePlatform } from './platform-shell'
 import { useWorkspaceList } from './workspace-search'
@@ -52,13 +55,76 @@ export function reminderMessage(workspace: string, amountMinor: string, dueAt: s
   ].join('\n')
 }
 
-async function copyReminder(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    toast.success('Reminder copied. Paste it into WhatsApp or email.')
-  } catch {
-    toast.error('Copy failed.')
+const lastReminded = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleString() : 'Never'
+
+/**
+ * Send reminder emails every open invoice of the workspace to its billing members (once per
+ * invoice per day); Copy text gives the same message for WhatsApp or a personal email.
+ */
+function ReminderActions({
+  id,
+  name,
+  canSend,
+  text,
+  onSent,
+}: {
+  id: string
+  name: string
+  canSend: boolean
+  text: string
+  onSent: () => void
+}) {
+  const request = useIdentityRequest()
+  const [busy, setBusy] = useState(false)
+  async function send() {
+    setBusy(true)
+    try {
+      const r = invoiceReminderResultSchema.parse(
+        await request(`/workspaces/${id}/invoices/remind`, {}),
+      )
+      toast.success(
+        r.sent
+          ? `Reminder emailed to ${name} for ${r.sent} invoice${r.sent === 1 ? '' : 's'}.`
+          : `${name} was already reminded today; no new email sent.`,
+      )
+      onSent()
+    } catch (err) {
+      toast.error(errorText(err, 'The reminder was not sent. Try again.'))
+    } finally {
+      setBusy(false)
+    }
   }
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('Reminder copied. Paste it into WhatsApp or email.')
+    } catch {
+      toast.error('Copy failed.')
+    }
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {canSend ? (
+        <Button
+          size="sm"
+          loading={busy}
+          aria-label={`Send reminder to ${name}`}
+          onClick={() => void send()}
+        >
+          Send reminder
+        </Button>
+      ) : null}
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label={`Copy reminder for ${name}`}
+        onClick={() => void copy()}
+      >
+        Copy text
+      </Button>
+    </div>
+  )
 }
 
 /**
@@ -122,6 +188,7 @@ export function BillingOperations() {
     { pending, overdue, revenue } = dashboard.data
   const mrr = o.mrr.find((m) => m.currency === 'INR')
   const unpaid = list.data.filter((w) => w.openInvoices > 0)
+  const byId = new Map(list.data.map((w) => [w.id, w]))
   const unpaidTotal = unpaid.reduce((n, w) => n + BigInt(w.openTotalMinor), 0n)
   const statusOrder = [
     'TRIALING',
@@ -202,7 +269,7 @@ export function BillingOperations() {
       <Section
         id="overdue"
         title="Overdue workspaces"
-        empty="No overdue workspaces. A workspace appears here when an invoice passes its due date or the subscription is past due; send a reminder from here."
+        empty="No overdue workspaces. A workspace appears here when an invoice passes its due date or the subscription is past due; Send reminder emails its billing members."
         rows={overdue.length}
       >
         <Table containerLabel="Overdue workspaces">
@@ -212,6 +279,7 @@ export function BillingOperations() {
               <TableHead>Status</TableHead>
               <TableHead>Owed</TableHead>
               <TableHead>Due since</TableHead>
+              <TableHead>Last reminded</TableHead>
               <TableHead>Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -228,19 +296,15 @@ export function BillingOperations() {
                   {w.openInvoices} · {platformMoney(w.openTotalMinor)}
                 </TableCell>
                 <TableCell>{day(w.oldestDueAt)}</TableCell>
+                <TableCell>{lastReminded(byId.get(w.workspaceId)?.lastRemindedAt)}</TableCell>
                 <TableCell>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    aria-label={`Remind ${w.workspaceName}`}
-                    onClick={() =>
-                      void copyReminder(
-                        reminderMessage(w.workspaceName, w.openTotalMinor, w.oldestDueAt),
-                      )
-                    }
-                  >
-                    Remind
-                  </Button>
+                  <ReminderActions
+                    id={w.workspaceId}
+                    name={w.workspaceName}
+                    canSend={canManage}
+                    text={reminderMessage(w.workspaceName, w.openTotalMinor, w.oldestDueAt)}
+                    onSent={refresh}
+                  />
                 </TableCell>
               </TableRow>
             ))}
@@ -299,6 +363,7 @@ export function BillingOperations() {
               <TableHead>Workspace</TableHead>
               <TableHead>Open invoices</TableHead>
               <TableHead>Next due</TableHead>
+              <TableHead>Last reminded</TableHead>
               <TableHead>Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -312,17 +377,15 @@ export function BillingOperations() {
                   {w.openInvoices} · {platformMoney(w.openTotalMinor)}
                 </TableCell>
                 <TableCell>{day(w.nextDueAt)}</TableCell>
+                <TableCell>{lastReminded(w.lastRemindedAt)}</TableCell>
                 <TableCell>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    aria-label={`Remind ${w.name}`}
-                    onClick={() =>
-                      void copyReminder(reminderMessage(w.name, w.openTotalMinor, w.nextDueAt))
-                    }
-                  >
-                    Remind
-                  </Button>
+                  <ReminderActions
+                    id={w.id}
+                    name={w.name}
+                    canSend={canManage}
+                    text={reminderMessage(w.name, w.openTotalMinor, w.nextDueAt)}
+                    onSent={refresh}
+                  />
                 </TableCell>
               </TableRow>
             ))}

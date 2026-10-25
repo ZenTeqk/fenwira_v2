@@ -129,6 +129,7 @@ export class PlatformOverviewService {
       openTotalMinor: r.open_total_minor.toString(),
       whatsapp: !r.numbers ? 'NONE' : r.unhealthy_numbers ? 'ATTENTION' : 'HEALTHY',
       lastMessageAt: iso(r.last_message_at),
+      lastRemindedAt: iso(r.last_reminded_at),
     }))
   }
 

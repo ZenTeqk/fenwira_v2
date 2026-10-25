@@ -417,13 +417,26 @@ type NotificationCopy = {
   link: string
 }
 
-export type InvoiceNotice = 'ISSUED' | 'DUE_SOON' | 'OVERDUE' | 'PAID' | 'REJECTED'
+/** REMINDER: sent by an operator from the console, at most once per invoice and India day. */
+export type InvoiceNotice = 'ISSUED' | 'DUE_SOON' | 'OVERDUE' | 'PAID' | 'REJECTED' | 'REMINDER'
 
 /** Notification dedupe key per notice; ISSUED/PAID/REJECTED match notifyBillingReaders' keys. */
-export const invoiceNoticeKey = (invoiceId: string, notice: InvoiceNotice, proofId?: string) =>
+export const invoiceNoticeKey = (
+  invoiceId: string,
+  notice: InvoiceNotice,
+  proofId?: string,
+  /** REMINDER only: the India day (YYYY-MM-DD) it was sent. */
+  day?: string,
+) =>
   notice === 'REJECTED'
     ? `proof:${proofId}:rejected`
-    : `invoice:${invoiceId}:${{ ISSUED: 'issued', DUE_SOON: 'due-soon', OVERDUE: 'overdue', PAID: 'paid' }[notice]}`
+    : notice === 'REMINDER'
+      ? `invoice:${invoiceId}:reminder:${day}`
+      : `invoice:${invoiceId}:${{ ISSUED: 'issued', DUE_SOON: 'due-soon', OVERDUE: 'overdue', PAID: 'paid' }[notice]}`
+
+/** Today's date in India, used to allow one manual reminder per invoice per day. */
+export const indiaDay = (now = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now)
 
 /** Queues the billing email for this notice (worker: notifications.dispatch), in the same tx. */
 export async function emitInvoiceNotice(
@@ -432,6 +445,7 @@ export async function emitInvoiceNotice(
   invoiceId: string,
   notice: InvoiceNotice,
   proofId?: string,
+  day?: string,
 ) {
   await tx.outboxEvent.create({
     data: {
@@ -439,7 +453,7 @@ export async function emitInvoiceNotice(
       eventType: 'billing.invoice_notice',
       aggregateType: 'invoice',
       aggregateId: invoiceId,
-      payload: { invoiceId, notice, ...(proofId ? { proofId } : {}) },
+      payload: { invoiceId, notice, ...(proofId ? { proofId } : {}), ...(day ? { day } : {}) },
     },
   })
 }
