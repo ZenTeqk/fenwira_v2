@@ -20,7 +20,7 @@ export function EmptyState({ title, description, icon, action, className }: Empt
         className,
       )}
     >
-      <div className="flex size-12 items-center justify-center rounded-full bg-neutral-soft text-muted [&_svg]:size-6">
+      <div className="flex size-12 items-center justify-center rounded-full bg-neutral-soft text-slate-400 [&_svg]:size-6">
         {icon ?? <Inbox aria-hidden="true" />}
       </div>
       <div className="flex max-w-sm flex-col gap-1">

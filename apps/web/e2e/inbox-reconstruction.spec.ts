@@ -254,17 +254,17 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
         const identity = page.getByRole('heading', { name: 'Priya Sharma', exact: true }).first()
         expect(await identity.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true)
         if (width === 375) {
-          for (const label of [
-            'Send',
-            'Send a template',
-            'Canned replies',
-            'Reply',
-            'Internal note',
-          ]) {
+          // Send only swaps in once there is text, so it is checked after typing below.
+          for (const label of ['Send a template', 'Canned replies', 'Reply', 'Internal note']) {
             expect(
               (await page.getByRole('button', { name: label, exact: true }).boundingBox())?.height,
             ).toBeGreaterThanOrEqual(40)
           }
+          await replyBox.fill('Touch target check')
+          expect(
+            (await page.getByRole('button', { name: 'Send', exact: true }).boundingBox())?.height,
+          ).toBeGreaterThanOrEqual(40)
+          await replyBox.fill('')
         }
         // Long, individually scrollable lists must not leak a second document scrollbar.
         expect(

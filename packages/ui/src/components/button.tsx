@@ -17,7 +17,9 @@ export const buttonVariants = cva(
       variant: {
         // -strong fills keep white text at WCAG AA (docs/DESIGN_SYSTEM.md).
         primary: 'bg-primary-strong text-surface hover:bg-primary-strong-hover',
-        secondary: 'border border-border bg-surface text-slate hover:bg-neutral-soft',
+        secondary: 'border border-border-strong bg-surface text-slate hover:bg-neutral-soft',
+        // Low-emphasis action: green text, no fill (hover underlines rather than tints).
+        tertiary: 'text-primary-strong underline-offset-4 hover:underline',
         ghost: 'text-slate hover:bg-neutral-soft',
         danger: 'bg-danger-strong text-surface hover:bg-danger-strong-hover',
         link: 'h-auto px-0 text-primary-strong underline-offset-4 hover:underline',

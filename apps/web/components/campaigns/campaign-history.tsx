@@ -101,7 +101,7 @@ export function CampaignHistory({
       {
         id: 'status',
         header: 'Status',
-        cell: ({ row }) => <StatusBadge status={row.original.status} context="campaign" />,
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
         id: 'sent',

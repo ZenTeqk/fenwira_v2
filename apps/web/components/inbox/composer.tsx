@@ -77,6 +77,9 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     const resize = () => {
       element.style.height = 'auto'
       element.style.height = `${element.scrollHeight + 2}px`
+      // The pill keeps its full rounding for one line and relaxes once the reply wraps.
+      const pill = element.closest<HTMLElement>('[data-slot="composer-pill"]')
+      if (pill) pill.toggleAttribute('data-multiline', element.scrollHeight > 44)
     }
     resize()
     // Observe available width, not the textarea's height (which this callback changes).
@@ -322,7 +325,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     <div
       className={cn(
         'relative z-10 flex flex-col gap-1 border-t border-border p-2',
-        mode === 'note' ? 'bg-note-soft' : 'bg-surface',
+        mode === 'note' ? 'bg-note-soft' : 'bg-neutral-soft',
       )}
     >
       <div className="self-start">
@@ -385,12 +388,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           </Button>
         </div>
       ) : (
-        <div
-          className={cn(
-            'relative flex items-end gap-1 rounded-lg border border-border-strong p-1 shadow-raised',
-            mode === 'note' ? 'bg-note-soft' : 'bg-surface',
-          )}
-        >
+        <div className="relative flex items-end gap-2">
           {matches.length ? (
             <ul
               id={listId}
@@ -422,96 +420,113 @@ export function Composer({ conversation }: { conversation: Conversation }) {
               ))}
             </ul>
           ) : null}
-          <Textarea
-            ref={writing}
-            aria-label={mode === 'note' ? 'Internal note' : 'Reply'}
-            aria-autocomplete={mode === 'reply' ? 'list' : undefined}
-            aria-controls={matches.length ? listId : undefined}
-            aria-activedescendant={matches.length ? `${listId}-${active}` : undefined}
-            placeholder={mode === 'note' ? 'Only your team sees notes' : 'Type a reply…'}
-            title="Enter to send; Shift+Enter for a new line; / for canned replies"
+          <div
+            data-slot="composer-pill"
             className={cn(
-              'min-h-10 max-h-40 min-w-0 flex-1 resize-none overflow-y-auto rounded-md border-0 px-2 py-2.5 text-base text-slate',
+              'group relative flex min-w-0 flex-1 items-end gap-0.5 rounded-full border border-border-strong pr-1 data-multiline:rounded-xl',
               mode === 'note' ? 'bg-note-soft' : 'bg-surface',
-              disabled && 'cursor-not-allowed opacity-60',
             )}
-            rows={1}
-            value={text}
-            disabled={disabled || busy}
-            onChange={(e) => onType(e.target.value)}
-            onKeyDown={onKeyDown}
-            onBlur={() => !text.trim() && release()}
-          />
-          {mode === 'reply' && can('templates.read') ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-10 sm:size-9"
-              aria-label="Send a template"
-              title="Send a template"
+          >
+            <Textarea
+              ref={writing}
+              aria-label={mode === 'note' ? 'Internal note' : 'Reply'}
+              aria-autocomplete={mode === 'reply' ? 'list' : undefined}
+              aria-controls={matches.length ? listId : undefined}
+              aria-activedescendant={matches.length ? `${listId}-${active}` : undefined}
+              placeholder={mode === 'note' ? 'Only your team sees notes' : 'Type a reply…'}
+              title="Enter to send; Shift+Enter for a new line; / for canned replies"
+              className={cn(
+                'peer min-h-10 max-h-40 min-w-0 flex-1 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-3 py-2.5 text-base text-slate',
+                // The pill draws the focus ring, so the field itself shows none.
+                'focus-visible:outline-transparent',
+                disabled && 'cursor-not-allowed opacity-60',
+              )}
+              rows={1}
+              value={text}
               disabled={disabled || busy}
-              onClick={() => setPicking(true)}
+              onChange={(e) => onType(e.target.value)}
+              onKeyDown={onKeyDown}
+              onBlur={() => !text.trim() && release()}
+            />
+            {mode === 'reply' && can('templates.read') ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-10 rounded-full text-slate-400 hover:text-secondary contrast-more:text-secondary sm:size-9"
+                aria-label="Send a template"
+                title="Send a template"
+                disabled={disabled || busy}
+                onClick={() => setPicking(true)}
+              >
+                <FileText aria-hidden="true" />
+              </Button>
+            ) : null}
+            {mode === 'reply' && canned.length ? (
+              <Dropdown>
+                <DropdownTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-10 rounded-full text-slate-400 hover:text-secondary contrast-more:text-secondary sm:size-9"
+                    aria-label="Canned replies"
+                    title="Canned replies"
+                    disabled={disabled || busy}
+                  >
+                    <MessageSquareText aria-hidden="true" />
+                  </Button>
+                </DropdownTrigger>
+                <DropdownContent className="max-h-72 w-72 overflow-y-auto">
+                  {canned.map((r) => (
+                    <DropdownItem key={r.id} onSelect={() => insert(r.body)}>
+                      <span className="font-mono text-sm">{r.shortcut}</span> {r.title}
+                    </DropdownItem>
+                  ))}
+                </DropdownContent>
+              </Dropdown>
+            ) : null}
+            {mode === 'reply' ? (
+              <label
+                title="Attach a file"
+                className={cn(
+                  'inline-flex size-10 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:bg-neutral-soft hover:text-secondary contrast-more:text-secondary sm:size-9',
+                  disabled && 'pointer-events-none opacity-60',
+                  'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong',
+                )}
+              >
+                <Paperclip aria-hidden="true" className="size-4" />
+                <span className="sr-only">Attach a file</span>
+                <input
+                  type="file"
+                  className="sr-only"
+                  disabled={disabled || busy}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    const f = e.target.files?.[0]
+                    if (f) attach.mutate(f)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            ) : null}
+            {/* Focus ring for the writing field, following the pill's shape. */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-px rounded-full border-2 border-transparent group-data-multiline:rounded-xl peer-focus-visible:border-primary-strong"
+            />
+          </div>
+          {/* Send swaps in once there is something to send (WhatsApp-style); Enter still submits. */}
+          {text.trim() || busy ? (
+            <Button
+              size="icon"
+              className="size-10 shrink-0 rounded-full"
+              aria-label={mode === 'note' ? 'Save note' : 'Send'}
+              title={mode === 'note' ? 'Save internal note' : 'Send reply'}
+              loading={busy}
+              disabled={disabled || freeformRestricted || !text.trim()}
+              onClick={submit}
             >
-              <FileText aria-hidden="true" />
+              <Send aria-hidden="true" />
             </Button>
           ) : null}
-          {mode === 'reply' && canned.length ? (
-            <Dropdown>
-              <DropdownTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-10 sm:size-9"
-                  aria-label="Canned replies"
-                  title="Canned replies"
-                  disabled={disabled || busy}
-                >
-                  <MessageSquareText aria-hidden="true" />
-                </Button>
-              </DropdownTrigger>
-              <DropdownContent className="max-h-72 w-72 overflow-y-auto">
-                {canned.map((r) => (
-                  <DropdownItem key={r.id} onSelect={() => insert(r.body)}>
-                    <span className="font-mono text-sm">{r.shortcut}</span> {r.title}
-                  </DropdownItem>
-                ))}
-              </DropdownContent>
-            </Dropdown>
-          ) : null}
-          {mode === 'reply' ? (
-            <label
-              title="Attach a file"
-              className={cn(
-                'inline-flex size-10 cursor-pointer sm:size-9 items-center justify-center rounded-md text-slate hover:bg-neutral-soft',
-                disabled && 'pointer-events-none opacity-60',
-                'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong',
-              )}
-            >
-              <Paperclip aria-hidden="true" className="size-4" />
-              <span className="sr-only">Attach a file</span>
-              <input
-                type="file"
-                className="sr-only"
-                disabled={disabled || busy}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  const f = e.target.files?.[0]
-                  if (f) attach.mutate(f)
-                  e.target.value = ''
-                }}
-              />
-            </label>
-          ) : null}
-          <Button
-            size="icon"
-            className="ml-auto size-10 rounded-full shadow-raised sm:size-9"
-            aria-label={mode === 'note' ? 'Save note' : 'Send'}
-            title={mode === 'note' ? 'Save internal note' : 'Send reply'}
-            loading={busy}
-            disabled={disabled || freeformRestricted || !text.trim()}
-            onClick={submit}
-          >
-            <Send aria-hidden="true" />
-          </Button>
         </div>
       )}
       <TemplatePicker

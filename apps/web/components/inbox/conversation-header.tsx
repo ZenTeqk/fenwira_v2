@@ -16,7 +16,7 @@ import {
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type Ref } from 'react'
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Ellipsis, UserPlus } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Ellipsis, UserPlus } from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, get, post, put } from '@/lib/api/client'
 import { del } from '@/lib/api/client'
@@ -256,7 +256,6 @@ export function ConversationHeader({
       >
         <span className="min-w-0" title="WhatsApp 24-hour service window">
           <StatusBadge
-            appearance="inline"
             status={windowStatus}
             label={left ? `Window open · ${left.replace(' left', '')}` : 'Window closed'}
           />
@@ -275,16 +274,15 @@ export function ConversationHeader({
             role="status"
             className="flex w-full flex-wrap items-center gap-1 text-xs text-secondary"
           >
-            <Bot className="size-4 shrink-0 text-info-strong" aria-hidden="true" />
             <span
               className="min-w-0 flex-1"
               title="Automated messages won’t be sent in this conversation."
             >
-              <span className="font-medium text-info-strong">
-                {c.automationState === 'AGENT_TAKEOVER'
-                  ? 'An agent has taken over'
-                  : 'Automation is paused'}
-              </span>
+              {c.automationState === 'AGENT_TAKEOVER' ? (
+                <StatusBadge status="AGENT_TAKEOVER" label="An agent has taken over" />
+              ) : (
+                <StatusBadge status="PAUSED" label="Automation is paused" />
+              )}
               <span className="sr-only">
                 Automated messages won’t be sent in this conversation.
               </span>

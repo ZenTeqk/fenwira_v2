@@ -126,7 +126,7 @@ export default function InboxAnalyticsPage() {
               variant="bar"
               data={d.series.map((p) => ({ label: shortDay(p.day), values: p.values }))}
               series={[
-                { key: 'opened', label: 'Opened by customers', tone: 'info' },
+                { key: 'opened', label: 'Opened by customers', tone: 'primary' },
                 { key: 'resolved', label: 'Resolved', tone: 'success' },
               ]}
             />

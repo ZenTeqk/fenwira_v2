@@ -192,7 +192,7 @@ Show progress above Delivered/Read/Started on running cards, with primary-strong
 
 ### API-driven Campaigns visual checkpoint
 
-Category, saved audience and frozen recipient count share one wrapping card metadata line; full campaign identity and actual template content lead the card. Scheduled cards use View schedule to the existing detail route. History and active cards are separate reusable presentation components over the existing tenant-scoped queries. `StatusBadge context="campaign"` preserves RUNNING with existing success tokens; other modules keep the default mapping. Friendly list errors show retry without backend diagnostics. The layout must handle long names/audiences, absent snapshots and the API's full loaded collection, with local table overflow only. [Current evidence](experience-v2/evidence/campaigns-data-driven/README.md); stop for Campaigns visual review.
+Category, saved audience and frozen recipient count share one wrapping card metadata line; full campaign identity and actual template content lead the card. Scheduled cards use View schedule to the existing detail route. History and active cards are separate reusable presentation components over the existing tenant-scoped queries. Campaign statuses use the default `StatusBadge` mapping (RUNNING is info, like every module). Friendly list errors show retry without backend diagnostics. The layout must handle long names/audiences, absent snapshots and the API's full loaded collection, with local table overflow only. [Current evidence](experience-v2/evidence/campaigns-data-driven/README.md); stop for Campaigns visual review.
 
 ## Automations reconstruction checkpoint
 
