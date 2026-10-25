@@ -4,6 +4,7 @@ import {
   type PlatformWhatsAppConnection,
   type TemplateSyncSummary,
   type VerifyConnectionResult,
+  type MetaHealth,
 } from '@fenwira/contracts'
 import { Database } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
@@ -45,6 +46,11 @@ export class PlatformWhatsAppService {
       const c = await this.connections.managedConnect(input)
       return this.connections.getPlatform(c.id)
     })
+  }
+
+  /** Read-only: Meta's live messaging health for the number (no audit row). */
+  health(workspaceId: string, id: string): Promise<MetaHealth> {
+    return this.act(workspaceId, null, () => this.connections.healthStatus(id))
   }
 
   verify(workspaceId: string, id: string): Promise<VerifyConnectionResult> {

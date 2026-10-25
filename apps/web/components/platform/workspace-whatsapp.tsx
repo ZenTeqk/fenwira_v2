@@ -1,6 +1,7 @@
 'use client'
 import {
   managedConnectRequestSchema,
+  metaHealthSchema,
   plainFieldErrors,
   managedRotateRequestSchema,
   platformWhatsAppConnectionSchema,
@@ -142,6 +143,7 @@ export function WorkspaceWhatsApp({ workspaceId, name }: { workspaceId: string; 
           <ConnectionPanel
             key={c.id}
             c={c}
+            base={base}
             canManage={canManage}
             busy={busy?.id === c.id ? busy.action : undefined}
             lastVerify={verified[c.id]}
@@ -169,6 +171,7 @@ export function WorkspaceWhatsApp({ workspaceId, name }: { workspaceId: string; 
 
 function ConnectionPanel({
   c,
+  base,
   canManage,
   busy,
   lastVerify,
@@ -176,6 +179,7 @@ function ConnectionPanel({
   onRotate,
 }: {
   c: PlatformWhatsAppConnection
+  base: string
   canManage: boolean
   busy?: Action
   lastVerify?: VerifyConnectionResult
@@ -195,6 +199,7 @@ function ConnectionPanel({
         <StatusBadge status={c.status} />
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {c.status === 'DISCONNECTED' ? null : <MetaHealthPanel path={`${base}/${c.id}/health`} />}
         {cred?.verifyOk === false ? (
           <Alert tone="danger" title="Last verification failed">
             Error code {cred.verifyErrorCode ?? 'unknown'}. Rotate the token or check the
@@ -550,5 +555,69 @@ function RotateDrawer({
         </Button>
       </form>
     </DetailDrawer>
+  )
+}
+
+const HEALTH_BADGE = {
+  AVAILABLE: { status: 'CONNECTED', label: 'Meta: can send' },
+  LIMITED: { status: 'ATTENTION', label: 'Meta: sending limited' },
+  BLOCKED: { status: 'ERROR', label: 'Meta: sending blocked' },
+  UNKNOWN: { status: 'INACTIVE', label: 'Meta: status unknown' },
+} as const
+
+/**
+ * Meta's live messaging health (number, WABA, business portfolio, app). Shows why Meta refuses
+ * to send, e.g. an unverified business portfolio, with Meta's own suggested fix.
+ */
+function MetaHealthPanel({ path }: { path: string }) {
+  const health = useQuery({
+    queryKey: ['platform', 'whatsapp-health', path],
+    retry: false,
+    staleTime: 5 * 60_000,
+    queryFn: async () => metaHealthSchema.parse(await platformRequest(path)),
+  })
+  return (
+    <section aria-label="Meta messaging health" className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {health.isPending ? (
+          <span className="text-sm text-secondary">Checking Meta health…</span>
+        ) : health.isError ? (
+          <span className="text-sm text-secondary">
+            Meta health unavailable: {errorText(health.error, 'Meta did not answer.')}
+          </span>
+        ) : (
+          <>
+            <StatusBadge {...HEALTH_BADGE[health.data.canSend]} />
+            <span className="text-sm text-secondary">
+              Checked {new Date(health.data.checkedAt).toLocaleTimeString()}
+            </span>
+          </>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={health.isFetching}
+          onClick={() => void health.refetch()}
+        >
+          Check again
+        </Button>
+      </div>
+      {health.data?.problems.length ? (
+        <Alert
+          tone={health.data.canSend === 'BLOCKED' ? 'danger' : 'warning'}
+          title={`Meta ${health.data.canSend === 'BLOCKED' ? 'blocks' : 'limits'} sending from this number`}
+        >
+          <ul className="flex flex-col gap-2">
+            {health.data.problems.map((p, i) => (
+              <li key={i}>
+                <span className="font-medium">{p.level}</span>
+                {p.code ? ` (${p.code})` : ''}: {p.description}
+                {p.solution ? <span className="block text-sm">Fix: {p.solution}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </Alert>
+      ) : null}
+    </section>
   )
 }

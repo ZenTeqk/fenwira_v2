@@ -165,6 +165,26 @@ export const managedConnectRequestSchema = z
   .strict()
 export type ManagedConnectRequest = z.infer<typeof managedConnectRequestSchema>
 
+/**
+ * Meta's live messaging health for a number (GET .../connections/:id/health). `problems` lists
+ * only the levels (number, WABA, business portfolio, app) that limit or block messaging, with
+ * Meta's own description and suggested fix; calling-only (SIP) notices are left out.
+ */
+export const metaHealthSchema = z.object({
+  canSend: z.enum(['AVAILABLE', 'LIMITED', 'BLOCKED', 'UNKNOWN']),
+  checkedAt: z.iso.datetime(),
+  problems: z.array(
+    z.object({
+      level: z.string(),
+      status: z.string(),
+      code: z.number().int().nullable(),
+      description: z.string(),
+      solution: z.string().nullable(),
+    }),
+  ),
+})
+export type MetaHealth = z.infer<typeof metaHealthSchema>
+
 export const managedRotateRequestSchema = z
   .object({
     accessToken: metaToken.optional(),
