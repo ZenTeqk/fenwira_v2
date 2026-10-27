@@ -198,12 +198,21 @@ export function mediaKindOf(m: {
   const header = m.templateSnapshot?.header
   return header && header.type !== 'TEXT' ? header.type : null
 }
+/** Thread filters on the message's own type (no media header rule): voice notes and templates. */
+export const THREAD_TYPE_FILTERS = ['audio', 'template'] as const
+export type ThreadTypeFilter = (typeof THREAD_TYPE_FILTERS)[number]
+export const TYPE_FILTER_TYPE: Record<ThreadTypeFilter, 'AUDIO' | 'TEMPLATE'> = {
+  audio: 'AUDIO',
+  template: 'TEMPLATE',
+}
 export const mediaCountsSchema = z.object({
   /** Every customer and workspace message (system events excluded). */
   all: z.number().int(),
   image: z.number().int(),
   video: z.number().int(),
   document: z.number().int(),
+  audio: z.number().int(),
+  template: z.number().int(),
 })
 export type MediaCounts = z.infer<typeof mediaCountsSchema>
 
@@ -386,6 +395,8 @@ export const messagesQuerySchema = z.object({
   before: z.string().max(200).optional(),
   /** Only this kind of media (counts: GET /conversations/:id/media-counts). */
   type: z.enum(THREAD_MEDIA_FILTERS).optional(),
+  /** Only audio or only template messages (counts as above). Not combined with `type`. */
+  kind: z.enum(THREAD_TYPE_FILTERS).optional(),
 })
 
 // Files (message media) -------------------------------------------------------------------------

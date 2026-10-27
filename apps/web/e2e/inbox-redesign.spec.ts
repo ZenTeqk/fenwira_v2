@@ -36,17 +36,19 @@ test('connected inbox layout: column sizes, compact header and strip, collapsibl
   await expect(panel).toBeVisible()
   await expect(page.getByRole('group', { name: 'Conversation state' })).toContainText('Window open')
 
-  // 1440: rail + list + chat + inline details, no gaps between columns.
+  // 1440: sidebar + list + chat + inline details, no gaps between columns. The sidebar keeps its
+  // own collapse control (224px, or 64px collapsed).
   const rail = await box(page, 'aside:has(nav[aria-label="Main"])')
   const list = await box(page, 'section[aria-label="Conversations"]')
   const chat = await box(page, 'section[aria-label="Conversation"]')
   const details = await box(page, 'aside[aria-labelledby$="-title"]')
-  expect(rail?.width).toBe(64)
+  expect([224, 64]).toContain(rail?.width)
   expect(list?.width).toBe(319) // 320px column less its 1px divider
-  expect(list!.x).toBe(64)
-  expect(chat!.x).toBe(64 + 320)
+  expect(list!.x).toBe(rail!.width)
+  expect(chat!.x).toBe(rail!.width + 320)
   expect(details?.width).toBe(312)
   expect(chat!.x + chat!.width).toBe(details!.x)
+  await expect(page.getByRole('button', { name: /Collapse sidebar|Expand sidebar/ })).toBeVisible()
   expect(
     await page.evaluate(() =>
       [...document.querySelectorAll('section[aria-label="Conversation"] > *')].map(
@@ -62,7 +64,9 @@ test('connected inbox layout: column sizes, compact header and strip, collapsibl
   await panel.getByRole('button', { name: 'Close contact details' }).click()
   await expect(panel).toBeHidden()
   await expect(page.getByRole('button', { name: 'Show contact details' })).toBeFocused()
-  expect((await box(page, 'section[aria-label="Conversation"]'))!.width).toBe(1440 - 64 - 320)
+  expect((await box(page, 'section[aria-label="Conversation"]'))!.width).toBe(
+    1440 - rail!.width - 320,
+  )
   await expect(reply).toHaveValue('Keep this draft while the panel closes')
   await page.reload()
   await expect(messages).toBeVisible()
@@ -221,6 +225,24 @@ test('review scenario renders real data at 1440 and 1200', async ({ page }) => {
   await expect(failedRow.getByRole('img', { name: /Sent|Delivered|Read|Sending/ })).toHaveCount(0)
   expect(await axe(page)).toEqual([])
   if (shots) await page.screenshot({ path: join(shots, 'inbox-1440.png') })
+
+  // Chips above the timeline: Templates and Notes, each with Jump to message.
+  const chips = page.getByRole('group', { name: 'Show messages' })
+  const chip = (label: string) => chips.getByRole('button', { name: new RegExp(`^${label} `) })
+  await expect(chip('Templates')).toHaveText('Templates 2')
+  await expect(chip('Audio')).toHaveText('Audio 0')
+  await expect(chip('Notes')).toHaveText('Notes 1')
+  await chip('Templates').click()
+  await expect(chip('Templates')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('group', { name: /The 55-inch model is available/ })).toHaveCount(2)
+  await chip('Audio').click()
+  await expect(page.getByText('No audio in this conversation')).toBeVisible()
+  await chip('Notes').click()
+  await expect(page.getByText('Asked about delivery to Nagercoil.')).toBeVisible()
+  expect(await axe(page)).toEqual([])
+  await page.getByRole('button', { name: 'Jump to message' }).click()
+  await expect(chip('All')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('[data-note-id]')).toBeFocused()
   await page.setViewportSize({ width: 1200, height: 900 })
   await expect(page.getByRole('complementary', { name: 'Contact details' })).toBeHidden()
   expect(await axe(page)).toEqual([])

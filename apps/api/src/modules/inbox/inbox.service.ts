@@ -14,6 +14,8 @@ import {
   type Notification,
   type SendableContent,
   type ThreadMediaFilter,
+  type ThreadTypeFilter,
+  TYPE_FILTER_TYPE,
 } from '@fenwira/contracts'
 import { Database, type Prisma, type TenantTx } from '@fenwira/database'
 import { jobId, QUEUES } from '@fenwira/queue'
@@ -190,13 +192,17 @@ export class InboxService {
    * Newest first; `before` pages backwards. Includes SYSTEM event messages, unless `type` asks for
    * one kind of media (docs/INBOX.md → Media filter), which pages over `media_type` instead.
    */
-  async thread(id: string, query: { limit: number; before?: string; type?: ThreadMediaFilter }) {
+  async thread(
+    id: string,
+    query: { limit: number; before?: string; type?: ThreadMediaFilter; kind?: ThreadTypeFilter },
+  ) {
     const { userId } = currentAuth()
     return this.tenantDb.run(async (tx) => {
       await this.find(tx, id, userId)
       const cursor = decodeCursor(query.before)
       let where: Prisma.MessageWhereInput = { conversationId: id, ...afterCursor(cursor) }
-      if (query.type) {
+      if (query.kind) where = { ...where, type: TYPE_FILTER_TYPE[query.kind] }
+      else if (query.type) {
         // media_type is a generated column Prisma can't see: page the ids in SQL (the
         // (conversation_id, media_type, created_at) index), then load the rows.
         const kind = MEDIA_FILTER_KIND[query.type]
@@ -225,18 +231,29 @@ export class InboxService {
     return this.tenantDb.run(async (tx) => {
       await this.find(tx, id, userId)
       const [row] = await tx.$queryRaw<
-        Array<{ all: bigint; image: bigint; video: bigint; document: bigint }>
+        Array<{
+          all: bigint
+          image: bigint
+          video: bigint
+          document: bigint
+          audio: bigint
+          template: bigint
+        }>
       >`
         SELECT count(*) FILTER (WHERE direction <> 'SYSTEM') AS all,
                count(*) FILTER (WHERE media_type = 'IMAGE') AS image,
                count(*) FILTER (WHERE media_type = 'VIDEO') AS video,
-               count(*) FILTER (WHERE media_type = 'DOCUMENT') AS document
+               count(*) FILTER (WHERE media_type = 'DOCUMENT') AS document,
+               count(*) FILTER (WHERE type = 'AUDIO') AS audio,
+               count(*) FILTER (WHERE type = 'TEMPLATE') AS template
         FROM messages WHERE conversation_id = ${id}::uuid`
       return {
         all: Number(row?.all ?? 0),
         image: Number(row?.image ?? 0),
         video: Number(row?.video ?? 0),
         document: Number(row?.document ?? 0),
+        audio: Number(row?.audio ?? 0),
+        template: Number(row?.template ?? 0),
       }
     })
   }

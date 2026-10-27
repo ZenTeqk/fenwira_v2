@@ -88,10 +88,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       visibleNavigation(navPreview, NAVIGATION, membership.permissions, me.features.managedLaunch),
     [navPreview, membership.permissions, me.features.managedLaunch],
   )
-  const [collapsedPreference, setCollapsed] = useState(false)
-  // The inbox always uses the 64px rail so the conversation gets the room; the saved preference
-  // is untouched and applies again on other pages.
-  const collapsed = collapsedPreference || fullBleed
+  const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileTrigger = useRef<HTMLButtonElement>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -143,26 +140,24 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
         </div>
         <SidebarStatus collapsed={collapsed} />
         <AccountMenu footer collapsed={collapsed} />
-        {fullBleed ? null : (
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-pressed={collapsed}
-            className={cn(
-              'flex h-9 items-center gap-3 rounded-sm px-3 text-base text-secondary hover:bg-neutral-soft hover:text-slate',
-              collapsed && 'justify-center px-0',
-              focusRing,
-            )}
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="size-4" aria-hidden="true" />
-            ) : (
-              <PanelLeftClose className="size-4" aria-hidden="true" />
-            )}
-            {collapsed ? null : <span>Collapse</span>}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-pressed={collapsed}
+          className={cn(
+            'flex h-9 items-center gap-3 rounded-sm px-3 text-base text-secondary hover:bg-neutral-soft hover:text-slate',
+            collapsed && 'justify-center px-0',
+            focusRing,
+          )}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="size-4" aria-hidden="true" />
+          ) : (
+            <PanelLeftClose className="size-4" aria-hidden="true" />
+          )}
+          {collapsed ? null : <span>Collapse</span>}
+        </button>
       </aside>
 
       {/* Mobile / tablet navigation */}

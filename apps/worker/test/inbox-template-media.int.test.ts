@@ -191,11 +191,11 @@ describe('template snapshot', () => {
     const thread = await s.owner.client.get(`/conversations/${conversationId}/messages`)
     const stored = thread.body.data.find((m: { id: string }) => m.id === sent.body.data.id)
     expect(stored.templateSnapshot).toMatchObject(expected)
-    // The conversation list previews the rendered body, and search indexes it.
+    // Search indexes the rendered body; the list preview names the template.
     const found = await s.owner.client.get('/conversations?q=kumquat')
     const hit = found.body.data.find((c: { id: string }) => c.id === conversationId)
     expect(hit?.snippet).toContain('kumquat voucher V-77')
-    expect(hit?.lastMessagePreview).toContain('kumquat voucher V-77')
+    expect(hit?.lastMessagePreview).toBe('Template: voucher_ready')
   })
 
   it('a send by name with raw Meta components keeps the values it sent', async () => {
@@ -242,7 +242,27 @@ describe('media filter', () => {
 
     const counts = await s.owner.client.get(`/conversations/${conversationId}/media-counts`)
     expect(counts.status, counts.text).toBe(200)
-    expect(counts.body.data).toEqual({ all: 4, image: 3, video: 0, document: 0 })
+    expect(counts.body.data).toEqual({
+      all: 4,
+      image: 3,
+      video: 0,
+      document: 0,
+      audio: 0,
+      template: 4,
+    })
+    // kind= filters on the message's own type: every template, with or without a media header.
+    const templates = await s.owner.client.get(
+      `/conversations/${conversationId}/messages?kind=template&limit=3`,
+    )
+    expect(templates.status, templates.text).toBe(200)
+    expect(templates.body.data.map((m: { id: string }) => m.id)).toEqual([
+      text.body.data.id,
+      ids[2],
+      ids[1],
+    ])
+    expect(templates.body.page.nextCursor).toBeTruthy()
+    const audio = await s.owner.client.get(`/conversations/${conversationId}/messages?kind=audio`)
+    expect(audio.body.data).toEqual([])
 
     const first = await s.owner.client.get(
       `/conversations/${conversationId}/messages?type=image&limit=2`,

@@ -115,10 +115,17 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     unread.click(),
   ])
   await expect(unread).toBeChecked()
-  await expect(page.getByRole('tab', { name: /^All \d+$/ })).toHaveAttribute(
-    'aria-selected',
+  // Views live in the Filter menu, with server counts.
+  await page.getByRole('button', { name: /^Filter · All conversations/ }).click()
+  const menu = page.getByRole('menu')
+  await expect(menu.getByRole('menuitem', { name: /^All conversations \d+/ })).toHaveAttribute(
+    'aria-current',
     'true',
   )
+  await menu.getByRole('menuitem', { name: /^Mine/ }).click()
+  await expect(page.getByRole('heading', { name: /^Mine/ })).toBeVisible()
+  await page.getByRole('button', { name: /^Filter · Mine/ }).click()
+  await menu.getByRole('menuitem', { name: /^All conversations/ }).click()
   await unread.click()
   await list.getByText(customer).click()
   await expect(
