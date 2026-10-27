@@ -371,7 +371,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
   const chips = <MediaFilterChips value={filter} counts={counts.data} onChange={setFilter} />
   if (filter)
     return (
-      <div className="flex min-h-0 flex-1 flex-col bg-thread-soft">
+      <div className="flex min-h-0 flex-1 flex-col bg-surface">
         {chips}
         <MediaResults
           conversationId={conversationId}

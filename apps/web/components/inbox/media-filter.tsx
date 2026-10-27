@@ -72,6 +72,7 @@ export function MediaFilterChips({
             )}
           >
             {chip.label}
+            {count !== undefined ? ' ' : null}
             {count !== undefined ? (
               // Muted fails AA on neutral-soft, so the count darkens with the hover background.
               <span className={cn('text-muted', !active && 'group-hover:text-secondary')}>

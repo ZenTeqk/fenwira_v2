@@ -17,7 +17,9 @@ type MessageRow = Prisma.MessageGetPayload<object> & {
 const iso = (d: Date | null) => d?.toISOString() ?? null
 export function toMessage(m: MessageRow): Message {
   const parsed = messageContentSchema.safeParse(m.content)
-  const snapshot = m.templateSnapshot ? messageTemplateSnapshotSchema.safeParse(m.templateSnapshot) : null
+  const snapshot = m.templateSnapshot
+    ? messageTemplateSnapshotSchema.safeParse(m.templateSnapshot)
+    : null
   return {
     id: m.id,
     conversationId: m.conversationId,
@@ -64,7 +66,10 @@ const MEDIA_LABEL: Record<string, string> = {
 }
 
 /** Conversation-list preview (≤140 chars); a template shows its rendered body when known. */
-export function previewOf(content: MessageContent, snapshot?: MessageTemplateSnapshot | null): string {
+export function previewOf(
+  content: MessageContent,
+  snapshot?: MessageTemplateSnapshot | null,
+): string {
   const cut = (s: string) => (s.length > 140 ? `${s.slice(0, 139)}…` : s)
   switch (content.type) {
     case 'TEXT':
