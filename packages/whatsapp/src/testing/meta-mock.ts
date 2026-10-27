@@ -375,6 +375,8 @@ export function createMetaMockHandler(state: MetaMockState) {
                 name: input.name ? String(input.name) : undefined,
                 text: String(input.text ?? 'Hello from the simulator'),
                 wamid,
+                // Optional Unix seconds, e.g. to simulate a message from before the window closed.
+                ...(input.timestamp ? { timestamp: Number(input.timestamp) } : {}),
               },
             ),
           )

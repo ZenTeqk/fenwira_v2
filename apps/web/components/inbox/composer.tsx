@@ -14,14 +14,16 @@ import {
   DropdownContent,
   DropdownItem,
   DropdownTrigger,
+  focusRing,
   toast,
   Textarea,
 } from '@fenwira/ui'
 import { type InfiniteData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileText, MessageSquareText, Paperclip, Send } from 'lucide-react'
+import { Clock, FileText, Lock, MessageSquareText, Paperclip, Send } from 'lucide-react'
 import {
   type ChangeEvent,
   type KeyboardEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -35,9 +37,9 @@ import { useConnections } from '@/lib/workspace-status'
 import { ApiError, del, get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { matchCanned, useCannedReplies } from '@/lib/canned-replies'
+import { composerState } from '@/lib/composer-state'
 import { useNow } from '@/lib/inbox'
 import { useRealtimeEvent, useSocket } from '@/lib/realtime'
-import { Segmented } from './segmented'
 import { TemplatePicker, type TemplateSend } from './template-picker'
 import { notesKey, threadKey } from './thread'
 
@@ -284,8 +286,8 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const submit = () => {
     if (busy || (mode === 'reply' && lockedByOther)) return
     if (mode === 'note') return text.trim() && note.mutate()
-    if (windowOpen && eligibility.data?.freeform.allowed === false) return
-    if (!windowOpen) return setPicking(true)
+    if (state.kind === 'reply-restricted' || state.kind === 'blocked') return
+    if (state.kind === 'template-only') return setPicking(true)
     if (text.trim()) send.mutate({ content: { type: 'TEXT', text: text.trim() } })
   }
   /** Inserts a canned reply for editing; it never sends by itself. */
@@ -319,41 +321,55 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     }
   }
   const disabled = mode === 'reply' && lockedByOther
-  const freeformRestricted =
-    mode === 'reply' && windowOpen && eligibility.data?.freeform.allowed === false
+  const state = composerState({
+    windowOpen,
+    eligibility: eligibility.data,
+    numberStatus: connection?.status,
+    canSendTemplates: can('templates.read'),
+  })
+  const freeformRestricted = mode === 'reply' && state.kind === 'reply-restricted'
 
   return (
     <div
       className={cn(
-        'relative z-10 flex flex-col gap-1 border-t border-border p-2',
-        mode === 'note' ? 'bg-note-soft' : 'bg-neutral-soft',
+        'relative z-10 flex flex-col gap-2 border-t border-border px-4 py-3',
+        mode === 'note' ? 'bg-note-soft' : 'bg-surface',
       )}
     >
-      <div className="self-start">
-        <Segmented
-          compact
-          label="Compose"
-          disabled={busy}
-          value={mode}
-          options={[
-            { value: 'reply', label: 'Reply' },
-            { value: 'note', label: 'Internal note' },
-          ]}
-          onChange={setMode}
-        />
+      <div role="group" aria-label="Compose" className="flex gap-1 self-start">
+        {(
+          [
+            { value: 'reply', label: 'Reply', icon: Send },
+            { value: 'note', label: 'Internal note', icon: Lock },
+          ] as const
+        ).map(({ value, label, icon: Icon }) => (
+          <button
+            key={value}
+            type="button"
+            disabled={busy}
+            aria-pressed={mode === value}
+            onClick={() => setMode(value)}
+            className={cn(
+              'inline-flex h-9 items-center gap-2 rounded-md px-3 text-base font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+              focusRing,
+              mode === value
+                ? value === 'note'
+                  ? 'bg-note-soft text-warning-strong'
+                  : 'bg-primary-soft text-primary-strong'
+                : 'text-secondary hover:bg-neutral-soft hover:text-slate',
+            )}
+          >
+            <Icon aria-hidden="true" className="size-4" />
+            {label}
+          </button>
+        ))}
       </div>
-      {mode === 'reply' &&
-      connection &&
-      ['DISCONNECTED', 'RESTRICTED', 'ERROR', 'PENDING'].includes(connection.status) ? (
-        <Alert tone="warning" title="WhatsApp connection needs attention">
-          This number is {connection.status.toLowerCase()}. Check the WhatsApp connection before
-          sending.
-        </Alert>
+      {mode === 'reply' && state.kind === 'blocked' ? (
+        <ComposerStrip title={state.title} message={state.message} />
       ) : null}
       {freeformRestricted ? (
         <Alert tone="warning" title="Free-form replies are unavailable">
-          {eligibility.data?.freeform.reason ??
-            'Review messaging eligibility in the contact details.'}
+          {state.kind === 'reply-restricted' ? state.reason : null}
         </Alert>
       ) : null}
       {mode === 'reply' && lockedByOther ? (
@@ -371,7 +387,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           You can reply when they finish.
         </Alert>
       ) : null}
-      {mode === 'reply' && closingSoon ? (
+      {mode === 'reply' && closingSoon && state.kind === 'reply' ? (
         <Alert
           tone="warning"
           title={`The 24-hour window closes in ${Math.max(minutesLeft, 1)} min`}
@@ -379,15 +395,17 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           After that, only an approved template can reach this customer.
         </Alert>
       ) : null}
-      {mode === 'reply' && !windowOpen ? (
-        <div className="flex flex-col gap-2">
-          <Alert tone="warning">
-            The 24-hour window has closed. Send an approved template to restart the conversation.
-          </Alert>
-          <Button className="self-start" disabled={disabled} onClick={() => setPicking(true)}>
-            Choose a template
-          </Button>
-        </div>
+      {mode === 'reply' && state.kind === 'blocked' ? null : mode === 'reply' &&
+        state.kind === 'template-only' ? (
+        <ComposerStrip
+          title="Reply window closed"
+          message="Use an approved template to send a message."
+          action={
+            <Button disabled={disabled} onClick={() => setPicking(true)}>
+              Choose template
+            </Button>
+          }
+        />
       ) : (
         <div className="relative flex items-end gap-2">
           {matches.length ? (
@@ -537,6 +555,34 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         sending={send.isPending}
         onSend={(t: TemplateSend) => send.mutate(t)}
       />
+    </div>
+  )
+}
+
+/**
+ * The composer's one-line explanation when free text can't be sent: warning-soft with a warning
+ * edge; `action` only when that action can succeed.
+ */
+function ComposerStrip({
+  title,
+  message,
+  action,
+}: {
+  title: string
+  message: string
+  action?: ReactNode
+}) {
+  return (
+    <div
+      role="status"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-l-4 border-warning bg-warning-soft py-2.5 pr-3 pl-3"
+    >
+      <Clock aria-hidden="true" className="size-5 shrink-0 text-warning-strong" />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <p className="text-base font-semibold text-warning-strong">{title}</p>
+        <p className="text-sm text-slate">{message}</p>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   )
 }

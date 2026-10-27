@@ -54,7 +54,9 @@ test('two agents: typing locks the reply box for the other, and replies arrive l
   await expect(page.getByLabel('Reply', { exact: true })).toBeEnabled()
   await expect(page.getByText('Priya Agent is replying…')).toHaveCount(0)
   // The agent's reply took the conversation over from automation.
-  await expect(page.getByText('An agent has taken over')).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Conversation state' })).toContainText(
+    'Agent takeover',
+  )
 
   // The open conversation (all three panes) has no WCAG 2.1 AA violations.
   const axe = await new AxeBuilder({ page })

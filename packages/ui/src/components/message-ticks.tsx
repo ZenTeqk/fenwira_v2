@@ -138,3 +138,56 @@ function FailedTick({
     </PopoverPrimitive.Root>
   )
 }
+
+/**
+ * A failed send under its bubble: "Failed · View details" in danger text with an icon. Never shown
+ * together with ticks. "View details" opens Meta's reason and error code; there is no retry here.
+ */
+export function MessageFailure({
+  errorCode,
+  errorDetail,
+  className,
+}: {
+  errorCode?: string | null
+  errorDetail?: string | null
+  className?: string
+}) {
+  const id = useId()
+  return (
+    <p
+      data-tick="failed"
+      className={cn('flex items-center gap-1.5 text-xs text-danger-strong', className)}
+    >
+      <CircleAlert aria-hidden="true" className="size-4 shrink-0" />
+      <span>Failed</span>
+      <span aria-hidden="true">·</span>
+      <PopoverPrimitive.Root>
+        <PopoverPrimitive.Trigger
+          className={cn('rounded-sm font-medium underline-offset-2 hover:underline', focusRing)}
+        >
+          View details
+        </PopoverPrimitive.Trigger>
+        <PopoverPrimitive.Portal>
+          <PopoverPrimitive.Content
+            role="dialog"
+            aria-labelledby={`${id}-title`}
+            side="top"
+            align="end"
+            sideOffset={6}
+            className="z-50 flex max-w-xs flex-col gap-1 rounded-md border border-border bg-surface p-3 text-sm text-slate shadow-overlay"
+          >
+            <p id={`${id}-title`} className="font-semibold">
+              Message not sent
+            </p>
+            <p className="text-secondary">
+              {errorDetail ?? 'WhatsApp did not accept this message.'}
+            </p>
+            {errorCode ? (
+              <p className="text-xs text-secondary">Meta error code {metaCode(errorCode)}</p>
+            ) : null}
+          </PopoverPrimitive.Content>
+        </PopoverPrimitive.Portal>
+      </PopoverPrimitive.Root>
+    </p>
+  )
+}
