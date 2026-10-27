@@ -1,6 +1,7 @@
 import {
   type Message,
   type MessageContent,
+  messagePreview,
   messageContentSchema,
   type MessageTemplateSnapshot,
   messageTemplateSnapshotSchema,
@@ -55,40 +56,12 @@ export function toMessage(m: MessageRow): Message {
   }
 }
 
-const MEDIA_LABEL: Record<string, string> = {
-  IMAGE: '📷 Photo',
-  VIDEO: '🎥 Video',
-  AUDIO: '🎤 Audio',
-  DOCUMENT: '📄 Document',
-  STICKER: 'Sticker',
-  LOCATION: '📍 Location',
-  CONTACTS: '👤 Contact',
-}
-
-/** Conversation-list preview (≤140 chars); a template shows its rendered body when known. */
+/** The conversation list's one-line preview: the shared contracts formatter. */
 export function previewOf(
   content: MessageContent,
   snapshot?: MessageTemplateSnapshot | null,
 ): string {
-  const cut = (s: string) => (s.length > 140 ? `${s.slice(0, 139)}…` : s)
-  switch (content.type) {
-    case 'TEXT':
-      return cut(content.text)
-    case 'TEMPLATE':
-      return cut(snapshot?.body ?? `Template: ${content.name}`)
-    case 'INTERACTIVE':
-      return cut(content.text ?? 'Interactive reply')
-    case 'REACTION':
-      return `Reacted ${content.emoji}`
-    case 'UNSUPPORTED':
-      return 'Unsupported message'
-    case 'SYSTEM_EVENT':
-      return cut(content.event)
-    default: {
-      const caption = 'caption' in content ? content.caption : undefined
-      return cut(caption ? `${MEDIA_LABEL[content.type]}: ${caption}` : MEDIA_LABEL[content.type]!)
-    }
-  }
+  return messagePreview(content, snapshot)
 }
 
 /** E.164 with "+" for storage; Meta wants digits only. */
