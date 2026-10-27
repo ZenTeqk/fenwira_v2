@@ -2,6 +2,7 @@ import {
   assignRequestSchema,
   automationStateRequestSchema,
   composeLockRequestSchema,
+  conversationCountsQuerySchema,
   conversationsQuerySchema,
   conversationStatusRequestSchema,
   createConversationNoteSchema,
@@ -53,6 +54,15 @@ export class ConversationsController {
   async list(@Query(pipe(conversationsQuerySchema)) query: In<typeof conversationsQuerySchema>) {
     const { items, page } = await this.inbox.list(query)
     return { data: items, page }
+  }
+
+  /** All / Mine / Unassigned counts under the same filters as the list (one shared filter). */
+  @Get('conversations/counts')
+  @RequirePermission('inbox.read')
+  async counts(
+    @Query(pipe(conversationCountsQuerySchema)) query: In<typeof conversationCountsQuerySchema>,
+  ) {
+    return { data: await this.inbox.counts(query) }
   }
 
   /**
