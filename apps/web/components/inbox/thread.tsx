@@ -1,6 +1,12 @@
 'use client'
 
-import { type ConversationNote, type Message, type MessageStatus } from '@fenwira/contracts'
+import {
+  type ConversationNote,
+  type MediaCounts,
+  type Message,
+  type MessageStatus,
+  type ThreadTypeFilter,
+} from '@fenwira/contracts'
 import {
   Button,
   cn,
@@ -20,14 +26,14 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import Image from 'next/image'
 import { followsSameSender } from '@/lib/message-grouping'
 import { Lock, Paperclip } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { clockTime } from '@/lib/inbox'
 import { useRealtimeEvent } from '@/lib/realtime'
 import { useFileUrl } from './media'
-import { mediaCountsKey } from './media-filter'
+import { mediaCountsKey, MediaResults, type ThreadFilter, ThreadFilterChips } from './media-filter'
 import { usePresence } from './conversation-actions'
 import { TemplateMessage } from './template-message'
 
@@ -246,8 +252,12 @@ export function Thread({
     getNextPageParam: (last) => last.page.nextCursor ?? undefined,
   })
   const [jumpTo, setJumpTo] = useState<string | null>(null)
+  // The chips above the timeline (All / Images / … / Notes); the thread remounts per conversation.
+  const [filter, setFilter] = useState<ThreadFilter | null>(null)
   useEffect(() => {
-    if (jump) setJumpTo(jump.id)
+    if (!jump) return
+    setFilter(null)
+    setJumpTo(jump.id)
   }, [jump])
   const countsKey = mediaCountsKey(tenantId, conversationId)
   const notes = useQuery({
@@ -342,8 +352,10 @@ export function Thread({
   // to it and move focus there.
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = messages
   useEffect(() => {
-    if (!jumpTo) return
-    const index = items.findIndex((i) => i.kind === 'message' && i.message.id === jumpTo)
+    if (!jumpTo || filter) return
+    const index = items.findIndex(
+      (i) => (i.kind === 'message' ? i.message.id : i.note.id) === jumpTo,
+    )
     if (index >= 0) {
       nearBottom.current = false
       virtualizer.scrollToIndex(index, { align: 'center' })
@@ -352,12 +364,63 @@ export function Thread({
       requestAnimationFrame(() => {
         virtualizer.scrollToIndex(index, { align: 'center' })
         scroller.current
-          ?.querySelector<HTMLElement>(`[data-message-id="${target}"]`)
+          ?.querySelector<HTMLElement>(`[data-message-id="${target}"], [data-note-id="${target}"]`)
           ?.focus({ preventScroll: true })
       })
     } else if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
     else if (!hasNextPage) setJumpTo(null)
-  }, [jumpTo, items, virtualizer, hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [jumpTo, filter, items, virtualizer, hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  const counts = useQuery({
+    queryKey: countsKey,
+    queryFn: () =>
+      get<{ data: MediaCounts }>(`/conversations/${conversationId}/media-counts`).then(
+        (r) => r.data,
+      ),
+  })
+  const chips = (
+    <ThreadFilterChips
+      value={filter}
+      onChange={setFilter}
+      counts={counts.data ? { ...counts.data, notes: notes.data?.length ?? 0 } : undefined}
+    />
+  )
+  const jumpFromFilter = (id: string) => {
+    setFilter(null)
+    setJumpTo(id)
+  }
+  if (filter) {
+    const loaded = (messages.data?.pages ?? []).flatMap((p) => p.data)
+    return (
+      <div className="flex min-h-0 flex-1 flex-col bg-background">
+        {chips}
+        {filter === 'notes' ? (
+          <FilteredItems
+            items={(notes.data ?? [])
+              .map((n): Item => ({ kind: 'note', at: n.createdAt, note: n }))
+              .reverse()}
+            empty="No internal notes in this conversation"
+            names={names}
+            onJump={jumpFromFilter}
+          />
+        ) : filter === 'audio' || filter === 'template' ? (
+          <TypeResults
+            conversationId={conversationId}
+            kind={filter}
+            names={names}
+            onJump={jumpFromFilter}
+          />
+        ) : (
+          <MediaResults
+            conversationId={conversationId}
+            filter={filter}
+            loaded={loaded}
+            onJump={jumpFromFilter}
+          />
+        )}
+      </div>
+    )
+  }
 
   if (messages.isPending)
     return (
@@ -373,6 +436,7 @@ export function Thread({
     )
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {chips}
       <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
         <div
           ref={scroller}
@@ -440,7 +504,7 @@ export function Thread({
                   <div
                     {...(item.kind === 'message'
                       ? { 'data-message-id': item.message.id, tabIndex: -1 }
-                      : {})}
+                      : { 'data-note-id': item.note.id, tabIndex: -1 })}
                     className={cn('rounded-md', focusRing)}
                   >
                     <Row item={item} grouped={grouped} names={names} />
@@ -452,5 +516,115 @@ export function Thread({
         </div>
       </div>
     </div>
+  )
+}
+
+/** A filtered list of timeline items (newest first), each with "Jump to message". */
+function FilteredItems({
+  items,
+  empty,
+  names,
+  onJump,
+  footer,
+}: {
+  items: Item[]
+  empty: string
+  names: Map<string, string>
+  onJump: (id: string) => void
+  footer?: ReactNode
+}) {
+  if (!items.length)
+    return (
+      <div className="flex flex-1 items-center justify-center p-8">
+        <p className="text-sm text-muted">{empty}</p>
+      </div>
+    )
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+      <ul className="flex flex-col gap-4">
+        {items.map((item) => {
+          const id = item.kind === 'message' ? item.message.id : item.note.id
+          return (
+            <li key={id} className="flex flex-col gap-1">
+              <Row item={item} grouped={false} names={names} />
+              <Button
+                variant="link"
+                size="sm"
+                className={cn(
+                  'self-start',
+                  item.kind === 'message' && item.message.direction === 'OUTBOUND' && 'self-end',
+                )}
+                onClick={() => onJump(id)}
+              >
+                Jump to message
+              </Button>
+            </li>
+          )
+        })}
+      </ul>
+      {footer}
+    </div>
+  )
+}
+
+/** Audio or template messages from the server (`kind=`), paged. */
+function TypeResults({
+  conversationId,
+  kind,
+  names,
+  onJump,
+}: {
+  conversationId: string
+  kind: ThreadTypeFilter
+  names: Map<string, string>
+  onJump: (id: string) => void
+}) {
+  const { tenantId } = useSession()
+  const query = useInfiniteQuery({
+    queryKey: [...threadKey(tenantId, conversationId), 'kind', kind],
+    queryFn: ({ pageParam }) =>
+      get<Page>(
+        `/conversations/${conversationId}/messages?kind=${kind}&limit=30${pageParam ? `&before=${pageParam}` : ''}`,
+      ),
+    initialPageParam: '',
+    getNextPageParam: (last) => last.page.nextCursor ?? undefined,
+  })
+  if (query.isPending)
+    return (
+      <div className="flex flex-col gap-3 p-6">
+        {Array.from({ length: 3 }, (_, i) => (
+          <Skeleton key={i} className="h-16 w-2/3" />
+        ))}
+      </div>
+    )
+  if (query.isError)
+    return <ErrorState title="Messages couldn’t be loaded" onRetry={() => void query.refetch()} />
+  return (
+    <FilteredItems
+      items={query.data.pages
+        .flatMap((p) => p.data)
+        .map((m): Item => ({ kind: 'message', at: m.createdAt, message: m }))}
+      empty={
+        kind === 'audio'
+          ? 'No audio in this conversation'
+          : 'No template messages in this conversation'
+      }
+      names={names}
+      onJump={onJump}
+      footer={
+        query.hasNextPage ? (
+          <div className="flex justify-center pt-3">
+            <Button
+              size="sm"
+              variant="ghost"
+              loading={query.isFetchingNextPage}
+              onClick={() => void query.fetchNextPage()}
+            >
+              Load more
+            </Button>
+          </div>
+        ) : null
+      }
+    />
   )
 }

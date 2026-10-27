@@ -273,8 +273,10 @@ test('Shared files lists media by type with counts, and Jump to message returns 
   await page.goto(`/inbox?c=${thread.conversationId}`)
   const log = page.getByRole('log', { name: 'Messages' })
   await expect(log.getByText('Update 14')).toBeVisible()
-  // No media chips above the timeline any more: files live in the contact panel.
-  await expect(page.getByRole('group', { name: 'Show messages' })).toHaveCount(0)
+  // Media chips above the timeline count the same files as Shared files.
+  const chips = page.getByRole('group', { name: 'Show messages' })
+  await expect(chips.getByRole('button', { name: /^Images/ })).toHaveText('Images 2')
+  await expect(chips.getByRole('button', { name: /^Documents/ })).toHaveText('Documents 1')
   await page.getByRole('button', { name: 'More conversation actions' }).click()
   await page.getByRole('menuitem', { name: 'Shared files' }).click()
   const panel = page.getByRole('complementary', { name: 'Contact details' })

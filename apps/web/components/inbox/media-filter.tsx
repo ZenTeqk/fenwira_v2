@@ -6,6 +6,7 @@ import {
   mediaKindOf,
   type Message,
   type ThreadMediaFilter,
+  type ThreadTypeFilter,
 } from '@fenwira/contracts'
 import { Button, cn, ErrorState, focusRing, Skeleton } from '@fenwira/ui'
 import { useInfiniteQuery } from '@tanstack/react-query'
@@ -24,12 +25,6 @@ export const mediaKey = (tenantId: string, id: string, filter: ThreadMediaFilter
 export const mediaCountsKey = (tenantId: string, id: string) =>
   keys.tenant(tenantId, 'inbox', 'media-counts', id)
 
-const CHIPS: Array<{ value: ThreadMediaFilter | null; label: string; count: keyof MediaCounts }> = [
-  { value: null, label: 'All', count: 'all' },
-  { value: 'image', label: 'Images', count: 'image' },
-  { value: 'video', label: 'Videos', count: 'video' },
-  { value: 'document', label: 'Documents', count: 'document' },
-]
 const NOUN: Record<ThreadMediaFilter, string> = {
   image: 'images',
   video: 'videos',
@@ -37,21 +32,34 @@ const NOUN: Record<ThreadMediaFilter, string> = {
 }
 const EMPTY_ICON = { image: ImageIcon, video: Video, document: FileText }
 
-/** All / Images / Videos / Documents (docs/INBOX.md → Media filter). Toggle buttons. */
-export function MediaFilterChips({
+/** What the chips above the timeline can show (docs/INBOX.md → Thread filters). */
+export type ThreadFilter = ThreadMediaFilter | ThreadTypeFilter | 'notes'
+type ChipCounts = MediaCounts & { notes: number }
+const CHIPS: Array<{ value: ThreadFilter | null; label: string; count: keyof ChipCounts }> = [
+  { value: null, label: 'All', count: 'all' },
+  { value: 'image', label: 'Images', count: 'image' },
+  { value: 'video', label: 'Video', count: 'video' },
+  { value: 'document', label: 'Documents', count: 'document' },
+  { value: 'audio', label: 'Audio', count: 'audio' },
+  { value: 'template', label: 'Templates', count: 'template' },
+  { value: 'notes', label: 'Notes', count: 'notes' },
+]
+
+/** All / Images / Video / Documents / Audio / Templates / Notes: toggle buttons with counts. */
+export function ThreadFilterChips({
   value,
   counts,
   onChange,
 }: {
-  value: ThreadMediaFilter | null
-  counts: MediaCounts | undefined
-  onChange: (value: ThreadMediaFilter | null) => void
+  value: ThreadFilter | null
+  counts: ChipCounts | undefined
+  onChange: (value: ThreadFilter | null) => void
 }) {
   return (
     <div
       role="group"
       aria-label="Show messages"
-      className="flex shrink-0 gap-2 overflow-x-auto border-b border-border bg-surface px-4 py-2"
+      className="flex shrink-0 gap-2 overflow-x-auto border-b border-border bg-surface px-5 py-2"
     >
       {CHIPS.map((chip) => {
         const active = chip.value === value
@@ -64,18 +72,17 @@ export function MediaFilterChips({
             // Clicking the active chip goes back to All.
             onClick={() => onChange(active ? null : chip.value)}
             className={cn(
-              'group flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition-colors',
+              'group flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors',
               focusRing,
               active
                 ? 'border-primary-strong bg-primary-soft text-primary-strong'
-                : 'border-border-strong bg-surface text-secondary hover:bg-neutral-soft',
+                : 'border-border-strong bg-surface text-secondary hover:bg-neutral-soft hover:text-slate',
             )}
           >
             {chip.label}
             {count !== undefined ? ' ' : null}
             {count !== undefined ? (
-              // Muted fails AA on neutral-soft, so the count darkens with the hover background.
-              <span className={cn('text-muted', !active && 'group-hover:text-secondary')}>
+              <span className={cn('tabular-nums', active ? 'text-primary-strong' : 'text-muted')}>
                 {count}
               </span>
             ) : null}
