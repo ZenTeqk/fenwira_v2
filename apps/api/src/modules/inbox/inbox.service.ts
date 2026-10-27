@@ -241,8 +241,18 @@ export class InboxService {
     })
   }
 
+  /**
+   * One message. A signed-in user only gets messages from conversations they can see (the same
+   * visibility as the list and thread); an API key stays workspace-wide (docs/API_KEYS.md).
+   */
   async message(id: string): Promise<Message> {
-    const row = await this.tenantDb.run((tx) => tx.message.findFirst({ where: { id } }))
+    const row = await this.tenantDb.run(async (tx) =>
+      tx.message.findFirst({
+        where: currentApiKey()
+          ? { id }
+          : { id, conversation: await this.visibility(tx, currentAuth().userId) },
+      }),
+    )
     if (!row) throw AppError.notFound('Message not found.')
     return toMessage(row)
   }

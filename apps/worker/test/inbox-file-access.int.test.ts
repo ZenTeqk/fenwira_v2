@@ -203,3 +203,34 @@ describe('message attachment access', () => {
     expect((await fetch(done.downloadUrl)).status).toBe(200)
   })
 })
+
+describe('single message access', () => {
+  it('a restricted agent can’t read a hidden conversation’s message; an API key still can', async () => {
+    const w = await workspace('msg-visibility')
+    const ownerId = (await w.owner.client.me()).body.data.user.id
+    const agent = await addMember(api, w.owner, 'AGENT')
+    const hidden = await conversation(w)
+    const shared = await conversation(w)
+    await w.owner.client.post(`/conversations/${hidden}/assign`, { assigneeId: ownerId })
+    await w.owner.client.patch('/workspace/inbox-settings', { inboxVisibility: 'ASSIGNED_ONLY' })
+    const firstMessage = async (id: string) =>
+      (await w.owner.client.get(`/conversations/${id}/messages?limit=1`)).body.data[0].id as string
+    const hiddenMessage = await firstMessage(hidden)
+    const sharedMessage = await firstMessage(shared)
+
+    expect((await agent.client.get(`/messages/${hiddenMessage}`)).status).toBe(404)
+    expect((await agent.client.get(`/messages/${sharedMessage}`)).status).toBe(200)
+    expect((await w.owner.client.get(`/messages/${hiddenMessage}`)).status).toBe(200)
+
+    // API keys are workspace-wide: unchanged.
+    const key = await w.owner.client.post('/api-keys', {
+      name: 'reader',
+      scopes: ['inbox.read'],
+    })
+    expect(key.status, key.text).toBe(201)
+    const viaKey = await w.owner.client.agent
+      .get(`/api/v1/messages/${hiddenMessage}`)
+      .set({ Authorization: `Bearer ${key.body.data.secret}` })
+    expect(viaKey.status, viaKey.text).toBe(200)
+  })
+})
