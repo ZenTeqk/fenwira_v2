@@ -1,10 +1,9 @@
 'use client'
-import { type PlatformMe } from '@fenwira/contracts'
 import { Button, ErrorState, Skeleton } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createContext, type ReactNode, useCallback, useContext, useEffect } from 'react'
+import { type ReactNode, useCallback, useEffect } from 'react'
 import { SessionTimeout } from '@/components/session/session-timeout'
 import {
   clearPlatformSession,
@@ -14,8 +13,8 @@ import {
 } from '@/lib/platform'
 import { parseDeadlines } from '@/lib/session-activity'
 import { IdentityProvider } from './identity'
-const PlatformContext = createContext<PlatformMe | null>(null)
-export const usePlatform = () => useContext(PlatformContext)
+import { PlatformContext } from './platform-context'
+export { usePlatform } from './platform-context'
 export function PlatformShell({ children }: { children: ReactNode }) {
   const pathname = usePathname(),
     router = useRouter(),

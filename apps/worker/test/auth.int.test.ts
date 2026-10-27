@@ -112,7 +112,8 @@ describe('login, logout and sessions', () => {
       expect(res.status).toBe(401)
       expect(res.body.error).toMatchObject({
         code: 'INVALID_CREDENTIALS',
-        message: 'Email or password is incorrect.',
+        // The shared error copy (core/http/error-copy.ts) words it for both cases alike.
+        message: 'The email or password is not correct.',
       })
     }
   })

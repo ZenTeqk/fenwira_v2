@@ -34,7 +34,15 @@ async function seedNumber(opts: { status?: string } = {}) {
   await control('seed', {
     wabaId,
     name: `WABA ${wabaId}`,
-    phones: [{ id: phoneNumberId, verifiedName: 'Acme Foods', status: opts.status }],
+    phones: [
+      {
+        id: phoneNumberId,
+        verifiedName: 'Acme Foods',
+        status: opts.status,
+        // Not a +1 555 number: those are Meta test numbers, which skip registration.
+        display: `+91 98${phoneNumberId.slice(-8)}`,
+      },
+    ],
   })
   return { wabaId, phoneNumberId }
 }

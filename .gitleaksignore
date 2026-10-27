@@ -10,3 +10,7 @@
 # create-key examples — never a real key; replaced with `fw_<prefix>_<secret>` afterwards.
 672f8f2adeed853d11ab684378adeb64e1c608a5:docs/API_KEYS.md:curl-auth-header:132
 672f8f2adeed853d11ab684378adeb64e1c608a5:docs/API_KEYS.md:generic-api-key:172
+
+# Test fixture in apps/web/test/platform-identity.test.ts (commit 4d60225): a fake operator
+# password in a unit test, not a credential.
+4d6022586b351bb36453bb45f5a68a56126d27b3:apps/web/test/platform-identity.test.ts:generic-api-key:49

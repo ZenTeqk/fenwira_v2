@@ -148,7 +148,8 @@ test('Inbox reconstruction preserves real messaging and Home shell consistency a
   await page.getByRole('button', { name: 'Reply', exact: true }).click()
   const me = (await (await page.request.get(`${API}/auth/me`)).json()).data
   const assigned = await page.request.post(`${API}/conversations/${conversation.id}/assign`, {
-    headers,
+    // The page rotated the CSRF token since `headers` was built.
+    headers: { ...headers, 'X-CSRF-Token': me.csrfToken },
     data: { assigneeId: me.user.id },
   })
   expect(assigned.ok()).toBe(true)
