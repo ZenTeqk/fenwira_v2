@@ -12,12 +12,14 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import Image from 'next/image'
 import { followsSameSender } from '@/lib/message-grouping'
 import { Lock, Paperclip } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useId, useMemo, useRef } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { clockTime } from '@/lib/inbox'
 import { useRealtimeEvent } from '@/lib/realtime'
+import { useFileUrl } from './media'
+import { TemplateMessage } from './template-message'
 
 type Page = { data: Message[]; page: { nextCursor: string | null } }
 type Item =
@@ -44,16 +46,19 @@ export const threadKey = (tenantId: string, id: string) =>
 export const notesKey = (tenantId: string, id: string) =>
   keys.tenant(tenantId, 'inbox', 'notes', id)
 
-function MessageBody({ m }: { m: Message }) {
+function MessageBody({ m, labelId, bodyId }: { m: Message; labelId: string; bodyId: string }) {
   const c = m.content
   switch (c.type) {
     case 'TEXT':
       return <p className="whitespace-pre-wrap break-words">{c.text}</p>
     case 'TEMPLATE':
       return (
-        <p>
-          <span className="text-sm text-secondary">Template</span> {c.name}
-        </p>
+        <TemplateMessage
+          snapshot={m.templateSnapshot}
+          name={c.name}
+          labelId={labelId}
+          bodyId={bodyId}
+        />
       )
     case 'INTERACTIVE':
       return <p>{c.text ?? 'Interactive reply'}</p>
@@ -90,14 +95,7 @@ function MediaBody({
   label: string
   caption?: string
 }) {
-  const { tenantId } = useSession()
-  const link = useQuery({
-    queryKey: keys.tenant(tenantId, 'file-url', fileId ?? ''),
-    queryFn: () =>
-      get<{ data: { url: string } }>(`/files/${fileId}/download-url`).then((r) => r.data.url),
-    enabled: !!fileId,
-    staleTime: 240_000,
-  })
+  const link = useFileUrl(fileId)
   return (
     <div className="flex flex-col gap-1">
       {link.data && (kind === 'IMAGE' || kind === 'STICKER') ? (
@@ -155,6 +153,7 @@ function BubbleTail({ outbound }: { outbound: boolean }) {
 
 function Row({ item, grouped }: { item: Item; grouped: boolean }) {
   const { me } = useSession()
+  const ids = useId()
   if (item.kind === 'note')
     return (
       <div className="mx-auto w-full max-w-5/6 rounded-md border-l-4 border-warning bg-note-soft px-3 py-2 text-slate">
@@ -176,9 +175,19 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
     )
   }
   const outbound = m.direction === 'OUTBOUND'
+  const template = m.content.type === 'TEMPLATE'
+  const labelId = `${ids}-label`
+  const bodyId = `${ids}-body`
   return (
     <div className={cn('flex', outbound ? 'justify-end' : 'justify-start')}>
       <div
+        // A template bubble is named by its label and body text (the buttons are display-only).
+        {...(template
+          ? {
+              role: 'group',
+              'aria-labelledby': m.templateSnapshot?.body ? `${labelId} ${bodyId}` : labelId,
+            }
+          : {})}
         className={cn(
           'relative flex min-w-0 max-w-13/20 flex-col gap-1 rounded-md px-3 py-2 text-base text-slate',
           outbound
@@ -199,7 +208,7 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
                   : 'Workspace reply'}
           </span>
         ) : null}
-        <MessageBody m={m} />
+        <MessageBody m={m} labelId={labelId} bodyId={bodyId} />
         <span
           className={cn(
             'flex items-center justify-end gap-2 text-xs',

@@ -98,9 +98,7 @@ export function renderTemplateSnapshot(input: {
   }
   const c = input.components
   if (!c) {
-    const media = input.headerFile
-      ? mediaHeader(input.headerFile.mimeType, input.headerFile)
-      : null
+    const media = input.headerFile ? mediaHeader(input.headerFile.mimeType, input.headerFile) : null
     return {
       ...base,
       header: media,
@@ -184,9 +182,7 @@ function mediaHeader(mimeType: string | null, file: HeaderFile): TemplateSnapsho
       : mimeType
         ? 'DOCUMENT'
         : null
-  return type
-    ? { type, fileId: file.id, filename: file.filename, mimeType: file.mimeType }
-    : null
+  return type ? { type, fileId: file.id, filename: file.filename, mimeType: file.mimeType } : null
 }
 
 type MetaParam = { type?: string; text?: string; coupon_code?: string }
@@ -202,7 +198,9 @@ type MetaComponent = {
  * backfill for messages stored without `variables`). Media parameters are skipped: the header file
  * is tracked through `messages.file_id`.
  */
-export function variablesFromMetaComponents(raw: readonly unknown[] | undefined): TemplateVariables {
+export function variablesFromMetaComponents(
+  raw: readonly unknown[] | undefined,
+): TemplateVariables {
   const out: TemplateVariables = { body: [] }
   for (const item of raw ?? []) {
     if (!item || typeof item !== 'object') continue

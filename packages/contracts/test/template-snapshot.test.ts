@@ -45,25 +45,32 @@ describe('renderTemplateSnapshot', () => {
     expect(s.variables.body).toEqual(['Asha', 'A-42'])
   })
 
-  it.each(['IMAGE', 'VIDEO', 'DOCUMENT'] as const)('keeps a %s header as a file reference', (format) => {
-    const file = { id: '0190a0a0-0000-7000-8000-000000000001', filename: 'x', mimeType: 'm' }
-    const s = render({
-      components: { ...components, header: { format, sampleFileId: null } },
-      headerFile: file,
-    })
-    expect(s.header).toEqual({ type: format, fileId: file.id, filename: 'x', mimeType: 'm' })
-    expect(s.partial).toBe(false)
-    expect(mediaKindOf({ type: 'TEMPLATE', templateSnapshot: s })).toBe(format)
-  })
+  it.each(['IMAGE', 'VIDEO', 'DOCUMENT'] as const)(
+    'keeps a %s header as a file reference',
+    (format) => {
+      const file = { id: '0190a0a0-0000-7000-8000-000000000001', filename: 'x', mimeType: 'm' }
+      const s = render({
+        components: { ...components, header: { format, sampleFileId: null } },
+        headerFile: file,
+      })
+      expect(s.header).toEqual({ type: format, fileId: file.id, filename: 'x', mimeType: 'm' })
+      expect(s.partial).toBe(false)
+      expect(mediaKindOf({ type: 'TEMPLATE', templateSnapshot: s })).toBe(format)
+    },
+  )
 
   it('a media header without its file is partial', () => {
-    const s = render({ components: { ...components, header: { format: 'IMAGE', sampleFileId: null } } })
+    const s = render({
+      components: { ...components, header: { format: 'IMAGE', sampleFileId: null } },
+    })
     expect(s.header).toMatchObject({ type: 'IMAGE', fileId: null })
     expect(s).toMatchObject({ partial: true, missing: ['header.file'] })
   })
 
   it('a copy-code value sent overrides the example', () => {
-    const s = render({ values: { header: ['1'], body: ['a', 'b'], buttons: { '1': ['x'], '3': ['WELCOME5'] } } })
+    const s = render({
+      values: { header: ['1'], body: ['a', 'b'], buttons: { '1': ['x'], '3': ['WELCOME5'] } },
+    })
     expect(s.buttons[3]).toEqual({ type: 'COPY_CODE', label: 'Copy code', code: 'WELCOME5' })
   })
 
@@ -90,7 +97,9 @@ describe('renderTemplateSnapshot', () => {
       },
       values: { body: ['834201'] },
     })
-    expect(s.body).toBe('834201 is your verification code. For your security, do not share this code.')
+    expect(s.body).toBe(
+      '834201 is your verification code. For your security, do not share this code.',
+    )
     expect(s.footer).toBe('This code expires in 10 minutes.')
     expect(s.buttons).toEqual([{ type: 'COPY_CODE', label: 'Copy code', code: '834201' }])
     expect(s.partial).toBe(false)
@@ -108,11 +117,31 @@ describe('variablesFromMetaComponents', () => {
     expect(
       variablesFromMetaComponents([
         { type: 'header', parameters: [{ type: 'text', text: '#42' }] },
-        { type: 'body', parameters: [{ type: 'text', text: 'Asha' }, { type: 'text', text: 'A-42' }] },
-        { type: 'button', sub_type: 'url', index: '1', parameters: [{ type: 'text', text: 'A-42' }] },
-        { type: 'button', sub_type: 'copy_code', index: 3, parameters: [{ type: 'coupon_code', coupon_code: 'SAVE' }] },
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: 'Asha' },
+            { type: 'text', text: 'A-42' },
+          ],
+        },
+        {
+          type: 'button',
+          sub_type: 'url',
+          index: '1',
+          parameters: [{ type: 'text', text: 'A-42' }],
+        },
+        {
+          type: 'button',
+          sub_type: 'copy_code',
+          index: 3,
+          parameters: [{ type: 'coupon_code', coupon_code: 'SAVE' }],
+        },
       ]),
-    ).toEqual({ header: ['#42'], body: ['Asha', 'A-42'], buttons: { '1': ['A-42'], '3': ['SAVE'] } })
+    ).toEqual({
+      header: ['#42'],
+      body: ['Asha', 'A-42'],
+      buttons: { '1': ['A-42'], '3': ['SAVE'] },
+    })
   })
 
   it('skips media headers and junk', () => {
@@ -138,7 +167,9 @@ describe('mediaKindOf', () => {
     expect(mediaKindOf({ type: 'AUDIO' })).toBeNull()
     expect(mediaKindOf({ type: 'TEXT' })).toBeNull()
     expect(mediaKindOf({ type: 'TEMPLATE', templateSnapshot: null })).toBeNull()
-    expect(mediaKindOf({ type: 'TEMPLATE', templateSnapshot: snap({ type: 'TEXT', text: 'x' }) })).toBeNull()
+    expect(
+      mediaKindOf({ type: 'TEMPLATE', templateSnapshot: snap({ type: 'TEXT', text: 'x' }) }),
+    ).toBeNull()
     expect(
       mediaKindOf({
         type: 'TEMPLATE',

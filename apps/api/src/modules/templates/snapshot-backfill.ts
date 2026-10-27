@@ -25,7 +25,10 @@ type Row = {
 }
 
 /** One message: the exact version sent, else the template's approved version (marked partial). */
-export async function snapshotForStoredMessage(tx: TenantTx, m: Row): Promise<MessageTemplateSnapshot> {
+export async function snapshotForStoredMessage(
+  tx: TenantTx,
+  m: Row,
+): Promise<MessageTemplateSnapshot> {
   const parsed = messageContentSchema.safeParse(m.content)
   const content = parsed.success && parsed.data.type === 'TEMPLATE' ? parsed.data : null
   const name = content?.name ?? 'unknown'
