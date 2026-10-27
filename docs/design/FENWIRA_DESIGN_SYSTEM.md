@@ -86,6 +86,7 @@ Font: Inter for UI, JetBrains Mono for identifiers, phone numbers and code (load
 | Card title    | 16 / 24          | `text-md`               | semibold (via `CardTitle`)     |
 | Body          | 14 / 20          | `text-base`             | regular                        |
 | Body strong   | 14 / 20          | `text-base font-medium` | medium                         |
+| Message       | 15 / 22.5 (1.5)  | `text-message`          | regular; inbox message text only |
 | Small         | 13 / 18          | `text-sm`               | regular                        |
 | Caption       | 12 / 16          | `text-xs`               | regular / medium               |
 | Metric value  | 24 / 32          | `text-2xl tabular-nums` | semibold (via `MetricCard`)    |

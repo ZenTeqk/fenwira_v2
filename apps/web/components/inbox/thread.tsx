@@ -1,13 +1,15 @@
 'use client'
 
+import { type ConversationNote, type Message, type MessageStatus } from '@fenwira/contracts'
 import {
-  type ConversationNote,
-  type MediaCounts,
-  type Message,
-  type MessageStatus,
-  type ThreadMediaFilter,
-} from '@fenwira/contracts'
-import { Button, cn, ErrorState, focusRing, MessageTicks, Skeleton } from '@fenwira/ui'
+  Button,
+  cn,
+  ErrorState,
+  focusRing,
+  MessageFailure,
+  MessageTicks,
+  Skeleton,
+} from '@fenwira/ui'
 import {
   type InfiniteData,
   useInfiniteQuery,
@@ -25,7 +27,8 @@ import { keys } from '@/lib/api/keys'
 import { clockTime } from '@/lib/inbox'
 import { useRealtimeEvent } from '@/lib/realtime'
 import { useFileUrl } from './media'
-import { MediaFilterChips, mediaCountsKey, MediaResults } from './media-filter'
+import { mediaCountsKey } from './media-filter'
+import { usePresence } from './conversation-actions'
 import { TemplateMessage } from './template-message'
 
 type Page = { data: Message[]; page: { nextCursor: string | null } }
@@ -135,30 +138,16 @@ function MediaBody({
   )
 }
 
-/**
- * The bubble's pointer on the first message of a run. Drawn 1px into the bubble so it covers the
- * inbound border where they meet; colors come from the same tokens as the bubble.
- */
-function BubbleTail({ outbound }: { outbound: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      viewBox="0 0 9 11"
-      className={cn(
-        'absolute h-2.75 w-2.25',
-        outbound
-          ? '-right-2 top-0 -scale-x-100 fill-message-outbound'
-          : '-left-2 -top-px fill-surface stroke-border contrast-more:stroke-border-strong',
-      )}
-    >
-      <path d="M0 0H9V11H7.5Z" stroke="none" />
-      {outbound ? null : <path d="M7.5 11 0.5 0.5H9" fill="none" strokeWidth={1} />}
-    </svg>
-  )
-}
-
-function Row({ item, grouped }: { item: Item; grouped: boolean }) {
+function Row({
+  item,
+  grouped,
+  names,
+}: {
+  item: Item
+  grouped: boolean
+  /** Workspace members by id, to name other agents' replies. */
+  names: Map<string, string>
+}) {
   const { me } = useSession()
   const ids = useId()
   if (item.kind === 'note')
@@ -176,17 +165,25 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
   if (m.direction === 'SYSTEM') {
     const c = m.content as { event?: string; data?: Record<string, unknown> }
     return (
-      <p className="mx-auto w-fit rounded-full bg-neutral-soft px-3 py-1 text-xs text-muted">
+      <p className="mx-auto w-fit max-w-5/6 text-center text-xs text-muted">
         {(c.event && EVENT_TEXT[c.event]?.(c.data ?? {})) ?? c.event} · {clockTime(m.createdAt)}
       </p>
     )
   }
   const outbound = m.direction === 'OUTBOUND'
+  const sender =
+    m.source === 'AUTOMATION'
+      ? 'Automation'
+      : m.source === 'CAMPAIGN'
+        ? 'Campaign'
+        : m.sentByUserId && m.sentByUserId !== me.user.id
+          ? (names.get(m.sentByUserId) ?? 'Workspace reply')
+          : null
   const template = m.content.type === 'TEMPLATE'
   const labelId = `${ids}-label`
   const bodyId = `${ids}-body`
   return (
-    <div className={cn('flex', outbound ? 'justify-end' : 'justify-start')}>
+    <div className={cn('flex flex-col', outbound ? 'items-end' : 'items-start')}>
       <div
         // A template bubble is named by its label and body text (the buttons are display-only).
         {...(template
@@ -196,24 +193,15 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
             }
           : {})}
         className={cn(
-          'relative flex min-w-0 max-w-13/20 flex-col gap-1 rounded-md px-3 py-2 text-base text-slate',
+          'flex min-w-0 max-w-7/10 flex-col gap-1 rounded-xl px-3.5 py-2.5 text-message text-slate',
           outbound
             ? 'bg-message-outbound'
             : 'border border-border bg-surface contrast-more:border-border-strong',
-          !grouped && (outbound ? 'rounded-tr-none' : 'rounded-tl-none'),
         )}
       >
-        {grouped ? null : <BubbleTail outbound={outbound} />}
-        {!grouped && outbound ? (
-          <span className="text-xs font-medium text-secondary">
-            {m.sentByUserId === me.user.id
-              ? 'You'
-              : m.source === 'AUTOMATION'
-                ? 'Automation'
-                : m.source === 'CAMPAIGN'
-                  ? 'Campaign'
-                  : 'Workspace reply'}
-          </span>
+        {/* Only other senders are named, at the start of their group (never "You"). */}
+        {!grouped && outbound && sender ? (
+          <span className="text-xs font-medium text-secondary">{sender}</span>
         ) : null}
         <MessageBody m={m} labelId={labelId} bodyId={bodyId} />
         <span
@@ -225,17 +213,26 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
           )}
         >
           {clockTime(m.createdAt)}
-          {outbound ? (
-            <MessageTicks status={m.status} errorCode={m.errorCode} errorDetail={m.errorDetail} />
-          ) : null}
+          {/* A failed message never shows ticks; its failure line sits under the bubble. */}
+          {outbound && m.status !== 'FAILED' ? <MessageTicks status={m.status} /> : null}
         </span>
       </div>
+      {outbound && m.status === 'FAILED' ? (
+        <MessageFailure errorCode={m.errorCode} errorDetail={m.errorDetail} className="mt-1" />
+      ) : null}
     </div>
   )
 }
 
 /** Virtualized thread, oldest at the top; scrolls to the newest on open and on new messages. */
-export function Thread({ conversationId }: { conversationId: string }) {
+export function Thread({
+  conversationId,
+  jump,
+}: {
+  conversationId: string
+  /** "Jump to message" from Shared files; a new `seq` repeats a jump to the same message. */
+  jump?: { id: string; seq: number } | null
+}) {
   const { tenantId } = useSession()
   const queryClient = useQueryClient()
   const key = threadKey(tenantId, conversationId)
@@ -248,22 +245,11 @@ export function Thread({ conversationId }: { conversationId: string }) {
     initialPageParam: '',
     getNextPageParam: (last) => last.page.nextCursor ?? undefined,
   })
-  // Media filter: per conversation, so switching conversation starts again at All.
-  const [filterState, setFilterState] = useState<{ id: string; value: ThreadMediaFilter } | null>(
-    null,
-  )
-  const filter = filterState?.id === conversationId ? filterState.value : null
-  const setFilter = (value: ThreadMediaFilter | null) =>
-    setFilterState(value ? { id: conversationId, value } : null)
   const [jumpTo, setJumpTo] = useState<string | null>(null)
+  useEffect(() => {
+    if (jump) setJumpTo(jump.id)
+  }, [jump])
   const countsKey = mediaCountsKey(tenantId, conversationId)
-  const counts = useQuery({
-    queryKey: countsKey,
-    queryFn: () =>
-      get<{ data: MediaCounts }>(`/conversations/${conversationId}/media-counts`).then(
-        (r) => r.data,
-      ),
-  })
   const notes = useQuery({
     queryKey: notesKey(tenantId, conversationId),
     queryFn: () =>
@@ -333,6 +319,11 @@ export function Thread({ conversationId }: { conversationId: string }) {
     return [...ms, ...ns].sort((a, b) => a.at.localeCompare(b.at))
   }, [messages.data, notes.data])
 
+  const members = usePresence()
+  const names = useMemo(
+    () => new Map((members.data ?? []).map((p) => [p.userId, p.name])),
+    [members.data],
+  )
   const scroller = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -351,7 +342,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
   // to it and move focus there.
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = messages
   useEffect(() => {
-    if (!jumpTo || filter) return
+    if (!jumpTo) return
     const index = items.findIndex((i) => i.kind === 'message' && i.message.id === jumpTo)
     if (index >= 0) {
       nearBottom.current = false
@@ -366,24 +357,8 @@ export function Thread({ conversationId }: { conversationId: string }) {
       })
     } else if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
     else if (!hasNextPage) setJumpTo(null)
-  }, [jumpTo, filter, items, virtualizer, hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [jumpTo, items, virtualizer, hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  const chips = <MediaFilterChips value={filter} counts={counts.data} onChange={setFilter} />
-  if (filter)
-    return (
-      <div className="flex min-h-0 flex-1 flex-col bg-surface">
-        {chips}
-        <MediaResults
-          conversationId={conversationId}
-          filter={filter}
-          loaded={(messages.data?.pages ?? []).flatMap((p) => p.data)}
-          onJump={(id) => {
-            setJumpTo(id)
-            setFilter(null)
-          }}
-        />
-      </div>
-    )
   if (messages.isPending)
     return (
       <div className="flex flex-1 flex-col gap-3 p-4">
@@ -398,19 +373,12 @@ export function Thread({ conversationId }: { conversationId: string }) {
     )
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {chips}
-      <div className="relative isolate min-h-0 flex-1 overflow-hidden bg-thread-soft">
-        {/* Decorative wallpaper: token color through an original line-art mask; hidden from AT
-          and from users who ask for more contrast. */}
-        <div
-          aria-hidden="true"
-          className="chat-doodle pointer-events-none absolute inset-0 bg-slate-400 opacity-12 contrast-more:hidden"
-        />
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
         <div
           ref={scroller}
           tabIndex={0}
           className={cn(
-            'relative h-full min-h-0 overflow-y-auto px-4 py-3',
+            'relative h-full min-h-0 overflow-y-auto px-6 py-4',
             focusRing,
             'focus-visible:-outline-offset-2',
           )}
@@ -465,7 +433,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   style={{ transform: `translateY(${v.start}px)` }}
                 >
                   {newDay ? (
-                    <p className="mx-auto mb-2 w-fit rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-secondary">
+                    <p className="mx-auto mb-3 mt-1 w-fit rounded-md bg-neutral-soft px-2.5 py-1 text-xs font-medium text-muted">
                       {date}
                     </p>
                   ) : null}
@@ -475,7 +443,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
                       : {})}
                     className={cn('rounded-md', focusRing)}
                   >
-                    <Row item={item} grouped={grouped} />
+                    <Row item={item} grouped={grouped} names={names} />
                   </div>
                 </div>
               )

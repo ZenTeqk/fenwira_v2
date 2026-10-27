@@ -92,7 +92,7 @@ export function TemplateMessage({
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <p id={labelId} className="text-xs text-secondary">
-        Template: {snapshot?.name ?? name}
+        Template · {snapshot?.name ?? name}
       </p>
       {snapshot?.header ? <TemplateHeader header={snapshot.header} /> : null}
       {snapshot?.body ? (

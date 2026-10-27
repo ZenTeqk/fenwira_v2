@@ -264,6 +264,20 @@ export const conversationsQuerySchema = z.object({
 })
 export type ConversationsQuery = z.infer<typeof conversationsQuerySchema>
 
+/** Tab counts within the list's active search, status and unread filters (docs/INBOX.md). */
+export const conversationCountsQuerySchema = conversationsQuerySchema.pick({
+  status: true,
+  unread: true,
+  q: true,
+})
+export type ConversationCountsQuery = z.infer<typeof conversationCountsQuerySchema>
+export const conversationCountsSchema = z.object({
+  all: z.number().int(),
+  mine: z.number().int(),
+  unassigned: z.number().int(),
+})
+export type ConversationCounts = z.infer<typeof conversationCountsSchema>
+
 export const assignRequestSchema = z.object({ assigneeId: idSchema.nullable() })
 export const conversationStatusRequestSchema = z
   .object({

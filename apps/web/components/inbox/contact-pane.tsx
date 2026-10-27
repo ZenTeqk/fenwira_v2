@@ -1,16 +1,18 @@
 'use client'
 
 import { type Contact, type ContactNote, type Conversation } from '@fenwira/contracts'
-import { Avatar, ErrorState, Skeleton } from '@fenwira/ui'
+import { Avatar, ErrorState, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@fenwira/ui'
+import { ArrowUpRight } from 'lucide-react'
+import { type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { TagBadges } from '@/components/contacts/tag-badges'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { formatPhone } from '@/lib/phone'
 import { relativeTime } from '@/lib/relative-time'
-import { MessagingContext } from './messaging-context'
+import { AssignControl } from './conversation-header'
+import { AutomationSection, ContactNotes, ContactTags, EligibilitySection } from './contact-details'
 
 type PastConversation = {
   id: string
@@ -20,16 +22,27 @@ type PastConversation = {
   lastMessagePreview: string | null
 }
 
-/** Compact Contact 360 (docs/INBOX.md → Contact pane). */
+export type PanelTab = 'details' | 'files'
+
+/**
+ * Contact details (docs/INBOX.md → Contact pane): profile, then Details | Shared files. The
+ * profile comes from the conversation, so Shared files works without contacts.read.
+ */
 export function ContactPane({
   contactId,
-  conversationId,
-  assignee,
+  conversation,
+  tab,
+  onTabChange,
+  files,
 }: {
   contactId: string
-  conversationId: string
-  assignee?: Conversation['assignee']
+  conversation: Conversation
+  tab: PanelTab
+  onTabChange: (tab: PanelTab) => void
+  /** The Shared files tab's content. */
+  files: ReactNode
 }) {
+  const conversationId = conversation.id
   const { tenantId, can } = useSession()
   const enabled = can('contacts.read')
   const base = keys.tenant(tenantId, 'contact', contactId)
@@ -49,125 +62,110 @@ export function ContactPane({
       get<{ data: PastConversation[] }>(`/contacts/${contactId}/conversations`).then((r) => r.data),
     enabled,
   })
-  if (!enabled)
-    return <p className="p-4 text-sm text-muted">Your role can&apos;t view contact details.</p>
-  if (contact.isPending) return <Skeleton className="m-4 h-40" />
-  if (contact.isError)
-    return (
-      <ErrorState
-        title="Contact details couldn’t be loaded"
-        onRetry={() => void contact.refetch()}
-      />
-    )
-  if (!contact.data) return <p className="p-4 text-sm text-muted">Contact not found.</p>
+  const who = conversation.contact
+  const name = who.name ?? who.waProfileName ?? formatPhone(who.phoneE164)
   const c = contact.data
   const others = (past.data ?? []).filter((p) => p.id !== conversationId)
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <div className="flex items-center gap-3 pb-1" aria-label="Customer identity">
-        <Avatar appearance="varied" name={c.name ?? c.waProfileName ?? c.phoneE164} size="lg" />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h2 className="truncate text-base font-semibold text-slate">
-            {c.name ?? c.waProfileName ?? formatPhone(c.phoneE164)}
-          </h2>
-          <span className="text-sm text-muted tabular-nums">{formatPhone(c.phoneE164)}</span>
-          {c.email ? <span className="text-sm text-muted">{c.email}</span> : null}
-          <Link
-            href={`/contacts/${c.id}`}
-            className="text-sm text-primary-strong underline-offset-4 hover:underline"
-          >
-            Open contact
-          </Link>
+    <div className="flex flex-col">
+      <div className="flex items-center gap-3 px-5 pt-4 pb-3" aria-label="Customer identity">
+        <Avatar appearance="varied" name={name} size="lg" className="size-14 text-lg" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h3 className="truncate text-md font-semibold text-slate" title={name}>
+            {name}
+          </h3>
+          <span className="text-base text-secondary tabular-nums">
+            {formatPhone(who.phoneE164)}
+          </span>
+          {enabled ? (
+            <Link
+              href={`/contacts/${who.id}`}
+              className="inline-flex items-center gap-1 self-start text-base font-medium text-primary-strong underline-offset-4 hover:underline"
+            >
+              Open contact
+              <ArrowUpRight aria-hidden="true" className="size-4" />
+            </Link>
+          ) : null}
         </div>
       </div>
-      {assignee !== undefined ? (
-        <section
-          className="flex flex-col gap-2 border-t border-border/70 pt-3"
-          aria-label="Assignment"
-        >
-          <div className="flex items-center justify-between gap-2 text-sm text-secondary">
-            <h3 className="text-sm font-semibold text-slate">Assigned to</h3>
-            <span className="flex min-w-0 items-center gap-1">
-              {assignee ? <Avatar name={assignee.name} appearance="varied" size="sm" /> : null}
-              <span className="truncate" title={assignee?.name}>
-                {assignee?.name ?? 'Unassigned'}
-              </span>
-            </span>
-          </div>
-        </section>
-      ) : null}
-      <section className="flex flex-col gap-2 border-t border-border/70 pt-3" aria-label="Tags">
-        <h3 className="text-sm font-semibold text-slate">Tags</h3>
-        <TagBadges tags={c.tags} max={10} />
-      </section>
-      <MessagingContext contact={c} conversationId={conversationId} />
-      <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-3"
-        aria-label="Contact notes"
-      >
-        <h3 className="text-sm font-semibold text-slate">Notes</h3>
-        {notes.isPending ? (
-          <Skeleton className="h-20" />
-        ) : notes.isError ? (
-          <ErrorState title="Notes couldn’t be loaded" onRetry={() => void notes.refetch()} />
-        ) : notes.data?.length ? (
-          <ul className="flex flex-col gap-2">
-            {notes.data.slice(0, 5).map((n) => (
-              <li key={n.id} className="flex gap-2 rounded-md bg-note-soft p-2 text-sm text-slate">
-                <Avatar appearance="varied" name={n.authorName} size="sm" />
-                <div className="min-w-0">
-                  <p className="mb-1 text-xs text-secondary">
-                    <span className="font-medium">{n.authorName}</span> ·{' '}
-                    <time dateTime={n.createdAt}>{relativeTime(n.createdAt)}</time>
-                  </p>
-                  <p className="whitespace-pre-wrap break-words">{n.body}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-secondary">No notes yet. Notes on the contact show here.</p>
-        )}
-      </section>
-      <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-3"
-        aria-label="Other conversations"
-      >
-        <h3 className="text-sm font-semibold text-slate">Other conversations</h3>
-        {past.isPending ? (
-          <Skeleton className="h-20" />
-        ) : past.isError ? (
-          <ErrorState
-            title="Conversation history couldn’t be loaded"
-            onRetry={() => void past.refetch()}
-          />
-        ) : others.length ? (
-          <ul className="flex flex-col gap-2">
-            {others.map((p) => (
-              <li key={p.id}>
-                <Link
-                  href={`/inbox?c=${p.id}`}
-                  className="flex flex-col border-l-2 border-primary-soft pl-3 text-sm text-slate hover:underline"
+      <Tabs value={tab} onValueChange={(v) => onTabChange(v as PanelTab)} className="gap-0">
+        <TabsList className="px-5" aria-label="Contact panel">
+          <TabsTrigger value="details" className="flex-1 justify-center">
+            Details
+          </TabsTrigger>
+          <TabsTrigger value="files" className="flex-1 justify-center">
+            Shared files
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="files">{files}</TabsContent>
+        <TabsContent value="details" className="flex flex-col gap-4 p-5">
+          {!enabled ? (
+            <p className="text-sm text-secondary">Your role can&apos;t view contact details.</p>
+          ) : contact.isPending ? (
+            <Skeleton className="h-40" />
+          ) : contact.isError || !c ? (
+            <ErrorState
+              title="Contact details couldn’t be loaded"
+              onRetry={() => void contact.refetch()}
+            />
+          ) : (
+            <>
+              <section
+                className="flex flex-col gap-2"
+                aria-labelledby={`${conversationId}-assigned`}
+              >
+                <h3 id={`${conversationId}-assigned`} className="text-sm font-semibold text-slate">
+                  Assigned to
+                </h3>
+                {/* The header's control: one source of truth (the conversation query). */}
+                <AssignControl c={conversation} variant="panel" />
+              </section>
+              <ContactTags contact={c} />
+              <ContactNotes
+                contactId={contactId}
+                notes={notes}
+                onRetry={() => void notes.refetch()}
+              />
+              <EligibilitySection contact={c} conversationId={conversationId} />
+              <AutomationSection conversation={conversation} />
+              {/* Only when there is history to show (or it failed to load). */}
+              {past.isError || others.length ? (
+                <section
+                  className="flex flex-col gap-2 border-t border-border pt-4"
+                  aria-label="Other conversations"
                 >
-                  <span className="flex items-center gap-2">
-                    <span
-                      aria-hidden="true"
-                      className="size-1 shrink-0 rounded-full bg-secondary"
+                  <h3 className="text-sm font-semibold text-slate">Other conversations</h3>
+                  {past.isError ? (
+                    <ErrorState
+                      title="Conversation history couldn’t be loaded"
+                      onRetry={() => void past.refetch()}
                     />
-                    <span className="truncate">{p.lastMessagePreview ?? 'No messages'}</span>
-                  </span>
-                  <span className="text-xs text-muted">
-                    Via {p.phoneNumber}
-                    {p.lastMessageAt ? ` · ${relativeTime(p.lastMessageAt)}` : ''}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-secondary">No other conversations.</p>
-        )}
-      </section>
+                  ) : (
+                    <ul className="flex flex-col gap-2">
+                      {others.map((p) => (
+                        <li key={p.id}>
+                          <Link
+                            href={`/inbox?c=${p.id}`}
+                            className="flex flex-col border-l-2 border-primary-soft pl-3 text-sm text-slate hover:underline"
+                          >
+                            <span className="truncate">
+                              {p.lastMessagePreview ?? 'No messages'}
+                            </span>
+                            <span className="text-xs text-secondary">
+                              Via {p.phoneNumber}
+                              {p.lastMessageAt ? ` · ${relativeTime(p.lastMessageAt)}` : ''}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              ) : null}
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

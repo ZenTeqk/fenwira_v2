@@ -104,24 +104,22 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
   await page.goto('/inbox')
   const list = page.getByRole('list', { name: 'Conversation list' })
   await expect(list.getByText(customer)).toBeVisible()
-  const viewMenu = page.getByRole('button', { name: /^Inbox views/ })
-  await viewMenu.click()
-  const views = page.getByRole('menu', { name: 'Inbox views' })
+  // Unread only is a server filter; the tabs show server counts for the same filters.
+  const unread = page.getByRole('switch', { name: 'Unread only' })
   await Promise.all([
     page.waitForResponse(
       (r) =>
         new URL(r.url()).pathname.endsWith('/conversations') &&
         new URL(r.url()).searchParams.get('unread') === 'true',
     ),
-    views.getByRole('menuitem', { name: 'Unread', exact: true }).click(),
+    unread.click(),
   ])
-  await expect(viewMenu).toHaveAccessibleName('Inbox views · Unread')
-  await viewMenu.click()
-  await expect(views.getByRole('menuitem', { name: 'Unread', exact: true })).toHaveAttribute(
-    'aria-current',
+  await expect(unread).toBeChecked()
+  await expect(page.getByRole('tab', { name: /^All \d+$/ })).toHaveAttribute(
+    'aria-selected',
     'true',
   )
-  await views.getByRole('menuitem', { name: 'All conversations', exact: true }).click()
+  await unread.click()
   await list.getByText(customer).click()
   await expect(
     page.getByRole('log', { name: 'Messages' }).getByText('Can you confirm the delivery date?'),
@@ -134,7 +132,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
   await expect(page.getByLabel('Reply', { exact: true })).toHaveValue('')
   // Send swaps out once the reply is sent and the box is empty.
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeHidden()
-  await page.getByRole('button', { name: 'Internal note', exact: true }).click()
+  await page.getByRole('tab', { name: 'Internal note', exact: true }).click()
   await page
     .getByLabel('Internal note', { exact: true })
     .fill('Delivery needs a follow-up tomorrow.')
@@ -145,7 +143,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
   await expect(
     page.getByRole('log', { name: 'Messages' }).getByText(/Private note ·/),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Reply', exact: true }).click()
+  await page.getByRole('tab', { name: 'Reply', exact: true }).click()
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 })
     await expect(page.getByRole('log', { name: 'Messages' })).toBeVisible()
@@ -156,15 +154,15 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     ).toBeLessThanOrEqual(0)
     expect((await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations).toEqual([])
     await page.screenshot({ path: testInfo.outputPath(`inbox-${width}.png`), fullPage: true })
-    if (width < 1280) {
-      await page.getByRole('button', { name: 'Show customer details' }).click()
+    if (width < 1440) {
+      await page.getByRole('button', { name: 'Show contact details' }).click()
       await page
-        .getByRole('dialog', { name: 'Contact', exact: true })
-        .getByText('Eligibility and consent details', { exact: true })
+        .getByRole('dialog', { name: 'Contact details', exact: true })
+        .getByRole('button', { name: 'Messaging eligibility' })
         .click()
       await expect(
         page
-          .getByRole('dialog', { name: 'Contact', exact: true })
+          .getByRole('dialog', { name: 'Contact details', exact: true })
           .getByRole('region', { name: 'Messaging eligibility' }),
       ).toBeVisible()
       expect(
@@ -172,7 +170,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
           .violations,
       ).toEqual([])
       await page.keyboard.press('Escape')
-      await expect(page.getByRole('button', { name: 'Show customer details' })).toBeFocused()
+      await expect(page.getByRole('button', { name: 'Show contact details' })).toBeFocused()
     }
   }
   await page.getByRole('button', { name: 'Back to conversations' }).click()
@@ -199,13 +197,10 @@ test('Inbox displays server window and connection states without inventing eligi
   })
   await page.goto('/inbox')
   await page.getByRole('list', { name: 'Conversation list' }).getByText(customer).click()
-  await expect(
-    page.getByText(
-      'The 24-hour window has closed. Send an approved template to restart the conversation.',
-    ),
-  ).toBeVisible()
+  const closed = page.getByRole('status').filter({ hasText: 'Reply window closed' })
+  await expect(closed).toContainText('Use an approved template to send a message.')
   await expect(page.getByLabel('Reply', { exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Choose a template' }).click()
+  await closed.getByRole('button', { name: 'Choose template' }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.keyboard.press('Escape')
   open = true
@@ -218,7 +213,11 @@ test('Inbox displays server window and connection states without inventing eligi
     await route.fulfill({ response, json: body })
   })
   await page.reload()
-  await expect(page.getByText('WhatsApp connection needs attention', { exact: true })).toBeVisible()
+  // A disconnected number blocks sending: an accurate message and no action that would fail.
+  const blocked = page.getByRole('status').filter({ hasText: 'WhatsApp number unavailable' })
+  await expect(blocked).toContainText('This WhatsApp number is disconnected.')
+  await expect(page.getByLabel('Reply', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Choose template' })).toHaveCount(0)
   expect((await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations).toEqual([])
 })
 
@@ -289,7 +288,7 @@ test('Inbox preserves a draft while a reply awaits server confirmation', async (
     await page.getByLabel('Reply', { exact: true }).fill('Reply awaiting confirmation')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
     await committed
-    await expect(page.getByRole('button', { name: 'Internal note', exact: true })).toBeDisabled()
+    await expect(page.getByRole('tab', { name: 'Internal note', exact: true })).toBeDisabled()
     await expect(page.getByLabel('Reply', { exact: true })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Canned replies', exact: true })).toBeDisabled()
     await expect(page.getByLabel('Reply', { exact: true })).toHaveValue(
@@ -300,7 +299,7 @@ test('Inbox preserves a draft while a reply awaits server confirmation', async (
   }
   await expect(page.getByLabel('Reply', { exact: true })).toBeEnabled()
   await expect(page.getByLabel('Reply', { exact: true })).toHaveValue('')
-  await page.getByRole('button', { name: 'Internal note', exact: true }).click()
+  await page.getByRole('tab', { name: 'Internal note', exact: true }).click()
   await page.getByLabel('Internal note', { exact: true }).fill('A separate internal draft')
   await expect(page.getByLabel('Internal note', { exact: true })).toHaveValue(
     'A separate internal draft',

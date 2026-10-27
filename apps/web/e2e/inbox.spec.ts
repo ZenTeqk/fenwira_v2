@@ -54,7 +54,9 @@ test('two agents: typing locks the reply box for the other, and replies arrive l
   await expect(page.getByLabel('Reply', { exact: true })).toBeEnabled()
   await expect(page.getByText('Priya Agent is replying…')).toHaveCount(0)
   // The agent's reply took the conversation over from automation.
-  await expect(page.getByText('An agent has taken over')).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Conversation state' })).toContainText(
+    'Agent takeover',
+  )
 
   // The open conversation (all three panes) has no WCAG 2.1 AA violations.
   const axe = await new AxeBuilder({ page })
@@ -72,8 +74,8 @@ test('internal notes, resolve, and the mobile single-pane layout', async ({ page
   await page.goto('/inbox')
   await page.getByRole('list', { name: 'Conversation list' }).getByText(customer).click()
   await expect(page.getByRole('list', { name: 'Conversation list' })).toBeHidden()
-  await page.getByRole('button', { name: 'Internal note' }).click()
-  await page.getByLabel('Internal note').fill('Checking with the warehouse')
+  await page.getByRole('tab', { name: 'Internal note' }).click()
+  await page.getByLabel('Internal note', { exact: true }).fill('Checking with the warehouse')
   await page.getByRole('button', { name: 'Save note' }).click()
   await expect(page.getByText('Checking with the warehouse')).toBeVisible()
   await expect(page.getByText(/^Private note ·/)).toBeVisible()

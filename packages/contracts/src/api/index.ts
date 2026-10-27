@@ -18,3 +18,4 @@ export * from './platform'
 
 export * from './native-connectors'
 export * from './access-requests'
+export * from './message-preview'

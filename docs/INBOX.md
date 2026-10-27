@@ -79,6 +79,10 @@ With `inbox.read_all` (default for every role), a user sees all conversations. W
 
 Built-in views: **Mine**, **Unassigned**, **All**, **Takeover** and **Resolved**. Filters: status, assignee, tag, unread, window open/closed, phone number. Sort: last activity (default) or oldest waiting.
 
+Mine, Unassigned, All and Takeover show open and pending conversations by default. Choosing a status explicitly replaces that default, so for example All + Resolved lists every resolved conversation the user can see.
+
+**Tab counts:** `GET /conversations/counts?q&status&unread` returns `{all, mine, unassigned}`. It applies the list's own filter function (visibility, search, status, unread) per view, so each count equals the length of that tab's fully-paged list. Checked on 200k conversations in one workspace: 20–120 ms per count, ~320 ms for an unread count with 100k unread. No extra index: the cost is the matching rows themselves.
+
 ### Search
 
 - Postgres full-text search over `messages.text_search` (config `simple`, so it works across languages without stemming), plus a trigram match on contact name and a prefix match on phone.
@@ -97,6 +101,8 @@ Built-in views: **Mine**, **Unassigned**, **All**, **Takeover** and **Resolved**
 ### Attachments
 
 Upload through `POST /files/upload-url` (purpose `MESSAGE_MEDIA`) → PUT to MinIO → `POST /files/:id/complete` (magic-byte sniff, size check per Meta limits) → send with `{type: IMAGE|DOCUMENT|AUDIO|VIDEO, fileId, caption?}`. The outbound worker uploads the file to Meta media and sends it by media ID.
+
+**Access:** `GET /files/:id/download-url` serves message attachments only. MESSAGE_MEDIA, and a TEMPLATE_SAMPLE used as a sent template's media header, need a message in a conversation the user can see (the same visibility rule as the list, thread and counts). An uploader also sees their own MESSAGE_MEDIA before it is sent. Everything else returns the same 404 as a missing file. Other file kinds have their own routes: IMPORT error reports (`contacts.import`), EXPORT (`contacts.export`), template samples (`templates.read`) and payment proofs (platform operator). AVATAR is unused.
 
 ### Template messages
 
@@ -131,7 +137,7 @@ Below the thread header, chips All / Images / Videos / Documents filter the open
 
 ### Layout and colors (from `DESIGN_SYSTEM.md`)
 
-Experience V2 Inbox: the global shell shares the approved Home geometry (224px expanded sidebar, 56px topbar). Following user review, the separate 176px views column is removed. Its six existing views are available from an icon menu beside the conversation-list heading at every width. `Conversations | Chat | Contact` at 320px / flex / 256px at 1440; the thread receives the freed 184px (rail plus gutter), becoming 608px. At 1024 the list remains 264px and views stay in the header menu; below 1024 the list remains 280px. Below 1280 px the Contact pane becomes a drawer. Below 768 px there is a single pane with back navigation. Outbound bubbles are `message-outbound`, inbound are `surface` with a fine border, system events are a `neutral-soft` pill, the selected conversation is `primary-soft` with a `primary` left border, takeover is `info`, and internal notes are `note-soft` with an "Internal note" label. Message/note surfaces occupy at most five-sixths of the usable thread width. These are presentation dimensions, not changes to Inbox lifecycle or authorization.
+Inbox redesign (2026-10-27, reference image `images/Fenwira shared WhatsApp inbox redesign.png`): one connected workspace with thin `border` dividers and no outer gaps. The global sidebar is always the 64px rail on /inbox (the saved collapse preference still applies elsewhere); the topbar stays 56px. Columns: conversation list 320px (300px at 1024–1279, 280px at 768–1023), the chat flexible, and contact details 312px, inline from 1440px and an overlay drawer below that. The panel's open/closed choice is remembered per user on the device. The conversation header is 80px (identity, phone, workflow status menu, Assign, Resolve/Reopen, More, panel toggle). A 44px status strip shows the messaging window and the automation state as separate `StatusBadge`s, with Resume (the existing return to automation). The timeline sits on `background`. Bubbles are content-sized, at most 70% wide, radius 12, message text `text-message` (15/1.5). Only other senders are named. A failed message shows "Failed · View details" and never ticks. Date chips are `neutral-soft` with muted text; system events are muted centred text. Composer: Reply / Internal note, and when free text can't be sent a warning-soft strip ("Reply window closed" + Choose template, or an accurate blocker with no action). The contact panel has Details | Shared files tabs; Shared files replaces the media chips above the timeline. Below 768px there is a single pane with back navigation.
 
 ### SLA fields (display only in v2)
 

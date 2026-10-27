@@ -1,10 +1,13 @@
 import {
   type AutomationState,
   type Conversation,
+  type ConversationCounts,
+  type ConversationCountsQuery,
   type ConversationNote,
   type ConversationsQuery,
   type ConversationStatus,
   type InboxSettings,
+  type InboxView,
   MEDIA_FILTER_KIND,
   type MediaCounts,
   type Message,
@@ -23,6 +26,7 @@ import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { AuditService } from '../audit'
 import { currentApiKey, currentAuth } from '../identity'
 import {
+  conversationVisibility,
   MARK_READ_JOB,
   MESSAGE_FILE_SELECT,
   MessagingService,
@@ -53,8 +57,26 @@ function decodeOffset(cursor?: string): number {
   throw new AppError('INVALID_CURSOR', 400, 'The pagination cursor is invalid.')
 }
 
-/** Views hide snoozed conversations; "resolved" is its own view (docs/INBOX.md → views). */
+/** Views hide snoozed and resolved conversations unless a status is chosen (docs/INBOX.md). */
 const ACTIVE: Prisma.ConversationWhereInput = { status: { in: ['OPEN', 'PENDING'] } }
+
+/**
+ * A list view's own condition (docs/INBOX.md → views); no view means no condition. Views show
+ * open and pending conversations by default; an explicitly chosen status replaces that default.
+ */
+function viewFilter(
+  view: InboxView | undefined,
+  userId: string,
+  status: ConversationStatus | undefined,
+): Prisma.ConversationWhereInput[] {
+  const active = status ? [] : [ACTIVE]
+  if (view === 'mine') return [{ assigneeId: userId }, ...active]
+  if (view === 'unassigned') return [{ assigneeId: null }, ...active]
+  if (view === 'takeover') return [{ automationState: 'AGENT_TAKEOVER' }, ...active]
+  if (view === 'resolved') return [{ status: 'RESOLVED' }]
+  if (view === 'all') return active
+  return []
+}
 
 /**
  * The shared inbox (docs/INBOX.md). Every read and write is tenant-bound (RLS); replies go
@@ -77,35 +99,8 @@ export class InboxService {
   async list(q: ConversationsQuery) {
     const { userId } = currentAuth()
     return this.tenantDb.run(async (tx) => {
-      const where: Prisma.ConversationWhereInput[] = [await this.visibility(tx, userId)]
-      if (q.view === 'mine') where.push({ assigneeId: userId }, ACTIVE)
-      else if (q.view === 'unassigned') where.push({ assigneeId: null }, ACTIVE)
-      else if (q.view === 'takeover') where.push({ automationState: 'AGENT_TAKEOVER' }, ACTIVE)
-      else if (q.view === 'resolved') where.push({ status: 'RESOLVED' })
-      else if (q.view === 'all') where.push(ACTIVE)
-      if (q.status) where.push({ status: q.status })
-      if (q.assigneeId) where.push({ assigneeId: q.assigneeId })
-      if (q.unassigned) where.push({ assigneeId: null })
-      if (q.tagId) where.push({ tags: { some: { tagId: q.tagId } } })
-      if (q.phoneNumberId) where.push({ phoneNumberId: q.phoneNumberId })
-      const now = new Date()
-      if (q.window === 'OPEN') where.push({ serviceWindowExpiresAt: { gt: now } })
-      if (q.window === 'CLOSED')
-        where.push({
-          OR: [{ serviceWindowExpiresAt: null }, { serviceWindowExpiresAt: { lte: now } }],
-        })
-      if (q.unread)
-        where.push({
-          OR: [
-            { readStates: { some: { userId, unreadCount: { gt: 0 } } } },
-            { AND: [{ readStates: { none: { userId } } }, { inboundCount: { gt: 0 } }] },
-          ],
-        })
-      let snippets: Map<string, string | null> | undefined
-      if (q.q) {
-        snippets = await searchConversations(tx, q.q)
-        where.push({ id: { in: [...snippets.keys()] } })
-      }
+      const { where, snippets } = await this.listFilter(tx, userId, q)
+      where.push(...viewFilter(q.view, userId, q.status))
       const offset = decodeOffset(q.cursor)
       const orderBy: Prisma.ConversationOrderByWithRelationInput[] =
         q.sort === 'oldest_waiting'
@@ -128,6 +123,59 @@ export class InboxService {
         },
       }
     })
+  }
+
+  /**
+   * Tab counts for the list (docs/INBOX.md → List filters and views): the same filter as list()
+   * for each of All / Mine / Unassigned, so a count always equals that tab's fully-paged list.
+   */
+  async counts(q: ConversationCountsQuery): Promise<ConversationCounts> {
+    const { userId } = currentAuth()
+    return this.tenantDb.run(async (tx) => {
+      const { where } = await this.listFilter(tx, userId, q)
+      const count = (view: 'all' | 'mine' | 'unassigned') =>
+        tx.conversation.count({ where: { AND: [...where, ...viewFilter(view, userId, q.status)] } })
+      const [all, mine, unassigned] = [
+        await count('all'),
+        await count('mine'),
+        await count('unassigned'),
+      ]
+      return { all, mine, unassigned }
+    })
+  }
+
+  /**
+   * The list's filter apart from the view: visibility, status, unread and search. Shared by
+   * list() and counts(), which add viewFilter() per tab.
+   */
+  private async listFilter(
+    tx: TenantTx,
+    userId: string,
+    q: Omit<ConversationsQuery, 'view' | 'sort' | 'limit' | 'cursor'>,
+  ): Promise<{ where: Prisma.ConversationWhereInput[]; snippets?: Map<string, string | null> }> {
+    const where: Prisma.ConversationWhereInput[] = [await this.visibility(tx, userId)]
+    if (q.status) where.push({ status: q.status })
+    if (q.assigneeId) where.push({ assigneeId: q.assigneeId })
+    if (q.unassigned) where.push({ assigneeId: null })
+    if (q.tagId) where.push({ tags: { some: { tagId: q.tagId } } })
+    if (q.phoneNumberId) where.push({ phoneNumberId: q.phoneNumberId })
+    const now = new Date()
+    if (q.window === 'OPEN') where.push({ serviceWindowExpiresAt: { gt: now } })
+    if (q.window === 'CLOSED')
+      where.push({
+        OR: [{ serviceWindowExpiresAt: null }, { serviceWindowExpiresAt: { lte: now } }],
+      })
+    if (q.unread)
+      where.push({
+        OR: [
+          { readStates: { some: { userId, unreadCount: { gt: 0 } } } },
+          { AND: [{ readStates: { none: { userId } } }, { inboundCount: { gt: 0 } }] },
+        ],
+      })
+    if (!q.q) return { where }
+    const snippets = await searchConversations(tx, q.q)
+    where.push({ id: { in: [...snippets.keys()] } })
+    return { where, snippets }
   }
 
   async get(id: string): Promise<Conversation> {
@@ -193,8 +241,18 @@ export class InboxService {
     })
   }
 
+  /**
+   * One message. A signed-in user only gets messages from conversations they can see (the same
+   * visibility as the list and thread); an API key stays workspace-wide (docs/API_KEYS.md).
+   */
   async message(id: string): Promise<Message> {
-    const row = await this.tenantDb.run((tx) => tx.message.findFirst({ where: { id } }))
+    const row = await this.tenantDb.run(async (tx) =>
+      tx.message.findFirst({
+        where: currentApiKey()
+          ? { id }
+          : { id, conversation: await this.visibility(tx, currentAuth().userId) },
+      }),
+    )
     if (!row) throw AppError.notFound('Message not found.')
     return toMessage(row)
   }
@@ -578,16 +636,8 @@ export class InboxService {
   // ------------------------------------------------------------------------------- helpers
 
   /** ASSIGNED_ONLY workspaces show agents only their own and unassigned conversations. */
-  private async visibility(tx: TenantTx, userId: string): Promise<Prisma.ConversationWhereInput> {
-    const { tenantId, role } = currentTenant() as { tenantId: string; role: string }
-    if (role !== 'AGENT') return {}
-    const t = await tx.tenant.findUniqueOrThrow({
-      where: { id: tenantId },
-      select: { inboxVisibility: true },
-    })
-    return t.inboxVisibility === 'ASSIGNED_ONLY'
-      ? { OR: [{ assigneeId: userId }, { assigneeId: null }] }
-      : {}
+  private visibility(tx: TenantTx, userId: string): Promise<Prisma.ConversationWhereInput> {
+    return conversationVisibility(tx, userId)
   }
 
   private async find(tx: TenantTx, id: string, userId: string) {

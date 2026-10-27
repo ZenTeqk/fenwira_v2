@@ -1,5 +1,6 @@
 'use client'
 
+import { drafts } from '@/lib/drafts'
 import { type Me } from '@fenwira/contracts'
 import { ErrorState, Skeleton } from '@fenwira/ui'
 import { useQueryClient } from '@tanstack/react-query'
@@ -81,6 +82,7 @@ function AppSessionTimeout({ me }: { me: Me }) {
   const onExpired = useCallback(() => {
     void post('/auth/logout').catch(() => undefined)
     queryClient.clear()
+    drafts.clearAll()
     setActiveTenantId(undefined)
     router.replace(`/login?reason=expired&next=${encodeURIComponent(pathname)}`)
   }, [pathname, queryClient, router])

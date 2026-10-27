@@ -186,7 +186,7 @@ test('a template shows its full content, and ticks change live as Meta reports s
     // The bubble is named by its label and body, and shows the whole template.
     const bubble = log.getByRole('group', { name: /your voucher V-77 is ready/ })
     await expect(bubble).toBeVisible()
-    await expect(bubble.getByText(`Template: ${name}`)).toBeVisible()
+    await expect(bubble.getByText(`Template · ${name}`)).toBeVisible()
     await expect(bubble.getByText('Hello Ravi')).toBeVisible()
     await expect(bubble.getByText('Show it at the counter before Friday.')).toBeVisible()
     await expect(bubble.getByText('Reply STOP to opt out')).toBeVisible()
@@ -214,19 +214,23 @@ test('a template shows its full content, and ticks change live as Meta reports s
     await expect(bubble.getByRole('img', { name: 'Read' })).toBeVisible()
     await expect(bubble.getByRole('img', { name: 'Read' }).locator('svg')).toHaveClass(/text-info/)
 
-    // A failure shows its reason on focus, not by colour alone.
+    // A failure says so in words, never with ticks, and "View details" shows Meta's reason.
     const failing = await send(page, owner, thread.conversationId, {
       type: 'TEXT',
       text: 'This one will bounce',
     })
     const failedWamid = await wamidOf(page, owner, failing)
     await mock('status', { wamid: failedWamid, status: 'failed', errorCode: 131049 })
-    const failedTick = log.getByRole('button', { name: 'Failed to send' })
-    await expect(failedTick).toBeVisible()
-    await failedTick.focus()
-    await expect(page.getByRole('tooltip')).toContainText('Error code 131049')
+    const failedRow = log
+      .getByText('This one will bounce')
+      .locator('xpath=ancestor::div[@data-message-id]')
+    await expect(failedRow.getByText('Failed', { exact: true })).toBeVisible()
+    await expect(failedRow.getByRole('img', { name: /Sent|Delivered|Read|Sending/ })).toHaveCount(0)
+    await failedRow.getByRole('button', { name: 'View details' }).click()
+    const details = page.getByRole('dialog', { name: 'Message not sent' })
+    await expect(details).toContainText('Meta error code 131049')
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('tooltip')).toHaveCount(0)
+    await expect(details).toHaveCount(0)
     // Inbound bubbles never show ticks.
     await expect(
       log.getByText('Can I get my voucher?').locator('xpath=ancestor::div[@data-message-id]'),
@@ -238,7 +242,7 @@ test('a template shows its full content, and ticks change live as Meta reports s
   }
 })
 
-test('media chips filter the thread, counts match, and Jump to message returns to it', async ({
+test('Shared files lists media by type with counts, and Jump to message returns to it', async ({
   page,
 }) => {
   const owner = await signInAsNewOwner(page, 'ui-media')
@@ -265,44 +269,43 @@ test('media chips filter the thread, counts match, and Jump to message returns t
   for (let i = 0; i < 14; i++)
     await send(page, owner, thread.conversationId, { type: 'TEXT', text: `Update ${i + 1}` })
 
+  await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto(`/inbox?c=${thread.conversationId}`)
   const log = page.getByRole('log', { name: 'Messages' })
   await expect(log.getByText('Update 14')).toBeVisible()
-  const chips = page.getByRole('group', { name: 'Show messages' })
-  const chip = (label: string) => chips.getByRole('button', { name: new RegExp(`^${label}`) })
-  await expect(chip('All')).toHaveAttribute('aria-pressed', 'true')
-  await expect(chip('All')).toHaveText('All 18')
-  await expect(chip('Images')).toHaveText('Images 2')
-  await expect(chip('Videos')).toHaveText('Videos 0')
-  await expect(chip('Documents')).toHaveText('Documents 1')
-
-  // Keyboard: chips are buttons with aria-pressed.
-  await chip('Images').focus()
-  await page.keyboard.press('Enter')
-  await expect(chip('Images')).toHaveAttribute('aria-pressed', 'true')
-  await expect(chip('All')).toHaveAttribute('aria-pressed', 'false')
-  const grid = page.getByRole('list', { name: 'Images' })
+  // No media chips above the timeline any more: files live in the contact panel.
+  await expect(page.getByRole('group', { name: 'Show messages' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'More conversation actions' }).click()
+  await page.getByRole('menuitem', { name: 'Shared files' }).click()
+  const panel = page.getByRole('complementary', { name: 'Contact details' })
+  await expect(panel.getByRole('tab', { name: 'Shared files' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  const types = panel.getByRole('group', { name: 'File type' })
+  const type = (label: string) => types.getByRole('button', { name: new RegExp(`^${label}`) })
+  await expect(type('Images')).toHaveAttribute('aria-pressed', 'true')
+  await expect(type('Images')).toHaveText('Images 2')
+  await expect(type('Videos')).toHaveText('Videos 0')
+  await expect(type('Documents')).toHaveText('Documents 1')
+  const grid = panel.getByRole('list', { name: 'Images' })
   await expect(grid.getByRole('listitem')).toHaveCount(2)
   await axeClean(page)
 
-  await chip('Documents').click()
-  const docs = page.getByRole('list', { name: 'Documents' })
+  await type('Documents').focus()
+  await page.keyboard.press('Enter')
+  const docs = panel.getByRole('list', { name: 'Documents' })
   await expect(docs.getByRole('listitem')).toHaveCount(1)
   await expect(docs).toContainText('invoice-1042.pdf')
   await expect(docs).toContainText(/PDF · \d+ B/)
 
-  await chip('Videos').click()
-  await expect(page.getByText('No videos in this conversation')).toBeVisible()
+  await type('Videos').click()
+  await expect(panel.getByText('No videos in this conversation')).toBeVisible()
   await axeClean(page)
-  // The active chip toggles back to All.
-  await chip('Videos').click()
-  await expect(chip('All')).toHaveAttribute('aria-pressed', 'true')
-  await expect(log.getByText('Update 14')).toBeVisible()
 
-  // Jump to the oldest photo: back to All, scrolled to it, focus on it.
-  await chip('Images').click()
+  // Jump to the oldest photo: the timeline scrolls to it and focus moves there.
+  await type('Images').click()
   await grid.getByRole('listitem').last().getByRole('button', { name: 'Jump to message' }).click()
-  await expect(chip('All')).toHaveAttribute('aria-pressed', 'true')
   const target = page.locator(`[data-message-id="${first}"]`)
   await expect(target).toBeInViewport()
   await expect(target).toBeFocused()

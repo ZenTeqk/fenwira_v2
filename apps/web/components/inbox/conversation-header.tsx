@@ -1,49 +1,201 @@
 'use client'
 
-import { type AutomationState, type Conversation, type Presence } from '@fenwira/contracts'
+import { type Conversation } from '@fenwira/contracts'
 import {
   Avatar,
-  Badge,
   Button,
+  cn,
   Dropdown,
   DropdownContent,
   DropdownItem,
   DropdownLabel,
   DropdownSeparator,
   DropdownTrigger,
+  focusRing,
   StatusBadge,
-  toast,
 } from '@fenwira/ui'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type Ref } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, Ellipsis, UserPlus } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Ellipsis, Paperclip, UserRound } from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
-import { ApiError, get, post, put } from '@/lib/api/client'
-import { del } from '@/lib/api/client'
-import { keys } from '@/lib/api/keys'
-import { TAG_TONE, useTags } from '@/lib/contacts'
-import { displayName, useNow, windowLeft } from '@/lib/inbox'
+import { useTags } from '@/lib/contacts'
+import { displayName } from '@/lib/inbox'
+import { formatPhone } from '@/lib/phone'
+import {
+  snoozeTimes,
+  STATUS_LABEL,
+  useConversationActions,
+  usePresence,
+} from './conversation-actions'
 
 const PRESENCE_TEXT = { ONLINE: 'online', AWAY: 'away', OFFLINE: 'offline' } as const
 
-function snoozeTimes() {
-  const inHour = new Date(Date.now() + 3600_000)
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  tomorrow.setHours(9, 0, 0, 0)
-  const nextWeek = new Date(tomorrow)
-  nextWeek.setDate(nextWeek.getDate() + 6)
-  return [
-    { label: '1 hour', at: inHour },
-    { label: 'Tomorrow 9:00', at: tomorrow },
-    { label: 'Next week', at: nextWeek },
-  ]
+/** Workflow status as a menu: Open / Waiting on customer / Snooze until… / Resolved. */
+function StatusMenu({ c }: { c: Conversation }) {
+  const actions = useConversationActions(c)
+  const badge = <StatusBadge status={c.status} appearance="inline" label={STATUS_LABEL[c.status]} />
+  if (!actions.can.reply) return badge
+  return (
+    <Dropdown>
+      <DropdownTrigger
+        className={cn(
+          'inline-flex h-8 items-center gap-1 rounded-md border border-border-strong bg-surface px-2.5 hover:bg-neutral-soft',
+          focusRing,
+        )}
+        aria-label={`Conversation status: ${STATUS_LABEL[c.status]}. Change status`}
+      >
+        {badge}
+        <ChevronDown aria-hidden="true" className="size-3.5 text-secondary" />
+      </DropdownTrigger>
+      <DropdownContent align="start">
+        {(['OPEN', 'PENDING'] as const).map((s) => (
+          <DropdownItem key={s} disabled={c.status === s} onSelect={() => actions.setStatus(s)}>
+            {STATUS_LABEL[s]}
+          </DropdownItem>
+        ))}
+        <DropdownLabel>Snooze until</DropdownLabel>
+        {snoozeTimes().map((s) => (
+          <DropdownItem key={s.label} onSelect={() => actions.setStatus('SNOOZED', s.at)}>
+            {s.label}
+          </DropdownItem>
+        ))}
+        <DropdownSeparator />
+        <DropdownItem
+          disabled={c.status === 'RESOLVED'}
+          onSelect={() => actions.setStatus('RESOLVED')}
+        >
+          {STATUS_LABEL.RESOLVED}
+        </DropdownItem>
+      </DropdownContent>
+    </Dropdown>
+  )
 }
 
+/**
+ * Assignment: "Assign to me" while unassigned, otherwise the assignee's name; the menu holds
+ * unassign and (with inbox.reassign) the workspace members.
+ */
+export function AssignControl({
+  c,
+  className,
+  variant = 'header',
+}: {
+  c: Conversation
+  className?: string
+  /** `panel`: a selector showing the assignee, with "Assign to me" beside it. */
+  variant?: 'header' | 'panel'
+}) {
+  const panel = variant === 'panel'
+  const { me } = useSession()
+  const actions = useConversationActions(c)
+  const members = usePresence()
+  const menu = actions.can.assignSelf || actions.can.unassign || actions.can.reassign
+  // Without an assignment permission this is a read-only statement, never a dead button.
+  if (!menu)
+    return (
+      <span
+        className={cn('inline-flex min-w-0 items-center gap-1.5 text-sm text-secondary', className)}
+      >
+        {c.assignee ? <Avatar appearance="varied" name={c.assignee.name} size="sm" /> : null}
+        <span className="truncate">{c.assignee ? c.assignee.name : 'Unassigned'}</span>
+      </span>
+    )
+  const assignToMeLink =
+    panel && actions.can.assignSelf ? (
+      <Button
+        variant="tertiary"
+        size="sm"
+        className="px-1"
+        loading={actions.pending}
+        onClick={actions.assignToMe}
+      >
+        Assign to me
+      </Button>
+    ) : null
+  if (!c.assignee && !actions.can.reassign)
+    return panel ? (
+      <div className={cn('flex items-center justify-between gap-2', className)}>
+        <span className="text-base text-secondary">Unassigned</span>
+        {assignToMeLink}
+      </div>
+    ) : (
+      <Button
+        variant="secondary"
+        className={className}
+        loading={actions.pending}
+        onClick={actions.assignToMe}
+      >
+        Assign to me
+      </Button>
+    )
+  const label = c.assignee ? c.assignee.name : panel ? 'Unassigned' : 'Assign to me'
+  const trigger = (
+    <Button
+      variant="secondary"
+      className={cn('max-w-48 min-w-0 gap-1.5', panel ? 'flex-1 justify-between' : className)}
+      aria-label={
+        c.assignee
+          ? `Assigned to ${c.assignee.name}. Change assignee`
+          : panel
+            ? 'Unassigned. Choose an assignee'
+            : 'Assign to me, or choose an assignee'
+      }
+      title={c.assignee ? `Assigned to ${c.assignee.name}` : 'Assign conversation'}
+    >
+      {c.assignee ? <Avatar appearance="varied" name={c.assignee.name} size="sm" /> : null}
+      <span className="truncate">{label}</span>
+      <ChevronDown aria-hidden="true" />
+    </Button>
+  )
+  const dropdown = (
+    <Dropdown>
+      <DropdownTrigger asChild>{trigger}</DropdownTrigger>
+      <DropdownContent align="end">
+        {actions.can.assignSelf ? (
+          <DropdownItem onSelect={actions.assignToMe}>Assign to me</DropdownItem>
+        ) : null}
+        {actions.can.unassign ? (
+          <DropdownItem onSelect={() => actions.assign(null)}>Unassign</DropdownItem>
+        ) : null}
+        {actions.can.reassign ? (
+          <>
+            <DropdownSeparator />
+            <DropdownLabel>Workspace members</DropdownLabel>
+            {(members.data ?? [])
+              .filter((m) => m.userId !== me.user.id)
+              .map((m) => (
+                <DropdownItem
+                  key={m.userId}
+                  disabled={m.userId === c.assignee?.id}
+                  onSelect={() => actions.assign(m.userId)}
+                >
+                  {m.name}{' '}
+                  <span className="text-xs text-secondary">({PRESENCE_TEXT[m.status]})</span>
+                </DropdownItem>
+              ))}
+          </>
+        ) : null}
+      </DropdownContent>
+    </Dropdown>
+  )
+  return panel ? (
+    <div className={cn('flex items-center gap-3', className)}>
+      {dropdown}
+      {assignToMeLink}
+    </div>
+  ) : (
+    dropdown
+  )
+}
+
+/**
+ * Conversation header (~72px): identity and workflow status on the left; assign, resolve/reopen,
+ * more and the contact-panel toggle on the right (docs/INBOX.md → Layout).
+ */
 export function ConversationHeader({
   conversation: c,
   onBack,
   onToggleContact,
+  onSharedFiles,
   contactButtonRef,
   contactExpanded,
   contactControlsId,
@@ -52,253 +204,135 @@ export function ConversationHeader({
   conversation: Conversation
   onBack: () => void
   onToggleContact: () => void
+  /** Opens the contact panel on Shared files. */
+  onSharedFiles?: () => void
   contactButtonRef?: Ref<HTMLButtonElement>
   contactExpanded: boolean
   contactControlsId: string
   contactIsDrawer: boolean
 }) {
-  const { tenantId, can, me } = useSession()
-  const queryClient = useQueryClient()
-  const now = useNow()
   const tags = useTags().data ?? []
-  const members = useQuery({
-    queryKey: keys.tenant(tenantId, 'inbox', 'presence'),
-    queryFn: () => get<{ data: Presence[] }>('/inbox/presence').then((r) => r.data),
-    staleTime: 15_000,
-  })
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: keys.tenant(tenantId, 'inbox') })
-  }
-  const act = useMutation({
-    mutationFn: (fn: () => Promise<unknown>) => fn(),
-    onSuccess: refresh,
-    onError: (err) => toast.error(err instanceof ApiError ? err.message : 'Something went wrong.'),
-  })
-  const base = `/conversations/${c.id}`
-  const assign = (assigneeId: string | null) =>
-    act.mutate(() => post(`${base}/assign`, { assigneeId }))
-  const status = (s: Conversation['status'], snoozedUntil?: Date) =>
-    act.mutate(() =>
-      post(`${base}/status`, {
-        status: s,
-        ...(snoozedUntil ? { snoozedUntil: snoozedUntil.toISOString() } : {}),
-      }),
-    )
-  const automation = (state: AutomationState) =>
-    act.mutate(() => post(`${base}/automation-state`, { state }))
-  const left = c.serviceWindow.isOpen ? windowLeft(c.serviceWindow.expiresAt, now) : null
-  const windowStatus = left
-    ? c.serviceWindow.expiresAt && new Date(c.serviceWindow.expiresAt).getTime() - now <= 3600_000
-      ? 'EXPIRING'
-      : 'WINDOW_OPEN'
-    : 'WINDOW_CLOSED'
-  const canReply = can('inbox.reply')
+  const actions = useConversationActions(c)
+  const name = displayName(c)
+  const closed = c.status === 'RESOLVED' || c.status === 'SNOOZED'
 
   return (
-    <div className="@container flex flex-col border-b border-border bg-surface">
-      <div className="flex min-h-16 flex-wrap items-center gap-2 px-3 py-3">
+    <div className="@container flex h-20 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="-ml-2 size-10 md:hidden"
+        aria-label="Back to conversations"
+        onClick={onBack}
+      >
+        <ArrowLeft aria-hidden="true" />
+      </Button>
+      <Avatar
+        appearance="varied"
+        name={name}
+        size="lg"
+        className="hidden shrink-0 @md:flex @md:size-12 @md:text-md"
+      />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <h2 className="truncate text-lg font-semibold text-slate" title={name}>
+          {name}
+        </h2>
+        <span className="truncate text-base text-secondary tabular-nums">
+          {formatPhone(c.contact.phoneE164)}
+        </span>
+      </div>
+      <div className="mr-auto hidden shrink-0 @md:block">
+        <StatusMenu c={c} />
+      </div>
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <AssignControl c={c} className="hidden @2xl:inline-flex" />
+        {actions.can.reply ? (
+          closed ? (
+            <Button variant="secondary" onClick={() => actions.setStatus('OPEN')}>
+              Reopen
+            </Button>
+          ) : (
+            <Button onClick={() => actions.setStatus('RESOLVED')}>Resolve</Button>
+          )
+        ) : null}
+        <Dropdown>
+          <DropdownTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="More conversation actions"
+              title="More conversation actions"
+            >
+              <Ellipsis aria-hidden="true" />
+            </Button>
+          </DropdownTrigger>
+          <DropdownContent align="end">
+            {onSharedFiles ? (
+              <DropdownItem onSelect={onSharedFiles}>
+                <Paperclip aria-hidden="true" className="size-4" />
+                Shared files
+              </DropdownItem>
+            ) : null}
+            {actions.can.reply ? (
+              <>
+                <DropdownSeparator />
+                <DropdownLabel>Status</DropdownLabel>
+                {(['OPEN', 'PENDING'] as const).map((st) => (
+                  <DropdownItem
+                    key={st}
+                    disabled={c.status === st}
+                    onSelect={() => actions.setStatus(st)}
+                  >
+                    {STATUS_LABEL[st]}
+                  </DropdownItem>
+                ))}
+                {snoozeTimes().map((t) => (
+                  <DropdownItem key={t.label} onSelect={() => actions.setStatus('SNOOZED', t.at)}>
+                    Snooze · {t.label}
+                  </DropdownItem>
+                ))}
+              </>
+            ) : null}
+            {actions.can.reply && c.automationState === 'AUTOMATION_ACTIVE' ? (
+              <>
+                <DropdownSeparator />
+                <DropdownItem onSelect={() => actions.setAutomation('AGENT_TAKEOVER')}>
+                  Take over from automation
+                </DropdownItem>
+                <DropdownItem onSelect={() => actions.setAutomation('AUTOMATION_PAUSED')}>
+                  Pause automation
+                </DropdownItem>
+              </>
+            ) : null}
+            {actions.can.reply && tags.length ? (
+              <>
+                <DropdownSeparator />
+                <DropdownLabel>Tags</DropdownLabel>
+                {tags.map((t) => {
+                  const on = c.tags.some((x) => x.id === t.id)
+                  return (
+                    <DropdownItem key={t.id} onSelect={() => actions.toggleTag(t.id, on)}>
+                      {on ? `Remove "${t.name}"` : `Add "${t.name}"`}
+                    </DropdownItem>
+                  )
+                })}
+              </>
+            ) : null}
+          </DropdownContent>
+        </Dropdown>
         <Button
           variant="ghost"
           size="icon"
-          className="size-10 md:hidden"
-          aria-label="Back to conversations"
-          onClick={onBack}
+          ref={contactButtonRef}
+          aria-label={contactExpanded ? 'Hide contact details' : 'Show contact details'}
+          title={contactExpanded ? 'Hide contact details' : 'Show contact details'}
+          aria-expanded={contactExpanded}
+          aria-controls={contactControlsId}
+          aria-haspopup={contactIsDrawer ? 'dialog' : undefined}
+          onClick={onToggleContact}
         >
-          <ArrowLeft aria-hidden="true" />
+          <UserRound aria-hidden="true" />
         </Button>
-        <Avatar appearance="varied" name={displayName(c)} size="md" className="size-9" />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h2 className="truncate text-md font-semibold text-slate">{displayName(c)}</h2>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="font-mono text-xs text-muted">{`•••• ${c.contact.phoneE164.slice(-4)}`}</span>
-            <StatusBadge status={c.status} appearance="inline" />
-          </div>
-        </div>
-        <div className="flex w-full shrink-0 items-center justify-end gap-1 @sm:w-auto">
-          {can('inbox.assign_self') ? (
-            <Dropdown>
-              <DropdownTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-10 sm:size-9"
-                  aria-label={c.assignee ? `Assign · ${c.assignee.name}` : 'Assign'}
-                  title={c.assignee ? `Assigned to ${c.assignee.name}` : 'Assign conversation'}
-                >
-                  {c.assignee ? (
-                    <Avatar appearance="varied" name={c.assignee.name} size="sm" />
-                  ) : (
-                    <UserPlus aria-hidden="true" />
-                  )}
-                </Button>
-              </DropdownTrigger>
-              <DropdownContent>
-                {c.assignee?.id !== me.user.id ? (
-                  <DropdownItem onSelect={() => assign(me.user.id)}>Assign to me</DropdownItem>
-                ) : null}
-                {c.assignee && (c.assignee.id === me.user.id || can('inbox.reassign')) ? (
-                  <DropdownItem onSelect={() => assign(null)}>Unassign</DropdownItem>
-                ) : null}
-                {can('inbox.reassign') ? (
-                  <>
-                    <DropdownSeparator />
-                    <DropdownLabel>Workspace members</DropdownLabel>
-                    {(members.data ?? [])
-                      .filter((m) => m.userId !== me.user.id)
-                      .map((m) => (
-                        <DropdownItem key={m.userId} onSelect={() => assign(m.userId)}>
-                          {m.name}{' '}
-                          <span className="text-xs text-muted">({PRESENCE_TEXT[m.status]})</span>
-                        </DropdownItem>
-                      ))}
-                  </>
-                ) : null}
-              </DropdownContent>
-            </Dropdown>
-          ) : null}
-
-          {canReply ? (
-            c.status === 'RESOLVED' || c.status === 'SNOOZED' ? (
-              <Button size="sm" variant="secondary" onClick={() => status('OPEN')}>
-                Reopen
-              </Button>
-            ) : (
-              <>
-                <Button size="sm" onClick={() => status('RESOLVED')}>
-                  Resolve
-                </Button>
-                <Dropdown>
-                  <DropdownTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-10 sm:size-8"
-                      aria-label="More"
-                      title="More conversation actions"
-                    >
-                      <Ellipsis aria-hidden="true" />
-                    </Button>
-                  </DropdownTrigger>
-                  <DropdownContent>
-                    {c.status !== 'PENDING' ? (
-                      <DropdownItem onSelect={() => status('PENDING')}>Mark pending</DropdownItem>
-                    ) : (
-                      <DropdownItem onSelect={() => status('OPEN')}>Mark open</DropdownItem>
-                    )}
-                    <DropdownLabel>Snooze until</DropdownLabel>
-                    {snoozeTimes().map((s) => (
-                      <DropdownItem key={s.label} onSelect={() => status('SNOOZED', s.at)}>
-                        {s.label}
-                      </DropdownItem>
-                    ))}
-                    {c.automationState === 'AUTOMATION_ACTIVE' ? (
-                      <>
-                        <DropdownSeparator />
-                        <DropdownItem onSelect={() => automation('AGENT_TAKEOVER')}>
-                          Take over from automation
-                        </DropdownItem>
-                        <DropdownItem onSelect={() => automation('AUTOMATION_PAUSED')}>
-                          Pause automation
-                        </DropdownItem>
-                      </>
-                    ) : null}
-                    {tags.length ? (
-                      <>
-                        <DropdownSeparator />
-                        <DropdownLabel>Tags</DropdownLabel>
-                        {tags.map((t) => {
-                          const on = c.tags.some((x) => x.id === t.id)
-                          return (
-                            <DropdownItem
-                              key={t.id}
-                              onSelect={() =>
-                                act.mutate(() =>
-                                  on
-                                    ? del(`${base}/tags/${t.id}`)
-                                    : put(`${base}/tags/${t.id}`, {}),
-                                )
-                              }
-                            >
-                              {on ? `Remove "${t.name}"` : `Add "${t.name}"`}
-                            </DropdownItem>
-                          )
-                        })}
-                      </>
-                    ) : null}
-                  </DropdownContent>
-                </Dropdown>
-              </>
-            )
-          ) : null}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-10 sm:size-9"
-            ref={contactButtonRef}
-            aria-label={contactExpanded ? 'Hide customer details' : 'Show customer details'}
-            title={contactExpanded ? 'Hide customer details' : 'Show customer details'}
-            aria-expanded={contactExpanded}
-            aria-controls={contactControlsId}
-            aria-haspopup={contactIsDrawer ? 'dialog' : undefined}
-            onClick={onToggleContact}
-          >
-            {contactExpanded ? (
-              <ChevronRight aria-hidden="true" />
-            ) : (
-              <ChevronLeft aria-hidden="true" />
-            )}
-          </Button>
-        </div>
-      </div>
-      <div
-        className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border/60 px-3 py-2"
-        aria-label="Conversation context"
-      >
-        <span className="min-w-0" title="WhatsApp 24-hour service window">
-          <StatusBadge
-            status={windowStatus}
-            label={left ? `Window open · ${left.replace(' left', '')}` : 'Window closed'}
-          />
-        </span>
-        {c.tags.length ? (
-          <div className="flex min-w-0 flex-wrap gap-1">
-            {c.tags.map((t) => (
-              <Badge key={t.id} tone={TAG_TONE[t.color as keyof typeof TAG_TONE] ?? 'neutral'}>
-                {t.name}
-              </Badge>
-            ))}
-          </div>
-        ) : null}
-        {c.automationState !== 'AUTOMATION_ACTIVE' ? (
-          <div
-            role="status"
-            className="flex w-full flex-wrap items-center gap-1 text-xs text-secondary"
-          >
-            <span
-              className="min-w-0 flex-1"
-              title="Automated messages won’t be sent in this conversation."
-            >
-              {c.automationState === 'AGENT_TAKEOVER' ? (
-                <StatusBadge status="AGENT_TAKEOVER" label="An agent has taken over" />
-              ) : (
-                <StatusBadge status="PAUSED" label="Automation is paused" />
-              )}
-              <span className="sr-only">
-                Automated messages won’t be sent in this conversation.
-              </span>
-            </span>
-            {canReply ? (
-              <Button
-                size="sm"
-                variant="link"
-                className="min-h-10 py-0 text-xs sm:min-h-6"
-                onClick={() => automation('AUTOMATION_ACTIVE')}
-              >
-                Return to automation
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
       </div>
     </div>
   )
