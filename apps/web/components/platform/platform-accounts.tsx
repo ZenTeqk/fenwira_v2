@@ -1,6 +1,7 @@
 'use client'
 import {
   accessRequestItemSchema,
+  platformWorkspaceRowSchema,
   createWorkspaceWithOwnerSchema,
   emailDeliverySchema,
   oneTimeLinkSchema,
@@ -30,7 +31,7 @@ import {
   Textarea,
   toast,
 } from '@fenwira/ui'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { type FormEvent, useState } from 'react'
 import { z } from 'zod'
@@ -45,8 +46,16 @@ import { usePlatform } from './platform-shell'
 const failure = (err: unknown) => errorText(err, 'The request failed. Try again.')
 
 /** ADR-0027 step 4: create a workspace and its owner in one step; hand the owner a setup link. */
-export function ProvisionWorkspace() {
+type Prefill = { workspaceName: string; ownerName: string; ownerEmail: string }
+
+/** `prefill` (from an access request) fills the form when it opens; the operator can edit it. */
+export function ProvisionWorkspace({
+  prefill,
+  label = 'Create workspace',
+  size,
+}: { prefill?: Prefill; label?: string; size?: 'sm' } = {}) {
   const request = useIdentityRequest()
+  const cache = useQueryClient()
   const me = usePlatform()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({
@@ -80,6 +89,7 @@ export function ProvisionWorkspace() {
         provisionedWorkspaceSchema.parse(await request('/workspaces/provision', parsed.data)),
       )
       setForm({ workspaceName: '', ownerName: '', ownerEmail: '', planKey: 'GROWTH' })
+      void cache.invalidateQueries({ queryKey: ['platform', 'workspace-list'] })
     } catch (err) {
       setError(failure(err))
     } finally {
@@ -88,7 +98,23 @@ export function ProvisionWorkspace() {
   }
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Create workspace</Button>
+      <Button
+        size={size}
+        variant={prefill ? 'secondary' : undefined}
+        aria-label={prefill ? `Create workspace for ${prefill.workspaceName}` : undefined}
+        onClick={() => {
+          if (prefill)
+            setForm((f) => ({
+              ...f,
+              workspaceName: prefill.workspaceName.trim().slice(0, 80),
+              ownerName: prefill.ownerName.trim().slice(0, 120),
+              ownerEmail: prefill.ownerEmail.trim(),
+            }))
+          setOpen(true)
+        }}
+      >
+        {label}
+      </Button>
       <DetailDrawer
         open={open}
         onOpenChange={(v) => {
@@ -350,6 +376,18 @@ export function AccessRequestsView() {
     queryFn: async () =>
       z.array(accessRequestItemSchema).parse(await platformRequest('/access-requests')),
   })
+  // Same key as the Workspaces page: a request whose email owns a workspace is already onboarded.
+  const workspaces = useQuery({
+    queryKey: ['platform', 'workspace-list'],
+    retry: false,
+    queryFn: async () =>
+      z.array(platformWorkspaceRowSchema).parse(await platformRequest('/workspace-list')),
+  })
+  const owned = new Map(
+    (workspaces.data ?? []).flatMap((w) =>
+      w.ownerEmail ? [[w.ownerEmail.toLowerCase(), w] as const] : [],
+    ),
+  )
   const tone = {
     QUEUED: 'WAITING',
     EMAILED: 'SUCCEEDED',
@@ -367,7 +405,7 @@ export function AccessRequestsView() {
       header={{
         title: 'Access requests',
         description:
-          'Leads from the fenwira.com form, newest first; reply, then create the workspace. Every request is kept even when its email fails. See docs/MANAGED_LAUNCH.md § 3 Onboard one customer.',
+          'Leads from the fenwira.com form, newest first. Reply to the lead, then use Create workspace: the form opens filled in from the request (company, name, email) and gives you the owner setup link. Every request is kept even when its email fails. See docs/MANAGED_LAUNCH.md § 3 Onboard one customer.',
       }}
     >
       {leads.isPending ? (
@@ -387,6 +425,7 @@ export function AccessRequestsView() {
               <TableHead>Phone</TableHead>
               <TableHead>Volume</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Workspace</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -404,6 +443,21 @@ export function AccessRequestsView() {
                 <TableCell>{l.volume}</TableCell>
                 <TableCell>
                   <StatusBadge status={tone[l.status]} label={label[l.status]} />
+                </TableCell>
+                <TableCell>
+                  {owned.get(l.email.toLowerCase()) ? (
+                    <Link
+                      href={`/platform/workspaces/${owned.get(l.email.toLowerCase())!.id}`}
+                      className="text-primary-strong hover:underline"
+                    >
+                      Workspace created: open
+                    </Link>
+                  ) : (
+                    <ProvisionWorkspace
+                      size="sm"
+                      prefill={{ workspaceName: l.company, ownerName: l.name, ownerEmail: l.email }}
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             ))}
