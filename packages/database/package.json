@@ -35,9 +35,9 @@
   "dependencies": {
     "@fenwira/config": "workspace:*",
     "@fenwira/contracts": "workspace:*",
-    "@prisma/client": "6.19.3",
+    "@prisma/client": "7.10.1",
     "pg": "8.23.0",
-    "prisma": "6.19.3"
+    "prisma": "7.10.1"
   },
   "devDependencies": {
     "@types/pg": "8.23.1",
