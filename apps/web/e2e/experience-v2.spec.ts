@@ -158,7 +158,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
       await page.getByRole('button', { name: 'Show contact details' }).click()
       await page
         .getByRole('dialog', { name: 'Contact details', exact: true })
-        .getByText('Eligibility and consent details', { exact: true })
+        .getByRole('button', { name: 'Messaging eligibility' })
         .click()
       await expect(
         page

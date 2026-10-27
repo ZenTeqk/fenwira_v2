@@ -6,14 +6,13 @@ import { ArrowUpRight } from 'lucide-react'
 import { type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { TagBadges } from '@/components/contacts/tag-badges'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { formatPhone } from '@/lib/phone'
 import { relativeTime } from '@/lib/relative-time'
 import { AssignControl } from './conversation-header'
-import { MessagingContext } from './messaging-context'
+import { AutomationSection, ContactNotes, ContactTags, EligibilitySection } from './contact-details'
 
 type PastConversation = {
   id: string
@@ -119,52 +118,16 @@ export function ContactPane({
                   Assigned to
                 </h3>
                 {/* The header's control: one source of truth (the conversation query). */}
-                <AssignControl c={conversation} className="self-start" />
+                <AssignControl c={conversation} variant="panel" />
               </section>
-              <section
-                className="flex flex-col gap-2 border-t border-border pt-4"
-                aria-label="Tags"
-              >
-                <h3 className="text-sm font-semibold text-slate">Tags</h3>
-                <TagBadges tags={c.tags} max={10} />
-              </section>
-              <MessagingContext contact={c} conversationId={conversationId} />
-              <section
-                className="flex flex-col gap-2 border-t border-border pt-4"
-                aria-label="Contact notes"
-              >
-                <h3 className="text-sm font-semibold text-slate">Notes</h3>
-                {notes.isPending ? (
-                  <Skeleton className="h-20" />
-                ) : notes.isError ? (
-                  <ErrorState
-                    title="Notes couldn’t be loaded"
-                    onRetry={() => void notes.refetch()}
-                  />
-                ) : notes.data?.length ? (
-                  <ul className="flex flex-col gap-2">
-                    {notes.data.slice(0, 5).map((n) => (
-                      <li
-                        key={n.id}
-                        className="flex gap-2 rounded-md bg-note-soft p-2 text-sm text-slate"
-                      >
-                        <Avatar appearance="varied" name={n.authorName} size="sm" />
-                        <div className="min-w-0">
-                          <p className="mb-1 text-xs text-secondary">
-                            <span className="font-medium">{n.authorName}</span> ·{' '}
-                            <time dateTime={n.createdAt}>{relativeTime(n.createdAt)}</time>
-                          </p>
-                          <p className="whitespace-pre-wrap break-words">{n.body}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-secondary">
-                    No notes yet. Notes on the contact show here.
-                  </p>
-                )}
-              </section>
+              <ContactTags contact={c} />
+              <ContactNotes
+                contactId={contactId}
+                notes={notes}
+                onRetry={() => void notes.refetch()}
+              />
+              <EligibilitySection contact={c} conversationId={conversationId} />
+              <AutomationSection conversation={conversation} />
               {/* Only when there is history to show (or it failed to load). */}
               {past.isError || others.length ? (
                 <section

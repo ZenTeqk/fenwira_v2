@@ -74,7 +74,17 @@ function StatusMenu({ c }: { c: Conversation }) {
  * Assignment: "Assign to me" while unassigned, otherwise the assignee's name; the menu holds
  * unassign and (with inbox.reassign) the workspace members.
  */
-export function AssignControl({ c, className }: { c: Conversation; className?: string }) {
+export function AssignControl({
+  c,
+  className,
+  variant = 'header',
+}: {
+  c: Conversation
+  className?: string
+  /** `panel`: a selector showing the assignee, with "Assign to me" beside it. */
+  variant?: 'header' | 'panel'
+}) {
+  const panel = variant === 'panel'
   const { me } = useSession()
   const actions = useConversationActions(c)
   const members = usePresence()
@@ -89,8 +99,25 @@ export function AssignControl({ c, className }: { c: Conversation; className?: s
         <span className="truncate">{c.assignee ? c.assignee.name : 'Unassigned'}</span>
       </span>
     )
+  const assignToMeLink =
+    panel && actions.can.assignSelf ? (
+      <Button
+        variant="tertiary"
+        size="sm"
+        className="px-1"
+        loading={actions.pending}
+        onClick={actions.assignToMe}
+      >
+        Assign to me
+      </Button>
+    ) : null
   if (!c.assignee && !actions.can.reassign)
-    return (
+    return panel ? (
+      <div className={cn('flex items-center justify-between gap-2', className)}>
+        <span className="text-base text-secondary">Unassigned</span>
+        {assignToMeLink}
+      </div>
+    ) : (
       <Button
         variant="secondary"
         className={className}
@@ -100,12 +127,18 @@ export function AssignControl({ c, className }: { c: Conversation; className?: s
         Assign to me
       </Button>
     )
-  const label = c.assignee ? c.assignee.name : 'Assign to me'
+  const label = c.assignee ? c.assignee.name : panel ? 'Unassigned' : 'Assign to me'
   const trigger = (
     <Button
       variant="secondary"
-      className={cn('max-w-48 min-w-0 gap-1.5', className)}
-      aria-label={c.assignee ? `Assigned to ${c.assignee.name}. Change assignee` : 'Assign'}
+      className={cn('max-w-48 min-w-0 gap-1.5', panel ? 'flex-1 justify-between' : className)}
+      aria-label={
+        c.assignee
+          ? `Assigned to ${c.assignee.name}. Change assignee`
+          : panel
+            ? 'Unassigned. Choose an assignee'
+            : 'Assign to me, or choose an assignee'
+      }
       title={c.assignee ? `Assigned to ${c.assignee.name}` : 'Assign conversation'}
     >
       {c.assignee ? <Avatar appearance="varied" name={c.assignee.name} size="sm" /> : null}
@@ -113,7 +146,7 @@ export function AssignControl({ c, className }: { c: Conversation; className?: s
       <ChevronDown aria-hidden="true" />
     </Button>
   )
-  return (
+  const dropdown = (
     <Dropdown>
       <DropdownTrigger asChild>{trigger}</DropdownTrigger>
       <DropdownContent align="end">
@@ -143,6 +176,14 @@ export function AssignControl({ c, className }: { c: Conversation; className?: s
         ) : null}
       </DropdownContent>
     </Dropdown>
+  )
+  return panel ? (
+    <div className={cn('flex items-center gap-3', className)}>
+      {dropdown}
+      {assignToMeLink}
+    </div>
+  ) : (
+    dropdown
   )
 }
 
