@@ -12,6 +12,7 @@ const I = '019ceaaa-3333-7000-8000-000000000003'
 const INV = '019ceaaa-3333-7000-8000-000000000004'
 const PROOF = '019ceaaa-3333-7000-8000-000000000005'
 const OLD = '019ceaaa-3333-7000-8000-000000000006'
+const provisioned: unknown[] = []
 const reminded: string[] = [],
   restoredWith: unknown[] = []
 const soon = new Date(Date.now() + 3 * 86_400_000).toISOString()
@@ -107,6 +108,42 @@ async function mock(
       opts.reauth?.push(req.postDataJSON())
       fresh = true
       return route.fulfill({ status: 204 })
+    } else if (path === '/access-requests')
+      data = [
+        {
+          id: '019ceaaa-3333-7000-8000-0000000000a1',
+          name: 'Meena Iyer',
+          company: 'Magilshe Textiles',
+          email: 'meena@magilshe.test',
+          phone: '+919800000001',
+          volume: '1k-10k',
+          status: 'EMAILED',
+          createdAt: past,
+        },
+        {
+          id: '019ceaaa-3333-7000-8000-0000000000a2',
+          name: 'Acme Owner',
+          company: 'Acme Sarees',
+          email: 'Owner@acme.test',
+          phone: '+919800000002',
+          volume: '<1k',
+          status: 'EMAILED',
+          createdAt: past,
+        },
+      ]
+    else if (path === '/workspaces/provision') {
+      provisioned.push(req.postDataJSON())
+      return route.fulfill({
+        status: 201,
+        json: {
+          data: {
+            workspaceId: '019ceaaa-3333-7000-8000-0000000000b1',
+            ownerUserId: '019ceaaa-3333-7000-8000-0000000000b2',
+            setupLink: 'https://app.example.test/setup?token=e2e',
+            setupExpiresAt: soon,
+          },
+        },
+      })
     } else if (path === '/workspace-list')
       data = invoiced
         ? list.map((w) =>
@@ -342,4 +379,27 @@ test('deleted workspaces can be restored with a reason', async ({ page }) => {
   await expect(page.getByText('Old Trial Shop restored')).toBeVisible()
   await expect(page.getByText('Deleted workspaces (0)')).toBeVisible()
   expect(restoredWith).toEqual([{ reason: 'Deleted by mistake' }])
+})
+
+test('an access request becomes a workspace in one step, prefilled from the request', async ({
+  page,
+}) => {
+  await mock(page, [])
+  await page.goto('/platform/access-requests')
+  const table = page.getByRole('region', { name: 'Access requests' })
+  await expect(table.getByRole('link', { name: 'Workspace created: open' })).toBeVisible()
+  await table.getByRole('button', { name: 'Create workspace for Magilshe Textiles' }).click()
+  const drawer = page.getByRole('dialog', { name: 'Create workspace' })
+  await expect(drawer.getByLabel('Workspace name')).toHaveValue('Magilshe Textiles')
+  await expect(drawer.getByLabel('Owner name')).toHaveValue('Meena Iyer')
+  await expect(drawer.getByLabel('Owner email')).toHaveValue('meena@magilshe.test')
+  await drawer.getByRole('button', { name: 'Create workspace and owner' }).click()
+  await expect(page.getByRole('dialog', { name: 'Workspace created' })).toBeVisible()
+  expect(provisioned).toEqual([
+    expect.objectContaining({
+      workspaceName: 'Magilshe Textiles',
+      ownerName: 'Meena Iyer',
+      ownerEmail: 'meena@magilshe.test',
+    }),
+  ])
 })

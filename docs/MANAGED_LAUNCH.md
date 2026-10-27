@@ -59,7 +59,7 @@ ML-D1: each customer usually has their own Meta app and system user. Before the 
 
 ## 3. Onboard one customer, end to end
 
-1. **Create the workspace.** In Workspaces, choose **Create workspace** and enter the business name, owner name and owner email. Copy the **setup link** (single use, 72 hours) and send it to the owner. Each workspace starts on a 14-day trial.
+1. **Create the workspace.** From **Access requests**, use **Create workspace** on the lead's row: the form opens filled in from the request (company → workspace name, name → owner, email → owner email); check it and create. Or, in Workspaces, choose **Create workspace** and enter the business name, owner name and owner email. A lead whose email already owns a workspace shows **Workspace created: open** instead. Copy the **setup link** (single use, 72 hours) and send it to the owner. Each workspace starts on a 14-day trial.
 2. **Connect WhatsApp.** In the workspace, choose WhatsApp → **Connect WhatsApp number** and fill WABA ID, phone number ID, display number, token, app secret, app ID and business ID. Fenwira checks the token and the number, stores everything encrypted, subscribes the app to the WABA, and registers the number if needed. The display number must match Meta's.
 3. **Verify.** Use **Verify connection**. All three checks (token, phone number, WABA) must be green. Note any error code.
 4. **Sync templates** and **Sync status & quality**.
