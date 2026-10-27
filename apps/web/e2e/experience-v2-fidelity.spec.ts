@@ -91,7 +91,7 @@ test('Home and Inbox visual-fidelity evidence uses real communication records at
   await expect(
     messages.getByText('Hi Priya! I’ll check availability and send the details shortly.'),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Internal note', exact: true }).click()
+  await page.getByRole('tab', { name: 'Internal note', exact: true }).click()
   await page
     .getByLabel('Internal note', { exact: true })
     .fill('Interested in the 55-inch model. Confirm stock before following up.')
@@ -99,7 +99,7 @@ test('Home and Inbox visual-fidelity evidence uses real communication records at
   await expect(
     messages.getByText('Interested in the 55-inch model. Confirm stock before following up.'),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Reply', exact: true }).click()
+  await page.getByRole('tab', { name: 'Reply', exact: true }).click()
   const me = (await (await page.request.get(`${API}/auth/me`)).json()).data
   const assigned = await page.request.post(`${API}/conversations/${conversation.id}/assign`, {
     headers,

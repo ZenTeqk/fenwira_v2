@@ -70,6 +70,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const connections = useConnections()
   const connection = connections.data?.find((c) => c.id === conversation.phoneNumber.id)
   const [mode, setMode] = useState<DraftMode>('reply')
+  const panelId = useId()
   // Drafts per conversation and mode survive switching conversations and reloads (lib/drafts).
   const scope = draftScope(me.user.id, tenantId)
   const [texts, setTexts] = useState(() => ({
@@ -349,7 +350,19 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         mode === 'note' ? 'bg-note-soft' : 'bg-surface',
       )}
     >
-      <div role="group" aria-label="Compose" className="flex gap-1 self-start">
+      <div
+        role="tablist"
+        aria-label="Compose"
+        className="flex gap-1 self-start"
+        onKeyDown={(e) => {
+          // ARIA tabs: arrow keys move between Reply and Internal note.
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+          e.preventDefault()
+          const next = mode === 'reply' ? 'note' : 'reply'
+          setMode(next)
+          document.getElementById(`${panelId}-${next}`)?.focus()
+        }}
+      >
         {(
           [
             { value: 'reply', label: 'Reply', icon: Send },
@@ -358,9 +371,13 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         ).map(({ value, label, icon: Icon }) => (
           <button
             key={value}
+            id={`${panelId}-${value}`}
             type="button"
+            role="tab"
             disabled={busy}
-            aria-pressed={mode === value}
+            aria-selected={mode === value}
+            aria-controls={panelId}
+            tabIndex={mode === value ? 0 : -1}
             onClick={() => setMode(value)}
             className={cn(
               'inline-flex h-9 items-center gap-2 rounded-md px-3 text-base font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
@@ -377,190 +394,197 @@ export function Composer({ conversation }: { conversation: Conversation }) {
           </button>
         ))}
       </div>
-      {mode === 'reply' && state.kind === 'blocked' ? (
-        <ComposerStrip title={state.title} message={state.message} />
-      ) : null}
-      {freeformRestricted ? (
-        <Alert tone="warning" title="Free-form replies are unavailable">
-          {state.kind === 'reply-restricted' ? state.reason : null}
-        </Alert>
-      ) : null}
-      {mode === 'reply' && lockedByOther ? (
-        <Alert
-          tone="info"
-          title={`${lock!.holder!.name} is replying…`}
-          action={
-            canForce ? (
-              <Button size="sm" variant="secondary" onClick={() => void take(true)}>
-                Take over
-              </Button>
-            ) : null
-          }
-        >
-          You can reply when they finish.
-        </Alert>
-      ) : null}
-      {mode === 'reply' && closingSoon && state.kind === 'reply' ? (
-        <Alert
-          tone="warning"
-          title={`The 24-hour window closes in ${Math.max(minutesLeft, 1)} min`}
-        >
-          After that, only an approved template can reach this customer.
-        </Alert>
-      ) : null}
-      {mode === 'reply' && state.kind === 'blocked' ? null : mode === 'reply' &&
-        state.kind === 'template-only' ? (
-        <ComposerStrip
-          title="Reply window closed"
-          message="Use an approved template to send a message."
-          action={
-            <Button disabled={disabled} onClick={() => setPicking(true)}>
-              Choose template
-            </Button>
-          }
-        />
-      ) : (
-        <div className="relative flex items-end gap-2">
-          {matches.length ? (
-            <ul
-              id={listId}
-              role="listbox"
-              aria-label="Canned replies"
-              className="absolute bottom-full left-0 z-10 mb-2 flex max-h-64 w-full max-w-md flex-col overflow-y-auto rounded-md border border-border bg-surface py-1 shadow-overlay"
-            >
-              {matches.map((r, i) => (
-                <li
-                  key={r.id}
-                  id={`${listId}-${i}`}
-                  role="option"
-                  aria-selected={i === active}
-                  className={cn(
-                    'flex cursor-pointer flex-col px-3 py-2 text-left',
-                    i === active ? 'bg-primary-soft' : 'hover:bg-neutral-soft',
-                  )}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    insert(r.body)
-                  }}
-                >
-                  <span className="flex gap-2 text-sm">
-                    <span className="font-mono text-slate">{r.shortcut}</span>
-                    <span className="font-medium text-slate">{r.title}</span>
-                  </span>
-                  <span className="truncate text-sm text-slate">{r.body}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <div
-            data-slot="composer-pill"
-            className={cn(
-              'group relative flex min-w-0 flex-1 items-end gap-0.5 rounded-full border border-border-strong pr-1 data-multiline:rounded-xl',
-              mode === 'note' ? 'bg-note-soft' : 'bg-surface',
-            )}
+      <div
+        role="tabpanel"
+        id={panelId}
+        aria-labelledby={`${panelId}-${mode}`}
+        className="flex flex-col gap-2"
+      >
+        {mode === 'reply' && state.kind === 'blocked' ? (
+          <ComposerStrip title={state.title} message={state.message} />
+        ) : null}
+        {freeformRestricted ? (
+          <Alert tone="warning" title="Free-form replies are unavailable">
+            {state.kind === 'reply-restricted' ? state.reason : null}
+          </Alert>
+        ) : null}
+        {mode === 'reply' && lockedByOther ? (
+          <Alert
+            tone="info"
+            title={`${lock!.holder!.name} is replying…`}
+            action={
+              canForce ? (
+                <Button size="sm" variant="secondary" onClick={() => void take(true)}>
+                  Take over
+                </Button>
+              ) : null
+            }
           >
-            <Textarea
-              ref={writing}
-              aria-label={mode === 'note' ? 'Internal note' : 'Reply'}
-              aria-autocomplete={mode === 'reply' ? 'list' : undefined}
-              aria-controls={matches.length ? listId : undefined}
-              aria-activedescendant={matches.length ? `${listId}-${active}` : undefined}
-              placeholder={mode === 'note' ? 'Only your team sees notes' : 'Type a reply…'}
-              title="Enter to send; Shift+Enter for a new line; / for canned replies"
-              className={cn(
-                'peer min-h-10 max-h-40 min-w-0 flex-1 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-3 py-2.5 text-base text-slate',
-                // The pill draws the focus ring, so the field itself shows none.
-                'focus-visible:outline-transparent',
-                disabled && 'cursor-not-allowed opacity-60',
-              )}
-              rows={1}
-              value={text}
-              disabled={disabled || busy}
-              onChange={(e) => onType(e.target.value)}
-              onKeyDown={onKeyDown}
-              onBlur={() => !text.trim() && release()}
-            />
-            {mode === 'reply' && can('templates.read') ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-10 rounded-full text-slate-400 hover:text-secondary contrast-more:text-secondary sm:size-9"
-                aria-label="Send a template"
-                title="Send a template"
-                disabled={disabled || busy}
-                onClick={() => setPicking(true)}
+            You can reply when they finish.
+          </Alert>
+        ) : null}
+        {mode === 'reply' && closingSoon && state.kind === 'reply' ? (
+          <Alert
+            tone="warning"
+            title={`The 24-hour window closes in ${Math.max(minutesLeft, 1)} min`}
+          >
+            After that, only an approved template can reach this customer.
+          </Alert>
+        ) : null}
+        {mode === 'reply' && state.kind === 'blocked' ? null : mode === 'reply' &&
+          state.kind === 'template-only' ? (
+          <ComposerStrip
+            title="Reply window closed"
+            message="Use an approved template to send a message."
+            action={
+              <Button disabled={disabled} onClick={() => setPicking(true)}>
+                Choose template
+              </Button>
+            }
+          />
+        ) : (
+          <div className="relative flex items-end gap-2">
+            {matches.length ? (
+              <ul
+                id={listId}
+                role="listbox"
+                aria-label="Canned replies"
+                className="absolute bottom-full left-0 z-10 mb-2 flex max-h-64 w-full max-w-md flex-col overflow-y-auto rounded-md border border-border bg-surface py-1 shadow-overlay"
               >
-                <FileText aria-hidden="true" />
+                {matches.map((r, i) => (
+                  <li
+                    key={r.id}
+                    id={`${listId}-${i}`}
+                    role="option"
+                    aria-selected={i === active}
+                    className={cn(
+                      'flex cursor-pointer flex-col px-3 py-2 text-left',
+                      i === active ? 'bg-primary-soft' : 'hover:bg-neutral-soft',
+                    )}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      insert(r.body)
+                    }}
+                  >
+                    <span className="flex gap-2 text-sm">
+                      <span className="font-mono text-slate">{r.shortcut}</span>
+                      <span className="font-medium text-slate">{r.title}</span>
+                    </span>
+                    <span className="truncate text-sm text-slate">{r.body}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div
+              data-slot="composer-pill"
+              className={cn(
+                'group relative flex min-w-0 flex-1 items-end gap-0.5 rounded-full border border-border-strong pr-1 data-multiline:rounded-xl',
+                mode === 'note' ? 'bg-note-soft' : 'bg-surface',
+              )}
+            >
+              <Textarea
+                ref={writing}
+                aria-label={mode === 'note' ? 'Internal note' : 'Reply'}
+                aria-autocomplete={mode === 'reply' ? 'list' : undefined}
+                aria-controls={matches.length ? listId : undefined}
+                aria-activedescendant={matches.length ? `${listId}-${active}` : undefined}
+                placeholder={mode === 'note' ? 'Only your team sees notes' : 'Type a reply…'}
+                title="Enter to send; Shift+Enter for a new line; / for canned replies"
+                className={cn(
+                  'peer min-h-10 max-h-40 min-w-0 flex-1 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-3 py-2.5 text-base text-slate',
+                  // The pill draws the focus ring, so the field itself shows none.
+                  'focus-visible:outline-transparent',
+                  disabled && 'cursor-not-allowed opacity-60',
+                )}
+                rows={1}
+                value={text}
+                disabled={disabled || busy}
+                onChange={(e) => onType(e.target.value)}
+                onKeyDown={onKeyDown}
+                onBlur={() => !text.trim() && release()}
+              />
+              {mode === 'reply' && can('templates.read') ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-10 rounded-full text-slate-400 hover:text-secondary contrast-more:text-secondary sm:size-9"
+                  aria-label="Send a template"
+                  title="Send a template"
+                  disabled={disabled || busy}
+                  onClick={() => setPicking(true)}
+                >
+                  <FileText aria-hidden="true" />
+                </Button>
+              ) : null}
+              {mode === 'reply' && canned.length ? (
+                <Dropdown>
+                  <DropdownTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-10 rounded-full text-slate-400 hover:text-secondary contrast-more:text-secondary sm:size-9"
+                      aria-label="Canned replies"
+                      title="Canned replies"
+                      disabled={disabled || busy}
+                    >
+                      <MessageSquareText aria-hidden="true" />
+                    </Button>
+                  </DropdownTrigger>
+                  <DropdownContent className="max-h-72 w-72 overflow-y-auto">
+                    {canned.map((r) => (
+                      <DropdownItem key={r.id} onSelect={() => insert(r.body)}>
+                        <span className="font-mono text-sm">{r.shortcut}</span> {r.title}
+                      </DropdownItem>
+                    ))}
+                  </DropdownContent>
+                </Dropdown>
+              ) : null}
+              {mode === 'reply' ? (
+                <label
+                  title="Attach a file"
+                  className={cn(
+                    'inline-flex size-10 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:bg-neutral-soft hover:text-secondary contrast-more:text-secondary sm:size-9',
+                    disabled && 'pointer-events-none opacity-60',
+                    'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong',
+                  )}
+                >
+                  <Paperclip aria-hidden="true" className="size-4" />
+                  <span className="sr-only">Attach a file</span>
+                  <input
+                    type="file"
+                    className="sr-only"
+                    disabled={disabled || busy}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      const f = e.target.files?.[0]
+                      if (f) attach.mutate(f)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              ) : null}
+              {/* Focus ring for the writing field, following the pill's shape. */}
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -inset-px rounded-full border-2 border-transparent group-data-multiline:rounded-xl peer-focus-visible:border-primary-strong"
+              />
+            </div>
+            {/* Send swaps in once there is something to send (WhatsApp-style); Enter still submits. */}
+            {text.trim() || busy ? (
+              <Button
+                size="icon"
+                className="size-10 shrink-0 rounded-full"
+                aria-label={mode === 'note' ? 'Save note' : 'Send'}
+                title={mode === 'note' ? 'Save internal note' : 'Send reply'}
+                loading={busy}
+                disabled={disabled || freeformRestricted || !text.trim()}
+                onClick={submit}
+              >
+                <Send aria-hidden="true" />
               </Button>
             ) : null}
-            {mode === 'reply' && canned.length ? (
-              <Dropdown>
-                <DropdownTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-10 rounded-full text-slate-400 hover:text-secondary contrast-more:text-secondary sm:size-9"
-                    aria-label="Canned replies"
-                    title="Canned replies"
-                    disabled={disabled || busy}
-                  >
-                    <MessageSquareText aria-hidden="true" />
-                  </Button>
-                </DropdownTrigger>
-                <DropdownContent className="max-h-72 w-72 overflow-y-auto">
-                  {canned.map((r) => (
-                    <DropdownItem key={r.id} onSelect={() => insert(r.body)}>
-                      <span className="font-mono text-sm">{r.shortcut}</span> {r.title}
-                    </DropdownItem>
-                  ))}
-                </DropdownContent>
-              </Dropdown>
-            ) : null}
-            {mode === 'reply' ? (
-              <label
-                title="Attach a file"
-                className={cn(
-                  'inline-flex size-10 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:bg-neutral-soft hover:text-secondary contrast-more:text-secondary sm:size-9',
-                  disabled && 'pointer-events-none opacity-60',
-                  'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong',
-                )}
-              >
-                <Paperclip aria-hidden="true" className="size-4" />
-                <span className="sr-only">Attach a file</span>
-                <input
-                  type="file"
-                  className="sr-only"
-                  disabled={disabled || busy}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    const f = e.target.files?.[0]
-                    if (f) attach.mutate(f)
-                    e.target.value = ''
-                  }}
-                />
-              </label>
-            ) : null}
-            {/* Focus ring for the writing field, following the pill's shape. */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -inset-px rounded-full border-2 border-transparent group-data-multiline:rounded-xl peer-focus-visible:border-primary-strong"
-            />
           </div>
-          {/* Send swaps in once there is something to send (WhatsApp-style); Enter still submits. */}
-          {text.trim() || busy ? (
-            <Button
-              size="icon"
-              className="size-10 shrink-0 rounded-full"
-              aria-label={mode === 'note' ? 'Save note' : 'Send'}
-              title={mode === 'note' ? 'Save internal note' : 'Send reply'}
-              loading={busy}
-              disabled={disabled || freeformRestricted || !text.trim()}
-              onClick={submit}
-            >
-              <Send aria-hidden="true" />
-            </Button>
-          ) : null}
-        </div>
-      )}
+        )}
+      </div>
       <TemplatePicker
         phoneNumberId={conversation.phoneNumber.id}
         open={picking}

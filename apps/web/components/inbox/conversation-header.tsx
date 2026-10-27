@@ -227,7 +227,12 @@ export function ConversationHeader({
       >
         <ArrowLeft aria-hidden="true" />
       </Button>
-      <Avatar appearance="varied" name={name} size="lg" className="size-12 shrink-0 text-md" />
+      <Avatar
+        appearance="varied"
+        name={name}
+        size="lg"
+        className="hidden shrink-0 @md:flex @md:size-12 @md:text-md"
+      />
       <div className="flex min-w-0 flex-col gap-0.5">
         <h2 className="truncate text-lg font-semibold text-slate" title={name}>
           {name}
@@ -267,6 +272,26 @@ export function ConversationHeader({
                 <Paperclip aria-hidden="true" className="size-4" />
                 Shared files
               </DropdownItem>
+            ) : null}
+            {actions.can.reply ? (
+              <>
+                <DropdownSeparator />
+                <DropdownLabel>Status</DropdownLabel>
+                {(['OPEN', 'PENDING'] as const).map((st) => (
+                  <DropdownItem
+                    key={st}
+                    disabled={c.status === st}
+                    onSelect={() => actions.setStatus(st)}
+                  >
+                    {STATUS_LABEL[st]}
+                  </DropdownItem>
+                ))}
+                {snoozeTimes().map((t) => (
+                  <DropdownItem key={t.label} onSelect={() => actions.setStatus('SNOOZED', t.at)}>
+                    Snooze · {t.label}
+                  </DropdownItem>
+                ))}
+              </>
             ) : null}
             {actions.can.reply && c.automationState === 'AUTOMATION_ACTIVE' ? (
               <>

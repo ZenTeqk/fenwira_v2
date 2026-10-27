@@ -44,7 +44,12 @@ export const metadata: Metadata = {
   },
 }
 
-export const viewport: Viewport = { themeColor: colorTokens.slate }
+export const viewport: Viewport = {
+  themeColor: colorTokens.slate,
+  // The on-screen keyboard shrinks the layout, so fixed-height screens (the inbox composer) stay
+  // visible above it.
+  interactiveWidget: 'resizes-content',
+}
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

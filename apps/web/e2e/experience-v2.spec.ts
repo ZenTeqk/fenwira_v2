@@ -132,7 +132,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
   await expect(page.getByLabel('Reply', { exact: true })).toHaveValue('')
   // Send swaps out once the reply is sent and the box is empty.
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeHidden()
-  await page.getByRole('button', { name: 'Internal note', exact: true }).click()
+  await page.getByRole('tab', { name: 'Internal note', exact: true }).click()
   await page
     .getByLabel('Internal note', { exact: true })
     .fill('Delivery needs a follow-up tomorrow.')
@@ -143,7 +143,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
   await expect(
     page.getByRole('log', { name: 'Messages' }).getByText(/Private note ·/),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Reply', exact: true }).click()
+  await page.getByRole('tab', { name: 'Reply', exact: true }).click()
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 })
     await expect(page.getByRole('log', { name: 'Messages' })).toBeVisible()
@@ -288,7 +288,7 @@ test('Inbox preserves a draft while a reply awaits server confirmation', async (
     await page.getByLabel('Reply', { exact: true }).fill('Reply awaiting confirmation')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
     await committed
-    await expect(page.getByRole('button', { name: 'Internal note', exact: true })).toBeDisabled()
+    await expect(page.getByRole('tab', { name: 'Internal note', exact: true })).toBeDisabled()
     await expect(page.getByLabel('Reply', { exact: true })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Canned replies', exact: true })).toBeDisabled()
     await expect(page.getByLabel('Reply', { exact: true })).toHaveValue(
@@ -299,7 +299,7 @@ test('Inbox preserves a draft while a reply awaits server confirmation', async (
   }
   await expect(page.getByLabel('Reply', { exact: true })).toBeEnabled()
   await expect(page.getByLabel('Reply', { exact: true })).toHaveValue('')
-  await page.getByRole('button', { name: 'Internal note', exact: true }).click()
+  await page.getByRole('tab', { name: 'Internal note', exact: true }).click()
   await page.getByLabel('Internal note', { exact: true }).fill('A separate internal draft')
   await expect(page.getByLabel('Internal note', { exact: true })).toHaveValue(
     'A separate internal draft',

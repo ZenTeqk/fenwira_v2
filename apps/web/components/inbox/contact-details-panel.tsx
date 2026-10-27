@@ -51,6 +51,8 @@ export function ContactDetailsPanel({
           title="Contact details"
           side="right"
           width="sm"
+          // One view at a time on phones: the details take the whole screen.
+          className="max-w-full md:max-w-xs"
           onCloseAutoFocus={(event) => {
             event.preventDefault()
             returnFocus.current?.focus()
