@@ -201,3 +201,52 @@ describe('conversation counts', () => {
     expect((await w.owner.client.get('/conversations/counts?status=NOPE')).status).toBe(400)
   })
 })
+
+describe('status filter', () => {
+  it('an explicit status replaces the open/pending default under All, Mine and Unassigned', async () => {
+    const w = await workspace('ib-status-filter')
+    const ownerId = (await w.owner.client.me()).body.data.user.id
+    const [snoozedMine, resolvedFree, resolvedMine, open] = await seed(w, [
+      'snoozed mine',
+      'resolved unassigned',
+      'resolved mine',
+      'open unassigned',
+    ])
+    for (const id of [snoozedMine, resolvedMine])
+      await w.owner.client.post(`/conversations/${id}/assign`, { assigneeId: ownerId })
+    const snooze = await w.owner.client.post(`/conversations/${snoozedMine}/status`, {
+      status: 'SNOOZED',
+      snoozedUntil: new Date(Date.now() + 86_400_000).toISOString(),
+    })
+    expect(snooze.status, snooze.text).toBe(200)
+    for (const id of [resolvedFree, resolvedMine])
+      await w.owner.client.post(`/conversations/${id}/status`, { status: 'RESOLVED' })
+
+    const ids = async (params: Record<string, string>) =>
+      (await fullList(w.owner.client, params)).map((c) => c.id).sort()
+    expect(await ids({ view: 'all', status: 'RESOLVED' })).toEqual(
+      [resolvedFree, resolvedMine].sort(),
+    )
+    expect(await ids({ view: 'mine', status: 'RESOLVED' })).toEqual([resolvedMine])
+    expect(await ids({ view: 'unassigned', status: 'RESOLVED' })).toEqual([resolvedFree])
+    expect(await ids({ view: 'all', status: 'SNOOZED' })).toEqual([snoozedMine])
+    expect(await ids({ view: 'mine', status: 'SNOOZED' })).toEqual([snoozedMine])
+    expect(await ids({ view: 'unassigned', status: 'SNOOZED' })).toEqual([])
+    expect(await expectConsistent(w.owner.client, { status: 'RESOLVED' })).toEqual({
+      all: 2,
+      mine: 1,
+      unassigned: 1,
+    })
+    expect(await expectConsistent(w.owner.client, { status: 'SNOOZED' })).toEqual({
+      all: 1,
+      mine: 1,
+      unassigned: 0,
+    })
+
+    // No status: unchanged default (open and pending only).
+    expect(await ids({ view: 'all' })).toEqual([open])
+    expect(await ids({ view: 'mine' })).toEqual([])
+    expect(await ids({ view: 'unassigned' })).toEqual([open])
+    expect(await expectConsistent(w.owner.client, {})).toEqual({ all: 1, mine: 0, unassigned: 1 })
+  })
+})

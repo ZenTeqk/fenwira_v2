@@ -79,6 +79,8 @@ With `inbox.read_all` (default for every role), a user sees all conversations. W
 
 Built-in views: **Mine**, **Unassigned**, **All**, **Takeover** and **Resolved**. Filters: status, assignee, tag, unread, window open/closed, phone number. Sort: last activity (default) or oldest waiting.
 
+Mine, Unassigned, All and Takeover show open and pending conversations by default. Choosing a status explicitly replaces that default, so for example All + Resolved lists every resolved conversation the user can see.
+
 **Tab counts:** `GET /conversations/counts?q&status&unread` returns `{all, mine, unassigned}`. It applies the list's own filter function (visibility, search, status, unread) per view, so each count equals the length of that tab's fully-paged list. Checked on 200k conversations in one workspace: 20–120 ms per count, ~320 ms for an unread count with 100k unread. No extra index: the cost is the matching rows themselves.
 
 ### Search

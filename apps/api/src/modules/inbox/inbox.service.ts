@@ -56,16 +56,24 @@ function decodeOffset(cursor?: string): number {
   throw new AppError('INVALID_CURSOR', 400, 'The pagination cursor is invalid.')
 }
 
-/** Views hide snoozed conversations; "resolved" is its own view (docs/INBOX.md → views). */
+/** Views hide snoozed and resolved conversations unless a status is chosen (docs/INBOX.md). */
 const ACTIVE: Prisma.ConversationWhereInput = { status: { in: ['OPEN', 'PENDING'] } }
 
-/** A list view's own condition (docs/INBOX.md → views); no view means no condition. */
-function viewFilter(view: InboxView | undefined, userId: string): Prisma.ConversationWhereInput[] {
-  if (view === 'mine') return [{ assigneeId: userId }, ACTIVE]
-  if (view === 'unassigned') return [{ assigneeId: null }, ACTIVE]
-  if (view === 'takeover') return [{ automationState: 'AGENT_TAKEOVER' }, ACTIVE]
+/**
+ * A list view's own condition (docs/INBOX.md → views); no view means no condition. Views show
+ * open and pending conversations by default; an explicitly chosen status replaces that default.
+ */
+function viewFilter(
+  view: InboxView | undefined,
+  userId: string,
+  status: ConversationStatus | undefined,
+): Prisma.ConversationWhereInput[] {
+  const active = status ? [] : [ACTIVE]
+  if (view === 'mine') return [{ assigneeId: userId }, ...active]
+  if (view === 'unassigned') return [{ assigneeId: null }, ...active]
+  if (view === 'takeover') return [{ automationState: 'AGENT_TAKEOVER' }, ...active]
   if (view === 'resolved') return [{ status: 'RESOLVED' }]
-  if (view === 'all') return [ACTIVE]
+  if (view === 'all') return active
   return []
 }
 
@@ -91,7 +99,7 @@ export class InboxService {
     const { userId } = currentAuth()
     return this.tenantDb.run(async (tx) => {
       const { where, snippets } = await this.listFilter(tx, userId, q)
-      where.push(...viewFilter(q.view, userId))
+      where.push(...viewFilter(q.view, userId, q.status))
       const offset = decodeOffset(q.cursor)
       const orderBy: Prisma.ConversationOrderByWithRelationInput[] =
         q.sort === 'oldest_waiting'
@@ -125,7 +133,7 @@ export class InboxService {
     return this.tenantDb.run(async (tx) => {
       const { where } = await this.listFilter(tx, userId, q)
       const count = (view: 'all' | 'mine' | 'unassigned') =>
-        tx.conversation.count({ where: { AND: [...where, ...viewFilter(view, userId)] } })
+        tx.conversation.count({ where: { AND: [...where, ...viewFilter(view, userId, q.status)] } })
       const [all, mine, unassigned] = [
         await count('all'),
         await count('mine'),
