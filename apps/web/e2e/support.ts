@@ -127,8 +127,18 @@ export const MOCK = process.env.E2E_META_MOCK_URL ?? 'http://127.0.0.1:4200'
 export const metaId = () => String(Date.now()).slice(-9) + String(Math.random()).slice(2, 8)
 export const ownerHeaders = (o: Owner) => ({ 'X-CSRF-Token': o.csrf, 'X-Tenant-Id': o.tenantId })
 
+/**
+ * Loading the app rotates the session's CSRF token, so API writes made after a page visit need the
+ * current one. Updates `owner.csrf` in place (ownerHeaders reads it).
+ */
+export async function refreshCsrf(page: Page, owner: Owner): Promise<void> {
+  const me = await page.request.get(`${API}/auth/me`)
+  owner.csrf = ((await me.json()) as { data: { csrfToken: string } }).data.csrfToken
+}
+
 /** Connects a fresh simulated number and has a customer write in. Returns the customer's name. */
 export async function customerWritesIn(page: Page, owner: Owner, text: string) {
+  await refreshCsrf(page, owner)
   const wabaId = metaId()
   const phoneNumberId = metaId()
   await fetch(`${MOCK}/__mock/seed`, {

@@ -19,7 +19,7 @@ import {
   withIdentity,
 } from '@/lib/platform-identity'
 import { platformRequest } from '@/lib/platform'
-import { usePlatform } from './platform-shell'
+import { usePlatform } from './platform-context'
 
 type Identity = {
   /** Opens the verification dialog; resolves true once verified, false when cancelled. */
