@@ -102,7 +102,8 @@ test('Home and Inbox visual-fidelity evidence uses real communication records at
   await page.getByRole('tab', { name: 'Reply', exact: true }).click()
   const me = (await (await page.request.get(`${API}/auth/me`)).json()).data
   const assigned = await page.request.post(`${API}/conversations/${conversation.id}/assign`, {
-    headers,
+    // The page rotated the CSRF token since `headers` was built.
+    headers: { ...headers, 'X-CSRF-Token': me.csrfToken },
     data: { assigneeId: me.user.id },
   })
   expect(assigned.ok()).toBe(true)

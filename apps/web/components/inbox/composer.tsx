@@ -397,7 +397,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
       <div
         role="tabpanel"
         id={panelId}
-        aria-labelledby={`${panelId}-${mode}`}
+        aria-label={mode === 'note' ? 'Internal note composer' : 'Reply composer'}
         className="flex flex-col gap-2"
       >
         {mode === 'reply' && state.kind === 'blocked' ? (

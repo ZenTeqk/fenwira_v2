@@ -85,7 +85,7 @@ test('connected inbox layout: column sizes, compact header and strip, collapsibl
   // 900: compact list and chat side by side, no horizontal scroll.
   await page.setViewportSize({ width: 900, height: 900 })
   expect((await box(page, 'section[aria-label="Conversations"]'))?.width).toBe(279)
-  await expect(page.getByRole('region', { name: 'Conversation' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Conversation', exact: true })).toBeVisible()
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
