@@ -428,6 +428,50 @@ describe('outbound messages', () => {
     })
   })
 
+  it('duplicate and stale statuses never downgrade; FAILED is terminal and keeps the reason', async () => {
+    autoStatuses([])
+    const s = await setup('msg-ticks')
+    const conv = await customerWrites(s, phoneNo())
+    const res = await reply(s, conv.id, 'Tick check')
+    const { providerMessageId: wamid } = await waitFor(
+      () => messageOf(s, res.body.data.id),
+      (m) => m.status === 'SENT',
+    )
+    const status = (st: 'sent' | 'delivered' | 'read' | 'failed', timestamp?: number) =>
+      deliverWebhook(webhookUrl, SECRET, statusWebhook(s.ids, { wamid, status: st, timestamp }))
+    await status('delivered')
+    await status('delivered') // exact duplicate (deduped)
+    await status('delivered', Math.floor(Date.now() / 1000) + 5) // same status, new event
+    await status('sent') // stale
+    await new Promise((r) => setTimeout(r, 800))
+    expect((await messageOf(s, res.body.data.id)).status).toBe('DELIVERED')
+
+    const failing = await reply(s, conv.id, 'Will fail')
+    const { providerMessageId: failedWamid } = await waitFor(
+      () => messageOf(s, failing.body.data.id),
+      (m) => m.status === 'SENT',
+    )
+    await deliverWebhook(
+      webhookUrl,
+      SECRET,
+      statusWebhook(s.ids, { wamid: failedWamid, status: 'failed', errorCode: 131049 }),
+    )
+    const failed = await waitFor(
+      () => messageOf(s, failing.body.data.id),
+      (m) => m.status === 'FAILED',
+    )
+    expect(failed).toMatchObject({ errorCode: 'META_131049', errorDetail: expect.any(String) })
+    // Nothing moves a failed message on (no resend exists): later statuses are ignored.
+    for (const st of ['delivered', 'read'] as const)
+      await deliverWebhook(
+        webhookUrl,
+        SECRET,
+        statusWebhook(s.ids, { wamid: failedWamid, status: st }),
+      )
+    await new Promise((r) => setTimeout(r, 800))
+    expect((await messageOf(s, failing.body.data.id)).status).toBe('FAILED')
+  })
+
   it('rejects freeform outside the 24-hour window; a template may start the conversation', async () => {
     autoStatuses([])
     const s = await setup('msg-window')

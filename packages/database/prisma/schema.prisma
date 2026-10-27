@@ -802,6 +802,9 @@ model Message {
   campaignId            String?          @map("campaign_id") @db.Uuid
   automationExecutionId String?          @map("automation_execution_id") @db.Uuid
   templateVersionId     String?          @map("template_version_id") @db.Uuid
+  /// TEMPLATE only: rendered header/body/footer/buttons as sent (contracts templateSnapshotSchema).
+  /// Feeds the generated `media_type` and `text_search` columns (post-migrate.sql).
+  templateSnapshot      Json?            @map("template_snapshot")
   attempts              Int              @default(0)
   errorCode             String?          @map("error_code")
   errorDetail           String?          @map("error_detail")

@@ -74,6 +74,31 @@ UPDATE messages SET status = $new, … WHERE id = $id AND status_rank(status) < 
 
 Inbound messages are `RECEIVED`. `SYSTEM` rows (conversation events) are `RECEIVED` and never go to Meta.
 
+### Template snapshot
+
+Every TEMPLATE message stores `messages.template_snapshot` (contracts `messageTemplateSnapshotSchema`): what the customer saw, so the inbox shows real content even after the template is edited, re-approved or deleted. `MessagingService` renders it at send time with `renderTemplateSnapshot` from the version's components and the values sent, for every source (inbox, campaign, automation, API). A send by name with raw Meta `components` reads the values back from those components.
+
+- Fields: `name`, `language`, `category`, `header` (`TEXT` with the substituted text, or `IMAGE`/`VIDEO`/`DOCUMENT` with `fileId`, `filename`, `mimeType` from `messages.file_id`), `body` (variables substituted, line breaks kept), `footer`, `buttons` (`QUICK_REPLY {label}`, `URL {label, url}` with its suffix substituted, `PHONE_NUMBER {label, phoneE164}`, `COPY_CODE {label, code}`), the raw `variables`, `partial` and `missing`.
+- Authentication templates render Meta's fixed body around the code, plus the optional security line and the expiry footer, and one copy-code button carrying the code.
+- **Partial.** A value that can't be resolved keeps its `{{n}}` and is listed in `missing` (`body.1`, `buttons.1.0`, `header.file`). A template that no longer exists keeps `name`, `language` and `variables` with `body: null` and `missing: ['template']`. When the backfill can only find today's approved version, `missing` starts with `version`.
+- **Backfill.** Messages sent before snapshots existed get one from `pnpm --filter @fenwira/worker template:snapshot-backfill [--tenant <id>] [--batch 200]` (runtime `DATABASE_URL`). It is idempotent (only rows still without a snapshot, never overwriting), batched (one transaction per batch, keyset by id) and never fails on a message: rendering errors give a partial, name-only snapshot. Workspaces are found with `system.tenants_missing_template_snapshots` (ids only).
+- Search: `messages.text_search` also covers the snapshot's header text, body and footer. The conversation preview shows the rendered body.
+- The snapshot feeds the generated `messages.media_type` (docs/INBOX.md → Media filter).
+
+### Status ticks (inbox)
+
+The inbox shows outbound status as WhatsApp-style ticks (`MessageTicks` in `packages/ui`), icon only, with an accessible label:
+
+| `messages.status` | Tick | Colour | Label |
+| --- | --- | --- | --- |
+| CREATED, QUEUED, SENDING | clock | muted | Sending |
+| SENT | single tick | muted | Sent |
+| DELIVERED | double tick | muted | Delivered |
+| READ | double tick | info (blue) | Read |
+| FAILED | exclamation in a circle | danger | Failed to send (focus or click shows the reason and code) |
+
+Meta webhook `sent`/`delivered`/`read`/`failed` map to SENT/DELIVERED/READ/FAILED under the ordering rule above. There is no blue single tick. A customer with read receipts off never sends `read`, so the message stays at grey double ticks. There is no resend action, so FAILED is final.
+
 ### Inbound pipeline
 
 ```text
@@ -149,7 +174,7 @@ After commit: emit WS `message.created` and `conversation.updated`.
 
 ### Realtime events emitted
 
-`message.created`, `message.status` (`{messageId, conversationId, status, errorCode?}`), `conversation.updated`.
+`message.created`, `message.status` (`{messageId, conversationId, status, errorCode?, errorDetail?}`), `conversation.updated`.
 
 ## Implementation notes (Phase 5)
 

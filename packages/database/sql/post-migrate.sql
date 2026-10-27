@@ -119,12 +119,32 @@ CREATE INDEX IF NOT EXISTS contacts_phone_trgm ON public.contacts USING gin (pho
 CREATE INDEX IF NOT EXISTS contacts_email_trgm ON public.contacts USING gin ((email::text) gin_trgm_ops);
 
 -- Phase 7: inbox search. Full-text over message text and captions ('simple' config: no
--- stemming, works across languages). Generated, so Prisma never writes it.
+-- stemming, works across languages), plus a template's rendered header, body and footer.
+-- Generated, so Prisma never writes it.
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS text_search tsvector
   GENERATED ALWAYS AS (
-    to_tsvector('simple', coalesce(content->>'text', '') || ' ' || coalesce(content->>'caption', ''))
+    to_tsvector('simple', coalesce(content->>'text', '') || ' ' || coalesce(content->>'caption', '')
+      || ' ' || coalesce(template_snapshot->'header'->>'text', '')
+      || ' ' || coalesce(template_snapshot->>'body', '')
+      || ' ' || coalesce(template_snapshot->>'footer', ''))
   ) STORED;
 CREATE INDEX IF NOT EXISTS messages_text_search_idx ON public.messages USING gin (text_search);
+
+-- Thread media filter (docs/INBOX.md → Media filter): images, videos and documents, including
+-- templates with a media header. Same rule as contracts `mediaKindOf`. Stickers and audio are
+-- excluded for now (NULL).
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS media_type text
+  GENERATED ALWAYS AS (
+    CASE
+      WHEN type = 'IMAGE' THEN 'IMAGE'
+      WHEN type = 'VIDEO' THEN 'VIDEO'
+      WHEN type = 'DOCUMENT' THEN 'DOCUMENT'
+      WHEN type = 'TEMPLATE' AND template_snapshot->'header'->>'type' IN ('IMAGE', 'VIDEO', 'DOCUMENT')
+        THEN template_snapshot->'header'->>'type'
+    END
+  ) STORED;
+CREATE INDEX IF NOT EXISTS messages_media_type_idx
+  ON public.messages (conversation_id, media_type, created_at DESC) WHERE media_type IS NOT NULL;
 
 -- Outbound status ordering (docs/MESSAGING_ENGINE.md): a status applies only when its rank is
 -- higher than the current one. FAILED and RECEIVED sit outside the ladder.
@@ -513,6 +533,18 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
   ORDER BY x.tenant_id LIMIT least(greatest(p_limit, 1), 500);
 $$;
 
+-- Template snapshot backfill (docs/MESSAGING_ENGINE.md → Template snapshot): workspaces that still
+-- have TEMPLATE messages without a snapshot. IDs only; the backfill re-enters withTenant.
+GRANT SELECT (tenant_id, type, template_snapshot) ON public.messages TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.tenants_missing_template_snapshots(p_limit integer, p_after uuid)
+RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT DISTINCT m.tenant_id FROM public.messages m
+  WHERE m.type = 'TEMPLATE' AND m.template_snapshot IS NULL
+    AND (p_after IS NULL OR m.tenant_id > p_after)
+  ORDER BY m.tenant_id LIMIT least(greatest(p_limit, 1), 500);
+$$;
+
 -- X9 (analytics part): analytics retention for one workspace (P11-D15). analytics_events is
 -- append-only for the runtime role, so the purge runs here: by age only, for that workspace only,
 -- returning a count. Nothing else (ledger, audit, messages) is reachable through it.
@@ -842,6 +874,7 @@ BEGIN
     'system.wallet_ledger_drift(integer)',
     'system.tenants_with_activity(timestamptz, integer)',
     'system.tenants_with_activity(timestamptz, integer, uuid)',
+    'system.tenants_missing_template_snapshots(integer, uuid)',
     'system.purge_analytics_events(uuid, timestamptz)',
     'system.resolve_api_key(text)',
     'system.purge_webhook_deliveries(uuid, timestamptz)',

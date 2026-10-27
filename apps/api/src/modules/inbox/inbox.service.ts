@@ -5,9 +5,12 @@ import {
   type ConversationsQuery,
   type ConversationStatus,
   type InboxSettings,
+  MEDIA_FILTER_KIND,
+  type MediaCounts,
   type Message,
   type Notification,
   type SendableContent,
+  type ThreadMediaFilter,
 } from '@fenwira/contracts'
 import { Database, type Prisma, type TenantTx } from '@fenwira/database'
 import { jobId, QUEUES } from '@fenwira/queue'
@@ -19,7 +22,13 @@ import { QueueRegistry } from '../../core/queue/queue-registry'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { AuditService } from '../audit'
 import { currentApiKey, currentAuth } from '../identity'
-import { MARK_READ_JOB, MessagingService, toMessage, writeSystemEvent } from '../messaging'
+import {
+  MARK_READ_JOB,
+  MESSAGE_FILE_SELECT,
+  MessagingService,
+  toMessage,
+  writeSystemEvent,
+} from '../messaging'
 import { currentTenant } from '../tenancy'
 import { ComposeLockService } from './compose-lock.service'
 import {
@@ -129,18 +138,58 @@ export class InboxService {
     return this.tenantDb.run(async (tx) => toConversation(await this.find(tx, id, userId)))
   }
 
-  /** Newest first; `before` pages backwards. Includes SYSTEM event messages. */
-  async thread(id: string, query: { limit: number; before?: string }) {
+  /**
+   * Newest first; `before` pages backwards. Includes SYSTEM event messages, unless `type` asks for
+   * one kind of media (docs/INBOX.md → Media filter), which pages over `media_type` instead.
+   */
+  async thread(id: string, query: { limit: number; before?: string; type?: ThreadMediaFilter }) {
     const { userId } = currentAuth()
     return this.tenantDb.run(async (tx) => {
       await this.find(tx, id, userId)
+      const cursor = decodeCursor(query.before)
+      let where: Prisma.MessageWhereInput = { conversationId: id, ...afterCursor(cursor) }
+      if (query.type) {
+        // media_type is a generated column Prisma can't see: page the ids in SQL (the
+        // (conversation_id, media_type, created_at) index), then load the rows.
+        const kind = MEDIA_FILTER_KIND[query.type]
+        const ids = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM messages
+          WHERE conversation_id = ${id}::uuid AND media_type = ${kind}
+            AND (${!cursor} OR (created_at, id) < (${cursor?.createdAt ?? new Date(0)}, ${cursor?.id ?? id}::uuid))
+          ORDER BY created_at DESC, id DESC
+          LIMIT ${query.limit + 1}`
+        where = { id: { in: ids.map((r) => r.id) } }
+      }
       const rows = await tx.message.findMany({
-        where: { conversationId: id, ...afterCursor(decodeCursor(query.before)) },
+        where,
+        include: MESSAGE_FILE_SELECT,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: query.limit + 1,
       })
       const { items, page } = toPage(rows, query.limit)
       return { items: items.map(toMessage), page }
+    })
+  }
+
+  /** Chip counts for the media filter; system events are not messages. */
+  async mediaCounts(id: string): Promise<MediaCounts> {
+    const { userId } = currentAuth()
+    return this.tenantDb.run(async (tx) => {
+      await this.find(tx, id, userId)
+      const [row] = await tx.$queryRaw<
+        Array<{ all: bigint; image: bigint; video: bigint; document: bigint }>
+      >`
+        SELECT count(*) FILTER (WHERE direction <> 'SYSTEM') AS all,
+               count(*) FILTER (WHERE media_type = 'IMAGE') AS image,
+               count(*) FILTER (WHERE media_type = 'VIDEO') AS video,
+               count(*) FILTER (WHERE media_type = 'DOCUMENT') AS document
+        FROM messages WHERE conversation_id = ${id}::uuid`
+      return {
+        all: Number(row?.all ?? 0),
+        image: Number(row?.image ?? 0),
+        video: Number(row?.video ?? 0),
+        document: Number(row?.document ?? 0),
+      }
     })
   }
 

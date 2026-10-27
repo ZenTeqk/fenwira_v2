@@ -1,7 +1,13 @@
 'use client'
 
-import { type ConversationNote, type Message, type MessageStatus } from '@fenwira/contracts'
-import { Button, cn, ErrorState, focusRing, Skeleton, StatusBadge } from '@fenwira/ui'
+import {
+  type ConversationNote,
+  type MediaCounts,
+  type Message,
+  type MessageStatus,
+  type ThreadMediaFilter,
+} from '@fenwira/contracts'
+import { Button, cn, ErrorState, focusRing, MessageTicks, Skeleton } from '@fenwira/ui'
 import {
   type InfiniteData,
   useInfiniteQuery,
@@ -12,12 +18,15 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import Image from 'next/image'
 import { followsSameSender } from '@/lib/message-grouping'
 import { Lock, Paperclip } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { clockTime } from '@/lib/inbox'
 import { useRealtimeEvent } from '@/lib/realtime'
+import { useFileUrl } from './media'
+import { MediaFilterChips, mediaCountsKey, MediaResults } from './media-filter'
+import { TemplateMessage } from './template-message'
 
 type Page = { data: Message[]; page: { nextCursor: string | null } }
 type Item =
@@ -44,16 +53,19 @@ export const threadKey = (tenantId: string, id: string) =>
 export const notesKey = (tenantId: string, id: string) =>
   keys.tenant(tenantId, 'inbox', 'notes', id)
 
-function MessageBody({ m }: { m: Message }) {
+function MessageBody({ m, labelId, bodyId }: { m: Message; labelId: string; bodyId: string }) {
   const c = m.content
   switch (c.type) {
     case 'TEXT':
       return <p className="whitespace-pre-wrap break-words">{c.text}</p>
     case 'TEMPLATE':
       return (
-        <p>
-          <span className="text-sm text-secondary">Template</span> {c.name}
-        </p>
+        <TemplateMessage
+          snapshot={m.templateSnapshot}
+          name={c.name}
+          labelId={labelId}
+          bodyId={bodyId}
+        />
       )
     case 'INTERACTIVE':
       return <p>{c.text ?? 'Interactive reply'}</p>
@@ -90,14 +102,7 @@ function MediaBody({
   label: string
   caption?: string
 }) {
-  const { tenantId } = useSession()
-  const link = useQuery({
-    queryKey: keys.tenant(tenantId, 'file-url', fileId ?? ''),
-    queryFn: () =>
-      get<{ data: { url: string } }>(`/files/${fileId}/download-url`).then((r) => r.data.url),
-    enabled: !!fileId,
-    staleTime: 240_000,
-  })
+  const link = useFileUrl(fileId)
   return (
     <div className="flex flex-col gap-1">
       {link.data && (kind === 'IMAGE' || kind === 'STICKER') ? (
@@ -155,6 +160,7 @@ function BubbleTail({ outbound }: { outbound: boolean }) {
 
 function Row({ item, grouped }: { item: Item; grouped: boolean }) {
   const { me } = useSession()
+  const ids = useId()
   if (item.kind === 'note')
     return (
       <div className="mx-auto w-full max-w-5/6 rounded-md border-l-4 border-warning bg-note-soft px-3 py-2 text-slate">
@@ -176,9 +182,19 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
     )
   }
   const outbound = m.direction === 'OUTBOUND'
+  const template = m.content.type === 'TEMPLATE'
+  const labelId = `${ids}-label`
+  const bodyId = `${ids}-body`
   return (
     <div className={cn('flex', outbound ? 'justify-end' : 'justify-start')}>
       <div
+        // A template bubble is named by its label and body text (the buttons are display-only).
+        {...(template
+          ? {
+              role: 'group',
+              'aria-labelledby': m.templateSnapshot?.body ? `${labelId} ${bodyId}` : labelId,
+            }
+          : {})}
         className={cn(
           'relative flex min-w-0 max-w-13/20 flex-col gap-1 rounded-md px-3 py-2 text-base text-slate',
           outbound
@@ -199,26 +215,20 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
                   : 'Workspace reply'}
           </span>
         ) : null}
-        <MessageBody m={m} />
+        <MessageBody m={m} labelId={labelId} bodyId={bodyId} />
         <span
           className={cn(
-            'flex items-center justify-end gap-2 text-xs',
-            // Muted fails AA on the outbound tint, so outbound metadata uses secondary.
+            'flex items-center justify-end gap-1 text-xs',
+            // Muted fails AA as text on the outbound tint, so outbound metadata uses secondary.
+            // The ticks are non-text icons (3:1) and keep their own colours (MessageTicks).
             outbound ? 'text-secondary' : 'text-muted',
           )}
         >
           {clockTime(m.createdAt)}
           {outbound ? (
-            <StatusBadge
-              status={m.status as Exclude<MessageStatus, 'RECEIVED'>}
-              appearance="inline"
-              className="text-xs"
-            />
+            <MessageTicks status={m.status} errorCode={m.errorCode} errorDetail={m.errorDetail} />
           ) : null}
         </span>
-        {m.status === 'FAILED' && m.errorDetail ? (
-          <span className="text-xs text-danger-strong">{m.errorDetail}</span>
-        ) : null}
       </div>
     </div>
   )
@@ -238,6 +248,22 @@ export function Thread({ conversationId }: { conversationId: string }) {
     initialPageParam: '',
     getNextPageParam: (last) => last.page.nextCursor ?? undefined,
   })
+  // Media filter: per conversation, so switching conversation starts again at All.
+  const [filterState, setFilterState] = useState<{ id: string; value: ThreadMediaFilter } | null>(
+    null,
+  )
+  const filter = filterState?.id === conversationId ? filterState.value : null
+  const setFilter = (value: ThreadMediaFilter | null) =>
+    setFilterState(value ? { id: conversationId, value } : null)
+  const [jumpTo, setJumpTo] = useState<string | null>(null)
+  const countsKey = mediaCountsKey(tenantId, conversationId)
+  const counts = useQuery({
+    queryKey: countsKey,
+    queryFn: () =>
+      get<{ data: MediaCounts }>(`/conversations/${conversationId}/media-counts`).then(
+        (r) => r.data,
+      ),
+  })
   const notes = useQuery({
     queryKey: notesKey(tenantId, conversationId),
     queryFn: () =>
@@ -249,6 +275,8 @@ export function Thread({ conversationId }: { conversationId: string }) {
   // Live updates: new messages, status ticks and notes patch the caches directly.
   useRealtimeEvent<Message>('message.created', (m) => {
     if (m.conversationId !== conversationId) return
+    void queryClient.invalidateQueries({ queryKey: countsKey })
+    void queryClient.invalidateQueries({ queryKey: [...key, 'media'] })
     queryClient.setQueryData<InfiniteData<Page>>(key, (old) => {
       if (!old || old.pages[0]!.data.some((x) => x.id === m.id)) return old
       const [first, ...rest] = old.pages
@@ -260,6 +288,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
     conversationId: string
     status: MessageStatus
     errorCode?: string
+    errorDetail?: string
   }>('message.status', (e) => {
     if (e.conversationId !== conversationId) return
     queryClient.setQueryData<InfiniteData<Page>>(key, (old) =>
@@ -270,7 +299,12 @@ export function Thread({ conversationId }: { conversationId: string }) {
               ...p,
               data: p.data.map((x) =>
                 x.id === e.messageId
-                  ? { ...x, status: e.status, errorCode: e.errorCode ?? x.errorCode }
+                  ? {
+                      ...x,
+                      status: e.status,
+                      errorCode: e.errorCode ?? x.errorCode,
+                      errorDetail: e.errorDetail ?? x.errorDetail,
+                    }
                   : x,
               ),
             })),
@@ -309,10 +343,47 @@ export function Thread({ conversationId }: { conversationId: string }) {
   const newest = items.at(-1)
   const nearBottom = useRef(true)
   useEffect(() => {
-    if (items.length && nearBottom.current)
+    if (items.length && nearBottom.current && !jumpTo)
       virtualizer.scrollToIndex(items.length - 1, { align: 'end' })
-  }, [newest?.at, items.length, virtualizer])
+  }, [newest?.at, items.length, virtualizer, jumpTo])
 
+  // "Jump to message" from a media view: load earlier pages until it is in the thread, then scroll
+  // to it and move focus there.
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = messages
+  useEffect(() => {
+    if (!jumpTo || filter) return
+    const index = items.findIndex((i) => i.kind === 'message' && i.message.id === jumpTo)
+    if (index >= 0) {
+      nearBottom.current = false
+      virtualizer.scrollToIndex(index, { align: 'center' })
+      const target = jumpTo
+      setJumpTo(null)
+      requestAnimationFrame(() => {
+        virtualizer.scrollToIndex(index, { align: 'center' })
+        scroller.current
+          ?.querySelector<HTMLElement>(`[data-message-id="${target}"]`)
+          ?.focus({ preventScroll: true })
+      })
+    } else if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
+    else if (!hasNextPage) setJumpTo(null)
+  }, [jumpTo, filter, items, virtualizer, hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  const chips = <MediaFilterChips value={filter} counts={counts.data} onChange={setFilter} />
+  if (filter)
+    return (
+      <div className="flex min-h-0 flex-1 flex-col bg-surface">
+        {chips}
+        <MediaResults
+          conversationId={conversationId}
+          filter={filter}
+          loaded={(messages.data?.pages ?? []).flatMap((p) => p.data)}
+          onJump={(id) => {
+            setJumpTo(id)
+            setFilter(null)
+          }}
+        />
+      </div>
+    )
   if (messages.isPending)
     return (
       <div className="flex flex-1 flex-col gap-3 p-4">
@@ -326,79 +397,90 @@ export function Thread({ conversationId }: { conversationId: string }) {
       <ErrorState title="Messages couldn’t be loaded" onRetry={() => void messages.refetch()} />
     )
   return (
-    <div className="relative isolate min-h-0 flex-1 overflow-hidden bg-thread-soft">
-      {/* Decorative wallpaper: token color through an original line-art mask; hidden from AT
+    <div className="flex min-h-0 flex-1 flex-col">
+      {chips}
+      <div className="relative isolate min-h-0 flex-1 overflow-hidden bg-thread-soft">
+        {/* Decorative wallpaper: token color through an original line-art mask; hidden from AT
           and from users who ask for more contrast. */}
-      <div
-        aria-hidden="true"
-        className="chat-doodle pointer-events-none absolute inset-0 bg-slate-400 opacity-12 contrast-more:hidden"
-      />
-      <div
-        ref={scroller}
-        tabIndex={0}
-        className={cn(
-          'relative h-full min-h-0 overflow-y-auto px-4 py-3',
-          focusRing,
-          'focus-visible:-outline-offset-2',
-        )}
-        role="log"
-        aria-live="polite"
-        aria-label="Messages"
-        onScroll={(e) => {
-          const el = e.currentTarget
-          nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-        }}
-      >
-        {notes.isError ? (
-          <ErrorState
-            title="Internal notes couldn’t be loaded"
-            onRetry={() => void notes.refetch()}
-          />
-        ) : null}
-        {messages.hasNextPage ? (
-          <div className="flex justify-center pb-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              loading={messages.isFetchingNextPage}
-              onClick={() => void messages.fetchNextPage()}
-            >
-              Load earlier messages
-            </Button>
-          </div>
-        ) : null}
-        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-          {virtualizer.getVirtualItems().map((v) => {
-            const item = items[v.index]!
-            const previous = items[v.index - 1]
-            const grouped =
-              item.kind === 'message' &&
-              previous?.kind === 'message' &&
-              followsSameSender(item.message, previous.message)
-            const date = new Date(item.at).toLocaleDateString(undefined, {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })
-            const newDay =
-              !previous || new Date(item.at).toDateString() !== new Date(previous.at).toDateString()
-            return (
-              <div
-                key={item.kind === 'note' ? `n-${item.note.id}` : item.message.id}
-                data-index={v.index}
-                ref={virtualizer.measureElement}
-                className={cn('absolute left-0 top-0 w-full pb-1', grouped ? 'pt-0.5' : 'pt-2')}
-                style={{ transform: `translateY(${v.start}px)` }}
+        <div
+          aria-hidden="true"
+          className="chat-doodle pointer-events-none absolute inset-0 bg-slate-400 opacity-12 contrast-more:hidden"
+        />
+        <div
+          ref={scroller}
+          tabIndex={0}
+          className={cn(
+            'relative h-full min-h-0 overflow-y-auto px-4 py-3',
+            focusRing,
+            'focus-visible:-outline-offset-2',
+          )}
+          role="log"
+          aria-live="polite"
+          aria-label="Messages"
+          onScroll={(e) => {
+            const el = e.currentTarget
+            nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+          }}
+        >
+          {notes.isError ? (
+            <ErrorState
+              title="Internal notes couldn’t be loaded"
+              onRetry={() => void notes.refetch()}
+            />
+          ) : null}
+          {messages.hasNextPage ? (
+            <div className="flex justify-center pb-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                loading={messages.isFetchingNextPage}
+                onClick={() => void messages.fetchNextPage()}
               >
-                {newDay ? (
-                  <p className="mx-auto mb-2 w-fit rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-secondary">
-                    {date}
-                  </p>
-                ) : null}
-                <Row item={item} grouped={grouped} />
-              </div>
-            )
-          })}
+                Load earlier messages
+              </Button>
+            </div>
+          ) : null}
+          <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+            {virtualizer.getVirtualItems().map((v) => {
+              const item = items[v.index]!
+              const previous = items[v.index - 1]
+              const grouped =
+                item.kind === 'message' &&
+                previous?.kind === 'message' &&
+                followsSameSender(item.message, previous.message)
+              const date = new Date(item.at).toLocaleDateString(undefined, {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })
+              const newDay =
+                !previous ||
+                new Date(item.at).toDateString() !== new Date(previous.at).toDateString()
+              return (
+                <div
+                  key={item.kind === 'note' ? `n-${item.note.id}` : item.message.id}
+                  data-index={v.index}
+                  ref={virtualizer.measureElement}
+                  className={cn('absolute left-0 top-0 w-full pb-1', grouped ? 'pt-0.5' : 'pt-2')}
+                  style={{ transform: `translateY(${v.start}px)` }}
+                >
+                  {newDay ? (
+                    <p className="mx-auto mb-2 w-fit rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-secondary">
+                      {date}
+                    </p>
+                  ) : null}
+                  <div
+                    {...(item.kind === 'message'
+                      ? { 'data-message-id': item.message.id, tabIndex: -1 }
+                      : {})}
+                    className={cn('rounded-md', focusRing)}
+                  >
+                    <Row item={item} grouped={grouped} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>

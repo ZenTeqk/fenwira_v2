@@ -8,6 +8,7 @@ import {
   type TemplateVariables,
   type TemplateVersion,
   type VariableSamples,
+  variablesFromMetaComponents,
 } from '@fenwira/contracts'
 import { type Prisma, type TenantTx } from '@fenwira/database'
 import { buildTemplateSendComponents, templateStatusFromMeta } from '@fenwira/whatsapp'
@@ -76,6 +77,9 @@ export type ResolvedTemplate = {
   components: unknown[]
   /** File to upload as the media header (sent file, or the version's sample). */
   headerFileId: string | null
+  /** The version's definition and the values sent: what the template snapshot renders. */
+  definition: TemplateComponents
+  values: TemplateVariables
 }
 
 /**
@@ -127,10 +131,12 @@ export async function resolveTemplateForSend(
 
   const components = version.components as TemplateComponents
   let sendComponents: unknown[]
+  let values: TemplateVariables
   if (input.rawComponents?.length && !input.templateVersionId) {
     sendComponents = input.rawComponents
+    values = variablesFromMetaComponents(input.rawComponents)
   } else {
-    const values: TemplateVariables = input.variables ?? { body: [] }
+    values = input.variables ?? { body: [] }
     const missing =
       template.category === 'AUTHENTICATION'
         ? values.body[0]?.trim()
@@ -168,6 +174,8 @@ export async function resolveTemplateForSend(
     category: template.category,
     components: sendComponents,
     headerFileId,
+    definition: components,
+    values,
   }
 }
 

@@ -99,6 +99,13 @@ export class ConversationsController {
     return { data: items, page }
   }
 
+  /** Media filter chip counts (docs/INBOX.md → Media filter). */
+  @Get('conversations/:id/media-counts')
+  @RequirePermission('inbox.read')
+  async mediaCounts(@Param('id', uuidParam) id: string) {
+    return { data: await this.inbox.mediaCounts(id) }
+  }
+
   /**
    * Public API (docs/API_KEYS.md → allowlist): an API-key send goes straight through
    * MessagingService as source `API` — no compose lock, no per-agent visibility, no takeover.

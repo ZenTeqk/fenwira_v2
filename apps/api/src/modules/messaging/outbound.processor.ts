@@ -360,7 +360,13 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
     const m = await this.db.withTenant(tenantId, (tx) =>
       tx.message.findFirst({
         where: { id: messageId },
-        select: { id: true, conversationId: true, status: true, errorCode: true },
+        select: {
+          id: true,
+          conversationId: true,
+          status: true,
+          errorCode: true,
+          errorDetail: true,
+        },
       }),
     )
     if (m)
@@ -369,6 +375,7 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
         conversationId: m.conversationId,
         status: m.status,
         ...(m.errorCode ? { errorCode: m.errorCode } : {}),
+        ...(m.errorDetail ? { errorDetail: m.errorDetail } : {}),
       })
   }
 }

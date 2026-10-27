@@ -1,10 +1,25 @@
-import { type Message, type MessageContent, messageContentSchema } from '@fenwira/contracts'
+import {
+  type Message,
+  type MessageContent,
+  messageContentSchema,
+  type MessageTemplateSnapshot,
+  messageTemplateSnapshotSchema,
+} from '@fenwira/contracts'
 import { type Prisma } from '@fenwira/database'
 
-type MessageRow = Prisma.MessageGetPayload<object>
+/** The thread includes the file (filter views list name, type and size). */
+export const MESSAGE_FILE_SELECT = {
+  file: { select: { id: true, filename: true, mimeType: true, sizeBytes: true } },
+} satisfies Prisma.MessageInclude
+type MessageRow = Prisma.MessageGetPayload<object> & {
+  file?: { id: string; filename: string | null; mimeType: string; sizeBytes: bigint } | null
+}
 const iso = (d: Date | null) => d?.toISOString() ?? null
 export function toMessage(m: MessageRow): Message {
   const parsed = messageContentSchema.safeParse(m.content)
+  const snapshot = m.templateSnapshot
+    ? messageTemplateSnapshotSchema.safeParse(m.templateSnapshot)
+    : null
   return {
     id: m.id,
     conversationId: m.conversationId,
@@ -24,6 +39,19 @@ export function toMessage(m: MessageRow): Message {
     failedAt: iso(m.failedAt),
     providerTimestamp: iso(m.providerTimestamp),
     createdAt: m.createdAt.toISOString(),
+    templateSnapshot: snapshot?.success ? snapshot.data : null,
+    ...(m.file !== undefined
+      ? {
+          media: m.file
+            ? {
+                fileId: m.file.id,
+                filename: m.file.filename,
+                mimeType: m.file.mimeType,
+                sizeBytes: Number(m.file.sizeBytes),
+              }
+            : null,
+        }
+      : {}),
   }
 }
 
@@ -37,14 +65,17 @@ const MEDIA_LABEL: Record<string, string> = {
   CONTACTS: '👤 Contact',
 }
 
-/** Conversation-list preview (≤140 chars). */
-export function previewOf(content: MessageContent): string {
+/** Conversation-list preview (≤140 chars); a template shows its rendered body when known. */
+export function previewOf(
+  content: MessageContent,
+  snapshot?: MessageTemplateSnapshot | null,
+): string {
   const cut = (s: string) => (s.length > 140 ? `${s.slice(0, 139)}…` : s)
   switch (content.type) {
     case 'TEXT':
       return cut(content.text)
     case 'TEMPLATE':
-      return cut(`Template: ${content.name}`)
+      return cut(snapshot?.body ?? `Template: ${content.name}`)
     case 'INTERACTIVE':
       return cut(content.text ?? 'Interactive reply')
     case 'REACTION':

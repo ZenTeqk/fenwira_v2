@@ -238,6 +238,8 @@ messages                                        T
   text_search tsvector GENERATED from content->>'text' (simple config)   -- FTS
   file_id uuid null → files
   template_version_id uuid null → template_versions  (P8)
+  template_snapshot jsonb null                     -- TEMPLATE: rendered content as sent
+  media_type text GENERATED (IMAGE|VIDEO|DOCUMENT incl. template media headers)  -- media filter
   provider_message_id text null                  -- Meta wamid
   reply_to_message_id uuid null
   idempotency_key text null
@@ -359,7 +361,8 @@ Implemented in Phase 7 (migration `20260928000000_inbox`), with these difference
 
 - `conversations.inbound_count int` (the unread fallback when a user has no read-state row) and `conversations.assigned_at` (round-robin tie-break).
 - `conversation_read_states` has an index `(tenant_id, user_id)` for the nav badge.
-- `messages.text_search` is added in `post-migrate.sql` (Prisma can't model generated columns): `to_tsvector('simple', content->>'text' || ' ' || content->>'caption')`, with a GIN index.
+- `messages.text_search` is added in `post-migrate.sql` (Prisma can't model generated columns): `to_tsvector('simple', content->>'text' || ' ' || content->>'caption' || ' ' || template_snapshot header text, body, footer)`, with a GIN index. Migration `20261030000000_template_snapshot` dropped it so post-migrate could re-add it with the template text.
+- `messages.template_snapshot jsonb` (docs/MESSAGING_ENGINE.md → Template snapshot) and the generated `messages.media_type text` (`post-migrate.sql`) with index `(conversation_id, media_type, created_at desc) WHERE media_type IS NOT NULL` for the thread media filter. RLS on `messages` is unchanged.
 - `tenants` gained `auto_assign` (`auto_assign_mode` OFF or ROUND_ROBIN), `inbox_visibility` (ALL or ASSIGNED_ONLY) and `takeover_auto_release_hours int null`.
 - `notifications` (drafted under Platform) is built as specified; the API only returns the caller's own rows.
 - An inbound message's `created_at` is Meta's timestamp, not the insert time.

@@ -331,6 +331,33 @@ export function createMetaMockHandler(state: MetaMockState) {
         case 'webhook-target':
           state.webhookTarget = input.url ? (input as unknown as WebhookTarget) : undefined
           return send(res, 200, { ok: true })
+        case 'auto-statuses':
+          // Which statuses follow each send (e.g. [] to drive ticks by hand with /__mock/status).
+          if (state.webhookTarget)
+            state.webhookTarget.statuses = input.statuses as WebhookTarget['statuses']
+          return send(res, 200, { ok: true })
+        case 'status': {
+          // Meta reports a status for one of our sends (an e2e test drives the ticks).
+          const target = state.webhookTarget
+          const sent = state.sent.find((m) => m.wamid === input.wamid)
+          const found = sent ? findPhone(state, sent.phoneNumberId) : undefined
+          if (!target || !sent || !found)
+            return send(res, 409, { error: 'unknown wamid or no webhook target' })
+          const status = await deliverWebhook(
+            target.url,
+            target.appSecret,
+            statusWebhook(
+              { wabaId: found.waba.id, phoneNumberId: sent.phoneNumberId },
+              {
+                wamid: sent.wamid,
+                status: input.status as 'sent' | 'delivered' | 'read' | 'failed',
+                recipientId: String(sent.payload.to),
+                ...(input.errorCode ? { errorCode: Number(input.errorCode) } : {}),
+              },
+            ),
+          )
+          return send(res, 200, { status })
+        }
         case 'inbound': {
           // Simulates a customer writing to one of the mock's numbers.
           const target = state.webhookTarget
