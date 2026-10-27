@@ -13,3 +13,9 @@ export {
   type ResolvedTemplate,
   type TemplateEvent,
 } from './templates.core'
+export {
+  backfillTemplateSnapshots,
+  backfillTenantTemplateSnapshots,
+  type BackfillResult,
+  snapshotForStoredMessage,
+} from './snapshot-backfill'

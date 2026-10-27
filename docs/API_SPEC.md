@@ -194,7 +194,8 @@ Implementation notes (Phase 4):
 | --- | --- | --- |
 | GET | `/conversations` | `inbox.read`. Filters: `status, assigneeId, unassigned, tagId, unread, window=OPEN\|CLOSED, phoneNumberId, q` |
 | GET | `/conversations/:id` | `inbox.read` |
-| GET | `/conversations/:id/messages` | `inbox.read`. Paginated backwards (`before` cursor). |
+| GET | `/conversations/:id/messages` | `inbox.read`. Paginated backwards (`before` cursor). `type=image\|video\|document` pages one kind of media (template media headers included). Each message carries `templateSnapshot` (TEMPLATE) and `media {fileId, filename, mimeType, sizeBytes}`. |
+| GET | `/conversations/:id/media-counts` | `inbox.read`. `{all, image, video, document}` for the media filter chips (`all` excludes system events). |
 | POST | `/conversations/:id/messages` **IK** | `inbox.reply`. `{type, content}` or `{templateVersionId, variables}` |
 | POST | `/conversations/:id/read` | `inbox.read` |
 | POST | `/conversations/:id/assign` | `inbox.assign_self` (self) / `inbox.reassign` (others) |

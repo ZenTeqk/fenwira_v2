@@ -180,6 +180,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         status: 'CREATED',
         source: 'INBOX',
         content: content as Message['content'],
+        templateSnapshot: null,
         providerMessageId: null,
         errorCode: null,
         errorDetail: null,

@@ -137,7 +137,7 @@ export async function searchConversations(
 ): Promise<Map<string, string | null>> {
   const byMessage = await tx.$queryRaw<Array<{ conversation_id: string; text: string | null }>>`
     SELECT DISTINCT ON (m.conversation_id) m.conversation_id,
-           coalesce(m.content->>'text', m.content->>'caption') AS text
+           coalesce(m.content->>'text', m.content->>'caption', m.template_snapshot->>'body') AS text
     FROM messages m
     WHERE m.text_search @@ plainto_tsquery('simple', ${q})
     ORDER BY m.conversation_id, m.created_at DESC

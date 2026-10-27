@@ -6,7 +6,7 @@ export { MediaProcessor } from './media.processor'
 export { OutboundProcessor } from './outbound.processor'
 export { StatusProcessor } from './status.processor'
 export { MARK_READ_JOB } from './constants'
-export { previewOf, toMessage } from './messaging.mapper'
+export { MESSAGE_FILE_SELECT, previewOf, toMessage } from './messaging.mapper'
 export { type SystemEvent, writeSystemEvent } from './system-events'
 export {
   evaluateEligibility,

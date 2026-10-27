@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { templateVariablesSchema } from '../templates/components'
+import { messageTemplateSnapshotSchema, type MessageTemplateSnapshot } from '../templates/snapshot'
 import { idSchema } from './common'
 
 /**
@@ -160,8 +161,51 @@ export const messageSchema = z.object({
   failedAt: z.string().nullable(),
   providerTimestamp: z.string().nullable(),
   createdAt: z.string(),
+  /** TEMPLATE messages: what the customer saw (docs/MESSAGING_ENGINE.md → Template snapshot). */
+  templateSnapshot: messageTemplateSnapshotSchema.nullable(),
+  /** The attached file (media, or a template's media header), when the thread loads it. */
+  media: z
+    .object({
+      fileId: idSchema,
+      filename: z.string().nullable(),
+      mimeType: z.string(),
+      sizeBytes: z.number(),
+    })
+    .nullable()
+    .optional(),
 })
 export type Message = z.infer<typeof messageSchema>
+
+/**
+ * Thread media filter (docs/INBOX.md → Media filter): images, videos and documents, including
+ * template messages with a media header. Stickers and audio are not media here (yet).
+ */
+export const THREAD_MEDIA_FILTERS = ['image', 'video', 'document'] as const
+export type ThreadMediaFilter = (typeof THREAD_MEDIA_FILTERS)[number]
+export type ThreadMediaKind = 'IMAGE' | 'VIDEO' | 'DOCUMENT'
+export const MEDIA_FILTER_KIND: Record<ThreadMediaFilter, ThreadMediaKind> = {
+  image: 'IMAGE',
+  video: 'VIDEO',
+  document: 'DOCUMENT',
+}
+/** Same rule as the `messages.media_type` generated column (post-migrate.sql). */
+export function mediaKindOf(m: {
+  type: MessageType
+  templateSnapshot?: MessageTemplateSnapshot | null
+}): ThreadMediaKind | null {
+  if (m.type === 'IMAGE' || m.type === 'VIDEO' || m.type === 'DOCUMENT') return m.type
+  if (m.type !== 'TEMPLATE') return null
+  const header = m.templateSnapshot?.header
+  return header && header.type !== 'TEXT' ? header.type : null
+}
+export const mediaCountsSchema = z.object({
+  /** Every customer and workspace message (system events excluded). */
+  all: z.number().int(),
+  image: z.number().int(),
+  video: z.number().int(),
+  document: z.number().int(),
+})
+export type MediaCounts = z.infer<typeof mediaCountsSchema>
 
 export const CONVERSATION_STATUSES = ['OPEN', 'PENDING', 'SNOOZED', 'RESOLVED'] as const
 export type ConversationStatus = (typeof CONVERSATION_STATUSES)[number]
@@ -326,6 +370,8 @@ export type StartConversationRequest = z.infer<typeof startConversationRequestSc
 export const messagesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   before: z.string().max(200).optional(),
+  /** Only this kind of media (counts: GET /conversations/:id/media-counts). */
+  type: z.enum(THREAD_MEDIA_FILTERS).optional(),
 })
 
 // Files (message media) -------------------------------------------------------------------------

@@ -383,6 +383,13 @@ export class SystemGateway {
     return rows.map((r) => r.tenant_id)
   }
 
+  /** Workspaces with TEMPLATE messages still missing a snapshot (IDs only, keyset). */
+  async tenantsMissingTemplateSnapshots(limit: number, after: string | null): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string }>>`
+      SELECT * FROM system.tenants_missing_template_snapshots(${limit}::int, ${after}::uuid)`
+    return rows.map((r) => r.tenant_id)
+  }
+
   /** X9 (analytics) — purge one workspace's analytics events older than `before`. */
   async purgeAnalyticsEvents(tenantId: string, before: Date): Promise<number> {
     const rows = await this.prisma.$queryRaw<Array<{ n: number }>>`

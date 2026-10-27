@@ -94,7 +94,17 @@ export class FilesService {
 
   async downloadUrl(id: string): Promise<{ url: string; expiresAt: string }> {
     const file = await this.tenantDb.run((tx) =>
-      tx.file.findFirst({ where: { id, purpose: 'MESSAGE_MEDIA', status: 'READY' } }),
+      tx.file.findFirst({
+        where: {
+          id,
+          status: 'READY',
+          // A template sample is viewable once a message used it as its media header.
+          OR: [
+            { purpose: 'MESSAGE_MEDIA' },
+            { purpose: 'TEMPLATE_SAMPLE', messages: { some: {} } },
+          ],
+        },
+      }),
     )
     if (!file) throw AppError.notFound('File not found.')
     const expiresIn = 300

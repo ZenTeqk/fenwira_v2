@@ -24,7 +24,13 @@ export class MessageNotYetKnown extends Error {
 const MAX_UNKNOWN_ATTEMPTS = 5
 const TO_STATUS = { sent: 'SENT', delivered: 'DELIVERED', read: 'READ' } as const
 
-type Applied = { messageId: string; conversationId: string; from: string; to: string } | null
+type Applied = {
+  messageId: string
+  conversationId: string
+  from: string
+  to: string
+  errorDetail: string | null
+} | null
 
 /**
  * whatsapp.status: message status under the ordering rule (SENT < DELIVERED < READ, never
@@ -79,7 +85,12 @@ export class StatusProcessor implements QueueProcessor<WebhookJob> {
           messageId: applied.messageId,
           conversationId: applied.conversationId,
           status: applied.to,
-          ...(event.status.error ? { errorCode: `META_${event.status.error.code}` } : {}),
+          ...(event.status.error
+            ? {
+                errorCode: `META_${event.status.error.code}`,
+                ...(applied.errorDetail ? { errorDetail: applied.errorDetail } : {}),
+              }
+            : {}),
         })
       return applied ? 'applied' : 'unchanged'
     }
@@ -153,9 +164,11 @@ export class StatusProcessor implements QueueProcessor<WebhookJob> {
     const at = new Date(s.timestamp)
     let updated: number
     let to: string
+    let errorDetail: string | null = null
     if (s.status === 'failed') {
       const code = s.error ? `META_${s.error.code}` : 'META_FAILED'
       const detail = s.error?.detail ?? s.error?.title ?? null
+      errorDetail = detail
       // A failure after DELIVERED is recorded but never un-delivers the message.
       updated = await tx.$executeRaw`
         UPDATE messages SET status = 'FAILED', failed_at = ${at}, error_code = ${code},
@@ -202,6 +215,7 @@ export class StatusProcessor implements QueueProcessor<WebhookJob> {
       conversationId: message.conversationId,
       from: message.status,
       to,
+      errorDetail,
     }
   }
 

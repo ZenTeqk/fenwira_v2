@@ -1,5 +1,8 @@
 import {
+  type HeaderFile,
   MEDIA_LIMITS,
+  renderTemplateSnapshot,
+  type MessageTemplateSnapshot,
   type Message,
   type MessageContent,
   type MessageSource,
@@ -191,10 +194,11 @@ export class MessagingService {
         billing,
       )
 
-    const stored =
+    const rendered =
       template && content.type === 'TEMPLATE'
         ? await this.templateContent(tx, template, content)
-        : await this.storedContent(tx, content)
+        : { content: await this.storedContent(tx, content), snapshot: null }
+    const stored = rendered.content
     const message = await tx.message.create({
       data: {
         id: messageId,
@@ -214,6 +218,7 @@ export class MessagingService {
             ? (stored.fileId ?? null)
             : null,
         templateVersionId: template?.versionId ?? null,
+        templateSnapshot: (rendered.snapshot as Prisma.InputJsonValue | null) ?? Prisma.DbNull,
         idempotencyKey: input.idempotencyKey,
         sentByUserId: input.actorUserId ?? null,
       },
@@ -233,7 +238,7 @@ export class MessagingService {
       data: {
         lastMessageId: message.id,
         lastMessageAt: message.createdAt,
-        lastMessagePreview: previewOf(stored),
+        lastMessagePreview: previewOf(stored, rendered.snapshot),
         ...(input.source === 'INBOX' && !conversation.firstResponseAt
           ? { firstResponseAt: now }
           : {}),
@@ -341,31 +346,44 @@ export class MessagingService {
     return conversation
   }
 
-  /** Media sends reference a READY file of a type Meta accepts for that message type. */
-  /** What a template send stores: what was sent (for display) plus the Meta components. */
+  /** What a template send stores: the Meta components, plus the rendered snapshot for display. */
   private async templateContent(
     tx: TenantTx,
     t: ResolvedTemplate,
     content: Extract<SendableContent, { type: 'TEMPLATE' }>,
-  ): Promise<MessageContent> {
+  ): Promise<{ content: MessageContent; snapshot: MessageTemplateSnapshot }> {
+    let headerFile: HeaderFile | null = null
     if (t.headerFileId) {
       const file = await tx.file.findFirst({
         where: { id: t.headerFileId, purpose: { in: ['MESSAGE_MEDIA', 'TEMPLATE_SAMPLE'] } },
       })
       if (!file || file.status !== 'READY')
         throw new AppError('FILE_NOT_READY', 422, "The template header file isn't uploaded yet.")
+      headerFile = { id: file.id, filename: file.filename, mimeType: file.mimeType }
     }
     return {
-      type: 'TEMPLATE',
-      name: t.name,
-      language: t.language,
-      components: t.components,
-      templateId: t.templateId,
-      templateVersionId: t.versionId,
-      category: t.category,
-      ...(content.variables ? { variables: content.variables } : {}),
+      content: {
+        type: 'TEMPLATE',
+        name: t.name,
+        language: t.language,
+        components: t.components,
+        templateId: t.templateId,
+        templateVersionId: t.versionId,
+        category: t.category,
+        ...(content.variables ? { variables: content.variables } : {}),
+      },
+      snapshot: renderTemplateSnapshot({
+        name: t.name,
+        language: t.language,
+        category: t.category,
+        components: t.definition,
+        values: t.values,
+        headerFile,
+      }),
     }
   }
+
+  /** Media sends reference a READY file of a type Meta accepts for that message type. */
 
   private async storedContent(tx: TenantTx, content: SendableContent): Promise<MessageContent> {
     if (content.type === 'TEMPLATE') throw new Error('templates use templateContent')
