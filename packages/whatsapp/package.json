@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@fenwira/config": "workspace:*",
-    "vitest": "3.2.7"
+    "vitest": "5.0.5"
   },
   "dependencies": {
     "@fenwira/contracts": "workspace:*"
