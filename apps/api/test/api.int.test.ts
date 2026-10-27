@@ -63,8 +63,15 @@ describe('HTTP conventions', () => {
       .get('/api/v1/nope')
       .set('X-Correlation-Id', 'corr-404')
       .expect(404)
+    // The envelope gained hint and requestId (= correlationId) with the error-envelope change.
     expect(res.body).toEqual({
-      error: { code: 'NOT_FOUND', message: expect.any(String), correlationId: 'corr-404' },
+      error: {
+        code: 'NOT_FOUND',
+        message: expect.any(String),
+        hint: expect.any(String),
+        correlationId: 'corr-404',
+        requestId: 'corr-404',
+      },
     })
   })
 
