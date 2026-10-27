@@ -225,14 +225,14 @@ export function ConversationList({
           <Switch id="inbox-unread-only" checked={unreadOnly} onCheckedChange={setUnreadOnly} />
           <Label
             htmlFor="inbox-unread-only"
-            className="min-w-0 flex-1 text-base font-normal whitespace-nowrap text-secondary"
+            className="shrink-0 text-sm font-normal whitespace-nowrap text-secondary"
           >
             Unread only
           </Label>
           <Select value={status} onValueChange={(v: StatusChoice) => setStatus(v)}>
             <SelectTrigger
               aria-label="Conversation status"
-              className="h-8 w-auto min-w-0 text-base"
+              className="ml-auto h-8 w-auto min-w-0 px-2.5 text-sm"
             >
               <SelectValue />
             </SelectTrigger>
