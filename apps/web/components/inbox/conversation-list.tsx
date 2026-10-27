@@ -17,10 +17,6 @@ import {
   SelectValue,
   Skeleton,
   Switch,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
 } from '@fenwira/ui'
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Inbox } from 'lucide-react'
@@ -31,7 +27,7 @@ import { keys } from '@/lib/api/keys'
 import { displayName, shortTime } from '@/lib/inbox'
 import { useRealtimeEvent, useRealtimeReconnect } from '@/lib/realtime'
 import { STATUS_LABEL } from './conversation-actions'
-import { type AdvancedFilter, InboxFilterMenu } from './inbox-views'
+import { type AdvancedFilter, InboxFilterMenu, INBOX_VIEWS, type InboxView } from './inbox-views'
 
 export function useDebounced<T>(value: T, ms = 300): T {
   const [v, setV] = useState(value)
@@ -42,13 +38,7 @@ export function useDebounced<T>(value: T, ms = 300): T {
   return v
 }
 
-type Tab = keyof ConversationCounts
 type Page = { data: Conversation[]; page: { nextCursor: string | null } }
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'mine', label: 'Mine' },
-  { id: 'unassigned', label: 'Unassigned' },
-]
 /** No status = the views' default (open and waiting); any choice replaces it. */
 const STATUS_OPTIONS = ['DEFAULT', 'OPEN', 'PENDING', 'SNOOZED', 'RESOLVED'] as const
 type StatusChoice = (typeof STATUS_OPTIONS)[number]
@@ -131,7 +121,7 @@ export function ConversationList({
 }) {
   const { tenantId, me } = useSession()
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<Tab>('all')
+  const [tab, setTab] = useState<InboxView>('all')
   const [advanced, setAdvanced] = useState<AdvancedFilter>('none')
   const [status, setStatus] = useState<StatusChoice>('DEFAULT')
   const [search, setSearch] = useState('')
@@ -196,10 +186,26 @@ export function ConversationList({
   const showCounts = advanced === 'none' && counts.data
   return (
     <section aria-label="Conversations" className="flex h-full min-h-0 min-w-0 flex-col">
-      <div className="flex flex-col gap-3 px-4 pt-4">
+      <div className="flex flex-col gap-3 px-4 pt-4 pb-1">
         <div className="flex h-9 items-center justify-between gap-2">
-          <h2 className="text-xl font-semibold text-slate">Inbox</h2>
-          <InboxFilterMenu value={advanced} onChange={setAdvanced} />
+          <h2 className="flex min-w-0 items-baseline gap-2 text-xl font-semibold text-slate">
+            <span className="truncate">
+              {tab === 'all' ? 'Inbox' : INBOX_VIEWS.find((v) => v.id === tab)!.title}
+            </span>
+            {showCounts ? (
+              <span className="text-base font-normal text-secondary tabular-nums">
+                {counts.data[tab]}
+                <span className="sr-only"> conversations</span>
+              </span>
+            ) : null}
+          </h2>
+          <InboxFilterMenu
+            view={tab}
+            onViewChange={setTab}
+            counts={showCounts ? counts.data : undefined}
+            advanced={advanced}
+            onAdvancedChange={setAdvanced}
+          />
         </div>
         <SearchInput
           label="Search conversations"
@@ -210,17 +216,7 @@ export function ConversationList({
           className="sm:w-full"
         />
       </div>
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="min-h-0 flex-1 gap-0">
-        <TabsList aria-label="Conversation views" className="mt-1 shrink-0 px-2">
-          {TABS.map((t) => (
-            <TabsTrigger key={t.id} value={t.id} className="flex-1 justify-center gap-1.5 px-2">
-              {t.label}
-              {showCounts ? (
-                <span className="text-sm font-normal tabular-nums">{counts.data[t.id]}</span>
-              ) : null}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5">
           <Switch id="inbox-unread-only" checked={unreadOnly} onCheckedChange={setUnreadOnly} />
           <Label
@@ -245,10 +241,7 @@ export function ConversationList({
             </SelectContent>
           </Select>
         </div>
-        <TabsContent
-          value={tab}
-          className="min-h-0 flex-1 overflow-y-auto contain-paint focus-visible:-outline-offset-2"
-        >
+        <div className="min-h-0 flex-1 overflow-y-auto contain-paint">
           {list.isPending ? (
             <div className="flex flex-col gap-2 p-4">
               {Array.from({ length: 6 }, (_, i) => (
@@ -291,8 +284,8 @@ export function ConversationList({
               ) : null}
             </>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
     </section>
   )
 }
