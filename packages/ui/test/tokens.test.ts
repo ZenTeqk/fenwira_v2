@@ -93,6 +93,12 @@ describe('color tokens', () => {
     expect(ratio(t['muted-decorative'], t.surface)).toBeLessThan(4.5)
     // Focus outlines need 3:1 against warm surfaces (1.4.11).
     expect(ratio(t['primary-strong'], t.background)).toBeGreaterThanOrEqual(3)
+    // Inbox ticks are non-text icons on the outbound bubble (1.4.11, 3:1): grey sent/delivered,
+    // blue read, red failed. Each also has an accessible label, never colour alone.
+    for (const fg of [t.muted, t.info, t.danger])
+      expect(ratio(fg, t['message-outbound']), `${fg} tick`).toBeGreaterThanOrEqual(3)
+    // …and muted stays non-text there: it fails AA as text on the outbound tint.
+    expect(ratio(t.muted, t['message-outbound'])).toBeLessThan(4.5)
     // Status colors are never text: success/warning fills fail AA as text by design.
     expect(ratio(t.success, t.surface)).toBeLessThan(4.5)
     expect(ratio(t.warning, t.surface)).toBeLessThan(4.5)

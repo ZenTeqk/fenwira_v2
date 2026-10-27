@@ -7,7 +7,7 @@ import {
   type MessageStatus,
   type ThreadMediaFilter,
 } from '@fenwira/contracts'
-import { Button, cn, ErrorState, focusRing, Skeleton, StatusBadge } from '@fenwira/ui'
+import { Button, cn, ErrorState, focusRing, MessageTicks, Skeleton } from '@fenwira/ui'
 import {
   type InfiniteData,
   useInfiniteQuery,
@@ -218,23 +218,17 @@ function Row({ item, grouped }: { item: Item; grouped: boolean }) {
         <MessageBody m={m} labelId={labelId} bodyId={bodyId} />
         <span
           className={cn(
-            'flex items-center justify-end gap-2 text-xs',
-            // Muted fails AA on the outbound tint, so outbound metadata uses secondary.
+            'flex items-center justify-end gap-1 text-xs',
+            // Muted fails AA as text on the outbound tint, so outbound metadata uses secondary.
+            // The ticks are non-text icons (3:1) and keep their own colours (MessageTicks).
             outbound ? 'text-secondary' : 'text-muted',
           )}
         >
           {clockTime(m.createdAt)}
           {outbound ? (
-            <StatusBadge
-              status={m.status as Exclude<MessageStatus, 'RECEIVED'>}
-              appearance="inline"
-              className="text-xs"
-            />
+            <MessageTicks status={m.status} errorCode={m.errorCode} errorDetail={m.errorDetail} />
           ) : null}
         </span>
-        {m.status === 'FAILED' && m.errorDetail ? (
-          <span className="text-xs text-danger-strong">{m.errorDetail}</span>
-        ) : null}
       </div>
     </div>
   )
@@ -294,6 +288,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
     conversationId: string
     status: MessageStatus
     errorCode?: string
+    errorDetail?: string
   }>('message.status', (e) => {
     if (e.conversationId !== conversationId) return
     queryClient.setQueryData<InfiniteData<Page>>(key, (old) =>
@@ -304,7 +299,12 @@ export function Thread({ conversationId }: { conversationId: string }) {
               ...p,
               data: p.data.map((x) =>
                 x.id === e.messageId
-                  ? { ...x, status: e.status, errorCode: e.errorCode ?? x.errorCode }
+                  ? {
+                      ...x,
+                      status: e.status,
+                      errorCode: e.errorCode ?? x.errorCode,
+                      errorDetail: e.errorDetail ?? x.errorDetail,
+                    }
                   : x,
               ),
             })),

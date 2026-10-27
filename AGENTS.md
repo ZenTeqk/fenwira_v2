@@ -88,7 +88,7 @@ Rules:
 
 1. `#00A884` is reserved for actions, active navigation, focus and selection, never text. Filled primary buttons and green text use `primary-strong`.
 2. Fenwira primary and WhatsApp green are different tokens with different meanings.
-3. Statuses are rendered with `StatusBadge` only (five categories: success, warning, danger, info, neutral). Never by color alone.
+3. Statuses are rendered with `StatusBadge` only (five categories: success, warning, danger, info, neutral). Never by color alone. The one exception is inbox bubble delivery ticks (`MessageTicks`: icon only, with an accessible label; FENWIRA_DESIGN_SYSTEM.md → Status).
 4. Do not introduce colors without updating `docs/design/FENWIRA_DESIGN_SYSTEM.md`, `packages/ui` tokens and the contrast test first.
 5. Components use semantic tokens (`bg-primary-strong`, `text-secondary`, …). No hex values or arbitrary values in `apps/web` (`pnpm lint:design`).
 6. Pages use the shared patterns (`ListPage`, `DetailPage`, `BuilderPage`, `SettingsPage`, `DashboardLayout`).
