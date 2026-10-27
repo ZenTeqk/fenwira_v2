@@ -15,7 +15,7 @@
     "@dagrejs/dagre": "3.1.1",
     "@fenwira/contracts": "workspace:*",
     "@fenwira/ui": "workspace:*",
-    "@tanstack/react-query": "5.103.2",
+    "@tanstack/react-query": "5.104.5",
     "@tanstack/react-virtual": "3.14.13",
     "@xyflow/react": "12.11.6",
     "lucide-react": "1.47.0",
