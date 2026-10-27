@@ -26,6 +26,7 @@ import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { AuditService } from '../audit'
 import { currentApiKey, currentAuth } from '../identity'
 import {
+  conversationVisibility,
   MARK_READ_JOB,
   MESSAGE_FILE_SELECT,
   MessagingService,
@@ -625,16 +626,8 @@ export class InboxService {
   // ------------------------------------------------------------------------------- helpers
 
   /** ASSIGNED_ONLY workspaces show agents only their own and unassigned conversations. */
-  private async visibility(tx: TenantTx, userId: string): Promise<Prisma.ConversationWhereInput> {
-    const { tenantId, role } = currentTenant() as { tenantId: string; role: string }
-    if (role !== 'AGENT') return {}
-    const t = await tx.tenant.findUniqueOrThrow({
-      where: { id: tenantId },
-      select: { inboxVisibility: true },
-    })
-    return t.inboxVisibility === 'ASSIGNED_ONLY'
-      ? { OR: [{ assigneeId: userId }, { assigneeId: null }] }
-      : {}
+  private visibility(tx: TenantTx, userId: string): Promise<Prisma.ConversationWhereInput> {
+    return conversationVisibility(tx, userId)
   }
 
   private async find(tx: TenantTx, id: string, userId: string) {

@@ -16,3 +16,4 @@ export {
   type EligibilityDecision,
   type EligibilityInput,
 } from './eligibility'
+export { conversationVisibility } from './visibility'

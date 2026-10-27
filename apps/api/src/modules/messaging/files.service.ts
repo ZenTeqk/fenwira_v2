@@ -7,6 +7,7 @@ import { StorageService } from '../../core/storage/storage.service'
 import { verifyUpload } from '../../core/storage/uploads'
 import { currentAuth } from '../identity'
 import { currentTenant } from '../tenancy'
+import { conversationVisibility } from './visibility'
 
 const toFile = (f: {
   id: string
@@ -92,20 +93,35 @@ export class FilesService {
     return toFile(updated)
   }
 
+  /**
+   * A short-lived link to a message attachment (docs/INBOX.md → Attachments). This route serves
+   * message attachments only:
+   * - MESSAGE_MEDIA, and a TEMPLATE_SAMPLE used as a sent template's media header, need a message
+   *   in a conversation this user can see (conversationVisibility, as the list and thread);
+   * - MESSAGE_MEDIA the user uploaded and hasn't sent yet stays visible to that uploader.
+   * Other files have their own routes and permissions: IMPORT (import error reports,
+   * contacts.import), EXPORT (contacts.export), TEMPLATE_SAMPLE (templates.read), PAYMENT_PROOF
+   * (platform operator). AVATAR is unused. Any other case is the same 404 as a missing file, so
+   * ids can't be probed.
+   */
   async downloadUrl(id: string): Promise<{ url: string; expiresAt: string }> {
-    const file = await this.tenantDb.run((tx) =>
-      tx.file.findFirst({
+    const { userId } = currentAuth()
+    const file = await this.tenantDb.run(async (tx) => {
+      const visible = await conversationVisibility(tx, userId)
+      return tx.file.findFirst({
         where: {
           id,
           status: 'READY',
-          // A template sample is viewable once a message used it as its media header.
           OR: [
-            { purpose: 'MESSAGE_MEDIA' },
-            { purpose: 'TEMPLATE_SAMPLE', messages: { some: {} } },
+            {
+              purpose: { in: ['MESSAGE_MEDIA', 'TEMPLATE_SAMPLE'] },
+              messages: { some: { conversation: visible } },
+            },
+            { purpose: 'MESSAGE_MEDIA', uploadedBy: userId, messages: { none: {} } },
           ],
         },
-      }),
-    )
+      })
+    })
     if (!file) throw AppError.notFound('File not found.')
     const expiresIn = 300
     return {

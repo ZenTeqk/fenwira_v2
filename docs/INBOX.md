@@ -102,6 +102,8 @@ Mine, Unassigned, All and Takeover show open and pending conversations by defaul
 
 Upload through `POST /files/upload-url` (purpose `MESSAGE_MEDIA`) → PUT to MinIO → `POST /files/:id/complete` (magic-byte sniff, size check per Meta limits) → send with `{type: IMAGE|DOCUMENT|AUDIO|VIDEO, fileId, caption?}`. The outbound worker uploads the file to Meta media and sends it by media ID.
 
+**Access:** `GET /files/:id/download-url` serves message attachments only. MESSAGE_MEDIA, and a TEMPLATE_SAMPLE used as a sent template's media header, need a message in a conversation the user can see (the same visibility rule as the list, thread and counts). An uploader also sees their own MESSAGE_MEDIA before it is sent. Everything else returns the same 404 as a missing file. Other file kinds have their own routes: IMPORT error reports (`contacts.import`), EXPORT (`contacts.export`), template samples (`templates.read`) and payment proofs (platform operator). AVATAR is unused.
+
 ### Template messages
 
 A template message renders from its stored snapshot (docs/MESSAGING_ENGINE.md → Template snapshot), in the outbound bubble:
