@@ -98,6 +98,28 @@ Built-in views: **Mine**, **Unassigned**, **All**, **Takeover** and **Resolved**
 
 Upload through `POST /files/upload-url` (purpose `MESSAGE_MEDIA`) → PUT to MinIO → `POST /files/:id/complete` (magic-byte sniff, size check per Meta limits) → send with `{type: IMAGE|DOCUMENT|AUDIO|VIDEO, fileId, caption?}`. The outbound worker uploads the file to Meta media and sends it by media ID.
 
+### Template messages
+
+A template message renders from its stored snapshot (docs/MESSAGING_ENGINE.md → Template snapshot), in the outbound bubble:
+
+- a "Template: <name>" label in `text-secondary`, then the header (image preview, or a chip for a video or document), the body with line breaks kept, and the footer;
+- a body longer than about 8 lines is collapsed, with Read more / Show less (`aria-expanded`);
+- buttons as WhatsApp-style display-only rows (`bg-surface`, `border`, `primary-strong` label and type icon; the URL, phone number or code is in the row's `title`). They are not controls, so nothing in them is focusable;
+- a partial snapshot shows what is available plus "Original template no longer available";
+- the bubble is a `group` named by its label and body text.
+
+Footer and the partial note use `text-secondary`, not `text-muted`: muted text is 3.4:1 on `message-outbound` and fails AA.
+
+### Media filter
+
+Below the thread header, chips All / Images / Videos / Documents filter the open conversation, each with its count from `GET /conversations/:id/media-counts`. They are toggle buttons (`aria-pressed`): idle `bg-surface` with `border-strong` and `text-secondary`, hover `bg-neutral-soft`, active `bg-primary-soft` with `primary-strong` text and border, and the shared `primary-strong` focus ring. Clicking the active chip goes back to All. The selection resets when you switch conversation.
+
+- Classification (`mediaKindOf` in contracts, and the generated `messages.media_type` column on the server): image, video and document messages, plus template messages whose header is an image, video or document. Stickers and audio are excluded; Audio and Links can be added as more `media_type` values later.
+- The view shows loaded messages filtered client-side immediately, then pages from `GET /conversations/:id/messages?type=image|video|document`, so pagination and counts stay correct.
+- Images and videos show as a thumbnail grid. A thumbnail opens a simple lightbox (the inbox has no other media viewer). Documents show as a list with file name, type, size and date. Every item has "Jump to message", which returns to All, loads earlier pages until the message is in the thread, scrolls to it and moves focus there.
+- Empty state: a `neutral-soft` icon tile with `text-muted` copy ("No images in this conversation").
+- A template's media header is a template sample file; `GET /files/:id/download-url` serves it once a message uses it.
+
 ### Realtime (client behavior)
 
 - On opening a conversation, the client joins `conversation:{id}` and leaves the previous one.

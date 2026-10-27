@@ -1,6 +1,12 @@
 'use client'
 
-import { type ConversationNote, type Message, type MessageStatus } from '@fenwira/contracts'
+import {
+  type ConversationNote,
+  type MediaCounts,
+  type Message,
+  type MessageStatus,
+  type ThreadMediaFilter,
+} from '@fenwira/contracts'
 import { Button, cn, ErrorState, focusRing, Skeleton, StatusBadge } from '@fenwira/ui'
 import {
   type InfiniteData,
@@ -12,13 +18,14 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import Image from 'next/image'
 import { followsSameSender } from '@/lib/message-grouping'
 import { Lock, Paperclip } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { clockTime } from '@/lib/inbox'
 import { useRealtimeEvent } from '@/lib/realtime'
 import { useFileUrl } from './media'
+import { MediaFilterChips, mediaCountsKey, MediaResults } from './media-filter'
 import { TemplateMessage } from './template-message'
 
 type Page = { data: Message[]; page: { nextCursor: string | null } }
@@ -247,6 +254,22 @@ export function Thread({ conversationId }: { conversationId: string }) {
     initialPageParam: '',
     getNextPageParam: (last) => last.page.nextCursor ?? undefined,
   })
+  // Media filter: per conversation, so switching conversation starts again at All.
+  const [filterState, setFilterState] = useState<{ id: string; value: ThreadMediaFilter } | null>(
+    null,
+  )
+  const filter = filterState?.id === conversationId ? filterState.value : null
+  const setFilter = (value: ThreadMediaFilter | null) =>
+    setFilterState(value ? { id: conversationId, value } : null)
+  const [jumpTo, setJumpTo] = useState<string | null>(null)
+  const countsKey = mediaCountsKey(tenantId, conversationId)
+  const counts = useQuery({
+    queryKey: countsKey,
+    queryFn: () =>
+      get<{ data: MediaCounts }>(`/conversations/${conversationId}/media-counts`).then(
+        (r) => r.data,
+      ),
+  })
   const notes = useQuery({
     queryKey: notesKey(tenantId, conversationId),
     queryFn: () =>
@@ -258,6 +281,8 @@ export function Thread({ conversationId }: { conversationId: string }) {
   // Live updates: new messages, status ticks and notes patch the caches directly.
   useRealtimeEvent<Message>('message.created', (m) => {
     if (m.conversationId !== conversationId) return
+    void queryClient.invalidateQueries({ queryKey: countsKey })
+    void queryClient.invalidateQueries({ queryKey: [...key, 'media'] })
     queryClient.setQueryData<InfiniteData<Page>>(key, (old) => {
       if (!old || old.pages[0]!.data.some((x) => x.id === m.id)) return old
       const [first, ...rest] = old.pages
@@ -318,10 +343,47 @@ export function Thread({ conversationId }: { conversationId: string }) {
   const newest = items.at(-1)
   const nearBottom = useRef(true)
   useEffect(() => {
-    if (items.length && nearBottom.current)
+    if (items.length && nearBottom.current && !jumpTo)
       virtualizer.scrollToIndex(items.length - 1, { align: 'end' })
-  }, [newest?.at, items.length, virtualizer])
+  }, [newest?.at, items.length, virtualizer, jumpTo])
 
+  // "Jump to message" from a media view: load earlier pages until it is in the thread, then scroll
+  // to it and move focus there.
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = messages
+  useEffect(() => {
+    if (!jumpTo || filter) return
+    const index = items.findIndex((i) => i.kind === 'message' && i.message.id === jumpTo)
+    if (index >= 0) {
+      nearBottom.current = false
+      virtualizer.scrollToIndex(index, { align: 'center' })
+      const target = jumpTo
+      setJumpTo(null)
+      requestAnimationFrame(() => {
+        virtualizer.scrollToIndex(index, { align: 'center' })
+        scroller.current
+          ?.querySelector<HTMLElement>(`[data-message-id="${target}"]`)
+          ?.focus({ preventScroll: true })
+      })
+    } else if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
+    else if (!hasNextPage) setJumpTo(null)
+  }, [jumpTo, filter, items, virtualizer, hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  const chips = <MediaFilterChips value={filter} counts={counts.data} onChange={setFilter} />
+  if (filter)
+    return (
+      <div className="flex min-h-0 flex-1 flex-col bg-thread-soft">
+        {chips}
+        <MediaResults
+          conversationId={conversationId}
+          filter={filter}
+          loaded={(messages.data?.pages ?? []).flatMap((p) => p.data)}
+          onJump={(id) => {
+            setJumpTo(id)
+            setFilter(null)
+          }}
+        />
+      </div>
+    )
   if (messages.isPending)
     return (
       <div className="flex flex-1 flex-col gap-3 p-4">
@@ -335,79 +397,90 @@ export function Thread({ conversationId }: { conversationId: string }) {
       <ErrorState title="Messages couldn’t be loaded" onRetry={() => void messages.refetch()} />
     )
   return (
-    <div className="relative isolate min-h-0 flex-1 overflow-hidden bg-thread-soft">
-      {/* Decorative wallpaper: token color through an original line-art mask; hidden from AT
+    <div className="flex min-h-0 flex-1 flex-col">
+      {chips}
+      <div className="relative isolate min-h-0 flex-1 overflow-hidden bg-thread-soft">
+        {/* Decorative wallpaper: token color through an original line-art mask; hidden from AT
           and from users who ask for more contrast. */}
-      <div
-        aria-hidden="true"
-        className="chat-doodle pointer-events-none absolute inset-0 bg-slate-400 opacity-12 contrast-more:hidden"
-      />
-      <div
-        ref={scroller}
-        tabIndex={0}
-        className={cn(
-          'relative h-full min-h-0 overflow-y-auto px-4 py-3',
-          focusRing,
-          'focus-visible:-outline-offset-2',
-        )}
-        role="log"
-        aria-live="polite"
-        aria-label="Messages"
-        onScroll={(e) => {
-          const el = e.currentTarget
-          nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-        }}
-      >
-        {notes.isError ? (
-          <ErrorState
-            title="Internal notes couldn’t be loaded"
-            onRetry={() => void notes.refetch()}
-          />
-        ) : null}
-        {messages.hasNextPage ? (
-          <div className="flex justify-center pb-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              loading={messages.isFetchingNextPage}
-              onClick={() => void messages.fetchNextPage()}
-            >
-              Load earlier messages
-            </Button>
-          </div>
-        ) : null}
-        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-          {virtualizer.getVirtualItems().map((v) => {
-            const item = items[v.index]!
-            const previous = items[v.index - 1]
-            const grouped =
-              item.kind === 'message' &&
-              previous?.kind === 'message' &&
-              followsSameSender(item.message, previous.message)
-            const date = new Date(item.at).toLocaleDateString(undefined, {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })
-            const newDay =
-              !previous || new Date(item.at).toDateString() !== new Date(previous.at).toDateString()
-            return (
-              <div
-                key={item.kind === 'note' ? `n-${item.note.id}` : item.message.id}
-                data-index={v.index}
-                ref={virtualizer.measureElement}
-                className={cn('absolute left-0 top-0 w-full pb-1', grouped ? 'pt-0.5' : 'pt-2')}
-                style={{ transform: `translateY(${v.start}px)` }}
+        <div
+          aria-hidden="true"
+          className="chat-doodle pointer-events-none absolute inset-0 bg-slate-400 opacity-12 contrast-more:hidden"
+        />
+        <div
+          ref={scroller}
+          tabIndex={0}
+          className={cn(
+            'relative h-full min-h-0 overflow-y-auto px-4 py-3',
+            focusRing,
+            'focus-visible:-outline-offset-2',
+          )}
+          role="log"
+          aria-live="polite"
+          aria-label="Messages"
+          onScroll={(e) => {
+            const el = e.currentTarget
+            nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+          }}
+        >
+          {notes.isError ? (
+            <ErrorState
+              title="Internal notes couldn’t be loaded"
+              onRetry={() => void notes.refetch()}
+            />
+          ) : null}
+          {messages.hasNextPage ? (
+            <div className="flex justify-center pb-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                loading={messages.isFetchingNextPage}
+                onClick={() => void messages.fetchNextPage()}
               >
-                {newDay ? (
-                  <p className="mx-auto mb-2 w-fit rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-secondary">
-                    {date}
-                  </p>
-                ) : null}
-                <Row item={item} grouped={grouped} />
-              </div>
-            )
-          })}
+                Load earlier messages
+              </Button>
+            </div>
+          ) : null}
+          <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+            {virtualizer.getVirtualItems().map((v) => {
+              const item = items[v.index]!
+              const previous = items[v.index - 1]
+              const grouped =
+                item.kind === 'message' &&
+                previous?.kind === 'message' &&
+                followsSameSender(item.message, previous.message)
+              const date = new Date(item.at).toLocaleDateString(undefined, {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })
+              const newDay =
+                !previous ||
+                new Date(item.at).toDateString() !== new Date(previous.at).toDateString()
+              return (
+                <div
+                  key={item.kind === 'note' ? `n-${item.note.id}` : item.message.id}
+                  data-index={v.index}
+                  ref={virtualizer.measureElement}
+                  className={cn('absolute left-0 top-0 w-full pb-1', grouped ? 'pt-0.5' : 'pt-2')}
+                  style={{ transform: `translateY(${v.start}px)` }}
+                >
+                  {newDay ? (
+                    <p className="mx-auto mb-2 w-fit rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-secondary">
+                      {date}
+                    </p>
+                  ) : null}
+                  <div
+                    {...(item.kind === 'message'
+                      ? { 'data-message-id': item.message.id, tabIndex: -1 }
+                      : {})}
+                    className={cn('rounded-md', focusRing)}
+                  >
+                    <Row item={item} grouped={grouped} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
