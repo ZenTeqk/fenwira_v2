@@ -65,6 +65,7 @@ function MessageBody({ m, labelId, bodyId }: { m: Message; labelId: string; body
           name={c.name}
           labelId={labelId}
           bodyId={bodyId}
+          pending={m.status === 'CREATED'}
         />
       )
     case 'INTERACTIVE':

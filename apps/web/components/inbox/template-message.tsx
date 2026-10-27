@@ -42,11 +42,28 @@ function TemplateHeader({ header }: { header: NonNullable<MessageTemplateSnapsho
         {header.fileId ? 'Image' : 'Image unavailable'}
       </div>
     )
-  const Icon = header.type === 'VIDEO' ? Play : FileText
+  if (header.type === 'VIDEO')
+    return url.data ? (
+      // Inline preview: native controls, first frame only until played.
+      <video
+        src={url.data}
+        controls
+        preload="metadata"
+        aria-label={label}
+        className="h-auto max-h-60 w-full max-w-80 rounded-md bg-slate"
+      >
+        <track kind="captions" />
+      </video>
+    ) : (
+      <div className="flex h-32 items-center justify-center gap-2 rounded-md bg-neutral-soft text-sm text-secondary">
+        <Play aria-hidden="true" className="size-5" />
+        {header.fileId ? 'Video' : 'Video unavailable'}
+      </div>
+    )
   const chip = (
     <>
-      <Icon aria-hidden="true" className="size-4 shrink-0" />
-      <span className="truncate">{header.type === 'VIDEO' ? `Video · ${label}` : label}</span>
+      <FileText aria-hidden="true" className="size-4 shrink-0" />
+      <span className="truncate">{label}</span>
     </>
   )
   return url.data ? (
@@ -75,11 +92,14 @@ export function TemplateMessage({
   name,
   labelId,
   bodyId,
+  pending = false,
 }: {
   snapshot: MessageTemplateSnapshot | null
   name: string
   labelId: string
   bodyId: string
+  /** Optimistic send still being created. */
+  pending?: boolean
 }) {
   const body = useRef<HTMLParagraphElement>(null)
   const [expanded, setExpanded] = useState(false)
@@ -118,7 +138,8 @@ export function TemplateMessage({
       ) : null}
       {/* Muted fails AA on the outbound tint, so the footer uses secondary. */}
       {snapshot?.footer ? <p className="text-sm text-secondary">{snapshot.footer}</p> : null}
-      {!snapshot || snapshot.partial ? (
+      {/* A just-sent template has no snapshot until the server answers: not "unavailable". */}
+      {(!snapshot && !pending) || snapshot?.partial ? (
         <p className="text-xs text-secondary">Original template no longer available</p>
       ) : null}
       {snapshot?.buttons.length ? (

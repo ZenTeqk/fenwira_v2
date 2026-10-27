@@ -21,8 +21,15 @@ const mock = (action: string, body: unknown) =>
 
 type Thread = { conversationId: string; customer: string; wabaRowId: string }
 
+/** The app rotates the session's CSRF token when it loads; API writes after that need the new one. */
+async function freshCsrf(page: Page, owner: Owner): Promise<void> {
+  const me = await page.request.get(`${API}/auth/me`)
+  owner.csrf = ((await me.json()) as { data: { csrfToken: string } }).data.csrfToken
+}
+
 /** A fresh simulated number, synced templates, and a customer who wrote in (window open). */
 async function openConversation(page: Page, owner: Owner, text: string): Promise<Thread> {
+  await freshCsrf(page, owner)
   const wabaId = metaId()
   const phoneNumberId = metaId()
   await mock('seed', { wabaId, phones: [{ id: phoneNumberId }] })
@@ -58,6 +65,7 @@ async function openConversation(page: Page, owner: Owner, text: string): Promise
 }
 
 async function send(page: Page, owner: Owner, conversationId: string, content: unknown) {
+  await freshCsrf(page, owner)
   const res = await page.request.post(`${API}/conversations/${conversationId}/messages`, {
     data: { content },
     headers: { ...ownerHeaders(owner), 'Idempotency-Key': `e2e-${metaId()}` },
@@ -178,11 +186,31 @@ test('a template shows its full content, and ticks change live as Meta reports s
     const log = page.getByRole('log', { name: 'Messages' })
     await expect(log.getByText('Can I get my voucher?')).toBeVisible()
 
-    const templateMessage = await send(page, owner, thread.conversationId, {
-      type: 'TEMPLATE',
-      templateVersionId: versionId,
-      variables: { header: ['Ravi'], body: ['Ravi', 'V-77'], buttons: { '1': ['V-77'] } },
-    })
+    // Send it the way an agent does: the composer's template picker, every variable filled in.
+    await page.getByRole('button', { name: 'Send a template' }).click()
+    const picker = page.getByRole('dialog', { name: 'Send a template' })
+    await picker.getByRole('combobox', { name: 'Template' }).click()
+    await page.getByRole('option', { name: new RegExp(`^${name} `) }).click()
+    await picker.getByLabel('Header {{1}}').fill('Ravi')
+    await picker.getByLabel('Message {{1}}').fill('Ravi')
+    await picker.getByLabel('Message {{2}}').fill('V-77')
+    await picker.getByLabel('Website button 2 {{1}}').fill('V-77')
+    await picker.getByRole('button', { name: 'Send template' }).click()
+    await expect(picker).toBeHidden()
+    let templateMessage = ''
+    await expect(async () => {
+      const res = await page.request.get(`${API}/conversations/${thread.conversationId}/messages`, {
+        headers: ownerHeaders(owner),
+      })
+      const sent = (
+        (await res.json()) as {
+          data: Array<{ id: string; type: string; templateSnapshot: { name: string } | null }>
+        }
+      ).data.find((m) => m.type === 'TEMPLATE' && m.templateSnapshot?.name === name)
+      expect(sent).toBeTruthy()
+      templateMessage = sent!.id
+    }).toPass({ timeout: 15_000 })
+    expect(versionId).toBeTruthy()
     // The bubble is named by its label and body, and shows the whole template.
     const bubble = log.getByRole('group', { name: /your voucher V-77 is ready/ })
     await expect(bubble).toBeVisible()
@@ -307,4 +335,16 @@ test('media chips filter the thread, counts match, and Jump to message returns t
   await expect(target).toBeInViewport()
   await expect(target).toBeFocused()
   await expect(target).toContainText('The shelf')
+
+  // The filter belongs to one conversation: switching conversation starts again at All.
+  const other = await openConversation(page, owner, 'Different customer here')
+  await chip('Documents').click()
+  await expect(chip('Documents')).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('list', { name: 'Conversation list' }).getByText(other.customer).click()
+  await expect(log.getByText('Different customer here')).toBeVisible()
+  await expect(chip('All')).toHaveAttribute('aria-pressed', 'true')
+  await expect(chip('Documents')).toHaveText('Documents 0')
+  await page.getByRole('list', { name: 'Conversation list' }).getByText(thread.customer).click()
+  await expect(chip('All')).toHaveAttribute('aria-pressed', 'true')
+  await expect(chip('Documents')).toHaveText('Documents 1')
 })
