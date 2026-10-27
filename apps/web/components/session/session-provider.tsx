@@ -1,5 +1,6 @@
 'use client'
 
+import { drafts } from '@/lib/drafts'
 import { type Me, type MembershipSummary, type Permission } from '@fenwira/contracts'
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
@@ -108,6 +109,7 @@ export function SessionProvider({ me, children }: { me: Me; children: ReactNode 
       requestNavigation('/dashboard', () => {
         setActiveTenantId(next)
         storeTenant(next)
+        drafts.clearAll()
         // Drop every cached query from the previous tenant before anything re-renders with the new one.
         queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
         setTenantId(next)
@@ -122,6 +124,7 @@ export function SessionProvider({ me, children }: { me: Me; children: ReactNode 
       await post('/auth/logout')
     } finally {
       queryClient.clear()
+      drafts.clearAll()
       setActiveTenantId(undefined)
       router.replace('/login')
     }

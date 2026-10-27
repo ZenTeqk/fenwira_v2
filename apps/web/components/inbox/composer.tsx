@@ -38,6 +38,7 @@ import { ApiError, del, get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { matchCanned, useCannedReplies } from '@/lib/canned-replies'
 import { composerState } from '@/lib/composer-state'
+import { draftScope, type DraftMode, drafts } from '@/lib/drafts'
 import { useNow } from '@/lib/inbox'
 import { useRealtimeEvent, useSocket } from '@/lib/realtime'
 import { TemplatePicker, type TemplateSend } from './template-picker'
@@ -68,8 +69,19 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const eligibility = useEligibility(conversation.contact.id, id)
   const connections = useConnections()
   const connection = connections.data?.find((c) => c.id === conversation.phoneNumber.id)
-  const [mode, setMode] = useState<'reply' | 'note'>('reply')
-  const [text, setText] = useState('')
+  const [mode, setMode] = useState<DraftMode>('reply')
+  // Drafts per conversation and mode survive switching conversations and reloads (lib/drafts).
+  const scope = draftScope(me.user.id, tenantId)
+  const [texts, setTexts] = useState(() => ({
+    reply: drafts.get(scope, id, 'reply'),
+    note: drafts.get(scope, id, 'note'),
+  }))
+  const text = texts[mode]
+  const setDraft = (which: DraftMode, value: string) => {
+    setTexts((t) => ({ ...t, [which]: value }))
+    drafts.set(scope, id, which, value)
+  }
+  const setText = (value: string) => setDraft(mode, value)
   const writing = useRef<HTMLTextAreaElement>(null)
   // Presentation only: resize after typing, canned insertion, mode change and send/clear.
   // CSS supplies the 40px resting / 160px maximum; no messaging state changes here.
@@ -237,8 +249,9 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         throw err
       }
     },
-    onSuccess: () => {
-      setText('')
+    onSuccess: (_message, { content }) => {
+      // A template doesn't use the typed text, so the reply draft stays.
+      if (content.type !== 'TEMPLATE') setDraft('reply', '')
       setPicking(false)
       void queryClient.invalidateQueries({
         queryKey: keys.tenant(tenantId, 'inbox', 'conversation', id),
@@ -250,7 +263,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const note = useMutation({
     mutationFn: () => post(`/conversations/${id}/notes`, { body: text }),
     onSuccess: () => {
-      setText('')
+      setDraft('note', '')
       void queryClient.invalidateQueries({ queryKey: notesKey(tenantId, id) })
     },
     onError: (err) =>
