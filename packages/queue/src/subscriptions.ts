@@ -55,6 +55,9 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'conversation.assigned': [QUEUES.analyticsEvents, QUEUES.webhooksDeliver],
   // Automation outcomes for analytics (Phase 11) and outbound webhooks (Phase 11 Step 3).
   'automation.execution.finished': [QUEUES.analyticsEvents, QUEUES.webhooksDeliver],
+  // AI Assistant: resolving ends a waiting AI conversation; knowledge sources are indexed.
+  'conversation.resolved': [QUEUES.automationTrigger],
+  'ai.knowledge_source.ingest_requested': [QUEUES.aiIngest],
   // Takeover stops running automation immediately (P10-D2).
   'conversation.automation_state.changed': [QUEUES.automationTrigger],
 }

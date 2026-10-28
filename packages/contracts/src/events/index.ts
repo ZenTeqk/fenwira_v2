@@ -75,6 +75,13 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     assigneeId: z.uuid().nullable(),
     previousAssigneeId: z.uuid().nullable(),
   }),
+  // AI Assistant: a resolved conversation ends a waiting AI conversation (docs/AI_ASSISTANT.md).
+  'conversation.resolved': z.object({ conversationId: z.uuid() }),
+  // AI Assistant: (re)index one knowledge source at one generation (the ai.ingest job).
+  'ai.knowledge_source.ingest_requested': z.object({
+    sourceId: z.uuid(),
+    generation: z.number().int(),
+  }),
   'conversation.automation_state.changed': z.object({
     conversationId: z.uuid(),
     from: z.string(),

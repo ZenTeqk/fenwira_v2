@@ -994,3 +994,21 @@ REVOKE UPDATE, DELETE, TRUNCATE ON public.email_deliveries FROM fenwira_app;
 
 -- Request access leads: the runtime role inserts and updates the email status; never deletes.
 REVOKE DELETE, TRUNCATE ON public.access_requests FROM fenwira_app;
+
+-- AI Assistant reply-log retention (docs/AI_ASSISTANT.md → Retention): one purge across
+-- workspaces, by age only, returning a count. Nothing else is reachable through it.
+GRANT SELECT (id, created_at), DELETE ON public.ai_reply_logs TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.purge_ai_reply_logs(p_before timestamptz, p_limit integer)
+RETURNS integer
+LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  WITH d AS (
+    DELETE FROM public.ai_reply_logs
+    WHERE id IN (SELECT id FROM public.ai_reply_logs WHERE created_at < p_before
+                 LIMIT least(greatest(p_limit, 1), 10000))
+    RETURNING 1
+  )
+  SELECT count(*)::integer FROM d;
+$$;
+ALTER FUNCTION system.purge_ai_reply_logs(timestamptz, integer) OWNER TO fenwira_system;
+REVOKE ALL ON FUNCTION system.purge_ai_reply_logs(timestamptz, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION system.purge_ai_reply_logs(timestamptz, integer) TO fenwira_app;

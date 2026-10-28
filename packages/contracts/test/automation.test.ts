@@ -110,11 +110,43 @@ describe('validateFlowGraph (publish gate)', () => {
   })
 
   it('offers the documented handles per node type', () => {
-    expect(NODE_TYPES).toHaveLength(18)
+    expect(NODE_TYPES).toHaveLength(19)
+    expect(outputsOf('action.ai_reply')).toEqual(['replied', 'needs_human', 'error'])
     expect(outputsOf('condition.equals')).toEqual(['yes', 'no'])
     expect(outputsOf('action.end')).toEqual([])
     expect(outputsOf('action.webhook')).toEqual(['next', 'error'])
     expect(outputsOf('action.delay')).toEqual(['next'])
+  })
+})
+
+describe('AI reply step', () => {
+  const ai = (edges: Array<[string, string]>) => ({
+    nodes: [
+      { id: 't', type: 'trigger.message_received', config: {} },
+      { id: 'a', type: 'action.ai_reply', config: { mode: 'CONVERSATION' } },
+      { id: 'e', type: 'action.end', config: {} },
+    ],
+    edges: [
+      { id: 'e0', source: 't', target: 'a', sourceHandle: 'next' },
+      ...edges.map(([h, id]) => ({ id, source: 'a', target: 'e', sourceHandle: h })),
+    ],
+  })
+
+  it('publishes with all three outputs connected', () => {
+    expect(
+      validateFlowGraph(ai([['replied', 'e1'], ['needs_human', 'e2'], ['error', 'e3']])).valid,
+    ).toBe(true)
+  })
+
+  it('requires Replied, Needs a human and Error paths', () => {
+    const r = validateFlowGraph(ai([['replied', 'e1']]))
+    expect(r.errors.filter((e) => e.nodeId === 'a').map((e) => e.message)).toEqual([
+      'Connect the Needs a human path (to the next step or an End).',
+      'Connect the Error path (to the next step or an End).',
+    ])
+    expect(validateFlowGraph(ai([['next', 'e1']])).errors.map((e) => e.code)).toContain(
+      'FLOW_EDGE_INVALID',
+    )
   })
 })
 

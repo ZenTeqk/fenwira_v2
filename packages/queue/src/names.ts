@@ -22,6 +22,7 @@ export const QUEUES = {
   campaignEvents: 'campaign.events',
   automationTrigger: 'automation.trigger',
   automationExecute: 'automation.execute',
+  aiIngest: 'ai.ingest',
   analyticsEvents: 'analytics.events',
   analyticsRollup: 'analytics.rollup',
   billingUsage: 'billing.usage',
