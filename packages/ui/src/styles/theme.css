@@ -137,13 +137,13 @@
   min-height: 0;
   width: 100%;
   overflow: hidden;
-  border-width: 3px;
+  border-width: 4px;
   border-radius: var(--radius-xl);
   background: var(--color-surface);
 }
 .fw-phone-chat {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border-strong) var(--color-neutral-soft);
+  scrollbar-color: var(--color-border-strong) transparent;
   overflow-wrap: anywhere;
 }
 @media (max-width: 767px) {

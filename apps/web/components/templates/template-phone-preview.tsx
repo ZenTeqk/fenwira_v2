@@ -23,16 +23,18 @@ export function TemplatePhonePreview({
       <PhoneFrame contactName={businessName}>
         <span
           aria-hidden="true"
-          className="self-center rounded-md bg-surface px-3 py-1 text-xs text-secondary"
+          className="self-center rounded-md bg-surface px-3 py-1 text-xs text-secondary shadow-raised"
         >
           Today
         </span>
-        <TemplatePreview
-          components={components}
-          samples={samples}
-          headerImageUrl={headerImageUrl}
-          recipient
-        />
+        <div className="w-full min-w-0 pr-4">
+          <TemplatePreview
+            components={components}
+            samples={samples}
+            headerImageUrl={headerImageUrl}
+            recipient
+          />
+        </div>
       </PhoneFrame>
       <p className="mt-2 text-xs text-secondary">
         {compact

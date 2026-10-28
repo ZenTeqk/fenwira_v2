@@ -167,6 +167,7 @@ export function LivePreview({
       <PhoneFrame
         className="fw-phone-frame-fit"
         contactName={contact.name || 'Sample contact'}
+        subtitle="Sample contact"
         messageCount={steps.length}
       >
         <ol aria-label="Preview steps" className="flex flex-col gap-3">
@@ -188,7 +189,7 @@ export function LivePreview({
                   'rounded-lg',
                   selected === step.nodeId &&
                     !terminal &&
-                    'ring-2 ring-primary-strong ring-offset-2 ring-offset-neutral-soft',
+                    'ring-2 ring-primary-strong ring-offset-2 ring-offset-thread-soft',
                   system ? 'self-center w-full' : step.kind === 'incoming' ? 'mr-4' : 'ml-4',
                 )}
               >
