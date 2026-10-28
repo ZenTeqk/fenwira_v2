@@ -45,8 +45,39 @@ const nativeConnectorEnv = {
   NATIVE_SHOPIFY_CLIENT_SECRET: optionalString,
 }
 
+/**
+ * AI Assistant (docs/AI_ASSISTANT.md). `mock` answers from a deterministic stand-in (tests and
+ * machines without AWS credentials); `bedrock` calls Amazon Bedrock with the SDK's default
+ * credential chain (the EC2 instance role in production). Never a key in env.
+ */
+const aiEnv = {
+  AI_PROVIDER: z.enum(['bedrock', 'mock']).default('mock'),
+  AI_BEDROCK_REGION: z.string().min(1).default('ap-south-1'),
+  /** Converse model or inference profile. Default: Amazon Nova Lite via the APAC profile. */
+  AI_TEXT_MODEL_ID: z.string().min(1).default('apac.amazon.nova-lite-v1:0'),
+  AI_EMBEDDING_MODEL_ID: z.string().min(1).default('amazon.titan-embed-text-v2:0'),
+  /** Titan v2 supports 256, 512 or 1024. Changing it needs every source reprocessed. */
+  AI_EMBEDDING_DIMENSION: z.coerce.number().int().min(64).max(4096).default(1024),
+  AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(50).max(2000).default(400),
+  AI_RETRIEVAL_TOP_K: z.coerce.number().int().min(1).max(20).default(5),
+  /** Cosine similarity (0–1) a chunk needs to be used; below it for all → no_answer. */
+  AI_MIN_SIMILARITY: z.coerce.number().min(0).max(1).default(0.2),
+  /** Characters of retrieved text sent to the model. */
+  AI_RETRIEVAL_CHAR_BUDGET: z.coerce.number().int().min(500).max(40_000).default(6000),
+  AI_HISTORY_MESSAGES: z.coerce.number().int().min(0).max(20).default(6),
+  AI_MAX_UPLOAD_BYTES: z.coerce.number().int().min(1024).default(10 * 1024 * 1024),
+  AI_MAX_SOURCES_PER_WORKSPACE: z.coerce.number().int().min(1).max(1000).default(50),
+  AI_MAX_CHUNKS_PER_SOURCE: z.coerce.number().int().min(1).max(10_000).default(500),
+  AI_MAX_CHUNKS_PER_WORKSPACE: z.coerce.number().int().min(1).max(200_000).default(5000),
+  AI_REPLY_LOG_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(30),
+  /** Playground questions use the monthly AI message quota unless set to false. */
+  AI_PLAYGROUND_COUNTS_QUOTA: booleanString.default(true),
+  AI_PLAYGROUND_PER_MINUTE: z.coerce.number().int().min(1).max(600).default(10),
+}
+
 export const baseEnvSchema = z.object({
   ...nativeConnectorEnv,
+  ...aiEnv,
   /**
    * Managed Launch Mode (ADR-0027): platform operators connect WhatsApp numbers from /platform;
    * Embedded Signup and every tenant-side Meta connection action are hidden (404). Off restores

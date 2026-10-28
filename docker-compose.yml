@@ -47,7 +47,8 @@ x-meta-env: &meta-env
 services:
   fenwira-postgres:
     container_name: fenwira-postgres
-    image: postgres:16-alpine
+    build: { context: infrastructure/docker/postgres }
+    image: fenwira/postgres:16-pgvector
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
