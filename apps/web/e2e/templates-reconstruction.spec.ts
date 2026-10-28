@@ -48,7 +48,7 @@ test('Templates read-only members see message context without write/sync actions
       viewer.getByRole('button', { name: 'Sync with WhatsApp', exact: true }),
     ).toHaveCount(0)
     await viewer.getByRole('button', { name: 'Preview hello_world', exact: true }).click()
-    const panel = viewer.getByRole('complementary', { name: 'hello_world', exact: true })
+    const panel = viewer.getByRole('dialog', { name: 'hello_world', exact: true })
     await expect(panel.getByRole('figure', { name: 'Message preview' })).toBeVisible()
     await expect(panel.getByRole('link', { name: 'Use in campaign', exact: true })).toHaveCount(0)
     await expect(panel.getByRole('link', { name: 'Open editor', exact: true })).toHaveCount(0)
@@ -82,7 +82,7 @@ test('Templates sending-option failure is explicit and retry restores authoritat
   )
   await page.goto('/templates')
   await page.getByRole('button', { name: 'Preview hello_world', exact: true }).click()
-  const panel = page.getByRole('complementary', { name: 'hello_world', exact: true })
+  const panel = page.getByRole('dialog', { name: 'hello_world', exact: true })
   await expect(panel.getByRole('alert')).toContainText('Sending options couldn’t be loaded')
   await expect(panel.getByRole('link', { name: 'Use in campaign', exact: true })).toHaveCount(0)
   await page.unroute('**/api/v1/templates/approved')

@@ -1,101 +1,48 @@
 'use client'
 
-import { Button, Drawer, DrawerContent, cn, focusRing } from '@fenwira/ui'
-import { X } from 'lucide-react'
-import { type ReactNode, useEffect, useId, useRef, useSyncExternalStore } from 'react'
+import { Drawer, DrawerContent } from '@fenwira/ui'
+import { type ReactNode } from 'react'
 
-const query = '(min-width: 1280px)'
-const subscribe = (listener: () => void) => {
-  const media = window.matchMedia(query)
-  media.addEventListener('change', listener)
-  return () => media.removeEventListener('change', listener)
-}
-
-/** One inspection surface: inline with the library, modal only when the viewport needs it. */
+/**
+ * Template preview sheet: half the page on the right (full width on phones), with the recipient
+ * phone beside the details so the customer's view is the focus.
+ */
 export function TemplateContext({
   name,
   onClose,
   restoreFocus,
+  preview,
   children,
 }: {
   name?: string
   onClose: () => void
   restoreFocus: () => void
+  /** The recipient phone preview, shown in its own column. */
+  preview?: ReactNode
   children: ReactNode
 }) {
-  const desktop = useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(query).matches,
-    () => false,
-  )
-  const panel = useRef<HTMLElement>(null)
-  const titleId = useId()
-  useEffect(() => {
-    if (name && desktop) panel.current?.focus()
-  }, [name, desktop])
-  const close = () => {
-    onClose()
-    if (desktop) restoreFocus()
-  }
-  const content = (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <h2 id={titleId} className="min-w-0 break-words text-base font-semibold">
-          {name}
-        </h2>
-        {desktop ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Close template details"
-            onClick={close}
-            className="size-8 shrink-0"
-          >
-            <X aria-hidden="true" />
-          </Button>
-        ) : null}
-      </div>
-      {children}
-    </div>
-  )
   return (
-    <>
-      {name && desktop ? (
-        <aside
-          ref={panel}
-          aria-labelledby={titleId}
-          tabIndex={-1}
-          className={cn(
-            'sticky top-4 max-h-screen w-72 shrink-0 overflow-y-auto rounded-lg border border-border bg-surface',
-            focusRing,
-          )}
-          onKeyDown={(event) => {
-            if (
-              event.key === 'Escape' &&
-              !event.defaultPrevented &&
-              !(event.target as Element).closest('[role="menu"]')
-            ) {
-              event.stopPropagation()
-              close()
-            }
-          }}
-        >
-          {content}
-        </aside>
-      ) : null}
-      <Drawer open={!!name && !desktop} onOpenChange={(open) => !open && !desktop && close()}>
-        <DrawerContent
-          title={name ?? 'Template details'}
-          width="md"
-          onCloseAutoFocus={(event) => {
-            event.preventDefault()
-            if (desktop) panel.current?.focus()
-            else restoreFocus()
-          }}
-        >
-          {!desktop ? <div className="-m-4">{content}</div> : null}
-        </DrawerContent>
-      </Drawer>
-    </>
+    <Drawer open={!!name} onOpenChange={(open) => !open && onClose()}>
+      <DrawerContent
+        title={name ?? 'Template details'}
+        description="How customers see this template on WhatsApp"
+        width="half"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          restoreFocus()
+        }}
+      >
+        <div className="@container">
+          <div className="grid gap-6 @2xl:grid-cols-2">
+            {preview ? (
+              <section aria-label="WhatsApp preview" className="min-w-0 @2xl:order-2">
+                {preview}
+              </section>
+            ) : null}
+            <div className="flex min-w-0 flex-col gap-4">{children}</div>
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
   )
 }
