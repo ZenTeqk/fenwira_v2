@@ -6,6 +6,8 @@ import {
   type FlowIssue,
   type FlowNodeStats,
   outputsOf,
+  NODE_TYPES,
+  type NodeType,
   STEP_STATUSES,
 } from '@fenwira/contracts'
 import { Button, cn, StatusBadge } from '@fenwira/ui'
@@ -257,6 +259,8 @@ export type FlowCanvasProps = {
   onAddTrigger?: () => void
   stats?: Map<string, Stats>
   readOnly?: boolean
+  viewportKey?: string
+  onAddNode?: (type: NodeType, position: { x: number; y: number }) => void
 }
 
 function useWide() {
@@ -283,8 +287,11 @@ function Canvas({
   onAddTrigger,
   stats,
   readOnly,
+  viewportKey,
+  onAddNode,
 }: FlowCanvasProps) {
   const wide = useWide()
+  const [selectedEdges, setSelectedEdges] = useState<Set<string>>(new Set())
   // Browser measurements stay local; they are not part of the persisted flow graph.
   const [measurements, setMeasurements] = useState<
     Record<string, { width: number; height: number }>
@@ -326,13 +333,25 @@ function Canvas({
   useEffect(() => {
     if (!initialized || fitted.current || !nodes.length) return
     fitted.current = true
+    try {
+      const saved = viewportKey && localStorage.getItem(viewportKey)
+      if (saved) {
+        const viewport = JSON.parse(saved) as { x: number; y: number; zoom: number }
+        if ([viewport.x, viewport.y, viewport.zoom].every(Number.isFinite) && viewport.zoom > 0) {
+          void flow.setViewport(viewport)
+          return
+        }
+      }
+    } catch {
+      /* A missing preference falls back to fitting the graph. */
+    }
     void flow.fitView({ padding: 0.12, minZoom: 0.75, maxZoom: 1 }).then(() => {
       const viewport = flow.getViewport()
       const top = Math.min(...nodes.map((n) => n.position.y))
       if (viewport.y + top * viewport.zoom < 0)
         void flow.setViewport({ ...viewport, y: 24 - top * viewport.zoom })
     })
-  }, [initialized, flow, nodes])
+  }, [initialized, flow, nodes, viewportKey])
   const edges: Array<Edge<EdgeData>> = useMemo(() => {
     const label = (id: string) => {
       const n = graph.nodes.find((x) => x.id === id)
@@ -344,6 +363,7 @@ function Canvas({
         : traversed?.has(e.source) && traversed?.has(e.target)
       return {
         id: e.id,
+        selected: selectedEdges.has(e.id),
         source: e.source,
         target: e.target,
         sourceHandle: e.sourceHandle,
@@ -365,7 +385,7 @@ function Canvas({
         },
       }
     })
-  }, [graph.edges, graph.nodes, traversed, traversedEdges, adding])
+  }, [graph.edges, graph.nodes, traversed, traversedEdges, adding, selectedEdges])
 
   const onNodesChange = useCallback(
     (changes: Array<NodeChange<Node<CardData>>>) => {
@@ -422,14 +442,53 @@ function Canvas({
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={(changes) => {
+          setSelectedEdges((previous) => {
+            const next = new Set(previous)
+            for (const change of changes)
+              if (change.type === 'select') {
+                if (change.selected) next.add(change.id)
+                else next.delete(change.id)
+              }
+            return next
+          })
           if (readOnly || !onChange) return
           const removed = new Set(changes.filter((c) => c.type === 'remove').map((c) => c.id))
           if (removed.size)
             onChange({ ...graph, edges: graph.edges.filter((e) => !removed.has(e.id)) })
         }}
         onConnect={onConnect}
+        onMoveEnd={(_, viewport) => {
+          try {
+            if (viewportKey) localStorage.setItem(viewportKey, JSON.stringify(viewport))
+          } catch {
+            /* Optional preference. */
+          }
+        }}
+        onDragOver={(event) => {
+          if (!readOnly) {
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'copy'
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault()
+          if (readOnly) return
+          const type = event.dataTransfer.getData('application/fenwira-node')
+          const known = NODE_TYPES.find((candidate) => candidate === type)
+          if (known)
+            onAddNode?.(known, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }))
+        }}
         onNodeClick={(_, n) => onSelect(n.id)}
-        onPaneClick={() => onSelect(null)}
+        onPaneClick={() => {
+          onSelect(null)
+          setSelectedEdges(new Set())
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            onSelect(null)
+            setSelectedEdges(new Set())
+          }
+        }}
         nodesDraggable={!readOnly}
         nodesConnectable={!readOnly}
         elementsSelectable
@@ -468,7 +527,7 @@ function Canvas({
 /** The React Flow canvas. React Flow state is converted to and from FlowGraph at this boundary. */
 export function FlowCanvas(props: FlowCanvasProps) {
   return (
-    <div className="fw-flow relative h-full min-h-96 w-full bg-background">
+    <div className="fw-flow relative h-full min-h-0 w-full bg-background">
       <ReactFlowProvider>
         <Canvas {...props} />
       </ReactFlowProvider>

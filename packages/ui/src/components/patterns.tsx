@@ -80,8 +80,10 @@ export function BuilderPage({
   children,
   className,
   appearance = 'default',
+  topbar,
 }: {
-  appearance?: 'default' | 'studio'
+  topbar?: ReactNode
+  appearance?: 'default' | 'studio' | 'canvas'
   header: HeaderProps
   banner?: ReactNode
   palette?: ReactNode
@@ -91,6 +93,38 @@ export function BuilderPage({
   children: ReactNode
   className?: string
 }) {
+  if (appearance === 'canvas')
+    return (
+      <main
+        data-pattern="builder-page"
+        className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-slate"
+      >
+        {topbar}
+        {banner}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {palette ? (
+            <aside
+              aria-label="Node library"
+              className="hidden w-56 shrink-0 overflow-y-auto border-r border-border bg-surface p-3 md:block"
+            >
+              {palette}
+            </aside>
+          ) : null}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {children}
+            {footer}
+          </div>
+          {inspector ? (
+            <aside
+              aria-label="Step settings and preview"
+              className="flex min-h-0 w-96 shrink-0 flex-col overflow-y-auto border-l border-border bg-surface p-3"
+            >
+              {inspector}
+            </aside>
+          ) : null}
+        </div>
+      </main>
+    )
   return (
     <div data-pattern="builder-page" className={cn('flex flex-col gap-4', className)}>
       <PageHeader {...header} />
