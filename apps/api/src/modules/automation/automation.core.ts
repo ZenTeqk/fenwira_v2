@@ -18,6 +18,7 @@ import { type Prisma, type TenantTx } from '@fenwira/database'
 import { jobId, QUEUES } from '@fenwira/queue'
 import { type QueueRegistry } from '../../core/queue/queue-registry'
 import { type EntitlementsService } from '../entitlements'
+import { writeSystemEvent } from '../messaging'
 
 /**
  * Shared automation primitives (docs/AUTOMATION_ENGINE.md), used by the API (webhook trigger,
@@ -397,6 +398,8 @@ export async function stopConversationAutomation(
     await lockExecution(tx, id)
     const e = await tx.automationExecution.findFirstOrThrow({ where: { id } })
     if (e.status !== 'RUNNING' && e.status !== 'WAITING') continue
+    // The AI's own handoff: that execution finishes its Needs a human path.
+    if (reason === 'AGENT_TAKEOVER' && handedOffByAi(e)) continue
     await tx.automationExecutionStep.create({
       data: {
         tenantId: e.tenantId,
@@ -429,6 +432,109 @@ export async function stopConversationAutomation(
     stopped.push(e)
   }
   return stopped
+}
+
+// ------------------------------------------------------------------------------ AI reply
+
+/** What an AI conversation keeps in `execution.context.ai` (docs/AI_ASSISTANT.md). */
+export type AiRunState = {
+  mode?: 'SINGLE' | 'CONVERSATION'
+  /** The newest customer message not answered yet (set by the trigger processor). */
+  pendingMessageId?: string | null
+  lastHandledMessageId?: string
+}
+export const aiStateOf = (e: { context: unknown }): AiRunState =>
+  ((e.context as { ai?: AiRunState } | null)?.ai ?? {}) as AiRunState
+/** This execution handed its conversation to a person itself; its own takeover doesn't stop it. */
+export const handedOffByAi = (e: { context: unknown }) =>
+  (e.context as { aiHandoff?: boolean } | null)?.aiHandoff === true
+
+/** RUNNING/WAITING AI conversation-mode executions of a conversation. */
+export function activeAiConversations(tx: TenantTx, conversationId: string) {
+  return tx.automationExecution.findMany({
+    where: {
+      conversationId,
+      status: { in: ['RUNNING', 'WAITING'] },
+      context: { path: ['ai', 'mode'], equals: 'CONVERSATION' },
+    },
+    orderBy: { id: 'asc' },
+  })
+}
+
+/**
+ * "Return to a human": the conversation moves to AGENT_TAKEOVER with a system event, and the
+ * usual takeover event stops other automation for it. The handing-off execution itself is
+ * marked so it can still finish its Needs a human path (e.g. assign an agent, then End).
+ */
+export async function applyAiHandoff(tx: TenantTx, e: ExecutionRow, now: Date): Promise<void> {
+  if (!e.conversationId) return
+  const c = await tx.conversation.findFirst({ where: { id: e.conversationId } })
+  await tx.automationExecution.update({
+    where: { id: e.id },
+    data: { context: { ...(e.context as object), aiHandoff: true } as Prisma.InputJsonValue },
+  })
+  if (!c || c.automationState !== 'AUTOMATION_ACTIVE') return
+  await tx.conversation.update({
+    where: { id: c.id },
+    data: {
+      automationState: 'AGENT_TAKEOVER',
+      automationStateChangedAt: now,
+      automationStateChangedBy: null,
+      ...(c.status === 'RESOLVED' || c.status === 'SNOOZED'
+        ? { status: 'OPEN', resolvedAt: null, snoozedUntil: null }
+        : {}),
+    },
+  })
+  await writeSystemEvent(
+    tx,
+    { tenantId: e.tenantId, conversationId: c.id, contactId: c.contactId },
+    'ai_handoff',
+    { actorId: null, actorName: 'AI Assistant', from: c.automationState, to: 'AGENT_TAKEOVER' },
+  )
+  await tx.outboxEvent.create({
+    data: {
+      tenantId: e.tenantId,
+      eventType: 'conversation.automation_state.changed',
+      aggregateType: 'conversation',
+      aggregateId: c.id,
+      payload: { conversationId: c.id, from: c.automationState, to: 'AGENT_TAKEOVER', actorId: null },
+    },
+  })
+}
+
+/**
+ * Ends an AI conversation-mode execution without running further steps (resolved, or a keyword
+ * flow took the message). Records why as the last step. The caller holds no lock on it.
+ */
+export async function endAiConversation(
+  tx: TenantTx,
+  executionId: string,
+  reason: 'CONVERSATION_RESOLVED' | 'KEYWORD_FLOW',
+  entitlements: EntitlementsService,
+  now: Date,
+  effects: StartEffects,
+): Promise<ExecutionRow | null> {
+  await lockExecution(tx, executionId)
+  const e = await tx.automationExecution.findFirst({ where: { id: executionId } })
+  if (!e || (e.status !== 'RUNNING' && e.status !== 'WAITING')) return null
+  await tx.automationExecutionStep.create({
+    data: {
+      tenantId: e.tenantId,
+      executionId: e.id,
+      seq: e.stepCount + 1,
+      nodeId: e.currentNodeId ?? 'unknown',
+      nodeType: 'action.ai_reply',
+      status: 'SUCCEEDED',
+      output: { ended: reason },
+      finishedAt: now,
+    },
+  })
+  const moved = await tx.automationExecution.update({
+    where: { id: e.id },
+    data: { stepCount: e.stepCount + 1 },
+  })
+  await finishExecution(tx, moved, 'COMPLETED', null, entitlements, now, effects)
+  return moved
 }
 
 // ------------------------------------------------------------------------------ queue
@@ -483,6 +589,7 @@ export function toFlow(
     activeVersion: extra.activeVersion,
     draftUpdatedAt: iso(extra.draftUpdatedAt),
     hasWebhookToken: !!f.webhookTokenHash,
+    managedBy: f.managedBy === 'AI_ASSISTANT' ? 'AI_ASSISTANT' : null,
     executions: { running: extra.running, total: extra.total },
     createdAt: f.createdAt.toISOString(),
     updatedAt: f.updatedAt.toISOString(),

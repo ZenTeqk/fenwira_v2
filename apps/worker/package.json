@@ -21,6 +21,7 @@
     "template:snapshot-backfill": "node dist/cli/template-snapshot-backfill.js"
   },
   "dependencies": {
+    "@fenwira/ai": "workspace:*",
     "@fenwira/api": "workspace:*",
     "@fenwira/config": "workspace:*",
     "@fenwira/contracts": "workspace:*",

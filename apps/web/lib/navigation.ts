@@ -9,6 +9,7 @@ import {
   Plug,
   Settings,
   FileText,
+  Sparkles,
   Users,
   Workflow,
 } from 'lucide-react'
@@ -165,6 +166,16 @@ export const NAVIGATION: NavItem[] = [
         kind: 'action',
       },
     ],
+  },
+  {
+    // AI Assistant (docs/AI_ASSISTANT.md). Shown to every member who can read automations; the
+    // page itself explains when the workspace's plan doesn't include it.
+    id: 'ai-assistant',
+    label: 'AI Assistant',
+    href: '/ai-assistant',
+    phase: 10,
+    icon: Sparkles,
+    permission: 'automations.read',
   },
   {
     id: 'analytics',

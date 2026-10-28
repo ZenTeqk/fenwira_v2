@@ -62,6 +62,8 @@ import {
   NativeProcessor,
   nativeOptions,
 } from '@fenwira/api/modules/native-connectors'
+import { AiIngestProcessor, AiModule } from '@fenwira/api/modules/ai'
+import { aiConfigFromEnv } from '@fenwira/ai'
 import { parseKeyRing, type WorkerEnv } from '@fenwira/config'
 import { type DynamicModule, Module } from '@nestjs/common'
 import { ProcessorsHealthIndicator } from './processors.health'
@@ -150,9 +152,10 @@ export class WorkerModule {
       },
       [messaging],
     )
+    const ai = AiModule.forWorker(aiConfigFromEnv(env))
     const automation = AutomationModule.forWorker(
       { webhookDevHosts: env.AUTOMATION_WEBHOOK_DEV_HOSTS },
-      [messaging],
+      [messaging, ai],
     )
     const webhooks = WebhooksModule.forWorker({
       keyRing,
@@ -177,6 +180,7 @@ export class WorkerModule {
         notifications,
         analytics,
         campaigns,
+        ai,
         automation,
         webhooks,
       ],
@@ -200,6 +204,7 @@ export class WorkerModule {
         CampaignEventsProcessor,
         AutomationTriggerProcessor,
         AutomationExecuteProcessor,
+        AiIngestProcessor,
         WebhookEventsProcessor,
         WebhooksMaintenanceProcessor,
       ],

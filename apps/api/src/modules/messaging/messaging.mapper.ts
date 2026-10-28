@@ -29,6 +29,7 @@ export function toMessage(m: MessageRow): Message {
     type: m.type,
     status: m.status,
     source: m.source,
+    aiGenerated: m.aiGenerated,
     content: parsed.success ? parsed.data : { type: 'UNSUPPORTED' },
     providerMessageId: m.providerMessageId,
     errorCode: m.errorCode,

@@ -54,6 +54,7 @@ const EVENT_TEXT: Record<string, (d: Record<string, unknown>) => string> = {
     d.reason === 'auto_release'
       ? 'Returned to automation (idle takeover)'
       : `${d.actorName ?? 'An agent'} returned it to automation`,
+  ai_handoff: () => 'AI handed this conversation to an agent',
   automation_paused: (d) => `${d.actorName ?? 'An agent'} paused automation`,
 }
 
@@ -177,8 +178,9 @@ function Row({
     )
   }
   const outbound = m.direction === 'OUTBOUND'
-  const sender =
-    m.source === 'AUTOMATION'
+  const sender = m.aiGenerated
+    ? 'AI'
+    : m.source === 'AUTOMATION'
       ? 'Automation'
       : m.source === 'CAMPAIGN'
         ? 'Campaign'

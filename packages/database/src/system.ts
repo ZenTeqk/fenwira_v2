@@ -397,6 +397,13 @@ export class SystemGateway {
     return rows[0]?.n ?? 0
   }
 
+  /** AI Assistant retention: deletes up to `limit` reply-log rows older than `before`. */
+  async purgeAiReplyLogs(before: Date, limit: number): Promise<number> {
+    const rows = await this.prisma.$queryRaw<Array<{ n: number }>>`
+      SELECT system.purge_ai_reply_logs(${before}, ${limit}::integer) AS n`
+    return rows[0]?.n ?? 0
+  }
+
   /** X7 — the key row for `prefix` (IDs, scopes and hash only; the app verifies the secret). */
   async resolveApiKey(prefix: string): Promise<{
     tenantId: string

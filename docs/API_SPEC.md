@@ -315,6 +315,29 @@ Implemented in Phase 10:
 - `GET /executions/:id` includes `steps`; viewers without `automations.write` get customer data in step input/output redacted.
 - Realtime: `automation.execution.updated {executionId, flowId, status}` to `tenant:{id}`.
 
+### AI Assistant (ADR-0028, docs/AI_ASSISTANT.md)
+
+Every route answers 403 `AI_NOT_ENABLED` while the operator switch is off. Reads need `automations.read`; changes `ai.manage`.
+
+| Method | Path | P |
+| --- | --- | --- |
+| GET | `/ai/overview` | read. `{enabled, readiness{knowledge, businessInfo, whatsapp, quota}, usage{used, quota}, managedFlow{id,status}\|null, sampleQuestions[]}` |
+| GET / PATCH | `/ai/settings` | read / `ai.manage`. Business name and description, tone (FRIENDLY \| PROFESSIONAL \| CONCISE), fallback and handoff messages |
+| GET | `/ai/knowledge`, `/ai/knowledge/:id` | read (`:id` adds `body` for FAQ/TEXT) |
+| POST | `/ai/knowledge/upload-url` | `ai.manage`. `{mimeType, sizeBytes, filename}` → presigned PUT. 400 over `AI_MAX_UPLOAD_BYTES`; 422 `LIMIT_EXCEEDED` at the source limit |
+| POST | `/ai/knowledge/files` | `ai.manage`. `{fileId, title?}` → source (PROCESSING). 422 `FILE_NOT_READY` / `UNPROCESSABLE` (content doesn't match the type) |
+| POST | `/ai/knowledge/faq`, `/ai/knowledge/text` | `ai.manage`. `{title, pairs[{question, answer}]}` / `{title, text}` |
+| POST | `/ai/knowledge/:id/replace` | `ai.manage`. `{fileId}` \| `{pairs}` \| `{text}` (same kind as the source); the previous version answers until the new one is ready |
+| POST | `/ai/knowledge/:id/reprocess` | `ai.manage` |
+| DELETE | `/ai/knowledge/:id` | `ai.manage`. 204; chunks removed, usage and logs kept |
+| POST | `/ai/playground` | `ai.manage`. `{question}` → `{outcome, answer, sources[{documentTitle, page, snippet}], tokens{input, output}}`. Counts against the quota unless `AI_PLAYGROUND_COUNTS_QUOTA=false`; 429 per workspace (`AI_PLAYGROUND_PER_MINUTE`) |
+| GET | `/ai/usage` | read. `{month, used, quota, days[30]{date, replies, inputTokens, outputTokens}}` |
+| GET | `/ai/activity?limit=` | `inbox.read_all`. Latest reply-log rows `{createdAt, conversationId, customerExcerpt, outcome, reply, sources, playground}` |
+| POST | `/ai/assistant/turn-on`, `/ai/assistant/pause` | `ai.manage` + `automations.publish`. The managed flow (created once, reused) |
+| GET / POST | `/platform/workspaces/:id/ai` | Platform `commercial.read` / `workspaces.manage`. `{enabled?, monthlyMessageQuota?, reason}`; audited |
+
+Realtime: `ai.source.updated {sourceId, status}` to `tenant:{id}`; `conversation.updated` when an AI conversation starts, waits or ends. `GET /conversations/:id` includes `aiHandling`; messages include `aiGenerated`. Flows include `managedBy` (`AI_ASSISTANT` \| null); draft validation may include `warnings`.
+
 ### Billing, analytics, developer (P11)
 
 | Method | Path | P |

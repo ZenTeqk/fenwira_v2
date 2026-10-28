@@ -27,7 +27,7 @@ check apps/web/.next/standalone/apps/web/.next/cache
 check packages/database/dist/cli/migrate.js
 check packages/database/sql/post-migrate.sql
 check packages/database/prisma/migrations/migration_lock.toml
-for pkg in config contracts queue database whatsapp; do check "packages/$pkg/dist/index.js"; done
+for pkg in config contracts queue database whatsapp ai; do check "packages/$pkg/dist/index.js"; done
 
 engine="$(find node_modules/.pnpm -path '*/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node' -print -quit 2>/dev/null || true)"
 if [[ -n "$engine" ]]; then log "ok  Prisma engine debian-openssl-3.0.x"; else

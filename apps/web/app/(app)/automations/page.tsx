@@ -2,6 +2,7 @@
 
 import { type Flow } from '@fenwira/contracts'
 import {
+  Badge,
   Button,
   type ColumnDef,
   DataTable,
@@ -9,7 +10,7 @@ import {
   PermissionState,
   StatusBadge,
 } from '@fenwira/ui'
-import { Plus } from 'lucide-react'
+import { Plus, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { useSession } from '@/components/session/session-provider'
 import { NODE_LABEL, useFlows } from '@/lib/automation'
@@ -24,12 +25,19 @@ export default function AutomationsPage() {
       accessorKey: 'name',
       header: 'Name',
       cell: ({ row }) => (
-        <Link
-          href={`/automations/${row.original.id}`}
-          className="font-medium text-slate underline-offset-4 hover:underline"
-        >
-          {row.original.name}
-        </Link>
+        <span className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/automations/${row.original.id}`}
+            className="font-medium text-slate underline-offset-4 hover:underline"
+          >
+            {row.original.name}
+          </Link>
+          {row.original.managedBy === 'AI_ASSISTANT' ? (
+            <Badge tone="neutral" icon={<Sparkles aria-hidden="true" />}>
+              Managed by AI Assistant
+            </Badge>
+          ) : null}
+        </span>
       ),
     },
     {

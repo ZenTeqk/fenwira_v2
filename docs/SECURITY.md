@@ -72,6 +72,7 @@ Permission catalog and matrix (● = granted):
 | `automations.read` | ● | ● | ● | ● | ● |
 | `automations.write` | ● | ● | ● | | |
 | `automations.publish` (publish/pause/cancel) | ● | ● | | | |
+| `ai.manage` (AI Assistant knowledge, behaviour, test; turning it on also needs `automations.publish`) | ● | ● | ● | | |
 | `analytics.read` | ● | ● | ● | | ● |
 | `billing.read` | ● | ● | | | |
 | `billing.manage` | ● | | | | |

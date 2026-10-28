@@ -1,5 +1,5 @@
 import { type FlowNode } from '@fenwira/contracts'
-import { Database, type TenantTx } from '@fenwira/database'
+import { Database, type Prisma, type TenantTx } from '@fenwira/database'
 import { type EventJob, QUEUES } from '@fenwira/queue'
 import { Inject, Injectable } from '@nestjs/common'
 import { type Job } from 'bullmq'
@@ -10,12 +10,16 @@ import { QueueRegistry } from '../../core/queue/queue-registry'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { EntitlementsService } from '../entitlements'
 import {
+  activeAiConversations,
   activeCandidates,
+  aiStateOf,
   createTriggerRun,
+  endAiConversation,
   enqueueExecution,
   keywordMatches,
   planOf,
   type StartEffects,
+  lockExecution,
   stopConversationAutomation,
   triggerNodeOf,
   type TriggerEvent,
@@ -25,6 +29,7 @@ type Data =
   | EventJob<'message.inbound.received'>
   | EventJob<'contact.created'>
   | EventJob<'conversation.automation_state.changed'>
+  | EventJob<'conversation.resolved'>
 
 type NodeOf<T extends FlowNode['type']> = Extract<FlowNode, { type: T }>
 
@@ -68,13 +73,16 @@ export class AutomationTriggerProcessor implements QueueProcessor<Data> {
         return this.onContactCreated(e as EventJob<'contact.created'>)
       case 'conversation.automation_state.changed':
         return this.onAutomationState(e as EventJob<'conversation.automation_state.changed'>)
+      case 'conversation.resolved':
+        return this.onResolved(e as EventJob<'conversation.resolved'>)
     }
     return 'ignored'
   }
 
   async onMessage(e: EventJob<'message.inbound.received'>): Promise<string> {
     const tenantId = e.tenantId!
-    return this.handle(tenantId, async (tx, effects, now) => {
+    const resumed: Array<{ id: string; stage: number }> = []
+    const result = await this.handle(tenantId, async (tx, effects, now) => {
       const message = await tx.message.findFirst({ where: { id: e.payload.messageId } })
       const conversation = await tx.conversation.findFirst({
         where: { id: e.payload.conversationId },
@@ -82,7 +90,6 @@ export class AutomationTriggerProcessor implements QueueProcessor<Data> {
       if (!message || !conversation) return 'missing'
       const text = textOf(message.content)
       const candidates = await activeCandidates(tx, ['trigger.keyword', 'trigger.message_received'])
-      if (!candidates.length) return 'no-flows'
       const byType = (c: (typeof candidates)[number]) => triggerNodeOf(c.graph)
       const keyword = candidates.filter((c) => {
         const t = byType(c)
@@ -91,6 +98,32 @@ export class AutomationTriggerProcessor implements QueueProcessor<Data> {
           keywordMatches((t as NodeOf<'trigger.keyword'>).config, text)
         )
       })
+      // An AI conversation in progress takes the message (docs/AI_ASSISTANT.md → Conversation
+      // mode), unless a keyword flow matches: then the AI conversation ends and keywords win.
+      if (conversation.automationState === 'AUTOMATION_ACTIVE')
+        for (const ai of await activeAiConversations(tx, conversation.id)) {
+          if (keyword.length) {
+            await endAiConversation(tx, ai.id, 'KEYWORD_FLOW', this.entitlements, now, effects)
+            continue
+          }
+          await lockExecution(tx, ai.id)
+          const fresh = await tx.automationExecution.findFirst({ where: { id: ai.id } })
+          if (!fresh || (fresh.status !== 'RUNNING' && fresh.status !== 'WAITING')) continue
+          await tx.automationExecution.update({
+            where: { id: fresh.id },
+            data: {
+              context: {
+                ...(fresh.context as object),
+                ai: { ...aiStateOf(fresh), pendingMessageId: message.id },
+              } as Prisma.InputJsonValue,
+              ...(fresh.status === 'WAITING' ? { status: 'RUNNING', waitUntil: null } : {}),
+            },
+          })
+          // A RUNNING one picks the message up when its current answer is recorded.
+          if (fresh.status === 'WAITING') resumed.push({ id: fresh.id, stage: fresh.stepCount })
+          return 'ai-resumed'
+        }
+      if (!candidates.length) return 'no-flows'
       let matched = keyword
       // Keyword precedence: a matching keyword flow suppresses "message received" flows.
       if (!matched.length) {
@@ -136,6 +169,40 @@ export class AutomationTriggerProcessor implements QueueProcessor<Data> {
       )
       return run.created ? `planned ${matched.length}` : 'duplicate'
     })
+    for (const r of resumed)
+      await enqueueExecution(this.queues, tenantId, r.id, r.stage, { suffix: `m${e.payload.messageId}` })
+    return result
+  }
+
+  /** Resolving a conversation ends its AI conversation (docs/AI_ASSISTANT.md). */
+  async onResolved(e: EventJob<'conversation.resolved'>): Promise<string> {
+    const tenantId = e.tenantId!
+    let ended: Array<{ id: string; flowId: string }> = []
+    await this.handle(tenantId, async (tx, effects, now) => {
+      for (const ai of await activeAiConversations(tx, e.payload.conversationId)) {
+        const done = await endAiConversation(
+          tx,
+          ai.id,
+          'CONVERSATION_RESOLVED',
+          this.entitlements,
+          now,
+          effects,
+        )
+        if (done) ended = [...ended, done]
+      }
+      return 'ai-ended'
+    })
+    for (const x of ended)
+      this.realtime.toTenant(tenantId, 'automation.execution.updated', {
+        executionId: x.id,
+        flowId: x.flowId,
+        status: 'COMPLETED',
+      })
+    if (ended.length)
+      this.realtime.toConversation(tenantId, e.payload.conversationId, 'conversation.updated', {
+        conversationId: e.payload.conversationId,
+      })
+    return `ended ${ended.length}`
   }
 
   async onContactCreated(e: EventJob<'contact.created'>): Promise<string> {

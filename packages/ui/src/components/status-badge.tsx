@@ -20,6 +20,7 @@ import {
   Square,
   XCircle,
   Zap,
+  Sparkles,
 } from 'lucide-react'
 import { type ComponentType } from 'react'
 import { cn } from '../lib/cn'
@@ -118,6 +119,13 @@ export const STATUS_PRESETS = {
   INACTIVE: { tone: 'neutral', label: 'Inactive', icon: Square },
   SYNCING: { tone: 'info', label: 'Syncing', icon: Loader2 },
   PROCESSING: { tone: 'info', label: 'Processing', icon: Loader2 },
+  // AI Assistant (docs/AI_ASSISTANT.md): knowledge sources, reply outcomes, inbox strip
+  READY: { tone: 'success', label: 'Ready', icon: CheckCircle2 },
+  REPLIED: { tone: 'success', label: 'Replied', icon: CheckCircle2 },
+  NO_ANSWER: { tone: 'warning', label: 'No answer', icon: CircleDashed },
+  HANDOFF: { tone: 'info', label: 'Handed to team', icon: Hand },
+  QUOTA: { tone: 'warning', label: 'Quota reached', icon: Ban },
+  AI_HANDLING: { tone: 'info', label: 'AI handling', icon: Sparkles },
   // Team
   DEACTIVATED: { tone: 'neutral', label: 'Deactivated', icon: Ban },
   EXPIRED: { tone: 'warning', label: 'Expired', icon: Clock },

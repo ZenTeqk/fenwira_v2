@@ -19,6 +19,8 @@ export const ERROR_CODES = [
   'CSRF_FAILED',
   'EMAIL_NOT_VERIFIED',
   'TWO_FACTOR_ENROLLMENT_REQUIRED',
+  /** AI Assistant is off for this workspace (operator-controlled, docs/AI_ASSISTANT.md). */
+  'AI_NOT_ENABLED',
   // 404
   'NOT_FOUND',
   'TENANT_NOT_FOUND',
@@ -73,6 +75,7 @@ export const ERROR_CODES = [
   'WEBHOOK_URL_INVALID',
   'WEBHOOK_BLOCKED_DESTINATION',
   'API_KEY_SCOPE_INVALID',
+  'AI_QUOTA_EXHAUSTED',
   // 429
   'RATE_LIMITED',
   // 5xx

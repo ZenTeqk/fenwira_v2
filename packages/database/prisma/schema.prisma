@@ -278,6 +278,11 @@ model Tenant {
   entitlementOverrides     TenantEntitlementOverride[]
   invoices                 Invoice[]
   paymentProofs            PaymentProof[]
+  aiSettings               AiSettings?
+  aiKnowledgeSources       AiKnowledgeSource[]
+  aiKnowledgeChunks        AiKnowledgeChunk[]
+  aiUsage                  AiUsage[]
+  aiReplyLogs              AiReplyLog[]
 
   @@map("tenants")
 }
@@ -805,6 +810,8 @@ model Message {
   /// TEMPLATE only: rendered header/body/footer/buttons as sent (contracts templateSnapshotSchema).
   /// Feeds the generated `media_type` and `text_search` columns (post-migrate.sql).
   templateSnapshot      Json?            @map("template_snapshot")
+  /// Written by the AI Assistant (docs/AI_ASSISTANT.md): the inbox labels the bubble "AI".
+  aiGenerated           Boolean          @default(false) @map("ai_generated")
   attempts              Int              @default(0)
   errorCode             String?          @map("error_code")
   errorDetail           String?          @map("error_detail")
@@ -879,6 +886,7 @@ enum FilePurpose {
   AVATAR
   TEMPLATE_SAMPLE
   PAYMENT_PROOF
+  AI_KNOWLEDGE
 
   @@map("file_purpose")
 }
@@ -1915,6 +1923,8 @@ model Flow {
   priority                Int           @default(100)
   webhookTokenHash        Bytes?        @unique @map("webhook_token_hash")
   webhookSecretCiphertext Bytes?        @map("webhook_secret_ciphertext")
+  /// Set for flows the product manages (`AI_ASSISTANT`): shown with a badge, turned on/off there.
+  managedBy               String?       @map("managed_by")
   createdBy               String?       @map("created_by") @db.Uuid
   createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -2542,4 +2552,174 @@ model AccessRequest {
 
   @@index([createdAt(sort: Desc), id])
   @@map("access_requests")
+}
+
+// ---------------------------------------------------------------------------------------------
+// AI Assistant (docs/AI_ASSISTANT.md): answers WhatsApp customers from the workspace's own
+// documents. Embeddings need pgvector (CREATE EXTENSION vector, superuser, once per database).
+// ---------------------------------------------------------------------------------------------
+
+enum AiTone {
+  FRIENDLY
+  PROFESSIONAL
+  CONCISE
+
+  @@map("ai_tone")
+}
+
+enum AiSourceType {
+  FILE
+  FAQ
+  TEXT
+
+  @@map("ai_source_type")
+}
+
+enum AiSourceStatus {
+  PROCESSING
+  READY
+  FAILED
+
+  @@map("ai_source_status")
+}
+
+enum AiUsageKind {
+  REPLY
+  EMBEDDING
+
+  @@map("ai_usage_kind")
+}
+
+enum AiReplyOutcome {
+  REPLIED
+  NO_ANSWER
+  HANDOFF
+  QUOTA
+  ERROR
+
+  @@map("ai_reply_outcome")
+}
+
+/// One row per workspace. `enabled` and `monthly_message_quota` are operator-only (/platform,
+/// audited); the rest is the workspace's own Behaviour settings.
+model AiSettings {
+  tenantId            String    @id @map("tenant_id") @db.Uuid
+  enabled             Boolean   @default(false)
+  /// AI replies (model calls) per calendar month (UTC). 0 = none until the operator sets it.
+  monthlyMessageQuota Int       @default(0) @map("monthly_message_quota")
+  businessName        String?   @map("business_name")
+  businessDescription String?   @map("business_description")
+  tone                AiTone    @default(FRIENDLY)
+  fallbackMessage     String?   @map("fallback_message")
+  handoffMessage      String?   @map("handoff_message")
+  /// The flow created by "Turn on AI Assistant" (managed, never duplicated).
+  managedFlowId       String?   @map("managed_flow_id") @db.Uuid
+  updatedBy           String?   @map("updated_by") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("ai_settings")
+}
+
+/// A document, FAQ set or pasted text. Chunks carry the generation they were indexed for; only
+/// chunks of `active_generation` are retrieved, so a replace swaps atomically.
+model AiKnowledgeSource {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  tenantId         String         @map("tenant_id") @db.Uuid
+  type             AiSourceType
+  title            String
+  fileId           String?        @map("file_id") @db.Uuid
+  /// FAQ pairs or pasted text (FILE sources keep their bytes in S3).
+  body             Json?
+  status           AiSourceStatus @default(PROCESSING)
+  failureReason    String?        @map("failure_reason")
+  chunkCount       Int            @default(0) @map("chunk_count")
+  sizeBytes        BigInt         @default(0) @map("size_bytes")
+  /// Bumped on every (re)index request; the ingest job only commits its own generation.
+  generation       Int            @default(1)
+  activeGeneration Int            @default(0) @map("active_generation")
+  createdBy        String?        @map("created_by") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chunks AiKnowledgeChunk[]
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("ai_knowledge_sources")
+}
+
+/// Retrieval is an exact cosine scan filtered by tenant first (no ANN index; see the doc).
+model AiKnowledgeChunk {
+  id         String                 @id @default(uuid(7)) @db.Uuid
+  tenantId   String                 @map("tenant_id") @db.Uuid
+  sourceId   String                 @map("source_id") @db.Uuid
+  generation Int
+  ordinal    Int
+  content    String
+  page       Int?
+  /// Dimension from AI_EMBEDDING_DIMENSION; rows of another dimension are never compared.
+  embedding  Unsupported("vector")
+  createdAt  DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  source AiKnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sourceId])
+  @@map("ai_knowledge_chunks")
+}
+
+/// One row per model call (reply or embedding batch), for cost tracking.
+model AiUsage {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  tenantId       String      @map("tenant_id") @db.Uuid
+  conversationId String?     @map("conversation_id") @db.Uuid
+  /// Automation execution id (null for the playground and ingestion).
+  runId          String?     @map("run_id") @db.Uuid
+  stepId         String?     @map("step_id")
+  sourceId       String?     @map("source_id") @db.Uuid
+  model          String
+  inputTokens    Int         @map("input_tokens")
+  outputTokens   Int         @map("output_tokens")
+  kind           AiUsageKind
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("ai_usage")
+}
+
+/// Every answer attempt. For automation steps this row IS the saved reply: a retried step reads
+/// it back instead of calling the model again (unique run + step). Purged after N days.
+model AiReplyLog {
+  id                     String         @id @default(uuid(7)) @db.Uuid
+  tenantId               String         @map("tenant_id") @db.Uuid
+  conversationId         String?        @map("conversation_id") @db.Uuid
+  runId                  String?        @map("run_id") @db.Uuid
+  stepId                 String?        @map("step_id")
+  customerMessageExcerpt String         @map("customer_message_excerpt")
+  retrievedChunkIds      String[]       @map("retrieved_chunk_ids") @db.Uuid
+  /// Title, page and snippet per retrieved chunk, kept for review after sources change.
+  sources                Json           @default("[]")
+  /** The text sent (or for the playground, that would be sent) to the customer. */
+  reply                  String?
+  outcome                AiReplyOutcome
+  /** The step's final decision (outcome + reply) is saved; a retry reuses it as is. */
+  decided                Boolean        @default(false)
+  /// The reply model was called and the call counts against the monthly quota.
+  billable               Boolean        @default(false)
+  playground             Boolean        @default(false)
+  inputTokens            Int            @default(0) @map("input_tokens")
+  outputTokens           Int            @default(0) @map("output_tokens")
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, stepId])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, conversationId, createdAt(sort: Desc)])
+  @@map("ai_reply_logs")
 }

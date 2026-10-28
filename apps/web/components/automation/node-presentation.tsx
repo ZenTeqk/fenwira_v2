@@ -10,6 +10,7 @@ import {
   Webhook,
   FileText,
   Search,
+  Sparkles,
 } from 'lucide-react'
 import { categoryOf } from '@/lib/automation'
 
@@ -31,6 +32,7 @@ export const NODE_HINT: Record<NodeType, string> = {
   'action.update_contact': 'Update contact information',
   'action.webhook': 'Send data to your system',
   'action.delay': 'Wait for a specified time',
+  'action.ai_reply': 'Answer with the AI Assistant',
   'action.end': 'Finish this automation',
 }
 
@@ -38,7 +40,9 @@ export const NODE_HINT: Record<NodeType, string> = {
 export function NodeSymbol({ type, compact = false }: { type: NodeType; compact?: boolean }) {
   const category = categoryOf(type)
   const Icon =
-    type === 'action.delay'
+    type === 'action.ai_reply'
+      ? Sparkles
+      : type === 'action.delay'
       ? Clock
       : type === 'action.end'
         ? Flag

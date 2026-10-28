@@ -160,6 +160,16 @@ export const nodeSchema = z.discriminatedUnion('type', [
       unit: z.enum(['MINUTES', 'HOURS', 'DAYS']),
     }),
   }),
+  z.object({
+    id: z.string(),
+    type: z.literal('action.ai_reply'),
+    config: z.object({
+      /** Extra guidance for this step; it can never override the assistant's fixed rules. */
+      instructions: z.string().trim().max(1000).optional(),
+      /** SINGLE: one reply. CONVERSATION: keep answering each new message (docs/AI_ASSISTANT.md). */
+      mode: z.enum(['SINGLE', 'CONVERSATION']).default('SINGLE'),
+    }),
+  }),
   z.object({ id: z.string(), type: z.literal('action.end'), config: z.object({}).default({}) }),
 ])
 export type FlowNode = z.infer<typeof nodeSchema>
@@ -170,7 +180,7 @@ export const NODE_TYPES = nodeSchema.options.flatMap((o) =>
     : [o.shape.type.value as NodeType],
 )
 
-export const EDGE_HANDLES = ['next', 'yes', 'no', 'error'] as const
+export const EDGE_HANDLES = ['next', 'yes', 'no', 'error', 'replied', 'needs_human'] as const
 export type EdgeHandle = (typeof EDGE_HANDLES)[number]
 export const edgeSchema = z.object({
   id: z.string(),
@@ -214,6 +224,7 @@ export function outputsOf(t: NodeType): EdgeHandle[] {
   if (isTrigger(t)) return ['next']
   if (isCondition(t)) return ['yes', 'no']
   if (t === 'action.end') return []
+  if (t === 'action.ai_reply') return ['replied', 'needs_human', 'error']
   if (
     t === 'action.send_message' ||
     t === 'action.send_template' ||

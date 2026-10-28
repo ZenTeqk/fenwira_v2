@@ -57,6 +57,7 @@ export const PERMISSIONS = {
   'automations.read': 'View automations',
   'automations.write': 'Build automations',
   'automations.publish': 'Publish, pause and cancel automations',
+  'ai.manage': 'Manage the AI Assistant: knowledge, behaviour and test questions',
   'analytics.read': 'View analytics',
   'billing.read': 'View billing',
   'billing.manage': 'Change plan and manage the wallet',
@@ -98,6 +99,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'campaigns.launch',
     'automations.read',
     'automations.write',
+    'ai.manage',
     'analytics.read',
   ],
   AGENT: [

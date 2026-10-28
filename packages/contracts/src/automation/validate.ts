@@ -21,10 +21,14 @@ export const FLOW_ISSUE_CODES = [
   'FLOW_TOO_LARGE',
   'FLOW_EDGE_INVALID',
   'FLOW_EXPRESSION_INVALID',
+  'FLOW_AI_NOT_ENABLED',
+  'FLOW_AI_NO_KNOWLEDGE',
+  'FLOW_AI_QUOTA',
 ] as const
 export type FlowIssueCode = (typeof FLOW_ISSUE_CODES)[number]
 export type FlowIssue = { code: FlowIssueCode; message: string; nodeId?: string; edgeId?: string }
-export type FlowValidation = { valid: boolean; errors: FlowIssue[] }
+/** `warnings` never block publishing (e.g. the AI quota is used up for this month). */
+export type FlowValidation = { valid: boolean; errors: FlowIssue[]; warnings?: FlowIssue[] }
 
 /**
  * The shared publish gate (docs/AUTOMATION_ENGINE.md → Validation), run by the builder live and by
@@ -86,7 +90,19 @@ export function validateFlowGraph(input: unknown): FlowValidation {
   const out = (nodeId: string, handle: string) =>
     g.edges.filter((e) => e.source === nodeId && e.sourceHandle === handle)
   for (const n of g.nodes) {
-    if (isCondition(n.type)) {
+    if (n.type === 'action.ai_reply') {
+      for (const [handle, label] of [
+        ['replied', 'Replied'],
+        ['needs_human', 'Needs a human'],
+        ['error', 'Error'],
+      ] as const)
+        if (out(n.id, handle).length !== 1)
+          errors.push({
+            code: 'FLOW_DANGLING_NODE',
+            nodeId: n.id,
+            message: `Connect the ${label} path (to the next step or an End).`,
+          })
+    } else if (isCondition(n.type)) {
       if (out(n.id, 'yes').length !== 1 || out(n.id, 'no').length !== 1)
         errors.push({
           code: 'FLOW_CONDITION_BRANCHES',

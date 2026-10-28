@@ -30,6 +30,8 @@ ALTER SCHEMA public OWNER TO fenwira_owner;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- AI Assistant embeddings (docs/AI_ASSISTANT.md). Needs a superuser; the migration only re-checks it.
+CREATE EXTENSION IF NOT EXISTS vector;
 CREATE SCHEMA IF NOT EXISTS system AUTHORIZATION fenwira_owner;
 GRANT USAGE, CREATE ON SCHEMA system TO fenwira_system;
 GRANT USAGE ON SCHEMA public, system TO fenwira_app;

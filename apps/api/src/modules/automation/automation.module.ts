@@ -2,6 +2,7 @@ import { type DynamicModule, Module } from '@nestjs/common'
 import { AuditModule } from '../audit'
 import { type EntitlementSource, EntitlementsModule } from '../entitlements'
 import { PresenceService } from '../inbox'
+import { AiAssistantFlowController, AiAssistantFlowService } from './ai-assistant-flow'
 import { AutomationExecuteProcessor } from './automation-execute.processor'
 import { AutomationTriggerProcessor } from './automation-trigger.processor'
 import { AUTOMATION_OPTIONS, type AutomationOptions } from './automation.options'
@@ -18,12 +19,24 @@ export class AutomationModule {
     return {
       module: AutomationModule,
       imports: [AuditModule, EntitlementsModule.forRoot(entitlements)],
-      controllers: [FlowsController, ExecutionsController, AutomationWebhookController],
-      providers: [{ provide: AUTOMATION_OPTIONS, useValue: options }, FlowsService],
+      controllers: [
+        FlowsController,
+        ExecutionsController,
+        AutomationWebhookController,
+        AiAssistantFlowController,
+      ],
+      providers: [
+        { provide: AUTOMATION_OPTIONS, useValue: options },
+        FlowsService,
+        AiAssistantFlowService,
+      ],
     }
   }
 
-  /** Worker side. `imports` must provide MessagingService (the only send path). */
+  /**
+   * Worker side. `imports` must provide MessagingService (the only send path) and AiModule's
+   * AiAnswerService (the AI reply step).
+   */
   static forWorker(
     options: AutomationOptions,
     imports: DynamicModule[],
