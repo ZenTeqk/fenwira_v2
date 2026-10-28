@@ -43,3 +43,12 @@
 .fw-summary::-webkit-details-marker {
   display: none;
 }
+
+/* Template preview sheet: a phone sized to the stage, not to the viewport, so short templates
+   don't sit in a tall empty chat. */
+.fw-preview-stage .fw-phone-frame {
+  height: min(540px, calc(100dvh - 12rem));
+}
+.fw-preview-stage .fw-phone-frame + p {
+  text-align: center;
+}

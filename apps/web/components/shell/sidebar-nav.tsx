@@ -94,13 +94,9 @@ export function SidebarNav({
   }
 
   return (
-    <nav aria-label="Main" className="flex flex-col gap-4">
-      <ul className="flex flex-col gap-0.5">{primary.map(render)}</ul>
-      {secondary.length ? (
-        <ul className="flex flex-col gap-0.5 border-t border-sidebar-border pt-4">
-          {secondary.map(render)}
-        </ul>
-      ) : null}
+    // One continuous list: workspace modules (Integrations, Billing, Settings) follow straight on.
+    <nav aria-label="Main">
+      <ul className="flex flex-col gap-0.5">{[...primary, ...secondary].map(render)}</ul>
     </nav>
   )
 }
