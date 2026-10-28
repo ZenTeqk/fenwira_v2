@@ -38,3 +38,8 @@
     stroke-dasharray: none;
   }
 }
+
+/* Native disclosure (FAQ): our own chevron replaces the browser's marker everywhere. */
+.fw-summary::-webkit-details-marker {
+  display: none;
+}

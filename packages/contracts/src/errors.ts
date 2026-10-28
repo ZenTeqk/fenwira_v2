@@ -21,6 +21,11 @@ export const ERROR_CODES = [
   'TWO_FACTOR_ENROLLMENT_REQUIRED',
   /** AI Assistant is off for this workspace (operator-controlled, docs/AI_ASSISTANT.md). */
   'AI_NOT_ENABLED',
+  /** AI activation: one open request per workspace; nothing to request when already on. */
+  'AI_REQUEST_OPEN',
+  'AI_ALREADY_ENABLED',
+  /** The chosen AI plan is missing or inactive (or a plan is required because plans exist). */
+  'AI_PLAN_UNAVAILABLE',
   // 404
   'NOT_FOUND',
   'TENANT_NOT_FOUND',

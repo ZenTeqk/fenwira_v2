@@ -1,8 +1,6 @@
 'use client'
 
 import {
-  Button,
-  EmptyState,
   ErrorState,
   ListPage,
   PermissionState,
@@ -12,10 +10,9 @@ import {
   TabsList,
   TabsTrigger,
 } from '@fenwira/ui'
-import { Sparkles } from 'lucide-react'
-import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { ActivationPage } from '@/components/ai/activation-page'
 import { ActivityTab } from '@/components/ai/activity-tab'
 import { BehaviourTab } from '@/components/ai/behaviour-tab'
 import { KnowledgeTab } from '@/components/ai/knowledge-tab'
@@ -58,16 +55,7 @@ function AiAssistant() {
   if (isNotEnabled(overview.error))
     return (
       <ListPage header={header}>
-        <EmptyState
-          icon={<Sparkles aria-hidden="true" />}
-          title="AI Assistant is not enabled for your plan"
-          description="The AI Assistant replies to customers on WhatsApp from your own documents, FAQs and notes, and hands the conversation to your team when it can't help. Ask us to add it to your plan."
-          action={
-            <Button asChild>
-              <Link href="/billing">View plan and billing</Link>
-            </Button>
-          }
-        />
+        <ActivationPage />
       </ListPage>
     )
   if (overview.isError || !overview.data)

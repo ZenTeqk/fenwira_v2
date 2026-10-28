@@ -58,6 +58,9 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   // AI Assistant: resolving ends a waiting AI conversation; knowledge sources are indexed.
   'conversation.resolved': [QUEUES.automationTrigger],
   'ai.knowledge_source.ingest_requested': [QUEUES.aiIngest],
+  // AI Assistant activation: an ops alert for requests, in-app + email for decisions.
+  'ai.activation.requested': [QUEUES.notificationsDispatch],
+  'ai.activation.decided': [QUEUES.notificationsDispatch],
   // Takeover stops running automation immediately (P10-D2).
   'conversation.automation_state.changed': [QUEUES.automationTrigger],
 }

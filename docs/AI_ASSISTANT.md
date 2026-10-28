@@ -89,6 +89,29 @@ The settings are `instructions` (optional, at most 1000 characters) and `mode` (
 
 `/platform/workspaces/:id` → AI Assistant card (`GET` / `POST /platform/workspaces/:id/ai`): the switch and the monthly reply quota (default 0), with a mandatory reason. Each change is written to the workspace audit log as PLATFORM_OPERATOR and to `platform_audit`. A reply counts when the reply model was called (test questions too, unless `AI_PLAYGROUND_COUNTS_QUOTA=false`). Concurrent replies may overshoot the quota by a few at most: the count is read before each call, not reserved.
 
+## Activation requests
+
+While `ai_settings.enabled` is false, `/ai-assistant` shows a "what you get" page (benefits, how it
+works, features, pricing, limits, FAQ, a static Test example) with **Request activation**. The same
+route renders the dashboard as soon as the operator turns the assistant on; no deploy is involved.
+
+- **Plans** (`ai_plans`, global, never deleted): created, edited and deactivated in
+  `/platform/ai-plans`. Money is `monthly_price_minor` (INR paise). Only active plans are shown; with
+  none active the page says "Contact us for pricing". The migration seeds one *inactive* placeholder
+  and no real price.
+- **Requests** (`ai_activation_requests`, tenant RLS, no deletes): `REQUESTED → APPROVED | REJECTED |
+  CANCELLED`. One open request per workspace (server check + partial unique index); 5 submissions per
+  workspace and per user per hour. `GET /ai/activation` needs `automations.read`; submitting and
+  cancelling need `ai.manage` (others see the page read-only: "Ask your workspace admin").
+- **Operators** (`/platform/ai-requests`, nav badge = open requests): the queue reads across workspaces
+  through `system.platform_ai_activation_requests` (active platform grant required). Approve
+  (`workspaces.manage`) sets `enabled = true` and `monthly_message_quota` from the plan (or an entered
+  value when the request has no plan); approving an already-enabled workspace only closes the request.
+  Reject requires a note. Both write the workspace audit log and `platform_audit`.
+- **Notifications**: `ai.activation.requested` → ops alert email to `OPS_ALERT_EMAIL`;
+  `ai.activation.decided` → in-app notification for members with `ai.manage` (and the requester) and
+  one email to the requester (`notifications.dispatch`).
+
 ## Retention
 
 `ai_reply_logs` older than `AI_REPLY_LOG_RETENTION_DAYS` are purged every 6 hours by `system.purge_ai_reply_logs` (X23 in MULTI_TENANCY.md), in batches of 5000.

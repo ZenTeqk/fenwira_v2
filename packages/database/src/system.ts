@@ -236,6 +236,28 @@ export class SystemGateway {
     >`SELECT * FROM system.platform_pending_proofs(${operatorId}::uuid, ${limit}::int)`
   }
 
+  /** AI activation queue across workspaces (REQUESTED first). Requires an active platform grant. */
+  async platformAiActivationRequests(operatorId: string, status: string | null, limit: number) {
+    return this.prisma.$queryRaw<
+      Array<{
+        id: string
+        tenant_id: string
+        workspace_name: string
+        plan_id: string | null
+        plan_name: string | null
+        included_replies: number | null
+        expected_conversations: number
+        use_case: string
+        contact_email: string
+        contact_phone: string | null
+        status: string
+        decision_note: string | null
+        decided_at: Date | null
+        created_at: Date
+      }>
+    >`SELECT * FROM system.platform_ai_activation_requests(${operatorId}::uuid, ${status}::text, ${limit}::int)`
+  }
+
   /** X22c: workspaces with overdue open invoices or a PAST_DUE / SUSPENDED subscription. */
   async platformOverdueWorkspaces(operatorId: string, now: Date) {
     return this.prisma.$queryRaw<

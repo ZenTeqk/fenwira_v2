@@ -192,3 +192,120 @@ export const updatePlatformAiSettingsRequestSchema = z
   })
   .partial({ enabled: true, monthlyMessageQuota: true })
 export type UpdatePlatformAiSettingsRequest = z.infer<typeof updatePlatformAiSettingsRequestSchema>
+
+// ---------------------------------------------------------------------------------------------
+// Activation requests (docs/AI_ASSISTANT.md → Activation requests)
+// ---------------------------------------------------------------------------------------------
+
+export const AI_ACTIVATION_STATUSES = ['REQUESTED', 'APPROVED', 'REJECTED', 'CANCELLED'] as const
+export const aiActivationStatusSchema = z.enum(AI_ACTIVATION_STATUSES)
+export type AiActivationStatus = z.infer<typeof aiActivationStatusSchema>
+
+/** An operator-managed plan. Money in minor units (paise for INR). */
+export const aiPlanSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  monthlyPriceMinor: z.number().int().min(0),
+  currency: z.string().length(3),
+  includedReplies: z.number().int().min(0),
+  description: z.string().nullable(),
+  active: z.boolean(),
+  sortOrder: z.number().int(),
+})
+export type AiPlan = z.infer<typeof aiPlanSchema>
+
+export const aiActivationRequestSchema = z.object({
+  id: z.uuid(),
+  status: aiActivationStatusSchema,
+  planId: z.uuid().nullable(),
+  planName: z.string().nullable(),
+  expectedConversations: z.number().int(),
+  useCase: z.string(),
+  contactEmail: z.string(),
+  contactPhone: z.string().nullable(),
+  decisionNote: z.string().nullable(),
+  decidedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+})
+export type AiActivationRequest = z.infer<typeof aiActivationRequestSchema>
+
+/** GET /ai/activation: what the request page needs, readable while the assistant is off. */
+export const aiActivationStateSchema = z.object({
+  enabled: z.boolean(),
+  /** Active plans only, in display order. Empty → "Contact us for pricing". */
+  plans: z.array(aiPlanSchema),
+  /** The latest request, if any (the page shows its status). */
+  request: aiActivationRequestSchema.nullable(),
+  /** Prefill for the request dialog. */
+  contact: z.object({ email: z.string(), phone: z.string().nullable() }),
+})
+export type AiActivationState = z.infer<typeof aiActivationStateSchema>
+
+export const createAiActivationRequestSchema = z.object({
+  /** Required when active plans exist; null when the workspace asks for pricing. */
+  planId: z.uuid().nullable(),
+  expectedConversations: z
+    .number({ error: 'Enter a number of conversations.' })
+    .int('Enter a whole number.')
+    .min(1, 'Enter at least 1.')
+    .max(10_000_000, 'Enter 10,000,000 or fewer.'),
+  useCase: z
+    .string()
+    .trim()
+    .min(10, 'Describe the use case in at least 10 characters.')
+    .max(1000, 'Keep it under 1,000 characters.'),
+  contactEmail: z.email('Enter a valid email address.').max(254),
+  contactPhone: z
+    .string()
+    .trim()
+    .max(20, 'Enter a shorter phone number.')
+    .regex(/^\+?[0-9 ()-]{6,20}$/, 'Enter a valid phone number.')
+    .nullable(),
+})
+export type CreateAiActivationRequest = z.infer<typeof createAiActivationRequestSchema>
+
+/** Operator queue row: the request plus the workspace and the plan's included replies. */
+export const platformAiActivationRequestSchema = aiActivationRequestSchema.extend({
+  workspaceId: z.uuid(),
+  workspaceName: z.string(),
+  includedReplies: z.number().int().nullable(),
+})
+export type PlatformAiActivationRequest = z.infer<typeof platformAiActivationRequestSchema>
+
+export const approveAiActivationRequestSchema = z.object({
+  note: z.string().trim().max(500).optional(),
+  /** Required when the request has no plan; otherwise the plan's included replies are used. */
+  monthlyMessageQuota: z.number().int().min(0).max(1_000_000).optional(),
+})
+export type ApproveAiActivationRequest = z.infer<typeof approveAiActivationRequestSchema>
+
+export const rejectAiActivationRequestSchema = z.object({
+  note: z
+    .string()
+    .trim()
+    .min(3, 'Tell the workspace why (at least 3 characters).')
+    .max(500, 'Keep the note under 500 characters.'),
+})
+export type RejectAiActivationRequest = z.infer<typeof rejectAiActivationRequestSchema>
+
+export const aiActivationDecisionResultSchema = z.object({
+  request: platformAiActivationRequestSchema,
+  /** True when approving a workspace that was already enabled (no settings changed). */
+  alreadyEnabled: z.boolean(),
+})
+export type AiActivationDecisionResult = z.infer<typeof aiActivationDecisionResultSchema>
+
+export const upsertAiPlanSchema = z.object({
+  name: z.string().trim().min(2, 'Enter a plan name.').max(80),
+  monthlyPriceMinor: z
+    .number()
+    .int('Use minor units (paise).')
+    .min(0, 'The price cannot be negative.')
+    .max(100_000_000_00),
+  currency: z.string().trim().toUpperCase().length(3).default('INR'),
+  includedReplies: z.number().int().min(0).max(10_000_000),
+  description: z.string().trim().max(300).nullable(),
+  active: z.boolean(),
+  sortOrder: z.number().int().min(0).max(1000),
+})
+export type UpsertAiPlan = z.infer<typeof upsertAiPlanSchema>
