@@ -37,7 +37,7 @@ test('pick a template, finish the setup checklist and publish', async ({ page })
   await page.getByRole('link', { name: 'Browse templates' }).click()
   await expect(page.getByRole('heading', { name: 'Create automation', level: 1 })).toBeVisible()
   // AI templates stay visible with the reason when AI Assistant is off for the workspace.
-  await page.getByRole('tab', { name: 'AI' }).click()
+  await page.getByRole('tab', { name: 'AI', exact: true }).click()
   const ai = page.getByTestId('template-ai-assistant')
   await expect(ai).toHaveAttribute('aria-disabled', 'true')
   await expect(ai).toContainText('AI Assistant isn’t enabled for this workspace')
