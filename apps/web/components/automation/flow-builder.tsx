@@ -17,6 +17,8 @@ import {
   Button,
   BuilderPage,
   ErrorState,
+  Drawer,
+  DrawerContent,
   Input,
   Tooltip,
   Modal,
@@ -43,6 +45,7 @@ import {
   Pause,
   PanelLeft,
   Play,
+  Smartphone,
   Rocket,
   Settings2,
   X,
@@ -72,6 +75,7 @@ import { AddStepMenu } from './add-step-menu'
 import { FlowCanvas } from './flow-canvas'
 import { FlowOutline } from './flow-outline'
 import { FlowSettings } from './flow-settings'
+import { LivePreview } from './live-preview'
 import { NodeInspector } from './node-inspector'
 import { NodeLibrary } from './node-library'
 import { overlapSentence, PublishedDialog, ReadinessPanel } from './readiness-panel'
@@ -98,6 +102,17 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
   const router = useRouter()
   const preferenceKey = `fenwira.canvas.${me.user.id}.${tenantId}`
   const [libraryCollapsed, setLibraryCollapsed] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [rightTab, setRightTab] = useState('settings')
+  function togglePreview(open: boolean) {
+    setPreviewOpen(open)
+    setRightTab(open ? 'preview' : 'settings')
+    try {
+      localStorage.setItem(`${preferenceKey}.preview`, String(open))
+    } catch {
+      /* Optional preference. */
+    }
+  }
   const [mobile, setMobile] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -106,6 +121,9 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
   useEffect(() => {
     try {
       setLibraryCollapsed(localStorage.getItem(`${preferenceKey}.library`) === 'true')
+      const preview = localStorage.getItem(`${preferenceKey}.preview`) === 'true'
+      setPreviewOpen(preview)
+      setRightTab(preview ? 'preview' : 'settings')
     } catch {
       /* Optional preference. */
     }
@@ -137,6 +155,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
       inspectorOpener.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null
     setSelected(id)
+    if (!previewOpen) setRightTab('settings')
   }
   const [save, setSave] = useState<SaveState>('saved')
   const [serverIssues, setServerIssues] = useState<FlowIssue[]>([])
@@ -229,11 +248,13 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
       }
     }
     inFlight.current = run()
+    let ok: boolean
     try {
-      return await inFlight.current
+      ok = await inFlight.current
     } finally {
       inFlight.current = null
     }
+    return ok && (pending.current || namePending.current !== null) ? flush() : ok
   }, [flowId, qc, tenantId])
 
   const change = useCallback(
@@ -261,11 +282,25 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
     const key = (event: KeyboardEvent) => {
       if (
         (event.target as HTMLElement)?.closest(
-          'input, textarea, select, [contenteditable="true"], [role="dialog"]',
+          '[role="dialog"], [role="alertdialog"], [role="listbox"]',
         )
       )
         return
-      if (event.key === 'Escape') setSelected(null)
+      if (event.key === 'Escape') {
+        setSelected(null)
+        setPreviewOpen(false)
+        setRightTab('settings')
+        try {
+          localStorage.setItem(`${preferenceKey}.preview`, 'false')
+        } catch {
+          /* Optional preference. */
+        }
+        return
+      }
+      if (
+        (event.target as HTMLElement)?.closest('input, textarea, select, [contenteditable="true"]')
+      )
+        return
       if (event.key === '?') {
         event.preventDefault()
         setHelpOpen(true)
@@ -273,7 +308,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
     }
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
-  }, [])
+  }, [preferenceKey])
   async function back() {
     if (
       unsaved &&
@@ -491,6 +526,48 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
       </p>
     </div>
   )
+  const rightPanel = (
+    <Tabs value={rightTab} onValueChange={setRightTab} className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-3 flex shrink-0 items-center gap-1 border-b border-border">
+        <TabsList aria-label="Canvas side panel" className="flex-1 border-b-0">
+          <TabsTrigger value="settings">Node settings</TabsTrigger>
+          {previewOpen ? <TabsTrigger value="preview">Preview</TabsTrigger> : null}
+        </TabsList>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Close side panel"
+          onClick={() => {
+            togglePreview(false)
+            setSelected(null)
+          }}
+        >
+          <X aria-hidden="true" />
+        </Button>
+      </div>
+      <TabsContent value="settings" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+        {inspector}
+      </TabsContent>
+      {previewOpen ? (
+        <TabsContent
+          value="preview"
+          forceMount
+          hidden={rightTab !== 'preview'}
+          className="mt-0 min-h-0 flex-1 overflow-hidden"
+        >
+          <LivePreview
+            graph={graph}
+            templates={templates.data ?? []}
+            issues={issues}
+            selected={selected}
+            onSelect={selectStep}
+            tagName={(id) => tags.data?.find((tag) => tag.id === id)?.name}
+            memberName={(id) => members.data?.find((member) => member.userId === id)?.name}
+          />
+        </TabsContent>
+      ) : null}
+    </Tabs>
+  )
   return (
     <>
       <BuilderPage
@@ -512,7 +589,8 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
               aria-label="Flow name"
               className="w-32 min-w-0 md:w-44"
               value={name ?? f.name}
-              readOnly={!editable}
+              readOnly={!editable || (mobile && view === 'canvas')}
+              aria-invalid={name !== null && !name.trim() ? true : undefined}
               maxLength={120}
               onChange={(event) => {
                 setName(event.target.value)
@@ -542,6 +620,15 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
               </p>
             </Tooltip>
             <div className="ml-auto flex flex-wrap items-center gap-1">
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-pressed={previewOpen}
+                onClick={() => togglePreview(!previewOpen)}
+              >
+                <Smartphone aria-hidden="true" />
+                Preview
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"
@@ -647,17 +734,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
             <NodeLibrary hasTrigger={hasTrigger} onAdd={add} />
           ) : undefined
         }
-        inspector={
-          wide && node ? (
-            <>
-              <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
-                <X aria-hidden="true" />
-                Close step settings
-              </Button>
-              {inspector}
-            </>
-          ) : undefined
-        }
+        inspector={wide && (node || previewOpen) ? rightPanel : undefined}
       >
         <Tabs value={view} onValueChange={setView} className="flex min-h-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2">
@@ -706,6 +783,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
                     variant="secondary"
                     size="sm"
                     className="md:hidden"
+                    disabled={mobile && view === 'canvas'}
                     onClick={() => setLibraryOpen(true)}
                   >
                     <PanelLeft aria-hidden="true" />
@@ -724,10 +802,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
               ) : null}
             </div>
           </div>
-          <TabsContent
-            value="canvas"
-            className="relative mt-0 min-h-0 flex-1 data-[state=inactive]:hidden"
-          >
+          <TabsContent value="canvas" className="relative mt-0 min-h-0 flex-1">
             {mobile ? (
               <p className="absolute top-2 left-2 z-10 rounded-md border border-border bg-surface px-3 py-2 text-sm text-secondary">
                 Editing is best on a larger screen
@@ -796,10 +871,20 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
           ) : null}
         </section>
       </BuilderPage>
-      <Modal open={!wide && !!node} onOpenChange={(open) => !open && setSelected(null)}>
-        <ModalContent
-          title="Step settings"
-          description="Configure the selected automation step."
+      <Drawer
+        open={!wide && (!!node || previewOpen)}
+        onOpenChange={(open) => {
+          if (!open) {
+            togglePreview(false)
+            setSelected(null)
+          }
+        }}
+      >
+        <DrawerContent
+          title="Step settings and preview"
+          description="Inspect a step or explore the visual conversation."
+          width="md"
+          className="[&>div:last-child]:flex [&>div:last-child]:min-h-0 [&>div:last-child]:flex-col [&>div:last-child]:overflow-hidden"
           onCloseAutoFocus={(event) => {
             event.preventDefault()
             const opener = inspectorOpener.current
@@ -810,9 +895,9 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
                 ?.focus()
           }}
         >
-          {inspector}
-        </ModalContent>
-      </Modal>
+          {rightPanel}
+        </DrawerContent>
+      </Drawer>
       <Modal open={helpOpen} onOpenChange={setHelpOpen}>
         <ModalContent
           title="Keyboard shortcuts"
@@ -860,7 +945,15 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
         />
       ) : null}
       {settingsOpen ? (
-        <FlowSettings flow={f} open onOpenChange={setSettingsOpen} onSaved={refresh} />
+        <FlowSettings
+          flow={f}
+          open
+          onOpenChange={setSettingsOpen}
+          onSaved={() => {
+            setName(null)
+            refresh()
+          }}
+        />
       ) : null}
       <PublishedDialog
         open={published}

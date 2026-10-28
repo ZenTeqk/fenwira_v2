@@ -52,7 +52,10 @@ export function NodeLibrary({
               <NodeSymbol type={t} compact />
               <span className="min-w-0 flex-1 whitespace-normal">
                 <span className="block text-xs font-medium text-slate">{NODE_LABEL[t]}</span>
-                <span className="mt-0.5 block text-xs font-normal text-secondary">
+                <span
+                  title={NODE_HINT[t]}
+                  className="mt-0.5 block truncate text-xs font-normal text-secondary"
+                >
                   {NODE_HINT[t]}
                 </span>
               </span>

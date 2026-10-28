@@ -49,6 +49,7 @@ for (const width of [1440, 390]) {
       const frame = page.getByRole('region', { name: 'Message preview', exact: true })
       await expect(frame).toBeVisible()
       const shortHeight = (await frame.boundingBox())!.height
+      expect(shortHeight).toBeLessThanOrEqual(1000 / zoom - 32)
       long = true
       await page.reload()
       await expect(frame).toBeVisible()

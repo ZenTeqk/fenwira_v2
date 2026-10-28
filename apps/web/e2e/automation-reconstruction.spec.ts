@@ -143,7 +143,9 @@ test('light automation studio preserves draft editing, responsive settings and r
   await expect(page.getByRole('figure', { name: 'Message preview' })).toContainText(
     '{{contact.firstName}}',
   )
-  await expect(page.getByLabel('WhatsApp mobile conversation preview')).toBeVisible()
+  await expect(
+    page.getByRole('region', { name: 'Message preview', exact: true }).last(),
+  ).toBeVisible()
   const library = page.getByRole('navigation', { name: 'Add a step' })
   await library.getByRole('textbox', { name: 'Search steps' }).fill('wait')
   await expect(library.getByRole('button', { name: 'Wait', exact: true })).toBeVisible()
@@ -162,7 +164,9 @@ test('light automation studio preserves draft editing, responsive settings and r
       await page.getByRole('button', { name: /^Step 3: Send message/ }).click()
     }
     if (width < 1280)
-      await expect(page.getByRole('dialog', { name: 'Step settings', exact: true })).toBeVisible()
+      await expect(
+        page.getByRole('dialog', { name: 'Step settings and preview', exact: true }),
+      ).toBeVisible()
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true)
@@ -176,7 +180,9 @@ test('light automation studio preserves draft editing, responsive settings and r
     await page.screenshot({ path: info.outputPath(`studio-${width}.png`), fullPage: true })
     if (width < 1280) {
       await page.keyboard.press('Escape')
-      await expect(page.getByRole('dialog', { name: 'Step settings', exact: true })).toHaveCount(0)
+      await expect(
+        page.getByRole('dialog', { name: 'Step settings and preview', exact: true }),
+      ).toHaveCount(0)
       await expect
         .poll(() => page.evaluate(() => document.activeElement !== document.body))
         .toBe(true)

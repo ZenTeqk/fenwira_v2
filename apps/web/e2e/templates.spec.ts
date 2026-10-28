@@ -48,7 +48,9 @@ test('build → validate → submit → approved → sent from the inbox picker'
   await editor.getByLabel('Message {{2}}').fill('Friday')
   const preview = page.getByRole('figure', { name: 'Message preview' })
   await expect(preview).toContainText('Hi Asha, your order arrives on Friday.')
-  await expect(page.getByLabel('WhatsApp mobile conversation preview')).toBeVisible()
+  await expect(
+    page.getByRole('region', { name: 'Message preview', exact: true }).last(),
+  ).toBeVisible()
   await expect(preview.locator('[title="{{1}}"]')).toHaveCount(0)
   const originalBody = await editor.getByRole('textbox', { name: 'Message text' }).inputValue()
   await editor

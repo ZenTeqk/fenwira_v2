@@ -4,7 +4,7 @@ import { type MessageTemplateSnapshot, type TemplateSnapshotButton } from '@fenw
 import { Button, cn } from '@fenwira/ui'
 import { Copy, ExternalLink, FileText, Phone, Play, Reply } from 'lucide-react'
 import Image from 'next/image'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
 import { useFileUrl } from './media'
 
 const BUTTON_ICON: Record<TemplateSnapshotButton['type'], typeof Reply> = {
@@ -22,10 +22,20 @@ const buttonDetail = (b: TemplateSnapshotButton) =>
         ? b.code
         : undefined
 
-function TemplateHeader({ header }: { header: NonNullable<MessageTemplateSnapshot['header']> }) {
-  const url = useFileUrl(header.type === 'TEXT' ? null : header.fileId)
+function TemplateHeader({
+  header,
+  preview,
+  renderText,
+}: {
+  header: NonNullable<MessageTemplateSnapshot['header']>
+  preview?: boolean
+  renderText: (text: string) => ReactNode
+}) {
+  const url = useFileUrl(preview || header.type === 'TEXT' ? null : header.fileId)
   if (header.type === 'TEXT')
-    return <p className="whitespace-pre-wrap break-words font-semibold">{header.text}</p>
+    return (
+      <p className="whitespace-pre-wrap break-words font-semibold">{renderText(header.text)}</p>
+    )
   const label = header.filename ?? `${header.type.toLowerCase()} header`
   if (header.type === 'IMAGE')
     return url.data ? (
@@ -39,7 +49,7 @@ function TemplateHeader({ header }: { header: NonNullable<MessageTemplateSnapsho
       />
     ) : (
       <div className="flex h-32 items-center justify-center rounded-md bg-neutral-soft text-sm text-secondary">
-        {header.fileId ? 'Image' : 'Image unavailable'}
+        {preview ? 'Image header sample' : header.fileId ? 'Image' : 'Image unavailable'}
       </div>
     )
   const Icon = header.type === 'VIDEO' ? Play : FileText
@@ -75,11 +85,16 @@ export function TemplateMessage({
   name,
   labelId,
   bodyId,
+  preview = false,
+  renderText = (text) => text,
 }: {
   snapshot: MessageTemplateSnapshot | null
   name: string
   labelId: string
   bodyId: string
+  /** Visual preview uses the complete bubble with inert media and no download requests. */
+  preview?: boolean
+  renderText?: (text: string) => ReactNode
 }) {
   const body = useRef<HTMLParagraphElement>(null)
   const [expanded, setExpanded] = useState(false)
@@ -94,17 +109,22 @@ export function TemplateMessage({
       <p id={labelId} className="text-xs text-secondary">
         Template · {snapshot?.name ?? name}
       </p>
-      {snapshot?.header ? <TemplateHeader header={snapshot.header} /> : null}
+      {snapshot?.header ? (
+        <TemplateHeader header={snapshot.header} preview={preview} renderText={renderText} />
+      ) : null}
       {snapshot?.body ? (
         <div>
           <p
             id={bodyId}
             ref={body}
-            className={cn('whitespace-pre-wrap break-words', !expanded && 'line-clamp-8')}
+            className={cn(
+              'whitespace-pre-wrap break-words',
+              !preview && !expanded && 'line-clamp-8',
+            )}
           >
-            {snapshot.body}
+            {renderText(snapshot.body)}
           </p>
-          {overflows || expanded ? (
+          {!preview && (overflows || expanded) ? (
             <Button
               variant="link"
               size="sm"
@@ -117,8 +137,10 @@ export function TemplateMessage({
         </div>
       ) : null}
       {/* Muted fails AA on the outbound tint, so the footer uses secondary. */}
-      {snapshot?.footer ? <p className="text-sm text-secondary">{snapshot.footer}</p> : null}
-      {!snapshot || snapshot.partial ? (
+      {snapshot?.footer ? (
+        <p className="text-sm text-secondary">{renderText(snapshot.footer)}</p>
+      ) : null}
+      {!preview && (!snapshot || snapshot.partial) ? (
         <p className="text-xs text-secondary">Original template no longer available</p>
       ) : null}
       {snapshot?.buttons.length ? (

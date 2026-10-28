@@ -49,6 +49,7 @@ test('pick a template, finish the setup checklist and publish', async ({ page })
     page.getByRole('heading', { name: 'Lead capture and assign', level: 1 }),
   ).toBeVisible()
   await expect(page.getByTestId(/^flow-node-/)).toHaveCount(5)
+  await page.getByRole('button', { name: 'Setup checklist · Ready to publish' }).click()
   const setup = page.getByRole('region', { name: 'Set up your automation' })
   await expect(setup).toContainText('3 of 4 done')
   await expect(page.getByTestId('flow-node-tag')).toContainText('Needs attention')
@@ -58,8 +59,11 @@ test('pick a template, finish the setup checklist and publish', async ({ page })
   await expect(page.getByTestId('flow-summary')).toHaveText(
     'When a message contains “price”, add the tag lead, assign to whoever is online, then send “Thanks [first name]! A teammate will sh…”.',
   )
+  if ((await page.getByRole('tab', { name: 'Ready to publish', exact: true }).count()) === 0)
+    await page.getByRole('button', { name: 'Setup checklist · Ready to publish' }).click()
+  await page.getByRole('tab', { name: 'Ready to publish', exact: true }).click()
   await expect(page.getByText('Yes. Every step is set up and connected.')).toBeVisible()
-  await expect(page.getByText('All changes saved')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeVisible()
   await expectNoViolations(page)
 
   await page.getByRole('button', { name: 'Publish', exact: true }).click()
@@ -109,6 +113,9 @@ test('start from scratch with the "+" menu', async ({ page }) => {
   await expect(page.getByTestId('flow-summary')).toHaveText(
     'When a message is “hours”, wait 1 hour, then send “We are open 9 to 6.”.',
   )
+  if ((await page.getByRole('tab', { name: 'Ready to publish', exact: true }).count()) === 0)
+    await page.getByRole('button', { name: 'Setup checklist · Ready to publish' }).click()
+  await page.getByRole('tab', { name: 'Ready to publish', exact: true }).click()
   await expect(page.getByText('Yes. Every step is set up and connected.')).toBeVisible()
 })
 
@@ -198,7 +205,10 @@ test('a dry-run test highlights the path and changes nothing', async ({ page }) 
   const tags = (await (await page.request.get(`${API}/tags`, { headers })).json()).data
   expect(tags.find((t: { id: string }) => t.id === tag.id).contactCount).toBe(0)
   const contacts = await (
-    await page.request.post(`${API}/contacts/search`, { headers: ownerHeaders(owner), data: { limit: 10 } })
+    await page.request.post(`${API}/contacts/search`, {
+      headers: ownerHeaders(owner),
+      data: { limit: 10 },
+    })
   ).json()
   // No contact means no conversation or outbound message could exist either.
   expect(contacts.data).toEqual([])
@@ -245,6 +255,7 @@ test('gallery and editor pass axe on a phone', async ({ page }) => {
   await page.getByTestId('template-keyword-reply').first().click()
   await expect(page.getByRole('heading', { name: 'Keyword reply', level: 1 })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Outline' })).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('button', { name: 'Setup checklist · Ready to publish' }).click()
   await expect(page.getByRole('region', { name: 'Set up your automation' })).toBeVisible()
   await expectNoViolations(page)
   await expect

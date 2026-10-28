@@ -40,6 +40,8 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
   await palette.getByRole('button', { name: 'Keyword', exact: true }).click()
   await page.getByLabel('Keywords').fill('pricing, prices')
   await palette.getByRole('button', { name: 'Send message', exact: true }).click()
+  await page.getByRole('button', { name: 'Setup checklist · Ready to publish' }).click()
+  await page.getByRole('tab', { name: 'Ready to publish', exact: true }).click()
   // Live validation: the empty message is flagged before publishing.
   await expect(page.getByText(/things? to fix first/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Publish' })).toBeDisabled()
@@ -52,7 +54,7 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
   await palette.getByRole('button', { name: 'End', exact: true }).click()
   await expect(page.getByText('Yes. Every step is set up and connected.')).toBeVisible()
   await expect(page.getByTestId(/^flow-node-/)).toHaveCount(3)
-  await expect(page.getByText('All changes saved')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeVisible()
   await expectNoViolations(page)
 
   await page.getByRole('button', { name: 'Publish', exact: true }).click()
@@ -64,7 +66,7 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
   const live = page.getByRole('dialog', { name: 'Your automation is live' })
   await expect(live).toContainText('When a message is “pricing” or “prices”')
   await live.getByRole('button', { name: 'Done' }).click()
-  await expect(page.getByText('Live version 1')).toBeVisible()
+  await expect(page.locator('[data-status=ACTIVE]')).toContainText('Live')
 
   const customer = await customerWritesIn(page, owner, 'Pricing')
   await page.goto('/inbox')
@@ -113,6 +115,8 @@ test('the outline builds and connects a flow with the keyboard only', async ({ p
   const steps = page.getByRole('list', { name: 'Flow steps' }).getByRole('listitem')
   await expect(steps).toHaveCount(3)
   await expect(steps.nth(1)).toContainText('Step 2: Wait')
+  await page.getByRole('button', { name: 'Setup checklist · Ready to publish' }).click()
+  await page.getByRole('tab', { name: 'Ready to publish', exact: true }).click()
   await expect(page.getByText('Yes. Every step is set up and connected.')).toBeVisible()
   // Re-wire with a select: disconnect the wait → end edge, then the validator flags it.
   await choose('Next (Step 2: Wait)', 'Not connected')
