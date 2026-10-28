@@ -38,6 +38,8 @@ export type SendInput = {
   purpose?: 'MARKETING' | 'UTILITY' | 'SERVICE'
   /** Links the message to its campaign (reporting, recipient status). */
   campaignId?: string
+  /** Written by the AI Assistant: the inbox labels it "AI" (docs/AI_ASSISTANT.md). */
+  aiGenerated?: boolean
 }
 
 const SENDABLE_PHONE_STATUSES = ['CONNECTED', 'FLAGGED'] as const
@@ -221,6 +223,7 @@ export class MessagingService {
         templateSnapshot: (rendered.snapshot as Prisma.InputJsonValue | null) ?? Prisma.DbNull,
         idempotencyKey: input.idempotencyKey,
         sentByUserId: input.actorUserId ?? null,
+        aiGenerated: input.aiGenerated ?? false,
       },
     })
     await tx.outboxEvent.create({

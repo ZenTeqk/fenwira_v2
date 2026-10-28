@@ -57,6 +57,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: 3.1139.0
         version: 3.1139.0
+      '@fenwira/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@fenwira/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -278,6 +281,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@fenwira/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@fenwira/api':
         specifier: workspace:*
         version: link:../api

@@ -6,6 +6,7 @@ x-server-src: &server-src
   - ./packages/config/src:/repo/packages/config/src:ro
   - ./packages/contracts/src:/repo/packages/contracts/src:ro
   - ./packages/queue/src:/repo/packages/queue/src:ro
+  - ./packages/ai/src:/repo/packages/ai/src:ro
   - ./packages/database/src:/repo/packages/database/src:ro
   - ./packages/database/sql:/repo/packages/database/sql:ro
   - ./apps/api/src:/repo/apps/api/src:ro

@@ -7,6 +7,7 @@ import {
   type SendableContent,
   type TemplateVariables,
 } from '@fenwira/contracts'
+import { type AiConfig, type HistoryTurn } from '@fenwira/ai'
 import { Database, type Prisma, type TenantTx } from '@fenwira/database'
 import { QUEUES } from '@fenwira/queue'
 import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common'
@@ -18,12 +19,16 @@ import { MetricsService } from '../../core/metrics/metrics.service'
 import { type QueueProcessor } from '../../core/queue/queue-processor'
 import { QueueRegistry } from '../../core/queue/queue-registry'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
+import { AI_CONFIG, AiAnswerService, conversationHistory, textOf } from '../ai'
 import { EntitlementsService } from '../entitlements'
 import { assignRoundRobin, PresenceService } from '../inbox'
 import { MessagingService, type SendTarget } from '../messaging'
 import {
+  aiStateOf,
+  applyAiHandoff,
   enqueueExecution,
   EXECUTE_JOB,
+  handedOffByAi,
   type ExecutionRow,
   finishExecution,
   lockExecution,
@@ -49,6 +54,8 @@ export const STEPS_PER_JOB = 25
 const STALE_RUNNING_MS = 2 * 60_000
 /** A paused flow's waiting executions look again after this long. */
 const PAUSED_RECHECK_MS = 60_000
+/** An AI conversation ends after this long without a customer message. */
+export const AI_SILENCE_MS = 24 * 3600_000
 
 type Data = { tenantId: string; executionId: string } | Record<string, never>
 
@@ -67,6 +74,16 @@ type Prepared =
       input: Record<string, unknown>
     }
   | { kind: 'round_robin'; conversationId: string }
+  | {
+      kind: 'ai'
+      conversationId: string
+      messageId: string
+      question: string
+      history: HistoryTurn[]
+      mode: 'SINGLE' | 'CONVERSATION'
+      instructions: string | null
+      input: Record<string, unknown>
+    }
 
 type StepPlan =
   | { done: string }
@@ -99,6 +116,8 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
     private readonly realtime: RealtimeEmitter,
     private readonly metrics: MetricsService,
     private readonly logger: PinoLogger,
+    private readonly ai: AiAnswerService,
+    @Inject(AI_CONFIG) private readonly aiConfig: AiConfig,
   ) {
     this.logger.setContext('AutomationExecute')
   }
@@ -243,7 +262,8 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
         where: { id: e.conversationId },
         select: { automationState: true },
       })
-      if (conv && conv.automationState !== 'AUTOMATION_ACTIVE') {
+      // An execution that handed off to a person itself still finishes its Needs a human path.
+      if (conv && conv.automationState !== 'AUTOMATION_ACTIVE' && !handedOffByAi(e)) {
         const paused = conv.automationState === 'AUTOMATION_PAUSED'
         await this.record(
           tx,
@@ -408,8 +428,68 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
         if (!e.conversationId)
           return failed('NO_CONVERSATION', 'This contact has no conversation to assign.')
         return { kind: 'round_robin', conversationId: e.conversationId }
+      case 'action.ai_reply':
+        return this.prepareAi(tx, e, node)
       default:
         throw new Error(`${node.type} is not external`)
+    }
+  }
+
+  /**
+   * AI reply (docs/AI_ASSISTANT.md → AI reply step): which customer message to answer, the
+   * 24-hour window gate (free text only inside it) and the conversation history.
+   */
+  private async prepareAi(
+    tx: TenantTx,
+    e: ExecutionRow,
+    node: Extract<FlowNode, { type: 'action.ai_reply' }>,
+  ): Promise<Prepared | Outcome> {
+    const mode = node.config.mode
+    if (!e.conversationId)
+      return failed('NO_CONVERSATION', 'The AI reply step needs a WhatsApp conversation.', { mode })
+    const ai = aiStateOf(e)
+    if (mode === 'CONVERSATION' && ai.mode !== 'CONVERSATION')
+      // Marked before the first answer, so messages arriving meanwhile are queued for this run.
+      await tx.automationExecution.update({
+        where: { id: e.id },
+        data: {
+          context: { ...(e.context as object), ai: { ...ai, mode } } as Prisma.InputJsonValue,
+        },
+      })
+    const trigger = (e.triggerEvent as { message?: { id?: string } }).message
+    const messageId = ai.pendingMessageId ?? (ai.lastHandledMessageId ? null : trigger?.id)
+    if (!messageId) {
+      if (ai.lastHandledMessageId)
+        return { status: 'SUCCEEDED', handle: 'replied', input: { mode }, output: { ended: 'SILENCE' } }
+      return failed('AI_NO_MESSAGE', 'There is no customer message for the AI to answer.', { mode })
+    }
+    const [message, conversation] = await Promise.all([
+      tx.message.findFirst({ where: { id: messageId } }),
+      tx.conversation.findFirst({ where: { id: e.conversationId } }),
+    ])
+    const input = { mode, messageId }
+    if (!message || !conversation)
+      return failed('NO_CONVERSATION', 'The conversation or the message no longer exists.', input)
+    if (!conversation.serviceWindowExpiresAt || conversation.serviceWindowExpiresAt <= new Date())
+      return failed(
+        'CONVERSATION_WINDOW_CLOSED',
+        "The 24-hour reply window has closed, so the AI can't send a free-text reply.",
+        input,
+      )
+    return {
+      kind: 'ai',
+      conversationId: conversation.id,
+      messageId,
+      question: textOf(message.content),
+      history: await conversationHistory(
+        tx,
+        conversation.id,
+        message.createdAt,
+        this.aiConfig.historyMessages,
+      ),
+      mode,
+      instructions: node.config.instructions ?? null,
+      input,
     }
   }
 
@@ -436,40 +516,17 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
     const seq = e.stepCount + 1
     const key = `auto:${e.id}:${seq}`
     if (p.kind === 'send') {
-      try {
-        const message = await this.messaging.send({
-          tenantId: e.tenantId,
-          target: p.target,
-          content: p.content,
-          source: 'AUTOMATION',
-          idempotencyKey: key,
-        })
-        return {
-          status: 'SUCCEEDED',
-          handle: 'next',
-          input: p.input,
-          output: { messageId: message.id, status: message.status },
-        }
-      } catch (err) {
-        if (!(err instanceof AppError)) throw err // infrastructure: retried; the key prevents a duplicate
-        if (err.code === 'AUTOMATION_BLOCKED_BY_TAKEOVER')
-          return {
-            status: 'SKIPPED',
-            terminal: 'STOPPED_TAKEOVER',
-            errorCode: err.code,
-            errorDetail:
-              (err.details as { automationState?: string } | undefined)?.automationState ===
-              'AUTOMATION_PAUSED'
-                ? 'AUTOMATION_PAUSED'
-                : 'AGENT_TAKEOVER',
-            input: p.input,
-          }
-        // P10-D1: never retried and never waits for credit.
-        if (err.code === 'INSUFFICIENT_BALANCE')
-          return failed('INSUFFICIENT_FUNDS', err.message, p.input)
-        return failed(err.code, err.message, p.input)
+      const sent = await this.trySend(e, p.target, p.content, key, p.input)
+      if ('status' in sent && !('id' in sent)) return sent
+      const message = sent as { id: string; status: string }
+      return {
+        status: 'SUCCEEDED',
+        handle: 'next',
+        input: p.input,
+        output: { messageId: message.id, status: message.status },
       }
     }
+    if (p.kind === 'ai') return this.externalAi(e, p, seq, key)
     if (p.kind === 'round_robin') {
       const result = await assignRoundRobin(
         this.db,
@@ -534,6 +591,105 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
       if (err instanceof SafeFetchError) return failed(err.code, err.message, p.input)
       throw err
     }
+  }
+
+  /**
+   * One send through MessagingService; business refusals become outcomes (takeover → stopped,
+   * INSUFFICIENT_BALANCE → INSUFFICIENT_FUNDS, others → error path). Infrastructure errors throw
+   * and are retried — the idempotency key prevents a duplicate.
+   */
+  private async trySend(
+    e: ExecutionRow,
+    target: SendTarget,
+    content: SendableContent,
+    key: string,
+    input: Record<string, unknown>,
+    aiGenerated = false,
+  ): Promise<{ id: string; status: string } | Outcome> {
+    try {
+      return await this.messaging.send({
+        tenantId: e.tenantId,
+        target,
+        content,
+        source: 'AUTOMATION',
+        idempotencyKey: key,
+        ...(aiGenerated ? { aiGenerated } : {}),
+      })
+    } catch (err) {
+      if (!(err instanceof AppError)) throw err
+      if (err.code === 'AUTOMATION_BLOCKED_BY_TAKEOVER')
+        return {
+          status: 'SKIPPED',
+          terminal: 'STOPPED_TAKEOVER',
+          errorCode: err.code,
+          errorDetail:
+            (err.details as { automationState?: string } | undefined)?.automationState ===
+            'AUTOMATION_PAUSED'
+              ? 'AUTOMATION_PAUSED'
+              : 'AGENT_TAKEOVER',
+          input,
+        }
+      // P10-D1: never retried and never waits for credit.
+      if (err.code === 'INSUFFICIENT_BALANCE') return failed('INSUFFICIENT_FUNDS', err.message, input)
+      return failed(err.code, err.message, input)
+    }
+  }
+
+  /**
+   * AI reply, retry-safe: the answer and the step's decision are saved in ai_reply_logs under
+   * (execution, seq) BEFORE anything is sent, so a retried step reads them back (no second model
+   * call) and the send reuses its idempotency key (no second message).
+   */
+  private async externalAi(
+    e: ExecutionRow,
+    p: Extract<Prepared, { kind: 'ai' }>,
+    seq: number,
+    key: string,
+  ): Promise<Outcome> {
+    const answer = await this.ai.answer(e.tenantId, {
+      question: p.question,
+      history: p.history,
+      extraInstructions: p.instructions,
+      conversationId: p.conversationId,
+      runId: e.id,
+      stepId: String(seq),
+    })
+    const decision = await this.ai.decide(e.tenantId, answer, {
+      conversationId: p.conversationId,
+      mode: p.mode,
+    })
+    const output: Record<string, unknown> = {
+      outcome: decision.outcome,
+      replyLogId: answer.logId,
+    }
+    if (decision.outcome === 'ERROR')
+      return {
+        ...failed(
+          answer.reason === 'AI_NOT_ENABLED' ? 'AI_NOT_ENABLED' : 'AI_ERROR',
+          answer.reason === 'AI_NOT_ENABLED'
+            ? 'AI Assistant is turned off for this workspace.'
+            : "The AI couldn't answer right now.",
+          p.input,
+        ),
+        output,
+      }
+    if (decision.text) {
+      const sent = await this.trySend(
+        e,
+        { conversationId: p.conversationId },
+        { type: 'TEXT', text: decision.text.slice(0, 4096) },
+        key,
+        p.input,
+        true,
+      )
+      if (!('id' in sent)) return { ...sent, output }
+      output.messageId = sent.id
+    }
+    if (decision.handoff)
+      return { status: 'SUCCEEDED', handle: 'needs_human', aiHandoff: true, input: p.input, output }
+    if (p.mode === 'CONVERSATION')
+      return { status: 'SUCCEEDED', stay: { handledMessageId: p.messageId }, input: p.input, output }
+    return { status: 'SUCCEEDED', handle: 'replied', input: p.input, output }
   }
 
   /**
@@ -602,6 +758,39 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
     if (o.terminal === 'COMPLETED') {
       await this.terminate(tx, moved, 'COMPLETED', null, now, effects, after)
       return 'completed'
+    }
+    if (o.aiHandoff) await applyAiHandoff(tx, moved, now)
+    if (o.stay) {
+      // AI conversation: answer a message that arrived meanwhile now, else wait up to 24 h.
+      const ai = aiStateOf(moved)
+      const pending =
+        ai.pendingMessageId && ai.pendingMessageId !== o.stay.handledMessageId
+          ? ai.pendingMessageId
+          : null
+      const context = {
+        ...(moved.context as object),
+        ai: {
+          ...ai,
+          mode: 'CONVERSATION',
+          lastHandledMessageId: o.stay.handledMessageId,
+          pendingMessageId: pending,
+        },
+      } as Prisma.InputJsonValue
+      if (pending) {
+        await tx.automationExecution.update({ where: { id: e.id }, data: { context } })
+        this.changed(after, moved)
+        return 'continue'
+      }
+      const until = new Date(now.getTime() + AI_SILENCE_MS)
+      const waiting = await tx.automationExecution.update({
+        where: { id: e.id },
+        data: { status: 'WAITING', waitUntil: until, context },
+      })
+      after.push(() =>
+        enqueueExecution(this.queues, e.tenantId, e.id, seq, { delay: AI_SILENCE_MS }),
+      )
+      this.changed(after, waiting)
+      return 'waiting'
     }
     if (o.status === 'FAILED') {
       const edge = edgeFrom(graph, node.id, 'error')
@@ -682,6 +871,15 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
         status: e.status,
       }),
     )
+    // The inbox's "AI handling" badge follows AI conversation executions.
+    if (e.conversationId && aiStateOf(e).mode === 'CONVERSATION') {
+      const conversationId = e.conversationId
+      after.push(() =>
+        this.realtime.toConversation(e.tenantId, conversationId, 'conversation.updated', {
+          conversationId,
+        }),
+      )
+    }
   }
 
   private async graphOf(tx: TenantTx, e: ExecutionRow): Promise<FlowGraph> {

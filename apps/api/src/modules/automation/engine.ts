@@ -35,6 +35,10 @@ export type Outcome = {
   vars?: Record<string, unknown>
   /** Realtime pushes to do after commit. */
   notify?: { userId: string; notification: unknown }
+  /** AI conversation mode: stay on this step and wait for the customer's next message. */
+  stay?: { handledMessageId: string }
+  /** AI handed the conversation to a person: takeover is applied with the step. */
+  aiHandoff?: true
 }
 
 export const failed = (code: string, detail: string, input?: Record<string, unknown>): Outcome => ({
@@ -98,6 +102,7 @@ export const isExternal = (node: FlowNode) =>
   node.type === 'action.send_message' ||
   node.type === 'action.send_template' ||
   node.type === 'action.webhook' ||
+  node.type === 'action.ai_reply' ||
   (node.type === 'action.assign_agent' && node.config.mode === 'ROUND_ROBIN')
 
 export async function runInternal(

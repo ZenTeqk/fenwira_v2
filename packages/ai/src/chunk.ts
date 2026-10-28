@@ -43,6 +43,9 @@ export function chunkSections(sections: TextSection[], opts: ChunkOptions = {}):
   }
 
   for (const section of sections) {
+    // A new PDF page starts a new chunk, so a cited page is always the page the text is on.
+    if (section.page != null && page != null && section.page !== page && current.trim() && current.trim() !== heading)
+      flush(false)
     for (const raw of section.text.split(/\n\s*\n/)) {
       const block = raw.trim()
       if (!block) continue

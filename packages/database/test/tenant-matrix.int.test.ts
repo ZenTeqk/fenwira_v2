@@ -28,6 +28,9 @@ const execution = async (tx: TenantTx, tenantId: string) => {
   })
 }
 
+const aiSource = (tx: TenantTx, tenantId: string) =>
+  tx.aiKnowledgeSource.create({ data: { tenantId, type: 'TEXT', title: 'Matrix' } })
+
 const invoice = (tx: TenantTx, tenantId: string) =>
   tx.invoice.create({
     data: {
@@ -451,6 +454,23 @@ const FIXTURES: Record<string, Fixture> = {
       update: {},
     }),
   invoices: (tx, { tenantId }) => invoice(tx, tenantId),
+  ai_settings: (tx, { tenantId }) =>
+    tx.aiSettings.upsert({ where: { tenantId }, create: { tenantId }, update: {} }),
+  ai_knowledge_sources: (tx, { tenantId }) => aiSource(tx, tenantId),
+  ai_knowledge_chunks: async (tx, { tenantId }) => {
+    const source = await aiSource(tx, tenantId)
+    return tx.$executeRaw`
+      INSERT INTO ai_knowledge_chunks (id, tenant_id, source_id, generation, ordinal, content, embedding)
+      VALUES (${uuidv7()}::uuid, ${tenantId}::uuid, ${source.id}::uuid, 1, 0, 'Matrix', '[1,0,0]'::vector)`
+  },
+  ai_usage: (tx, { tenantId }) =>
+    tx.aiUsage.create({
+      data: { tenantId, model: 'mock', inputTokens: 1, outputTokens: 1, kind: 'REPLY' },
+    }),
+  ai_reply_logs: (tx, { tenantId }) =>
+    tx.aiReplyLog.create({
+      data: { tenantId, customerMessageExcerpt: 'Matrix', outcome: 'NO_ANSWER' },
+    }),
   payment_proofs: async (tx, { tenantId, userId }) =>
     tx.paymentProof.create({
       data: {

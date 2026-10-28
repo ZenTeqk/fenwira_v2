@@ -74,6 +74,13 @@ export const ERROR_COPY: Partial<Record<ErrorCode, { message?: string; hint: str
   },
   LIMIT_EXCEEDED: { hint: 'Upgrade the plan or remove items to stay within the limit.' },
   ENTITLEMENT_REQUIRED: { hint: 'This feature is not on the current plan.' },
+  AI_NOT_ENABLED: {
+    message: 'AI Assistant is not enabled for this workspace.',
+    hint: 'Contact Fenwira to add AI Assistant to your plan.',
+  },
+  AI_QUOTA_EXHAUSTED: {
+    hint: 'The monthly AI reply allowance is used up. Contact Fenwira to raise it, or wait for next month.',
+  },
   RATE_LIMITED: {
     message: 'Too many attempts in a short time.',
     hint: 'Wait a few minutes, then try again.',

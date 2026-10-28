@@ -185,7 +185,27 @@ export class InboxService {
     // allowlist is workspace-wide, never scoped to one agent); `find`'s visibility() only
     // restricts AGENT-role sessions, which an API key never is.
     const userId = currentApiKey() ? NIL_USER_ID : currentAuth().userId
-    return this.tenantDb.run(async (tx) => toConversation(await this.find(tx, id, userId)))
+    return this.tenantDb.run(async (tx) => {
+      const c = await this.find(tx, id, userId)
+      return { ...toConversation(c), aiHandling: await this.aiHandling(tx, c) }
+    })
+  }
+
+  /** "AI handling": an AI conversation-mode execution is running or waiting on this thread. */
+  private async aiHandling(
+    tx: TenantTx,
+    c: { id: string; status: string; automationState: string },
+  ): Promise<boolean> {
+    if (c.status === 'RESOLVED' || c.automationState !== 'AUTOMATION_ACTIVE') return false
+    const run = await tx.automationExecution.findFirst({
+      where: {
+        conversationId: c.id,
+        status: { in: ['RUNNING', 'WAITING'] },
+        context: { path: ['ai', 'mode'], equals: 'CONVERSATION' },
+      },
+      select: { id: true },
+    })
+    return Boolean(run)
   }
 
   /**
@@ -453,6 +473,17 @@ export class InboxService {
           resolvedAt: status === 'RESOLVED' ? new Date() : null,
         },
       })
+      // Resolving ends an AI Assistant conversation on this thread (docs/AI_ASSISTANT.md).
+      if (status === 'RESOLVED')
+        await tx.outboxEvent.create({
+          data: {
+            tenantId,
+            eventType: 'conversation.resolved',
+            aggregateType: 'conversation',
+            aggregateId: id,
+            payload: { conversationId: id },
+          },
+        })
       await writeSystemEvent(
         tx,
         { tenantId, conversationId: id, contactId: c.contactId },

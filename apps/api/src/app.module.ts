@@ -1,3 +1,4 @@
+import { aiConfigFromEnv } from '@fenwira/ai'
 import { parseKeyRing, type ApiEnv } from '@fenwira/config'
 import { type DynamicModule, Module } from '@nestjs/common'
 import { APP_GUARD } from '@nestjs/core'
@@ -31,6 +32,7 @@ import {
 } from './modules/billing'
 import { CampaignsModule } from './modules/campaigns'
 import { AutomationModule } from './modules/automation'
+import { AiModule } from './modules/ai'
 import { WhatsAppAccountsModule } from './modules/whatsapp-accounts'
 import { ApiKeyGuard, ApiKeysModule } from './modules/api-keys'
 import { NativeModule, nativeOptions } from './modules/native-connectors'
@@ -133,6 +135,7 @@ export class ApiModule {
           billing: billingPlatformFromEnv(env),
         }),
         AutomationModule.forApi({ keyRing, publicApiUrl: env.PUBLIC_API_URL }),
+        AiModule.forApi(aiConfigFromEnv(env)),
         templates,
         whatsapp,
         PlatformWhatsAppModule.forApi([whatsapp, templates]),

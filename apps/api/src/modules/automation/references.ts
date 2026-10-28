@@ -9,6 +9,7 @@ import {
   validateFlowGraph,
 } from '@fenwira/contracts'
 import { type TenantTx } from '@fenwira/database'
+import { quotaState, readySourceCount } from '../ai'
 
 /**
  * The publish gate on the server (docs/AUTOMATION_ENGINE.md → Validation): the shared structural
@@ -145,5 +146,33 @@ export async function validateWithReferences(tx: TenantTx, raw: unknown): Promis
         break
     }
   }
-  return { valid: errors.length === 0, errors }
+  const warnings: FlowIssue[] = []
+  const aiNodes = graph.nodes.filter((n) => n.type === 'action.ai_reply')
+  if (aiNodes.length) {
+    // RLS limits this to the bound workspace's own row.
+    const settings = await tx.aiSettings.findFirst({ select: { tenantId: true, enabled: true } })
+    const ready = settings?.enabled ? await readySourceCount(tx, settings.tenantId) : 0
+    const quota = settings?.enabled ? await quotaState(tx, settings.tenantId) : null
+    for (const n of aiNodes) {
+      if (!settings?.enabled)
+        errors.push({
+          code: 'FLOW_AI_NOT_ENABLED',
+          nodeId: n.id,
+          message: 'AI Assistant is not enabled for this workspace.',
+        })
+      else if (!ready)
+        errors.push({
+          code: 'FLOW_AI_NO_KNOWLEDGE',
+          nodeId: n.id,
+          message: 'Add at least one knowledge source on the AI Assistant page and wait until it is ready.',
+        })
+      if (quota && !quota.available)
+        warnings.push({
+          code: 'FLOW_AI_QUOTA',
+          nodeId: n.id,
+          message: 'This month’s AI replies are used up: the step will hand conversations to your team.',
+        })
+    }
+  }
+  return { valid: errors.length === 0, errors, ...(warnings.length ? { warnings } : {}) }
 }

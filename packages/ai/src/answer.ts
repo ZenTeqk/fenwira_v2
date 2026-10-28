@@ -112,6 +112,8 @@ export async function answerQuestion(deps: AnswerDeps, input: AnswerInput): Prom
     return { outcome: 'QUOTA', reason: 'QUOTA_EXHAUSTED', answer: null, sources: [], billable: false, usage: empty }
 
   const question = input.question.trim().slice(0, 2000)
+  if (!question)
+    return { outcome: 'NO_ANSWER', reason: 'NO_MATCH', answer: null, sources: [], billable: false, usage: empty }
   if (asksForHuman(question))
     return { outcome: 'HANDOFF', reason: 'WANTS_HUMAN', answer: null, sources: [], billable: false, usage: empty }
   const embedded = await deps.provider.embed([question], 'query')

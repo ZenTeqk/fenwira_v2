@@ -42,6 +42,8 @@ export const flowSchema = z.object({
   activeVersion: z.number().int().nullable(),
   draftUpdatedAt: z.string().nullable(),
   hasWebhookToken: z.boolean(),
+  /** `AI_ASSISTANT`: created and switched on/off from the AI Assistant page. */
+  managedBy: z.enum(['AI_ASSISTANT']).nullable().default(null),
   executions: z.object({ running: z.number().int(), total: z.number().int() }),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -69,6 +71,16 @@ export const flowVersionSchema = z.object({
           edgeId: z.string().optional(),
         }),
       ),
+      /** Never block publishing (e.g. the AI reply quota is used up this month). */
+      warnings: z
+        .array(
+          z.object({
+            code: z.string(),
+            message: z.string(),
+            nodeId: z.string().optional(),
+          }),
+        )
+        .optional(),
     })
     .nullable(),
 })

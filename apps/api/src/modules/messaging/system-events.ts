@@ -12,6 +12,8 @@ export type SystemEvent =
   | 'automation_resumed'
   | 'automation_paused'
   | 'reopened'
+  /** The AI Assistant handed the conversation to a person (docs/AI_ASSISTANT.md). */
+  | 'ai_handoff'
 
 export async function writeSystemEvent(
   tx: TenantTx,

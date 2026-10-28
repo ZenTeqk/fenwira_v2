@@ -57,6 +57,7 @@ COPY --from=build --chown=node:node /repo/packages/queue/dist ./packages/queue/d
 COPY --from=build --chown=node:node /repo/packages/database/dist ./packages/database/dist
 COPY --from=build --chown=node:node /repo/packages/database/sql ./packages/database/sql
 COPY --from=build --chown=node:node /repo/packages/whatsapp/dist ./packages/whatsapp/dist
+COPY --from=build --chown=node:node /repo/packages/ai/dist ./packages/ai/dist
 COPY --from=build --chown=node:node /repo/apps/api/dist ./apps/api/dist
 USER node
 

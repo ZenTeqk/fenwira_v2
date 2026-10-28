@@ -150,6 +150,8 @@ export const messageSchema = z.object({
   type: z.enum(MESSAGE_TYPES),
   status: z.enum(MESSAGE_STATUSES),
   source: z.enum(MESSAGE_SOURCES),
+  /** Sent by the AI Assistant (shown as an "AI" label). */
+  aiGenerated: z.boolean().default(false),
   content: messageContentSchema,
   providerMessageId: z.string().nullable(),
   errorCode: z.string().nullable(),
@@ -238,6 +240,8 @@ export const conversationSchema = z.object({
   assignee: z.object({ id: idSchema, name: z.string() }).nullable(),
   tags: z.array(z.object({ id: idSchema, name: z.string(), color: z.string() })),
   automationState: z.enum(AUTOMATION_STATES),
+  /** An AI Assistant conversation is in progress (detail view only; docs/AI_ASSISTANT.md). */
+  aiHandling: z.boolean().optional(),
   /** Unread messages for the current user. */
   unreadCount: z.number().int(),
   lastMessageAt: z.string().nullable(),

@@ -14,6 +14,7 @@ CREATE TYPE "ai_reply_outcome" AS ENUM ('REPLIED', 'NO_ANSWER', 'HANDOFF', 'QUOT
 ALTER TYPE "file_purpose" ADD VALUE IF NOT EXISTS 'AI_KNOWLEDGE';
 
 ALTER TABLE "messages" ADD COLUMN "ai_generated" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "flows" ADD COLUMN "managed_by" TEXT;
 
 CREATE TABLE "ai_settings" (
     "tenant_id" UUID NOT NULL,
@@ -89,6 +90,7 @@ CREATE TABLE "ai_reply_logs" (
     "sources" JSONB NOT NULL DEFAULT '[]',
     "reply" TEXT,
     "outcome" "ai_reply_outcome" NOT NULL,
+    "decided" BOOLEAN NOT NULL DEFAULT false,
     "billable" BOOLEAN NOT NULL DEFAULT false,
     "playground" BOOLEAN NOT NULL DEFAULT false,
     "input_tokens" INTEGER NOT NULL DEFAULT 0,

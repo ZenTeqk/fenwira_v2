@@ -47,6 +47,8 @@ export const QUEUE_JOB_OPTIONS: Partial<Record<QueueName, JobsOptions>> = {
   'whatsapp.inbound': { attempts: 8, backoff: { type: 'exponential', delay: 1000 } },
   'whatsapp.status': { attempts: 8, backoff: { type: 'exponential', delay: 1000 } },
   'whatsapp.media': { attempts: 5, backoff: { type: 'exponential', delay: 2000 } },
+  // AI Assistant ingestion: infrastructure errors (Bedrock throttling, S3) get 3 attempts.
+  'ai.ingest': { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
 }
 
 /** Job id for an outbox event on a queue. An outbound send is keyed by its message id. */

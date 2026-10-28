@@ -1923,6 +1923,8 @@ model Flow {
   priority                Int           @default(100)
   webhookTokenHash        Bytes?        @unique @map("webhook_token_hash")
   webhookSecretCiphertext Bytes?        @map("webhook_secret_ciphertext")
+  /// Set for flows the product manages (`AI_ASSISTANT`): shown with a badge, turned on/off there.
+  managedBy               String?       @map("managed_by")
   createdBy               String?       @map("created_by") @db.Uuid
   createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -2702,8 +2704,11 @@ model AiReplyLog {
   retrievedChunkIds      String[]       @map("retrieved_chunk_ids") @db.Uuid
   /// Title, page and snippet per retrieved chunk, kept for review after sources change.
   sources                Json           @default("[]")
+  /** The text sent (or for the playground, that would be sent) to the customer. */
   reply                  String?
   outcome                AiReplyOutcome
+  /** The step's final decision (outcome + reply) is saved; a retry reuses it as is. */
+  decided                Boolean        @default(false)
   /// The reply model was called and the call counts against the monthly quota.
   billable               Boolean        @default(false)
   playground             Boolean        @default(false)
