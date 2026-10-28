@@ -11,6 +11,7 @@ import {
   ExecutionsController,
   FlowsController,
 } from './flows.controller'
+import { FlowTestService } from './flow-test.service'
 import { FlowsService } from './flows.service'
 
 @Module({})
@@ -28,6 +29,7 @@ export class AutomationModule {
       providers: [
         { provide: AUTOMATION_OPTIONS, useValue: options },
         FlowsService,
+        FlowTestService,
         AiAssistantFlowService,
       ],
     }

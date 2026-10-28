@@ -26,8 +26,18 @@ FlowVersion:  DRAFT ──validate ok + publish──► PUBLISHED ──newer v
 
 ```ts
 type FlowGraph = {
-  nodes: Array<{ id: string; type: NodeType; position: { x: number; y: number }; config: NodeConfig }>
-  edges: Array<{ id: string; source: string; target: string; sourceHandle?: 'yes' | 'no' | 'next' | 'error' }>
+  nodes: Array<{
+    id: string
+    type: NodeType
+    position: { x: number; y: number }
+    config: NodeConfig
+  }>
+  edges: Array<{
+    id: string
+    source: string
+    target: string
+    sourceHandle?: 'yes' | 'no' | 'next' | 'error'
+  }>
 }
 ```
 
@@ -36,43 +46,43 @@ type FlowGraph = {
 
 ### Node catalog v1
 
-| Category | Type | Config (Zod) | Outputs |
-| --- | --- | --- | --- |
-| Trigger | `trigger.message_received` | `{ phoneNumberIds?: string[]; onlyNewConversation?: boolean }` | next |
-| Trigger | `trigger.keyword` | `{ keywords: string[] (1–20); match: 'EXACT' \| 'CONTAINS' \| 'STARTS_WITH'; caseSensitive: false }` | next |
-| Trigger | `trigger.contact_created` | `{ sources?: ContactSource[] }` | next |
-| Trigger | `trigger.webhook` | `{ contactPhonePath: string (JSONPath into body); requireSignature: boolean }` | next |
-| Condition | `condition.equals` / `condition.contains` / `condition.exists` | `{ subject: Expr; value?: string; caseSensitive?: boolean }` | yes, no |
-| Condition | `condition.has_tag` | `{ tagIds: string[]; match: 'ANY' \| 'ALL' }` | yes, no |
-| Condition | `condition.contact_property` | `{ key: string; operator: DSL operator; value?: unknown }` | yes, no |
-| Action | `action.send_message` | `{ text: string (≤ 4096, supports {{expr}}) } \| { mediaFileId; caption? }` | next, error |
-| Action | `action.send_template` | `{ templateId: string; variables: VariableMapping }` (the approved version is resolved at run time) | next, error |
-| Action | `action.add_tag` / `action.remove_tag` | `{ tagIds: string[] }` | next |
-| Action | `action.assign_agent` | `{ mode: 'USER' \| 'ROUND_ROBIN'; userId?: string }` | next |
-| Action | `action.update_contact` | `{ updates: Array<{ field: 'name' \| 'email' \| 'language' \| `property.${string}`; value: Expr }> }` | next, error |
-| Action | `action.webhook` | `{ method: 'POST' \| 'GET'; url: string; headers?: Record<string,string>; body?: string (template); timeoutMs ≤ 10000; saveResponseAs?: string }` | next, error |
-| Action | `action.delay` | `{ amount: number; unit: 'MINUTES' \| 'HOURS' \| 'DAYS' }` (1 minute to 30 days) | next |
-| Message | `action.ai_reply` | `{ instructions?: string (≤ 1000); mode: 'SINGLE' \| 'CONVERSATION' }` (AI Assistant, docs/AI_ASSISTANT.md) | replied, needs_human, error |
-| Action | `action.end` | `{}` | none |
+| Category  | Type                                                           | Config (Zod)                                                                                                                                      | Outputs                     |
+| --------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| Trigger   | `trigger.message_received`                                     | `{ phoneNumberIds?: string[]; onlyNewConversation?: boolean }`                                                                                    | next                        |
+| Trigger   | `trigger.keyword`                                              | `{ keywords: string[] (1–20); match: 'EXACT' \| 'CONTAINS' \| 'STARTS_WITH'; caseSensitive: false }`                                              | next                        |
+| Trigger   | `trigger.contact_created`                                      | `{ sources?: ContactSource[] }`                                                                                                                   | next                        |
+| Trigger   | `trigger.webhook`                                              | `{ contactPhonePath: string (JSONPath into body); requireSignature: boolean }`                                                                    | next                        |
+| Condition | `condition.equals` / `condition.contains` / `condition.exists` | `{ subject: Expr; value?: string; caseSensitive?: boolean }`                                                                                      | yes, no                     |
+| Condition | `condition.has_tag`                                            | `{ tagIds: string[]; match: 'ANY' \| 'ALL' }`                                                                                                     | yes, no                     |
+| Condition | `condition.contact_property`                                   | `{ key: string; operator: DSL operator; value?: unknown }`                                                                                        | yes, no                     |
+| Action    | `action.send_message`                                          | `{ text: string (≤ 4096, supports {{expr}}) } \| { mediaFileId; caption? }`                                                                       | next, error                 |
+| Action    | `action.send_template`                                         | `{ templateId: string; variables: VariableMapping }` (the approved version is resolved at run time)                                               | next, error                 |
+| Action    | `action.add_tag` / `action.remove_tag`                         | `{ tagIds: string[] }`                                                                                                                            | next                        |
+| Action    | `action.assign_agent`                                          | `{ mode: 'USER' \| 'ROUND_ROBIN'; userId?: string }`                                                                                              | next                        |
+| Action    | `action.update_contact`                                        | `{ updates: Array<{ field: 'name' \| 'email' \| 'language' \| `property.${string}`; value: Expr }> }`                                             | next, error                 |
+| Action    | `action.webhook`                                               | `{ method: 'POST' \| 'GET'; url: string; headers?: Record<string,string>; body?: string (template); timeoutMs ≤ 10000; saveResponseAs?: string }` | next, error                 |
+| Action    | `action.delay`                                                 | `{ amount: number; unit: 'MINUTES' \| 'HOURS' \| 'DAYS' }` (1 minute to 30 days)                                                                  | next                        |
+| Message   | `action.ai_reply`                                              | `{ instructions?: string (≤ 1000); mode: 'SINGLE' \| 'CONVERSATION' }` (AI Assistant, docs/AI_ASSISTANT.md)                                       | replied, needs_human, error |
+| Action    | `action.end`                                                   | `{}`                                                                                                                                              | none                        |
 
 **Expressions (`Expr`)** are a restricted template syntax, not code: `{{contact.name}}`, `{{contact.phone}}`, `{{contact.property.<key>}}`, `{{trigger.message.text}}`, `{{trigger.webhook.<jsonpath>}}`, `{{vars.<name>}}` (from `saveResponseAs`). They are resolved by a pure function, with no eval. A missing value resolves to `""`.
 
 ### Validation (publish gate)
 
-| Rule | Code |
-| --- | --- |
-| Exactly one trigger node, with no incoming edges | `FLOW_TRIGGER_COUNT` |
-| Every node reachable from the trigger | `FLOW_UNREACHABLE_NODE` |
-| Every node's config passes its Zod schema | `FLOW_NODE_CONFIG_INVALID` |
-| Condition nodes have both `yes` and `no` edges | `FLOW_CONDITION_BRANCHES` |
-| AI reply nodes have exactly one `replied`, `needs_human` and `error` edge (to a step or an End) | `FLOW_DANGLING_NODE` |
-| AI reply needs AI Assistant enabled for the workspace and at least one ready knowledge source | `FLOW_AI_NOT_ENABLED`, `FLOW_AI_NO_KNOWLEDGE` |
-| AI replies used up this month: a **warning** (`validation.warnings`), never blocks publishing | `FLOW_AI_QUOTA` |
-| Non-`end` nodes have a `next` edge (`error` is optional, and defaults to failing the execution) | `FLOW_DANGLING_NODE` |
-| Cycles are allowed only if they pass through a `delay` node | `FLOW_CYCLE_WITHOUT_DELAY` |
-| `send_template` references a template with an APPROVED version | `FLOW_TEMPLATE_NOT_APPROVED` |
-| Referenced tags, users and properties exist | `FLOW_REFERENCE_MISSING` |
-| At most 100 nodes | `FLOW_TOO_LARGE` |
+| Rule                                                                                            | Code                                          |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Exactly one trigger node, with no incoming edges                                                | `FLOW_TRIGGER_COUNT`                          |
+| Every node reachable from the trigger                                                           | `FLOW_UNREACHABLE_NODE`                       |
+| Every node's config passes its Zod schema                                                       | `FLOW_NODE_CONFIG_INVALID`                    |
+| Condition nodes have both `yes` and `no` edges                                                  | `FLOW_CONDITION_BRANCHES`                     |
+| AI reply nodes have exactly one `replied`, `needs_human` and `error` edge (to a step or an End) | `FLOW_DANGLING_NODE`                          |
+| AI reply needs AI Assistant enabled for the workspace and at least one ready knowledge source   | `FLOW_AI_NOT_ENABLED`, `FLOW_AI_NO_KNOWLEDGE` |
+| AI replies used up this month: a **warning** (`validation.warnings`), never blocks publishing   | `FLOW_AI_QUOTA`                               |
+| Non-`end` nodes have a `next` edge (`error` is optional, and defaults to failing the execution) | `FLOW_DANGLING_NODE`                          |
+| Cycles are allowed only if they pass through a `delay` node                                     | `FLOW_CYCLE_WITHOUT_DELAY`                    |
+| `send_template` references a template with an APPROVED version                                  | `FLOW_TEMPLATE_NOT_APPROVED`                  |
+| Referenced tags, users and properties exist                                                     | `FLOW_REFERENCE_MISSING`                      |
+| At most 100 nodes                                                                               | `FLOW_TOO_LARGE`                              |
 
 The API returns `{ valid, errors: [{ nodeId?, edgeId?, code, message }] }`, and the builder highlights the offending nodes.
 
@@ -142,17 +152,17 @@ Experience V2 uses white node surfaces with category identity in semantic icon c
 
 Module `apps/api/src/modules/automation` (API and worker sides, like campaigns); contracts in `packages/contracts/src/automation/` (`graph.ts`, `validate.ts`, `expressions.ts`) and `api/automation.ts`.
 
-| Piece | Where |
-| --- | --- |
-| Shared primitives: plan ordering, trigger runs, `startNextFlow`, `finishExecution`, takeover stop, job ids | `automation.core.ts` |
-| In-transaction node handlers (conditions, tags, update contact, assign to a user, delay, end) | `engine.ts` |
-| Trigger matching and takeover events | `automation-trigger.processor.ts` (`automation.trigger`) |
-| Step interpreter, external actions, recovery | `automation-execute.processor.ts` (`automation.execute`) |
-| Server publish gate (shared validator + reference checks) | `references.ts` |
-| API, inbound webhook | `flows.service.ts`, `flows.controller.ts` |
-| Entitlement boundary (P10-D3) | `modules/entitlements` (`EntitlementsService`, allow-all source) |
-| SSRF-safe HTTP (P10-D4) | `core/http/safe-fetch.ts` |
-| Builder | `apps/web/components/automation/*`, `apps/web/lib/automation.ts`, `/automations`, `/automations/new`, `/automations/[id]`, `/automations/[id]/history` |
+| Piece                                                                                                      | Where                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shared primitives: plan ordering, trigger runs, `startNextFlow`, `finishExecution`, takeover stop, job ids | `automation.core.ts`                                                                                                                                   |
+| In-transaction node handlers (conditions, tags, update contact, assign to a user, delay, end)              | `engine.ts`                                                                                                                                            |
+| Trigger matching and takeover events                                                                       | `automation-trigger.processor.ts` (`automation.trigger`)                                                                                               |
+| Step interpreter, external actions, recovery                                                               | `automation-execute.processor.ts` (`automation.execute`)                                                                                               |
+| Server publish gate (shared validator + reference checks)                                                  | `references.ts`                                                                                                                                        |
+| API, inbound webhook                                                                                       | `flows.service.ts`, `flows.controller.ts`                                                                                                              |
+| Entitlement boundary (P10-D3)                                                                              | `modules/entitlements` (`EntitlementsService`, allow-all source)                                                                                       |
+| SSRF-safe HTTP (P10-D4)                                                                                    | `core/http/safe-fetch.ts`                                                                                                                              |
+| Builder                                                                                                    | `apps/web/components/automation/*`, `apps/web/lib/automation.ts`, `/automations`, `/automations/new`, `/automations/[id]`, `/automations/[id]/history` |
 
 **A step, precisely.** Phase 1 runs in one transaction holding the execution row lock (`FOR UPDATE`): wake a due WAITING execution (or re-delay it by 1 minute while the flow is PAUSED), apply the 500-step limit, check takeover, load the context, and either run an internal node and record its step in the same transaction, or render what an external node will do. Phase 2 (external nodes only, no transaction): `MessagingService.send` with `auto:{executionId}:{seq}`, the round-robin assignment, or `safeFetch`. Phase 3 re-takes the lock and records the step only if the execution is still RUNNING at the same step and node; otherwise the result is dropped (`superseded`), which is how duplicate workers and a concurrent takeover or cancel resolve. Webhook calls therefore happen at least once, with `Idempotency-Key: auto:{executionId}:{seq}`.
 
@@ -178,14 +188,21 @@ Module `apps/api/src/modules/automation` (API and worker sides, like campaigns);
   - after 24 hours of silence (the wait expires → `replied` path, `{ended: SILENCE}`).
 
   Re-entry rules apply unchanged: the managed flow uses AFTER_COMPLETION.
+
 - **Handoff.** `needs_human` moves the conversation to AGENT_TAKEOVER with the system event `ai_handoff` and the usual `conversation.automation_state.changed` event. That event stops every other execution of the conversation; the handing-off execution is marked `context.aiHandoff` and finishes its own Needs a human path.
 - The 500-step cap, the per-step takeover check and BullMQ retries apply as for every node. The trigger and conversation history are never stored in step input/output (only `mode`, `messageId`, `outcome`, `replyLogId`, `messageId` of the reply).
+
+### Guided creation (2026-10-28)
+
+- **Templates** live in one typed registry, `FLOW_TEMPLATES` in `packages/contracts/src/automation/templates.ts`. Each entry is an ordinary flow graph plus a `setup` checklist. Unit tests require every entry to pass `validateFlowGraph` once its setup is filled. The AI Assistant's managed flow (`AI_ASSISTANT_TEMPLATE`) is the same entry the gallery shows under AI. Fenwira has no business-hours condition, so "Out-of-hours reply" checks a tag. "Follow-up after no reply" treats "replied" as `lastInboundAt IN_LAST_DAYS 1` (the existing contact-field condition).
+- **Builder:** the gallery at `/automations/new` creates the flow, saves the auto-laid-out template and opens `?template=<id>`. The builder shows a live summary sentence, a setup checklist (template steps first, then a generic item for every step that needs input), a "+" on edges and open branches, "Tidy up", per-step counts and a "Ready to publish?" panel. Re-entry policies keep their stored values; the UI calls them "Every time it matches" (ALWAYS), "Only the first time for each contact" (ONCE_PER_CONTACT) and "Not while one is already running for this chat" (AFTER_COMPLETION).
+- **Overlap warning:** `findOverlaps` (contracts `matching.ts`) uses the engine's own `keywordMatches` and `orderPlan` (moved there unchanged) on the other live flows' published triggers. Keyword flows overlap when either flow's keywords match both rules. A keyword flow suppresses "Message received" flows for that message. Everything else that matches runs one after another in AE2 order (AE3).
+- **Test run:** `POST /flows/:id/test` (`FlowTestService`) runs the saved draft against a sample contact and event inside one tenant transaction that always rolls back. Conditions, tag and contact-update steps run through the executor's `runInternal`/`loadContext`, so their results are real. A made-up contact, its tags and properties, and every activity or outbox row vanish with the rollback. Sends, templates, webhooks, AI replies and assignment are never performed; the step shows the rendered "Would send: …" instead. Delays advance a simulated clock without waiting. No execution, trigger run, usage or message survives; only one `automation.tested` audit entry is written. The builder highlights the path from the returned handles.
 
 ## Open questions
 
 None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → Decision register.
 
-
 ### Experience V2 studio
 
-The shared BuilderPage studio appearance joins the searchable node library, warm canvas and selected-step settings. Below 1280px settings use a focus-trapped modal; below 768px the Outline is the initial view. The catalog, expressions, graph adapter, validation, optimistic If-Match autosave, published versions, history and replay are reused. An explicit Save flushes that same autosave path, and Publish confirms version impact. Message/template previews preserve unresolved expressions and use authorized template samples. Header counts are the existing all-time total/running values, not invented daily metrics. Draft-read errors now expose retry instead of an indefinite skeleton. No wait-for-reply/customer-replied node or test simulator is added. [Visual checkpoint](design/EXPERIENCE_V2_AUTOMATIONS_RECONSTRUCTION.md).
+The shared BuilderPage studio appearance joins the searchable node library, warm canvas and selected-step settings. Below 1280px settings use a focus-trapped modal; below 768px the Outline is the initial view. The catalog, expressions, graph adapter, validation, optimistic If-Match autosave, published versions, history and replay are reused. An explicit Save flushes that same autosave path, and Publish confirms version impact. Message/template previews preserve unresolved expressions and use authorized template samples. Header counts are the existing all-time total/running values, not invented daily metrics. Draft-read errors now expose retry instead of an indefinite skeleton. No wait-for-reply/customer-replied node is added; the dry-run test came later (see Guided creation). [Visual checkpoint](design/EXPERIENCE_V2_AUTOMATIONS_RECONSTRUCTION.md).

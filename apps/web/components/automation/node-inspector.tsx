@@ -50,6 +50,8 @@ type Props = {
 
 const str = (v: unknown) =>
   typeof v === 'string' ? v : v === undefined || v === null ? '' : String(v)
+/** Contact-field operators whose value is a number (the filter DSL rejects "1" as text). */
+const NUMERIC_OPERATORS = new Set(['IN_LAST_DAYS', 'NOT_IN_LAST_DAYS', 'GT', 'GTE', 'LT', 'LTE'])
 const CONTACT_SOURCES = ['INBOUND', 'MANUAL', 'IMPORT', 'API', 'CAMPAIGN', 'AUTOMATION'] as const
 
 /** Appends a `{{value}}` token to a text field (keyboard-friendly select). */
@@ -415,6 +417,7 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
               { value: 'email', label: 'Email' },
               { value: 'language', label: 'Language' },
               { value: 'country', label: 'Country' },
+              { value: 'lastInboundAt', label: 'Last message from the contact' },
               ...(properties.data ?? []).map((p) => ({ value: p.key, label: p.label })),
             ]}
           />
@@ -428,11 +431,28 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
               label: o.charAt(0) + o.slice(1).toLowerCase().replaceAll('_', ' '),
             }))}
           />
-          <Field label="Value">
+          <Field
+            label="Value"
+            hint={
+              NUMERIC_OPERATORS.has(str(c.operator))
+                ? str(c.operator).endsWith('LAST_DAYS')
+                  ? 'Number of days.'
+                  : 'A number.'
+                : undefined
+            }
+          >
             <Input
               readOnly={readOnly}
+              inputMode={NUMERIC_OPERATORS.has(str(c.operator)) ? 'numeric' : undefined}
               value={str(c.value)}
-              onChange={(e) => set({ value: e.target.value })}
+              onChange={(e) =>
+                set({
+                  value:
+                    NUMERIC_OPERATORS.has(str(c.operator)) && e.target.value.trim() !== ''
+                      ? Number(e.target.value)
+                      : e.target.value,
+                })
+              }
             />
           </Field>
         </>
@@ -736,7 +756,10 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
           </Field>
           <p className="text-sm text-secondary">
             Knowledge, tone and handover messages are set on the{' '}
-            <Link href="/ai-assistant" className="font-medium text-primary-strong underline-offset-4 hover:underline">
+            <Link
+              href="/ai-assistant"
+              className="font-medium text-primary-strong underline-offset-4 hover:underline"
+            >
               AI Assistant page
             </Link>
             . Outside the 24-hour window this step takes its error path.

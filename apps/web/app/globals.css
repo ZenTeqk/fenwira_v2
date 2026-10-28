@@ -23,4 +23,18 @@
 .fw-flow .fw-edge-active .react-flow__edge-path {
   stroke: var(--color-primary);
   stroke-width: 3;
+  stroke-dasharray: 8 4;
+  animation: fw-edge-dash 0.9s linear infinite;
+}
+@keyframes fw-edge-dash {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+/* Traversed paths stay highlighted but still under reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .fw-flow .fw-edge-active .react-flow__edge-path {
+    animation: none;
+    stroke-dasharray: none;
+  }
 }

@@ -10,6 +10,8 @@ import {
   type FlowNode,
   type FlowVersion,
   isTrigger,
+  keywordMatches,
+  orderPlan,
   type RunEntryStatus,
   type TriggerRun,
   type TriggerType,
@@ -52,17 +54,8 @@ export type ExecutionRow = Prisma.AutomationExecutionGetPayload<object>
 type FlowRow = Prisma.FlowGetPayload<object>
 type Candidate = { flow: FlowRow; versionId: string; graph: FlowGraph }
 
-/** AE2: priority ASC, then created_at ASC, then id ASC. Pure; unit-tested. */
-export function orderPlan<T extends { priority: number; createdAt: Date; id: string }>(
-  flows: readonly T[],
-): T[] {
-  return [...flows].sort(
-    (a, b) =>
-      a.priority - b.priority ||
-      a.createdAt.getTime() - b.createdAt.getTime() ||
-      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-  )
-}
+/** AE2 ordering and keyword rules live in contracts (shared with the builder's overlap check). */
+export { keywordMatches, orderPlan }
 
 export function triggerNodeOf(graph: FlowGraph): FlowNode | undefined
 export function triggerNodeOf(graph: DraftGraph): DraftGraph['nodes'][number] | undefined
@@ -71,26 +64,6 @@ export function triggerNodeOf(graph: { nodes: Array<{ type: FlowNode['type'] }> 
 }
 
 export const parseGraph = (raw: unknown): FlowGraph => flowGraphSchema.parse(raw)
-
-/** Keyword match per `trigger.keyword` config. Whitespace-trimmed; case-insensitive by default. */
-export function keywordMatches(
-  config: {
-    keywords: string[]
-    match: 'EXACT' | 'CONTAINS' | 'STARTS_WITH'
-    caseSensitive: boolean
-  },
-  text: string,
-): boolean {
-  const norm = (s: string) => (config.caseSensitive ? s.trim() : s.trim().toLowerCase())
-  const t = norm(text)
-  if (!t) return false
-  return config.keywords.some((k) => {
-    const kw = norm(k)
-    if (config.match === 'EXACT') return t === kw
-    if (config.match === 'STARTS_WITH') return t.startsWith(kw)
-    return t.includes(kw)
-  })
-}
 
 // ------------------------------------------------------------------------------ matching
 
@@ -497,7 +470,12 @@ export async function applyAiHandoff(tx: TenantTx, e: ExecutionRow, now: Date): 
       eventType: 'conversation.automation_state.changed',
       aggregateType: 'conversation',
       aggregateId: c.id,
-      payload: { conversationId: c.id, from: c.automationState, to: 'AGENT_TAKEOVER', actorId: null },
+      payload: {
+        conversationId: c.id,
+        from: c.automationState,
+        to: 'AGENT_TAKEOVER',
+        actorId: null,
+      },
     },
   })
 }
@@ -572,10 +550,13 @@ export function toFlow(
   f: FlowRow,
   extra: {
     triggerType: string | null
+    trigger?: { type: string; config: unknown } | null
+    liveTrigger?: { type: string; config: unknown } | null
     activeVersion: number | null
     draftUpdatedAt: Date | null
     running: number
     total: number
+    last7d?: number
   },
 ): Flow {
   return {
@@ -586,11 +567,13 @@ export function toFlow(
     priority: f.priority,
     reentryPolicy: f.reentryPolicy,
     triggerType: (extra.triggerType as TriggerType | null) ?? null,
+    trigger: (extra.trigger as Flow['trigger']) ?? null,
+    liveTrigger: (extra.liveTrigger as Flow['liveTrigger']) ?? null,
     activeVersion: extra.activeVersion,
     draftUpdatedAt: iso(extra.draftUpdatedAt),
     hasWebhookToken: !!f.webhookTokenHash,
     managedBy: f.managedBy === 'AI_ASSISTANT' ? 'AI_ASSISTANT' : null,
-    executions: { running: extra.running, total: extra.total },
+    executions: { running: extra.running, total: extra.total, last7d: extra.last7d ?? 0 },
     createdAt: f.createdAt.toISOString(),
     updatedAt: f.updatedAt.toISOString(),
   }
