@@ -283,6 +283,7 @@ model Tenant {
   aiKnowledgeChunks        AiKnowledgeChunk[]
   aiUsage                  AiUsage[]
   aiReplyLogs              AiReplyLog[]
+  aiActivationRequests     AiActivationRequest[]
 
   @@map("tenants")
 }
@@ -2603,20 +2604,20 @@ enum AiReplyOutcome {
 /// One row per workspace. `enabled` and `monthly_message_quota` are operator-only (/platform,
 /// audited); the rest is the workspace's own Behaviour settings.
 model AiSettings {
-  tenantId            String    @id @map("tenant_id") @db.Uuid
-  enabled             Boolean   @default(false)
+  tenantId            String   @id @map("tenant_id") @db.Uuid
+  enabled             Boolean  @default(false)
   /// AI replies (model calls) per calendar month (UTC). 0 = none until the operator sets it.
-  monthlyMessageQuota Int       @default(0) @map("monthly_message_quota")
-  businessName        String?   @map("business_name")
-  businessDescription String?   @map("business_description")
-  tone                AiTone    @default(FRIENDLY)
-  fallbackMessage     String?   @map("fallback_message")
-  handoffMessage      String?   @map("handoff_message")
+  monthlyMessageQuota Int      @default(0) @map("monthly_message_quota")
+  businessName        String?  @map("business_name")
+  businessDescription String?  @map("business_description")
+  tone                AiTone   @default(FRIENDLY)
+  fallbackMessage     String?  @map("fallback_message")
+  handoffMessage      String?  @map("handoff_message")
   /// The flow created by "Turn on AI Assistant" (managed, never duplicated).
-  managedFlowId       String?   @map("managed_flow_id") @db.Uuid
-  updatedBy           String?   @map("updated_by") @db.Uuid
-  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  managedFlowId       String?  @map("managed_flow_id") @db.Uuid
+  updatedBy           String?  @map("updated_by") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -2653,16 +2654,16 @@ model AiKnowledgeSource {
 
 /// Retrieval is an exact cosine scan filtered by tenant first (no ANN index; see the doc).
 model AiKnowledgeChunk {
-  id         String                 @id @default(uuid(7)) @db.Uuid
-  tenantId   String                 @map("tenant_id") @db.Uuid
-  sourceId   String                 @map("source_id") @db.Uuid
+  id         String                @id @default(uuid(7)) @db.Uuid
+  tenantId   String                @map("tenant_id") @db.Uuid
+  sourceId   String                @map("source_id") @db.Uuid
   generation Int
   ordinal    Int
   content    String
   page       Int?
   /// Dimension from AI_EMBEDDING_DIMENSION; rows of another dimension are never compared.
   embedding  Unsupported("vector")
-  createdAt  DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdAt  DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   source AiKnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
@@ -2704,10 +2705,14 @@ model AiReplyLog {
   retrievedChunkIds      String[]       @map("retrieved_chunk_ids") @db.Uuid
   /// Title, page and snippet per retrieved chunk, kept for review after sources change.
   sources                Json           @default("[]")
-  /** The text sent (or for the playground, that would be sent) to the customer. */
+  /**
+   * The text sent (or for the playground, that would be sent) to the customer.
+   */
   reply                  String?
   outcome                AiReplyOutcome
-  /** The step's final decision (outcome + reply) is saved; a retry reuses it as is. */
+  /**
+   * The step's final decision (outcome + reply) is saved; a retry reuses it as is.
+   */
   decided                Boolean        @default(false)
   /// The reply model was called and the call counts against the monthly quota.
   billable               Boolean        @default(false)
@@ -2722,4 +2727,62 @@ model AiReplyLog {
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([tenantId, conversationId, createdAt(sort: Desc)])
   @@map("ai_reply_logs")
+}
+
+// ---------------------------------------------------------------------------------------------
+// AI Assistant activation (docs/AI_ASSISTANT.md → Activation requests)
+// ---------------------------------------------------------------------------------------------
+
+enum AiActivationStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@map("ai_activation_status")
+}
+
+/// Operator-managed AI plans shown on the activation page. Global (no tenant), never deleted:
+/// operators deactivate. Money in minor units; prices are entered by the operator, never seeded.
+model AiPlan {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  name              String
+  monthlyPriceMinor BigInt   @map("monthly_price_minor")
+  currency          String   @default("INR")
+  includedReplies   Int      @map("included_replies")
+  description       String?
+  active            Boolean  @default(false)
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  requests AiActivationRequest[]
+
+  @@map("ai_plans")
+}
+
+/// A workspace asking the Fenwira team to turn the AI Assistant on. At most one REQUESTED row per
+/// workspace (partial unique index in the migration).
+model AiActivationRequest {
+  id                    String             @id @default(uuid(7)) @db.Uuid
+  tenantId              String             @map("tenant_id") @db.Uuid
+  requestedBy           String             @map("requested_by") @db.Uuid
+  planId                String?            @map("plan_id") @db.Uuid
+  expectedConversations Int                @map("expected_conversations")
+  useCase               String             @map("use_case")
+  contactEmail          String             @map("contact_email")
+  contactPhone          String?            @map("contact_phone")
+  status                AiActivationStatus @default(REQUESTED)
+  decidedBy             String?            @map("decided_by") @db.Uuid
+  decidedAt             DateTime?          @map("decided_at") @db.Timestamptz(3)
+  decisionNote          String?            @map("decision_note")
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   AiPlan? @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("ai_activation_requests")
 }

@@ -1,6 +1,9 @@
 'use client'
 
 import {
+  type AiActivationRequest,
+  type AiActivationState,
+  type CreateAiActivationRequest,
   AI_KNOWLEDGE_MIME_TYPES,
   type AiKnowledgeMimeType,
   type AiKnowledgeSource,
@@ -16,6 +19,7 @@ import {
   type UpdateAiSettingsRequest,
 } from '@fenwira/contracts'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, del, get, patch, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
@@ -40,6 +44,47 @@ export function useAiOverview() {
     retry: noRetryWhenOff,
   })
 }
+
+/**
+ * Activation state for the request page (readable while the assistant is off). While a request
+ * is open it polls, and a decision notification refreshes it at once; when the operator turns the
+ * assistant on, the overview is refetched so the page becomes the dashboard without a deploy.
+ */
+export function useAiActivation(enabled = true) {
+  const key = useAiKey()
+  const { tenantId } = useSession()
+  const client = useQueryClient()
+  useRealtimeEvent('notification.created', () => {
+    void client.invalidateQueries({ queryKey: key('activation') })
+  })
+  const query = useQuery({
+    queryKey: key('activation'),
+    queryFn: () => get<{ data: AiActivationState }>('/ai/activation').then((r) => r.data),
+    enabled,
+    refetchInterval: (q) => (q.state.data?.request?.status === 'REQUESTED' ? 30_000 : false),
+  })
+  const on = query.data?.enabled
+  useEffect(() => {
+    if (on) void client.invalidateQueries({ queryKey: keys.tenant(tenantId, 'ai', 'overview') })
+  }, [on, client, tenantId])
+  return query
+}
+
+export const useRequestAiActivation = () =>
+  useAiMutation(
+    (input: CreateAiActivationRequest) =>
+      post<{ data: AiActivationRequest }>('/ai/activation/requests', input).then((r) => r.data),
+    ['activation'],
+  )
+
+export const useCancelAiActivation = () =>
+  useAiMutation(
+    (id: string) =>
+      post<{ data: AiActivationRequest }>(`/ai/activation/requests/${id}/cancel`).then(
+        (r) => r.data,
+      ),
+    ['activation'],
+  )
 
 export function useAiSettings(enabled = true) {
   const key = useAiKey()

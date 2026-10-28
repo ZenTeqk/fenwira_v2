@@ -2,6 +2,12 @@ import { type AiConfig, createAiProvider } from '@fenwira/ai'
 import { type DynamicModule, Module } from '@nestjs/common'
 import { PinoLogger } from 'nestjs-pino'
 import { AuditModule } from '../audit'
+import { AiActivationPlatformService } from './ai-activation-platform.service'
+import {
+  AiActivationController,
+  AiActivationPlatformController,
+} from './ai-activation.controller'
+import { AiActivationService } from './ai-activation.service'
 import { AiAnswerService } from './ai-answer.service'
 import { AiIngestProcessor } from './ai-ingest.processor'
 import { AiPlatformController } from './ai-platform.controller'
@@ -33,8 +39,19 @@ export class AiModule {
     return {
       module: AiModule,
       imports: [AuditModule],
-      controllers: [AiController, AiPlatformController],
-      providers: [...providers(config), AiService, AiPlatformService],
+      controllers: [
+        AiController,
+        AiPlatformController,
+        AiActivationController,
+        AiActivationPlatformController,
+      ],
+      providers: [
+        ...providers(config),
+        AiService,
+        AiPlatformService,
+        AiActivationService,
+        AiActivationPlatformService,
+      ],
       exports: [AiAnswerService, AI_CONFIG],
     }
   }

@@ -471,6 +471,18 @@ const FIXTURES: Record<string, Fixture> = {
     tx.aiReplyLog.create({
       data: { tenantId, customerMessageExcerpt: 'Matrix', outcome: 'NO_ANSWER' },
     }),
+  ai_activation_requests: (tx, { tenantId, userId }) =>
+    tx.aiActivationRequest.create({
+      data: {
+        tenantId,
+        requestedBy: userId,
+        expectedConversations: 100,
+        useCase: 'Matrix',
+        contactEmail: 'matrix@example.test',
+        // Matrix rows are cancelled so the one-open-request index never blocks a re-run.
+        status: 'CANCELLED',
+      },
+    }),
   payment_proofs: async (tx, { tenantId, userId }) =>
     tx.paymentProof.create({
       data: {
@@ -549,7 +561,7 @@ const APPEND_ONLY = new Set([
   'analytics_events',
 ])
 /** Financial history (ADR-0027 manual billing): rows change state but are never deleted. */
-const NO_DELETE = new Set(['invoices', 'payment_proofs'])
+const NO_DELETE = new Set(['invoices', 'payment_proofs', 'ai_activation_requests'])
 
 const appUrl = process.env.DATABASE_URL!
 const ownerUrl = process.env.MIGRATION_DATABASE_URL!

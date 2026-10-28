@@ -43,10 +43,10 @@ test('upload, test with sources, turn on, and a customer gets an AI reply', asyn
   await page.setViewportSize({ width: 1440, height: 1000 })
   const owner = await signInAsNewOwner(page, 'ui-ai')
 
-  // Not enabled yet: a clean plan state, no dead controls.
+  // Not enabled yet: the activation request page, no dead dashboard controls.
   await page.goto('/ai-assistant')
-  await expect(page.getByText('AI Assistant is not enabled for your plan')).toBeVisible()
-  await expect(page.getByRole('link', { name: 'View plan and billing' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Request activation' }).first()).toBeVisible()
+  await expect(page.getByRole('tablist', { name: 'AI Assistant sections' })).toHaveCount(0)
   enableAi(owner.tenantId)
 
   await page.goto('/ai-assistant')

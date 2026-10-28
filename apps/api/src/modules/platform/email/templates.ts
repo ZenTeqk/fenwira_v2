@@ -185,3 +185,34 @@ export function invoiceNoticeEmail(
     ),
   }
 }
+
+/** AI Assistant activation decision (docs/AI_ASSISTANT.md → Activation requests). */
+export function aiActivationDecisionEmail(
+  name: string,
+  workspace: string,
+  approved: boolean,
+  note: string | null,
+  url: string,
+) {
+  return {
+    subject: approved
+      ? `${workspace}: AI Assistant is on`
+      : `${workspace}: update on your AI Assistant request`,
+    ...layout(
+      approved ? `Hi ${name}, AI Assistant is ready` : `Hi ${name}, your AI Assistant request`,
+      approved
+        ? [
+            `The Fenwira team turned on AI Assistant for ${workspace}.`,
+            'Add your documents, test a few questions, then turn it on for your WhatsApp customers.',
+            ...(note ? [`Note from the team: ${note}`] : []),
+          ]
+        : [
+            `The Fenwira team could not turn on AI Assistant for ${workspace} yet.`,
+            ...(note ? [`Reason: ${note}`] : []),
+            'You can send a new request from the AI Assistant page at any time.',
+          ],
+      { label: 'Open AI Assistant', url },
+      'You get this email because you requested AI Assistant for this workspace.',
+    ),
+  }
+}

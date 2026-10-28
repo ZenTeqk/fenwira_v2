@@ -82,6 +82,9 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     sourceId: z.uuid(),
     generation: z.number().int(),
   }),
+  // AI Assistant activation: operators hear about requests; the workspace hears the decision.
+  'ai.activation.requested': z.object({ requestId: z.uuid() }),
+  'ai.activation.decided': z.object({ requestId: z.uuid() }),
   'conversation.automation_state.changed': z.object({
     conversationId: z.uuid(),
     from: z.string(),

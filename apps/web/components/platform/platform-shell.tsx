@@ -12,6 +12,7 @@ import {
   platformRequest,
 } from '@/lib/platform'
 import { parseDeadlines } from '@/lib/session-activity'
+import { AiRequestsNavLabel } from './ai-requests-nav'
 import { IdentityProvider } from './identity'
 import { PlatformContext } from './platform-context'
 export { usePlatform } from './platform-context'
@@ -59,13 +60,15 @@ export function PlatformShell({ children }: { children: ReactNode }) {
       </main>
     )
   if (!me.data) return <ErrorState description="Privileged sign-in required." />
-  const nav = [
+  const nav: Array<[string, ReactNode]> = [
     ['/platform', 'Overview'],
     ['/platform/workspaces', 'Workspaces'],
     ['/platform/access-requests', 'Access requests'],
     ['/platform/payments', 'Payments'],
     ['/platform/billing-operations', 'Billing operations'],
     ['/platform/plans', 'Plans & prices'],
+    ['/platform/ai-requests', <AiRequestsNavLabel key="ai" />],
+    ['/platform/ai-plans', 'AI plans'],
     ['/platform/email', 'Email'],
     ['/platform/audit', 'Audit'],
   ]

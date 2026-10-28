@@ -1012,3 +1012,33 @@ $$;
 ALTER FUNCTION system.purge_ai_reply_logs(timestamptz, integer) OWNER TO fenwira_system;
 REVOKE ALL ON FUNCTION system.purge_ai_reply_logs(timestamptz, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION system.purge_ai_reply_logs(timestamptz, integer) TO fenwira_app;
+
+-- AI Assistant activation (docs/AI_ASSISTANT.md → Activation requests). Plans and requests are
+-- never deleted by the runtime role: plans are deactivated, requests are cancelled or decided.
+REVOKE DELETE, TRUNCATE ON public.ai_plans, public.ai_activation_requests FROM fenwira_app;
+-- The operator queue reads across workspaces; only these columns, only for an active operator.
+GRANT SELECT (id, tenant_id, plan_id, expected_conversations, use_case, contact_email,
+              contact_phone, status, decision_note, decided_at, created_at)
+  ON public.ai_activation_requests TO fenwira_system;
+GRANT SELECT (id, name, included_replies) ON public.ai_plans TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.platform_ai_activation_requests(
+  p_operator uuid, p_status text, p_limit integer)
+RETURNS TABLE (id uuid, tenant_id uuid, workspace_name text, plan_id uuid, plan_name text,
+               included_replies integer, expected_conversations integer, use_case text,
+               contact_email text, contact_phone text, status text, decision_note text,
+               decided_at timestamptz, created_at timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT r.id, r.tenant_id, t.name, r.plan_id, p.name, p.included_replies,
+         r.expected_conversations, r.use_case, r.contact_email, r.contact_phone, r.status::text,
+         r.decision_note, r.decided_at, r.created_at
+  FROM public.ai_activation_requests r
+  JOIN public.tenants t ON t.id = r.tenant_id
+  LEFT JOIN public.ai_plans p ON p.id = r.plan_id
+  WHERE (p_status IS NULL OR r.status::text = p_status)
+    AND EXISTS (SELECT 1 FROM public.platform_grants g WHERE g.user_id = p_operator AND g.revoked_at IS NULL)
+  ORDER BY (r.status = 'REQUESTED') DESC, r.created_at DESC, r.id
+  LIMIT least(greatest(p_limit, 1), 200);
+$$;
+ALTER FUNCTION system.platform_ai_activation_requests(uuid, text, integer) OWNER TO fenwira_system;
+REVOKE ALL ON FUNCTION system.platform_ai_activation_requests(uuid, text, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION system.platform_ai_activation_requests(uuid, text, integer) TO fenwira_app;
