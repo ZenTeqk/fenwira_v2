@@ -128,6 +128,8 @@ function parseCsv(text: string): string[][] {
 function normalize(text: string): string {
   return text
     .replace(/\r\n?/g, '\n')
+    // Strips control characters PDF/DOCX extraction leaves behind (deliberate).
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')

@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 import {
   type FlowIssue,
   type Member,
@@ -734,9 +736,9 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
           </Field>
           <p className="text-sm text-secondary">
             Knowledge, tone and handover messages are set on the{' '}
-            <a href="/ai-assistant" className="font-medium text-primary-strong underline-offset-4 hover:underline">
+            <Link href="/ai-assistant" className="font-medium text-primary-strong underline-offset-4 hover:underline">
               AI Assistant page
-            </a>
+            </Link>
             . Outside the 24-hour window this step takes its error path.
           </p>
         </>
