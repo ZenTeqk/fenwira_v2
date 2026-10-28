@@ -2,7 +2,7 @@ import {
   updatePlatformAiSettingsRequestSchema,
   type UpdatePlatformAiSettingsRequest,
 } from '@fenwira/contracts'
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common'
 import { z } from 'zod'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
 import { PlatformAccess } from '../../core/security/decorators'
@@ -22,7 +22,8 @@ export class AiPlatformController {
   }
 
   @PlatformAccess('workspaces.manage')
-  @Patch()
+  @Post()
+  @HttpCode(200)
   async update(
     @Param('workspaceId', uuid) workspaceId: string,
     @Body(new ZodValidationPipe(updatePlatformAiSettingsRequestSchema))

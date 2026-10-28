@@ -52,6 +52,7 @@ type FlowGraph = {
 | Action | `action.update_contact` | `{ updates: Array<{ field: 'name' \| 'email' \| 'language' \| `property.${string}`; value: Expr }> }` | next, error |
 | Action | `action.webhook` | `{ method: 'POST' \| 'GET'; url: string; headers?: Record<string,string>; body?: string (template); timeoutMs ≤ 10000; saveResponseAs?: string }` | next, error |
 | Action | `action.delay` | `{ amount: number; unit: 'MINUTES' \| 'HOURS' \| 'DAYS' }` (1 minute to 30 days) | next |
+| Message | `action.ai_reply` | `{ instructions?: string (≤ 1000); mode: 'SINGLE' \| 'CONVERSATION' }` (AI Assistant, docs/AI_ASSISTANT.md) | replied, needs_human, error |
 | Action | `action.end` | `{}` | none |
 
 **Expressions (`Expr`)** are a restricted template syntax, not code: `{{contact.name}}`, `{{contact.phone}}`, `{{contact.property.<key>}}`, `{{trigger.message.text}}`, `{{trigger.webhook.<jsonpath>}}`, `{{vars.<name>}}` (from `saveResponseAs`). They are resolved by a pure function, with no eval. A missing value resolves to `""`.
@@ -64,6 +65,9 @@ type FlowGraph = {
 | Every node reachable from the trigger | `FLOW_UNREACHABLE_NODE` |
 | Every node's config passes its Zod schema | `FLOW_NODE_CONFIG_INVALID` |
 | Condition nodes have both `yes` and `no` edges | `FLOW_CONDITION_BRANCHES` |
+| AI reply nodes have exactly one `replied`, `needs_human` and `error` edge (to a step or an End) | `FLOW_DANGLING_NODE` |
+| AI reply needs AI Assistant enabled for the workspace and at least one ready knowledge source | `FLOW_AI_NOT_ENABLED`, `FLOW_AI_NO_KNOWLEDGE` |
+| AI replies used up this month: a **warning** (`validation.warnings`), never blocks publishing | `FLOW_AI_QUOTA` |
 | Non-`end` nodes have a `next` edge (`error` is optional, and defaults to failing the execution) | `FLOW_DANGLING_NODE` |
 | Cycles are allowed only if they pass through a `delay` node | `FLOW_CYCLE_WITHOUT_DELAY` |
 | `send_template` references a template with an APPROVED version | `FLOW_TEMPLATE_NOT_APPROVED` |
@@ -161,6 +165,21 @@ Module `apps/api/src/modules/automation` (API and worker sides, like campaigns);
 **Refusals.** MessagingService refusals become FAILED steps with the refusal code (`CONVERSATION_WINDOW_CLOSED`, `CONSENT_REQUIRED`, `TEMPLATE_NOT_APPROVED`, …) and follow the error edge; `INSUFFICIENT_BALANCE` is recorded as `INSUFFICIENT_FUNDS` (P10-D1); `AUTOMATION_BLOCKED_BY_TAKEOVER` ends the execution STOPPED_TAKEOVER. Non-business errors are retried by BullMQ (3 attempts); the idempotency key prevents a duplicate send.
 
 **Builder.** React Flow (`@xyflow/react` 12.11.6) and dagre (`@dagrejs/dagre` 3.1.1), pinned. The canvas and the keyboard Outline edit the same `DraftGraph`; drafts autosave (800 ms) with `If-Match`, and the shared validator runs on every change, with server reference problems from the last save added. Drafts may hold incomplete settings; the strict schema applies at publish and at run time. The builder's send-message form handles text; media sends are supported by the API and runtime (`mediaFileId`) but not yet by the builder form.
+
+### AI reply step (AI Assistant, ADR-0028)
+
+- **Phases.** Phase 1 (`prepareAi`, in the step transaction) picks the customer message to answer and checks the 24-hour window. Outside the window the step fails with `CONVERSATION_WINDOW_CLOSED` and takes its error path: free text isn't allowed, and the model isn't called. Phase 1 also loads the last `AI_HISTORY_MESSAGES` messages. Phase 2 (`externalAi`) runs the answer pipeline and the step decision, then sends. Phase 3 records the step as usual.
+- **Retry safety.** The answer and the step's decision (outcome plus the exact text to send) are saved in `ai_reply_logs` under the unique `(run_id = execution id, step_id = seq)` **before** anything is sent. A retried or duplicated step reads that row back, so there is never a second model call, and the send reuses `auto:{executionId}:{seq}`, so there is never a second message. AI messages carry `messages.ai_generated = true` (the inbox's "AI" label).
+- **Conversation mode.** After a reply the step stays on the same node: the execution goes WAITING with `wait_until = now + 24 h` and `context.ai = {mode, lastHandledMessageId, pendingMessageId}`. Each inbound message for that conversation sets `pendingMessageId` and resumes the same execution (job `exec__{id}__{stage}__m{messageId}`) instead of starting new flows. A message arriving while an answer is in flight is answered right after it. The run ends:
+  - on `needs_human` (handoff);
+  - on human takeover (P10-D2, STOPPED_TAKEOVER);
+  - on resolve (`conversation.resolved` → COMPLETED, last step `{ended: CONVERSATION_RESOLVED}`);
+  - when a keyword flow matches the new message (COMPLETED `{ended: KEYWORD_FLOW}`; the keyword flows then run as usual);
+  - after 24 hours of silence (the wait expires → `replied` path, `{ended: SILENCE}`).
+
+  Re-entry rules apply unchanged: the managed flow uses AFTER_COMPLETION.
+- **Handoff.** `needs_human` moves the conversation to AGENT_TAKEOVER with the system event `ai_handoff` and the usual `conversation.automation_state.changed` event. That event stops every other execution of the conversation; the handing-off execution is marked `context.aiHandoff` and finishes its own Needs a human path.
+- The 500-step cap, the per-step takeover check and BullMQ retries apply as for every node. The trigger and conversation history are never stored in step input/output (only `mode`, `messageId`, `outcome`, `replyLogId`, `messageId` of the reply).
 
 ## Open questions
 

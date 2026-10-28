@@ -30,6 +30,8 @@ The values of `RETENTION_FINANCIAL_DAYS` and `RETENTION_AUDIT_DAYS` for producti
 | `idempotency_keys` | 24 hours | `system.purge_expired` |
 | `webhook_deliveries` | 30 days | `system.purge_expired` |
 | `analytics_events`, `analytics_daily_rollups`, `analytics_conversation_episodes` | Per `analytics_retention` entitlement (P11-D15) | Nightly analytics retention (`ANALYTICS.md` → Retention); never touches operational, financial or audit records |
+| `ai_reply_logs` (AI Assistant answers, customer excerpts) | `AI_REPLY_LOG_RETENTION_DAYS` (default 30) | `system.purge_ai_reply_logs` every 6 h (`AI_ASSISTANT.md` → Retention) |
+| AI knowledge documents and chunks | Until the workspace deletes the source | Delete source (chunks cascade) |
 | Import/export files | 7 days | MinIO lifecycle + `files` cleanup |
 | Logs | Configurable (decision O2) | Log platform |
 

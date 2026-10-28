@@ -47,6 +47,7 @@ Contacts      All Contacts · Segments · Tags · Imports
 Campaigns     Campaigns · Create Campaign · Analytics
 Templates     Templates · Create Template
 Automations   Flows · New automation (the builder opens per flow)
+AI Assistant  (one page: Overview · Knowledge · Test · Behaviour · Activity; ADR-0028)
 Analytics
 Integrations  WhatsApp · Webhooks · API
 Billing       Subscription · Invoices (ADR-0027) · Wallet · Usage
