@@ -1,6 +1,7 @@
 import {
   createFlowSchema,
   executionsQuerySchema,
+  flowTestRequestSchema,
   putDraftSchema,
   updateFlowSchema,
 } from '@fenwira/contracts'
@@ -26,6 +27,7 @@ import { z } from 'zod'
 import { IdempotencyInterceptor } from '../../core/http/idempotency.interceptor'
 import { ZodValidationPipe } from '../../core/http/zod-validation.pipe'
 import { Public, RequirePermission, SkipCsrf } from '../../core/security/decorators'
+import { FlowTestService } from './flow-test.service'
 import { FlowsService } from './flows.service'
 
 const uuidParam = new ZodValidationPipe(z.uuid())
@@ -35,7 +37,10 @@ type In<T extends z.ZodType> = z.infer<T>
 /** docs/API_SPEC.md → Automation. */
 @Controller('flows')
 export class FlowsController {
-  constructor(private readonly flows: FlowsService) {}
+  constructor(
+    private readonly flows: FlowsService,
+    private readonly tests: FlowTestService,
+  ) {}
 
   @Get()
   @RequirePermission('automations.read')
@@ -98,6 +103,23 @@ export class FlowsController {
   @HttpCode(200)
   async validate(@Param('id', uuidParam) id: string) {
     return { data: await this.flows.validate(id) }
+  }
+
+  /** Dry run of the saved draft: nothing is sent, called or stored (docs/API_SPEC.md). */
+  @Post(':id/test')
+  @RequirePermission('automations.write')
+  @HttpCode(200)
+  async test(
+    @Param('id', uuidParam) id: string,
+    @Body(pipe(flowTestRequestSchema)) body: In<typeof flowTestRequestSchema>,
+  ) {
+    return { data: await this.tests.run(id, body) }
+  }
+
+  @Get(':id/node-stats')
+  @RequirePermission('automations.read')
+  async nodeStats(@Param('id', uuidParam) id: string) {
+    return { data: await this.flows.nodeStats(id) }
   }
 
   @Post(':id/publish')

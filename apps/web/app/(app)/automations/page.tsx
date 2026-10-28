@@ -10,10 +10,12 @@ import {
   PermissionState,
   StatusBadge,
 } from '@fenwira/ui'
-import { Plus, Sparkles } from 'lucide-react'
+import { LayoutTemplate, Plus, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { useSession } from '@/components/session/session-provider'
-import { NODE_LABEL, useFlows } from '@/lib/automation'
+import { useFlows } from '@/lib/automation'
+import { triggerClause } from '@/lib/automation-summary'
+import { relativeTime } from '@/lib/relative-time'
 
 /** Automations list (docs/AUTOMATION_ENGINE.md). Ordered as they run: priority, then age. */
 export default function AutomationsPage() {
@@ -25,66 +27,78 @@ export default function AutomationsPage() {
       accessorKey: 'name',
       header: 'Name',
       cell: ({ row }) => (
-        <span className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/automations/${row.original.id}`}
-            className="font-medium text-slate underline-offset-4 hover:underline"
-          >
-            {row.original.name}
-          </Link>
-          {row.original.managedBy === 'AI_ASSISTANT' ? (
-            <Badge tone="neutral" icon={<Sparkles aria-hidden="true" />}>
-              Managed by AI Assistant
-            </Badge>
-          ) : null}
+        <span className="flex flex-col gap-0.5">
+          <span className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/automations/${row.original.id}`}
+              className="font-medium text-slate underline-offset-4 hover:underline"
+            >
+              {row.original.name}
+            </Link>
+            {row.original.managedBy === 'AI_ASSISTANT' ? (
+              <Badge tone="neutral" icon={<Sparkles aria-hidden="true" />}>
+                Managed by AI Assistant
+              </Badge>
+            ) : null}
+          </span>
+          <span className="text-sm text-secondary">
+            {triggerClause(row.original.trigger ?? undefined)}
+          </span>
         </span>
       ),
     },
     {
       id: 'status',
       header: 'Status',
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
-    },
-    {
-      id: 'trigger',
-      header: 'Trigger',
-      cell: ({ row }) => (row.original.triggerType ? NODE_LABEL[row.original.triggerType] : '—'),
-    },
-    { id: 'priority', header: 'Priority', cell: ({ row }) => row.original.priority },
-    {
-      id: 'version',
-      header: 'Live version',
-      cell: ({ row }) => row.original.activeVersion ?? '—',
+      cell: ({ row }) => (
+        <StatusBadge
+          status={row.original.status}
+          label={row.original.status === 'ACTIVE' ? 'Live' : undefined}
+        />
+      ),
     },
     {
       id: 'runs',
-      header: 'Runs',
+      header: 'Runs, last 7 days',
       cell: ({ row }) => (
         <Link
           href={`/automations/${row.original.id}/history`}
           className="text-slate underline-offset-4 hover:underline"
         >
-          {row.original.executions.total.toLocaleString('en-IN')}
+          {row.original.executions.last7d.toLocaleString('en-IN')}
           {row.original.executions.running ? ` (${row.original.executions.running} running)` : ''}
         </Link>
       ),
     },
+    {
+      id: 'edited',
+      header: 'Last edited',
+      cell: ({ row }) => {
+        const at = row.original.draftUpdatedAt ?? row.original.updatedAt
+        return (
+          <time dateTime={at} title={new Date(at).toLocaleString()} className="text-secondary">
+            {relativeTime(at)}
+          </time>
+        )
+      },
+    },
+    { id: 'priority', header: 'Priority', cell: ({ row }) => row.original.priority },
   ]
-  const newButton = can('automations.write') ? (
-    <Button asChild>
-      <Link href="/automations/new">
-        <Plus aria-hidden="true" />
-        New automation
-      </Link>
-    </Button>
-  ) : null
+  const write = can('automations.write')
   return (
     <ListPage
       header={{
         title: 'Automations',
         description:
-          'Flows that run on their own when a message, contact or webhook arrives. An agent replying stops them for that conversation.',
-        actions: newButton,
+          'Automations reply, tag, assign and follow up on their own when a message, contact or webhook arrives. A teammate replying stops them for that conversation.',
+        actions: write ? (
+          <Button asChild>
+            <Link href="/automations/new">
+              <Plus aria-hidden="true" />
+              Create automation
+            </Link>
+          </Button>
+        ) : null,
       }}
     >
       <DataTable
@@ -97,12 +111,12 @@ export default function AutomationsPage() {
         empty={{
           title: 'No automations yet',
           description:
-            'Automations answer keywords, welcome new customers, tag and assign conversations, or call your systems, even when nobody is online. Start from a ready-made recipe.',
-          action: can('automations.write') ? (
+            'Automations welcome new contacts, answer keywords, capture leads and send order updates, even when nobody is online. Start from a template in a couple of minutes.',
+          action: write ? (
             <Button asChild>
               <Link href="/automations/new">
-                <Plus aria-hidden="true" />
-                Create your first automation
+                <LayoutTemplate aria-hidden="true" />
+                Browse templates
               </Link>
             </Button>
           ) : undefined,

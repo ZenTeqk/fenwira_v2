@@ -1,4 +1,4 @@
-import { type Flow, type FlowGraph } from '@fenwira/contracts'
+import { AI_ASSISTANT_TEMPLATE, type Flow } from '@fenwira/contracts'
 import { type Prisma, type TenantTx } from '@fenwira/database'
 import { Body, Controller, HttpCode, Injectable, Post } from '@nestjs/common'
 import { TenantDb } from '../../core/database/tenant-db'
@@ -16,29 +16,8 @@ export const MANAGED_BY_AI = 'AI_ASSISTANT'
 /** Low priority: keyword and other flows run first (AE2 ordering). */
 export const AI_FLOW_PRIORITY = 900
 
-/** The "AI assistant" template: Message received → AI reply (conversation) → End on every path. */
-export const AI_ASSISTANT_TEMPLATE: FlowGraph = {
-  nodes: [
-    { id: 'trigger', type: 'trigger.message_received', config: { onlyNewConversation: false } },
-    { id: 'ai', type: 'action.ai_reply', config: { mode: 'CONVERSATION' } },
-    { id: 'end-replied', type: 'action.end', config: {} },
-    { id: 'end-human', type: 'action.end', config: {} },
-    { id: 'end-error', type: 'action.end', config: {} },
-  ],
-  edges: [
-    { id: 'e-trigger', source: 'trigger', target: 'ai', sourceHandle: 'next' },
-    { id: 'e-replied', source: 'ai', target: 'end-replied', sourceHandle: 'replied' },
-    { id: 'e-human', source: 'ai', target: 'end-human', sourceHandle: 'needs_human' },
-    { id: 'e-error', source: 'ai', target: 'end-error', sourceHandle: 'error' },
-  ],
-  layout: {
-    trigger: { x: 0, y: 0 },
-    ai: { x: 0, y: 160 },
-    'end-replied': { x: -280, y: 340 },
-    'end-human': { x: 0, y: 340 },
-    'end-error': { x: 280, y: 340 },
-  },
-}
+/** The managed flow's graph is the gallery's "AI assistant" template (contracts). */
+export { AI_ASSISTANT_TEMPLATE }
 
 /**
  * One-click "Turn on AI Assistant" (docs/AI_ASSISTANT.md → Managed flow): creates and publishes
@@ -63,7 +42,10 @@ export class AiAssistantFlowService {
         const ent = await this.entitlements.canPublishFlow(tx, tenantId, false)
         if (!ent.allowed)
           throw new AppError('ENTITLEMENT_REQUIRED', 403, ent.message, { entitlement: ent.key })
-        const updated = await tx.flow.update({ where: { id: existing.id }, data: { status: 'ACTIVE' } })
+        const updated = await tx.flow.update({
+          where: { id: existing.id },
+          data: { status: 'ACTIVE' },
+        })
         await this.audit.write(tx, {
           action: 'ai.assistant_turned_on',
           targetType: 'flow',
@@ -130,7 +112,10 @@ export class AiAssistantFlowService {
       const existing = await this.managedFlow(tx, tenantId)
       if (!existing) return null
       if (existing.status !== 'ACTIVE') return this.dto(tx, existing)
-      const updated = await tx.flow.update({ where: { id: existing.id }, data: { status: 'PAUSED' } })
+      const updated = await tx.flow.update({
+        where: { id: existing.id },
+        data: { status: 'PAUSED' },
+      })
       await this.audit.write(tx, {
         action: 'ai.assistant_paused',
         targetType: 'flow',
@@ -175,7 +160,9 @@ export class AiAssistantFlowService {
 
   private async dto(tx: TenantTx, f: Prisma.FlowGetPayload<object>): Promise<Flow> {
     const [running, total, version] = await Promise.all([
-      tx.automationExecution.count({ where: { flowId: f.id, status: { in: ['RUNNING', 'WAITING'] } } }),
+      tx.automationExecution.count({
+        where: { flowId: f.id, status: { in: ['RUNNING', 'WAITING'] } },
+      }),
       tx.automationExecution.count({ where: { flowId: f.id } }),
       f.activeVersionId
         ? tx.flowVersion.findFirst({ where: { id: f.activeVersionId }, select: { version: true } })

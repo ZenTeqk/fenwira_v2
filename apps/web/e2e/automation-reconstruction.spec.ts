@@ -150,7 +150,7 @@ test('light automation studio preserves draft editing, responsive settings and r
   await expect(library.getByRole('button', { name: 'Send message', exact: true })).toHaveCount(0)
   await library.getByRole('textbox', { name: 'Search steps' }).fill('')
   await expect(page.getByText('Customer replied?', { exact: true })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Test', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Test', exact: true })).toBeVisible()
   for (const width of [1440, 1024, 768, 375]) {
     await page.setViewportSize({ width, height: 1000 })
     if (width === 375) {
@@ -234,7 +234,7 @@ test('read-only automation members cannot edit or publish in the studio', async 
     await expect(viewer.getByRole('heading', { name: flow.name, level: 1 })).toBeVisible()
     await expect(viewer.getByRole('navigation', { name: 'Add a step' })).toHaveCount(0)
     await expect(
-      viewer.getByRole('button', { name: /^(Save|Publish|Tidy layout|Add step)$/ }),
+      viewer.getByRole('button', { name: /^(Save|Publish|Tidy up|Add step|Test|Settings)$/ }),
     ).toHaveCount(0)
     const me = (await (await viewer.request.get(`${API}/auth/me`)).json()).data
     expect(

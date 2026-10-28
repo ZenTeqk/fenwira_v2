@@ -4,15 +4,20 @@ import {
   type DraftGraph,
   type EdgeHandle,
   type FlowIssue,
+  type FlowNodeStats,
   outputsOf,
   STEP_STATUSES,
 } from '@fenwira/contracts'
-import { cn, StatusBadge } from '@fenwira/ui'
+import { Button, cn, StatusBadge } from '@fenwira/ui'
 import {
   Background,
+  BaseEdge,
   type Connection,
   Controls,
   type Edge,
+  EdgeLabelRenderer,
+  type EdgeProps,
+  getSmoothStepPath,
   Handle,
   MiniMap,
   MarkerType,
@@ -27,80 +32,215 @@ import {
   applyNodeChanges,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { AlertCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Plus } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NodeSymbol } from './node-presentation'
 import {
   autoLayout,
-  categoryOf,
   connect,
   type DraftNode,
   HANDLE_LABEL,
   issuesFor,
+  KIND_LABEL,
+  kindOf,
   NODE_LABEL,
+  type NodeKind,
   removeNode,
   summarize,
 } from '@/lib/automation'
 
+type Stats = FlowNodeStats[number]
 type CardData = {
   node: DraftNode
   issues: FlowIssue[]
   traversed?: boolean
   stepStatus?: string
+  stats?: Stats
+  /** Editable canvases: "+" under every open branch. */
+  onAddAfter?: (source: string, handle: EdgeHandle) => void
+  connected: EdgeHandle[]
 }
 
+/** Header band per node kind (design system → Flow nodes). */
+const HEADER: Record<NodeKind, string> = {
+  trigger: 'bg-slate text-surface',
+  message: 'border-b border-border bg-surface text-primary-strong',
+  condition: 'bg-warning-soft text-warning-strong',
+  action: 'bg-info-soft text-info-strong',
+  ai: 'bg-info-soft text-info-strong',
+}
+const HANDLE_TONE: Partial<Record<EdgeHandle, string>> = {
+  yes: 'bg-success-soft text-success-strong',
+  no: 'bg-neutral-soft text-secondary',
+  error: 'bg-danger-soft text-danger-strong',
+  replied: 'bg-success-soft text-success-strong',
+  needs_human: 'bg-info-soft text-info-strong',
+}
+/** Handles sit at the centre of equal columns, so labels and "+" buttons line up with them. */
+const handleLeft = (i: number, n: number) => `${((i + 0.5) / n) * 100}%`
+
 const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardData>>) {
-  const { node, issues, traversed, stepStatus } = data
-  const category = categoryOf(node.type)
+  const { node, issues, traversed, stepStatus, stats, onAddAfter, connected } = data
+  const kind = kindOf(node.type)
   const outputs = outputsOf(node.type)
   const replayStatus = STEP_STATUSES.find((status) => status === stepStatus)
+  const labelled = outputs.length > 1 || outputs.some((h) => h !== 'next')
   return (
     <div
       data-testid={`flow-node-${node.id}`}
+      data-kind={kind}
       className={cn(
-        'w-60 rounded-lg border border-border bg-surface px-3 py-3 text-slate shadow-raised',
-        selected && 'border-primary-strong ring-1 ring-primary-strong',
-        traversed && 'ring-2 ring-primary-strong',
-        issues.length > 0 && 'border-danger',
+        'relative w-64 rounded-lg border bg-surface text-slate shadow-raised',
+        issues.length ? 'border-warning' : 'border-border',
+        traversed && 'border-primary ring-2 ring-primary',
+        selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
       )}
     >
-      {category !== 'trigger' ? (
+      {kind !== 'trigger' ? (
         <Handle type="target" position={Position.Top} className="bg-slate-400!" />
       ) : null}
-      <div className="flex items-center gap-3">
-        <NodeSymbol type={node.type} />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">{NODE_LABEL[node.type]}</p>
-          <p className="mt-1 line-clamp-2 text-xs text-secondary">{summarize(node)}</p>
-        </div>
-        {issues.length ? (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-danger-strong">
-            <AlertCircle className="size-3.5" aria-hidden="true" />
-            {issues.length}
-          </span>
-        ) : replayStatus ? (
-          <StatusBadge status={replayStatus} />
+      <div
+        className={cn(
+          'flex items-center gap-1.5 rounded-t-lg px-3 py-1.5 text-xs font-semibold',
+          HEADER[kind],
+        )}
+      >
+        <NodeSymbol type={node.type} bare />
+        <span>{KIND_LABEL[kind]}</span>
+        <span className="ml-auto">
+          {replayStatus ? (
+            <StatusBadge status={replayStatus} />
+          ) : issues.length ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface px-1.5 py-0.5 text-warning-strong">
+              <AlertTriangle className="size-3.5" aria-hidden="true" />
+              <span>Needs attention</span>
+            </span>
+          ) : (
+            <span className="inline-flex rounded-full bg-surface p-0.5 text-success-strong">
+              <CheckCircle2 className="size-3.5" aria-hidden="true" />
+              <span className="sr-only">Ready</span>
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="px-3 py-2.5">
+        <p className="text-sm font-semibold">{NODE_LABEL[node.type]}</p>
+        <p className="mt-0.5 line-clamp-2 text-xs text-secondary">{summarize(node)}</p>
+        {stats ? (
+          <p
+            className="mt-2 flex flex-wrap gap-x-3 text-xs text-secondary"
+            data-testid={`node-stats-${node.id}`}
+          >
+            <span>{stats.entered.toLocaleString('en-IN')} entered</span>
+            <span>{stats.completed.toLocaleString('en-IN')} completed</span>
+            <span className={stats.failed ? 'font-medium text-danger-strong' : undefined}>
+              {stats.failed.toLocaleString('en-IN')} failed
+            </span>
+          </p>
         ) : null}
       </div>
-
-      <div className="mt-1 flex justify-around text-xs">
-        {outputs.length > 1 ? outputs.map((h) => <span key={h}>{HANDLE_LABEL[h]}</span>) : null}
-      </div>
+      {labelled ? (
+        <div
+          className="grid gap-1 px-1 pb-2 text-center"
+          style={{ gridTemplateColumns: `repeat(${outputs.length}, minmax(0, 1fr))` }}
+        >
+          {outputs.map((h) => (
+            <span
+              key={h}
+              className={cn(
+                'mx-auto rounded-full px-1.5 py-0.5 text-xs font-medium',
+                HANDLE_TONE[h] ?? 'bg-neutral-soft text-secondary',
+              )}
+            >
+              {HANDLE_LABEL[h]}
+            </span>
+          ))}
+        </div>
+      ) : null}
       {outputs.map((h, i) => (
         <Handle
           key={h}
           id={h}
           type="source"
           position={Position.Bottom}
-          style={{ left: `${((i + 1) / (outputs.length + 1)) * 100}%` }}
+          style={{ left: handleLeft(i, outputs.length) }}
           className={h === 'error' ? 'bg-danger!' : 'bg-slate-400!'}
         />
       ))}
+      {onAddAfter
+        ? outputs.map((h, i) =>
+            h === 'error' || connected.includes(h) ? null : (
+              <button
+                key={`add-${h}`}
+                type="button"
+                className="nodrag nopan absolute top-full mt-4 flex size-7 -translate-x-1/2 items-center justify-center rounded-full border border-border-strong bg-surface text-secondary shadow-raised hover:border-primary hover:text-primary-strong focus-visible:outline-2 focus-visible:outline-primary-strong"
+                style={{ left: handleLeft(i, outputs.length) }}
+                aria-label={`Add a step after ${NODE_LABEL[node.type]}${labelled ? ` (${HANDLE_LABEL[h]})` : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAddAfter(node.id, h)
+                }}
+              >
+                <Plus className="size-4" aria-hidden="true" />
+              </button>
+            ),
+          )
+        : null}
     </div>
   )
 })
 
+type EdgeData = {
+  label?: string
+  hot?: boolean
+  /** Accessible name of the "+" button; absent on read-only canvases. */
+  insertLabel?: string
+  onInsert?: () => void
+}
+
+/** Smooth-step edge with its branch label and a "+" to insert a step on it. */
+function PlusEdge(props: EdgeProps<Edge<EdgeData>>) {
+  const [path, x, y] = getSmoothStepPath(props)
+  const d = props.data ?? {}
+  return (
+    <>
+      <BaseEdge id={props.id} path={path} markerEnd={props.markerEnd} />
+      {d.label || d.onInsert ? (
+        <EdgeLabelRenderer>
+          <div
+            className="nodrag nopan absolute flex items-center gap-1"
+            style={{
+              transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
+              pointerEvents: 'all',
+            }}
+          >
+            {d.label ? (
+              <span className="rounded-full border border-border bg-surface px-1.5 py-0.5 text-xs text-slate">
+                {d.label}
+              </span>
+            ) : null}
+            {d.onInsert ? (
+              <button
+                type="button"
+                className="flex size-6 items-center justify-center rounded-full border border-border-strong bg-surface text-secondary shadow-raised hover:border-primary hover:text-primary-strong focus-visible:outline-2 focus-visible:outline-primary-strong"
+                aria-label={d.insertLabel}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  d.onInsert?.()
+                }}
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+    </>
+  )
+}
+
 const nodeTypes = { card: FlowCard }
+const edgeTypes = { plus: PlusEdge }
 
 export type FlowCanvasProps = {
   graph: DraftGraph
@@ -108,9 +248,27 @@ export type FlowCanvasProps = {
   selectedId: string | null
   onSelect: (id: string | null) => void
   onChange?: (graph: DraftGraph) => void
-  /** Replay overlay: traversed node ids and their step status. */
+  /** Replay/test overlay: traversed node ids and their step status. */
   traversed?: Map<string, string>
+  /** Edge ids actually taken (a test run knows the handle); otherwise both ends traversed. */
+  traversedEdges?: Set<string>
+  /** "+" on edges and open branches; the builder opens the add-step menu. */
+  onAddAfter?: (source: string, handle: EdgeHandle) => void
+  onAddTrigger?: () => void
+  stats?: Map<string, Stats>
   readOnly?: boolean
+}
+
+function useWide() {
+  const [wide, setWide] = useState(false)
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1280px)')
+    const update = () => setWide(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+  return wide
 }
 
 function Canvas({
@@ -120,8 +278,13 @@ function Canvas({
   onSelect,
   onChange,
   traversed,
+  traversedEdges,
+  onAddAfter,
+  onAddTrigger,
+  stats,
   readOnly,
 }: FlowCanvasProps) {
+  const wide = useWide()
   // Browser measurements stay local; they are not part of the persisted flow graph.
   const [measurements, setMeasurements] = useState<
     Record<string, { width: number; height: number }>
@@ -133,6 +296,7 @@ function Canvas({
     () => (graph.nodes.some((n) => !graph.layout[n.id]) ? autoLayout(graph).layout : {}),
     [graph],
   )
+  const adding = readOnly ? undefined : onAddAfter
   const nodes: Array<Node<CardData>> = useMemo(
     () =>
       graph.nodes.map((n) => ({
@@ -146,10 +310,13 @@ function Canvas({
           issues: issuesFor(issues, n.id),
           traversed: traversed?.has(n.id),
           stepStatus: traversed?.get(n.id),
+          stats: stats?.get(n.id),
+          onAddAfter: adding,
+          connected: graph.edges.filter((e) => e.source === n.id).map((e) => e.sourceHandle),
         },
         deletable: !readOnly,
       })),
-    [graph, fallback, issues, selectedId, traversed, readOnly, measurements],
+    [graph, fallback, issues, selectedId, traversed, readOnly, measurements, stats, adding],
   )
   // Initial fit keeps step text readable (zoom ≥ 0.75). A flow taller than the canvas then opens at
   // its start (the trigger) instead of being centred with both ends cut off.
@@ -166,24 +333,39 @@ function Canvas({
         void flow.setViewport({ ...viewport, y: 24 - top * viewport.zoom })
     })
   }, [initialized, flow, nodes])
-  const edges: Edge[] = useMemo(
-    () =>
-      graph.edges.map((e) => {
-        const hot = traversed?.has(e.source) && traversed?.has(e.target)
-        return {
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          sourceHandle: e.sourceHandle,
-          type: 'smoothstep',
-          markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-slate-400)' },
+  const edges: Array<Edge<EdgeData>> = useMemo(() => {
+    const label = (id: string) => {
+      const n = graph.nodes.find((x) => x.id === id)
+      return n ? NODE_LABEL[n.type] : 'step'
+    }
+    return graph.edges.map((e) => {
+      const hot = traversedEdges
+        ? traversedEdges.has(e.id)
+        : traversed?.has(e.source) && traversed?.has(e.target)
+      return {
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        type: 'plus',
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: hot ? 'var(--color-primary)' : 'var(--color-slate-400)',
+        },
+        className: hot ? 'fw-edge-active' : undefined,
+        data: {
           label: e.sourceHandle === 'next' ? undefined : HANDLE_LABEL[e.sourceHandle],
-          className: hot ? 'fw-edge-active' : undefined,
-          animated: !!hot,
-        }
-      }),
-    [graph.edges, traversed],
-  )
+          hot: !!hot,
+          ...(adding
+            ? {
+                insertLabel: `Add a step between ${label(e.source)} and ${label(e.target)}`,
+                onInsert: () => adding(e.source, e.sourceHandle),
+              }
+            : {}),
+        },
+      }
+    })
+  }, [graph.edges, graph.nodes, traversed, traversedEdges, adding])
 
   const onNodesChange = useCallback(
     (changes: Array<NodeChange<Node<CardData>>>) => {
@@ -232,45 +414,61 @@ function Canvas({
   )
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes}
-      onNodesChange={onNodesChange}
-      onEdgesChange={(changes) => {
-        if (readOnly || !onChange) return
-        const removed = new Set(changes.filter((c) => c.type === 'remove').map((c) => c.id))
-        if (removed.size)
-          onChange({ ...graph, edges: graph.edges.filter((e) => !removed.has(e.id)) })
-      }}
-      onConnect={onConnect}
-      onNodeClick={(_, n) => onSelect(n.id)}
-      onPaneClick={() => onSelect(null)}
-      nodesDraggable={!readOnly}
-      nodesConnectable={!readOnly}
-      elementsSelectable
-      deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
-      proOptions={{ hideAttribution: true }}
-      aria-label="Flow canvas"
-    >
-      <Background gap={20} />
-      <Controls showInteractive={false} />
-      <MiniMap
-        pannable
-        zoomable
-        ariaLabel="Flow overview"
-        style={{ width: 120, height: 80 }}
-        nodeColor="var(--color-border-strong)"
-        nodeStrokeColor="var(--color-secondary)"
-      />
-    </ReactFlow>
+    <>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={(changes) => {
+          if (readOnly || !onChange) return
+          const removed = new Set(changes.filter((c) => c.type === 'remove').map((c) => c.id))
+          if (removed.size)
+            onChange({ ...graph, edges: graph.edges.filter((e) => !removed.has(e.id)) })
+        }}
+        onConnect={onConnect}
+        onNodeClick={(_, n) => onSelect(n.id)}
+        onPaneClick={() => onSelect(null)}
+        nodesDraggable={!readOnly}
+        nodesConnectable={!readOnly}
+        elementsSelectable
+        deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
+        proOptions={{ hideAttribution: true }}
+        aria-label="Flow canvas"
+      >
+        <Background gap={20} />
+        <Controls showInteractive={false} />
+        {wide ? (
+          <MiniMap
+            pannable
+            zoomable
+            ariaLabel="Flow overview"
+            style={{ width: 120, height: 80 }}
+            nodeColor="var(--color-border-strong)"
+            nodeStrokeColor="var(--color-secondary)"
+          />
+        ) : null}
+      </ReactFlow>
+      {!graph.nodes.length && onAddTrigger && !readOnly ? (
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
+          <p className="max-w-xs text-sm text-secondary">
+            Every automation starts with a trigger: the message, contact or event that sets it off.
+          </p>
+          <Button className="pointer-events-auto" onClick={onAddTrigger}>
+            <Plus aria-hidden="true" />
+            Add a trigger
+          </Button>
+        </div>
+      ) : null}
+    </>
   )
 }
 
 /** The React Flow canvas. React Flow state is converted to and from FlowGraph at this boundary. */
 export function FlowCanvas(props: FlowCanvasProps) {
   return (
-    <div className="fw-flow h-full min-h-96 w-full bg-background">
+    <div className="fw-flow relative h-full min-h-96 w-full bg-background">
       <ReactFlowProvider>
         <Canvas {...props} />
       </ReactFlowProvider>

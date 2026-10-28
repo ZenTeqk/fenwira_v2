@@ -12,7 +12,7 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react'
-import { categoryOf } from '@/lib/automation'
+import { kindOf } from '@/lib/automation'
 
 export const NODE_HINT: Record<NodeType, string> = {
   'trigger.message_received': 'When a WhatsApp message arrives',
@@ -36,42 +36,57 @@ export const NODE_HINT: Record<NodeType, string> = {
   'action.end': 'Finish this automation',
 }
 
-/** Shared category identity for the library, nodes and selected-step panel. */
-export function NodeSymbol({ type, compact = false }: { type: NodeType; compact?: boolean }) {
-  const category = categoryOf(type)
+/** Shared identity for the library, cards, menus and template gallery (design system → Flow nodes). */
+export function NodeSymbol({
+  type,
+  compact = false,
+  bare = false,
+  tone,
+}: {
+  type: NodeType
+  compact?: boolean
+  /** Icon only, in the surrounding text colour (card header bands). */
+  bare?: boolean
+  /** `brand`: primary-soft tile with a primary-strong icon (template gallery). */
+  tone?: 'brand'
+}) {
+  const kind = kindOf(type)
   const Icon =
     type === 'action.ai_reply'
       ? Sparkles
       : type === 'action.delay'
-      ? Clock
-      : type === 'action.end'
-        ? Flag
-        : type.includes('webhook')
-          ? Webhook
-          : type.includes('tag')
-            ? Tag
-            : type === 'action.send_template'
-              ? FileText
-              : type.includes('contact') || type === 'action.assign_agent'
-                ? UserRound
-                : category === 'condition'
-                  ? GitBranch
-                  : type === 'trigger.keyword'
-                    ? Search
-                    : MessageCircle
+        ? Clock
+        : type === 'action.end'
+          ? Flag
+          : type.includes('webhook')
+            ? Webhook
+            : type.includes('tag')
+              ? Tag
+              : type === 'action.send_template'
+                ? FileText
+                : type.includes('contact') || type === 'action.assign_agent'
+                  ? UserRound
+                  : kind === 'condition'
+                    ? GitBranch
+                    : type === 'trigger.keyword'
+                      ? Search
+                      : MessageCircle
+  if (bare) return <Icon aria-hidden="true" className="size-3.5 shrink-0" />
   return (
     <span
       aria-hidden="true"
       className={cn(
         'flex shrink-0 items-center justify-center rounded-lg',
         compact ? 'size-7' : 'size-9',
-        category === 'message'
+        tone === 'brand'
           ? 'bg-primary-soft text-primary-strong'
-          : category === 'condition' || type === 'action.delay'
-            ? 'bg-warning-soft text-warning-strong'
-            : category === 'trigger'
-              ? 'bg-neutral-soft text-slate'
-              : 'bg-info-soft text-info-strong',
+          : {
+              trigger: 'bg-slate text-surface',
+              message: 'bg-primary-soft text-primary-strong',
+              condition: 'bg-warning-soft text-warning-strong',
+              action: 'bg-info-soft text-info-strong',
+              ai: 'bg-info-soft text-info-strong',
+            }[kind],
       )}
     >
       <Icon className={compact ? 'size-4' : 'size-5'} />

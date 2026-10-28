@@ -25,9 +25,15 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
   await page.goto('/automations')
   await expect(page.getByRole('heading', { name: 'Automations', level: 1 })).toBeVisible()
   await expectNoViolations(page)
-  await page.getByRole('link', { name: 'New automation' }).first().click()
-  await page.getByLabel('Name').fill('Pricing reply')
-  await page.getByRole('button', { name: 'Create and open the builder' }).click()
+  await page.getByRole('link', { name: 'Create automation' }).first().click()
+  await page.getByTestId('template-scratch').first().click()
+  await expect(page.getByRole('heading', { name: 'Untitled automation', level: 1 })).toBeVisible()
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page
+    .getByRole('dialog', { name: 'Automation settings' })
+    .getByLabel('Name')
+    .fill('Pricing reply')
+  await page.getByRole('button', { name: 'Save settings' }).click()
   await expect(page.getByRole('heading', { name: 'Pricing reply', level: 1 })).toBeVisible()
 
   const palette = page.getByRole('navigation', { name: 'Add a step' })
@@ -35,7 +41,7 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
   await page.getByLabel('Keywords').fill('pricing, prices')
   await palette.getByRole('button', { name: 'Send message', exact: true }).click()
   // Live validation: the empty message is flagged before publishing.
-  await expect(page.getByRole('heading', { name: /to fix before publishing/ })).toBeVisible()
+  await expect(page.getByText(/things? to fix first/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Publish' })).toBeDisabled()
   await page.getByLabel('Message', { exact: true }).fill('Our plans start at ₹99, ')
   await page.getByRole('combobox', { name: 'Insert a value into Message' }).click()
@@ -44,7 +50,7 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
     'Our plans start at ₹99, {{contact.firstName}}',
   )
   await palette.getByRole('button', { name: 'End', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Ready to publish' })).toBeVisible()
+  await expect(page.getByText('Yes. Every step is set up and connected.')).toBeVisible()
   await expect(page.getByTestId(/^flow-node-/)).toHaveCount(3)
   await expect(page.getByText('All changes saved')).toBeVisible()
   await expectNoViolations(page)
@@ -55,6 +61,9 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
     .getByRole('button', { name: 'Publish automation', exact: true })
     .click()
   await expect(page.getByText('Published. New conversations use this version.')).toBeVisible()
+  const live = page.getByRole('dialog', { name: 'Your automation is live' })
+  await expect(live).toContainText('When a message is “pricing” or “prices”')
+  await live.getByRole('button', { name: 'Done' }).click()
   await expect(page.getByText('Live version 1')).toBeVisible()
 
   const customer = await customerWritesIn(page, owner, 'Pricing')
@@ -104,9 +113,9 @@ test('the outline builds and connects a flow with the keyboard only', async ({ p
   const steps = page.getByRole('list', { name: 'Flow steps' }).getByRole('listitem')
   await expect(steps).toHaveCount(3)
   await expect(steps.nth(1)).toContainText('Step 2: Wait')
-  await expect(page.getByRole('heading', { name: 'Ready to publish' })).toBeVisible()
+  await expect(page.getByText('Yes. Every step is set up and connected.')).toBeVisible()
   // Re-wire with a select: disconnect the wait → end edge, then the validator flags it.
   await choose('Next (Step 2: Wait)', 'Not connected')
-  await expect(page.getByRole('heading', { name: /to fix before publishing/ })).toBeVisible()
+  await expect(page.getByText(/things? to fix first/)).toBeVisible()
   await expectNoViolations(page)
 })

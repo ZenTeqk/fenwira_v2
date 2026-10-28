@@ -5,6 +5,7 @@ import {
   type ExecutionStep,
   type Flow,
   type DraftGraph,
+  type FlowNodeStats,
   type FlowValidation,
   type FlowVersion,
   getPath,
@@ -431,6 +432,29 @@ export class FlowsService {
     })
   }
 
+  /** Per-step entered/completed/failed counts across all of this flow's runs (by node id). */
+  nodeStats(flowId: string): Promise<FlowNodeStats> {
+    return this.tenantDb.run(async (tx) => {
+      await this.find(tx, flowId, true)
+      const rows = await tx.$queryRaw<
+        Array<{ node_id: string; entered: bigint; completed: bigint; failed: bigint }>
+      >`SELECT s.node_id,
+               count(*) AS entered,
+               count(*) FILTER (WHERE s.status = 'SUCCEEDED') AS completed,
+               count(*) FILTER (WHERE s.status = 'FAILED') AS failed
+          FROM automation_execution_steps s
+          JOIN automation_executions e ON e.id = s.execution_id
+         WHERE e.flow_id = ${flowId}::uuid
+         GROUP BY s.node_id`
+      return rows.map((r) => ({
+        nodeId: r.node_id,
+        entered: Number(r.entered),
+        completed: Number(r.completed),
+        failed: Number(r.failed),
+      }))
+    })
+  }
+
   execution(id: string): Promise<Execution & { steps: ExecutionStep[] }> {
     const canSeeData = currentTenant().permissions.includes('automations.write')
     return this.tenantDb.run(async (tx) => {
@@ -625,30 +649,48 @@ export class FlowsService {
     if (!rows.length) return []
     const ids = rows.map((r) => r.id)
     const versionIds = rows.flatMap((r) => [r.activeVersionId, r.draftVersionId]).filter(Boolean)
-    const [versions, counts] = await Promise.all([
+    const weekAgo = new Date(Date.now() - 7 * 86_400_000)
+    const [versions, counts, recent] = await Promise.all([
       tx.flowVersion.findMany({
         where: { id: { in: versionIds as string[] } },
-        select: { id: true, version: true, triggerType: true, updatedAt: true },
+        select: {
+          id: true,
+          version: true,
+          triggerType: true,
+          triggerConfig: true,
+          updatedAt: true,
+        },
       }),
       tx.automationExecution.groupBy({
         by: ['flowId', 'status'],
         where: { flowId: { in: ids } },
         _count: { _all: true },
       }),
+      tx.automationExecution.groupBy({
+        by: ['flowId'],
+        where: { flowId: { in: ids }, startedAt: { gte: weekAgo } },
+        _count: { _all: true },
+      }),
     ])
     const v = new Map(versions.map((x) => [x.id, x]))
+    const week = new Map(recent.map((c) => [c.flowId, c._count._all]))
     return rows.map((r) => {
       const active = r.activeVersionId ? v.get(r.activeVersionId) : undefined
       const draft = r.draftVersionId ? v.get(r.draftVersionId) : undefined
       const mine = counts.filter((c) => c.flowId === r.id)
+      const triggerOf = (x?: { triggerType: string | null; triggerConfig: unknown }) =>
+        x?.triggerType ? { type: x.triggerType, config: x.triggerConfig ?? {} } : null
       return toFlow(r, {
         triggerType: (draft ?? active)?.triggerType ?? null,
+        trigger: triggerOf(draft ?? active),
+        liveTrigger: triggerOf(active),
         activeVersion: active?.version ?? null,
         draftUpdatedAt: draft?.updatedAt ?? null,
         running: mine
           .filter((c) => c.status === 'RUNNING' || c.status === 'WAITING')
           .reduce((a, c) => a + c._count._all, 0),
         total: mine.reduce((a, c) => a + c._count._all, 0),
+        last7d: week.get(r.id) ?? 0,
       })
     })
   }

@@ -6,12 +6,17 @@ import {
   type Execution,
   type ExecutionStep,
   type Flow,
+  FLOW_TEMPLATES,
   type FlowIssue,
+  type FlowNodeStats,
+  type FlowSetupStep,
+  flowSetupDone,
   type FlowVersion,
   isCondition,
   isTrigger,
   type NodeType,
   outputsOf,
+  type REENTRY_POLICIES,
   type TriggerRun,
 } from '@fenwira/contracts'
 import dagre from '@dagrejs/dagre'
@@ -92,6 +97,15 @@ export function useTriggerRun(flowId: string, runId: string | null) {
     queryFn: () =>
       get<{ data: TriggerRun }>(`/flows/${flowId}/trigger-runs/${runId}`).then((r) => r.data),
     enabled: !!runId,
+  })
+}
+
+export function useNodeStats(flowId: string, enabled: boolean) {
+  const { tenantId } = useSession()
+  return useQuery({
+    queryKey: automationKey(tenantId, 'node-stats', flowId),
+    queryFn: () => get<{ data: FlowNodeStats }>(`/flows/${flowId}/node-stats`).then((r) => r.data),
+    enabled,
   })
 }
 
@@ -181,6 +195,53 @@ export const PALETTE: Array<{ category: Category; title: string; types: NodeType
     ],
   },
 ]
+
+/** Card colour family (design system → Flow nodes): AI is an action with its own sparkle. */
+export type NodeKind = 'trigger' | 'message' | 'condition' | 'action' | 'ai'
+export const kindOf = (t: NodeType): NodeKind => (t === 'action.ai_reply' ? 'ai' : categoryOf(t))
+export const KIND_LABEL: Record<NodeKind, string> = {
+  trigger: 'Trigger',
+  message: 'Message',
+  condition: 'Condition',
+  action: 'Action',
+  ai: 'AI',
+}
+
+/** The "+" menu on the canvas: Triggers, Conditions, Actions (messages included) and AI. */
+export const ADD_MENU: Array<{ title: string; types: NodeType[] }> = [
+  { title: 'Triggers', types: PALETTE[0]!.types },
+  { title: 'Conditions', types: PALETTE[2]!.types },
+  {
+    title: 'Actions',
+    types: ['action.send_message', 'action.send_template', ...PALETTE[3]!.types],
+  },
+  { title: 'AI', types: ['action.ai_reply'] },
+]
+
+/** Re-entry policies in plain language (the stored values are unchanged). */
+export const REENTRY_OPTIONS: Array<{
+  value: (typeof REENTRY_POLICIES)[number]
+  label: string
+  hint: string
+}> = [
+  {
+    value: 'ALWAYS',
+    label: 'Every time it matches',
+    hint: 'Runs for every matching message or event, even if one is already running.',
+  },
+  {
+    value: 'ONCE_PER_CONTACT',
+    label: 'Only the first time for each contact',
+    hint: 'Each contact goes through this automation once, ever.',
+  },
+  {
+    value: 'AFTER_COMPLETION',
+    label: 'Not while one is already running for this chat',
+    hint: 'Starts again only after the previous run in this conversation has finished.',
+  },
+]
+export const PRIORITY_HINT =
+  'When several automations match the same message, lower numbers run first. Keyword automations always win over Message received.'
 
 export const DEFAULT_CONFIG: Record<NodeType, Record<string, unknown>> = {
   'trigger.message_received': { onlyNewConversation: false },
@@ -319,18 +380,47 @@ export function addNode(
   return { graph, id }
 }
 
+/**
+ * Inserts a node on an output: `source --handle--> new`, and whatever that output led to before
+ * now follows the new node's first output (Yes for conditions). Used by the canvas "+" buttons.
+ */
+export function insertNode(
+  g: DraftGraph,
+  type: NodeType,
+  source: string,
+  handle: EdgeHandle,
+): { graph: DraftGraph; id: string } {
+  const id = newNodeId()
+  const previous = outgoing(g, source, handle)?.target ?? null
+  let graph: DraftGraph = {
+    ...g,
+    nodes: [...g.nodes, { id, type, config: structuredClone(DEFAULT_CONFIG[type]) }],
+  }
+  graph = connect(graph, source, handle, id)
+  const out = outputsOf(type).find((h) => h !== 'error')
+  if (previous && out) graph = connect(graph, id, out, previous)
+  return { graph: autoLayout(graph), id }
+}
+
+/** Adds the trigger to an empty flow (the canvas's "Add a trigger" button). */
+export function addTrigger(g: DraftGraph, type: NodeType): { graph: DraftGraph; id: string } {
+  const r = addNode(g, type)
+  return { graph: autoLayout(r.graph), id: r.id }
+}
+
 /** Top-to-bottom auto layout (dagre). Only `layout` changes. */
 export function autoLayout(g: DraftGraph): DraftGraph {
   const d = new dagre.graphlib.Graph()
-  d.setGraph({ rankdir: 'TB', nodesep: 60, ranksep: 40 })
+  d.setGraph({ rankdir: 'TB', nodesep: 60, ranksep: 56 })
   d.setDefaultEdgeLabel(() => ({}))
-  for (const n of g.nodes) d.setNode(n.id, { width: 240, height: 112 })
+  // Cards are w-64; labelled outputs (Yes/No, If it fails) make them up to ~136px tall.
+  for (const n of g.nodes) d.setNode(n.id, { width: 256, height: 136 })
   for (const e of g.edges) d.setEdge(e.source, e.target)
   dagre.layout(d)
   const layout: DraftGraph['layout'] = {}
   for (const n of g.nodes) {
     const p = d.node(n.id)
-    layout[n.id] = { x: Math.round(p.x - 120), y: Math.round(p.y - 56) }
+    layout[n.id] = { x: Math.round(p.x - 128), y: Math.round(p.y - 68) }
   }
   return { ...g, layout }
 }
@@ -358,6 +448,46 @@ export function readingOrder(g: DraftGraph): DraftNode[] {
   return out
 }
 
+/** What each kind of step needs before it can run: the generic setup checklist. */
+const SETUP_BY_TYPE: Partial<Record<NodeType, Omit<FlowSetupStep, 'nodeId'>>> = {
+  'trigger.keyword': { kind: 'keywords', label: 'Set the keywords' },
+  'trigger.webhook': { kind: 'webhook_phone', label: 'Say where the phone number is' },
+  'action.send_template': { kind: 'template', label: 'Pick the approved template' },
+  'action.send_message': { kind: 'message', label: 'Write the message' },
+  'action.add_tag': { kind: 'tags', label: 'Choose the tag to add' },
+  'action.remove_tag': { kind: 'tags', label: 'Choose the tag to remove' },
+  'condition.has_tag': { kind: 'condition_tag', label: 'Choose the tag to check' },
+  'action.assign_agent': { kind: 'agent', label: 'Choose who gets the conversation' },
+  'action.delay': { kind: 'delay', label: 'Choose how long to wait' },
+}
+
+export type SetupItem = FlowSetupStep & { done: boolean }
+
+/**
+ * The "Set up your automation" checklist: the template's own steps (better labels and suggested
+ * tag names) when the flow was started from one, then a generic step for every other node that
+ * needs input. An item is done when its value is set and the validator has nothing on that node.
+ */
+export function setupChecklist(
+  g: DraftGraph,
+  issues: FlowIssue[],
+  templateId?: string | null,
+): SetupItem[] {
+  const fromTemplate = FLOW_TEMPLATES.find((t) => t.id === templateId)?.setup ?? []
+  const steps: FlowSetupStep[] = fromTemplate.filter((s) => g.nodes.some((n) => n.id === s.nodeId))
+  for (const n of readingOrder(g)) {
+    const generic = SETUP_BY_TYPE[n.type]
+    if (generic && !steps.some((s) => s.nodeId === n.id)) steps.push({ ...generic, nodeId: n.id })
+  }
+  return steps.map((s) => {
+    const node = g.nodes.find((n) => n.id === s.nodeId)
+    return {
+      ...s,
+      done: flowSetupDone(s, node) && !issues.some((i) => i.nodeId === s.nodeId),
+    }
+  })
+}
+
 export const issuesFor = (issues: FlowIssue[], nodeId: string) =>
   issues.filter((i) => i.nodeId === nodeId)
 
@@ -369,4 +499,34 @@ export const RUN_REASON: Record<string, string> = {
   AUTOMATION_PAUSED: 'Automation is paused for this conversation.',
   automation_execution_limit: 'The monthly automation limit is reached.',
   automation_enabled: 'Automations are not enabled for this workspace.',
+}
+
+/** Plain-language wording for config problems; structural messages are already plain. */
+const CONFIG_HINT: Partial<Record<NodeType, string>> = {
+  'trigger.keyword': 'Add at least one keyword.',
+  'trigger.webhook': 'Say where the phone number is in your system’s data.',
+  'condition.equals': 'Fill in what to check and the value to compare with.',
+  'condition.contains': 'Fill in what to check and the text to look for.',
+  'condition.exists': 'Choose the value to check.',
+  'condition.has_tag': 'Choose at least one tag to check.',
+  'condition.contact_property': 'Choose a contact field and a condition.',
+  'action.send_message': 'Write a message, or choose a file.',
+  'action.send_template': 'Pick an approved template.',
+  'action.add_tag': 'Choose at least one tag to add.',
+  'action.remove_tag': 'Choose at least one tag to remove.',
+  'action.update_contact': 'Choose the fields to update.',
+  'action.webhook': 'Enter the address of your system (https).',
+  'action.delay': 'Enter how long to wait.',
+}
+
+export function plainIssue(issue: FlowIssue, node?: DraftNode): string {
+  if (issue.code === 'FLOW_NODE_CONFIG_INVALID' && node && CONFIG_HINT[node.type])
+    return CONFIG_HINT[node.type]!
+  return issue.message
+}
+
+/** The step a problem belongs to: its node, or the start of its connection. */
+export function issueNodeId(g: DraftGraph, issue: FlowIssue): string | undefined {
+  if (issue.nodeId) return issue.nodeId
+  return issue.edgeId ? g.edges.find((e) => e.id === issue.edgeId)?.source : undefined
 }
