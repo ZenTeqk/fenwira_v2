@@ -14,6 +14,7 @@ export const FLOW_TEMPLATE_CATEGORIES = [
   { id: 'WELCOME', label: 'Welcome & replies' },
   { id: 'LEADS', label: 'Leads' },
   { id: 'ORDERS', label: 'Orders & updates' },
+  { id: 'CAMPAIGNS', label: 'Campaigns' },
   { id: 'FOLLOW_UPS', label: 'Follow-ups' },
   { id: 'AI', label: 'AI' },
 ] as const
@@ -29,6 +30,7 @@ export type FlowSetupKind =
   | 'agent'
   | 'delay'
   | 'webhook_phone'
+  | 'webhook_url'
   | 'condition_tag'
 export type FlowSetupStep = {
   nodeId: string
@@ -309,6 +311,462 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
         ],
       ),
   },
+  // ---------------------------------------------------------------------------------------------
+  // Advanced samples: several branches, waits and checks on one canvas. Same nodes and runtime.
+  // ---------------------------------------------------------------------------------------------
+  {
+    id: 'new-customer-journey',
+    title: 'New customer journey',
+    description:
+      'Welcome every new contact, follow up after a day, hand engaged people to your team and tag the quiet ones.',
+    categories: ['POPULAR', 'WELCOME'],
+    icon: 'trigger.contact_created',
+    requires: ['APPROVED_TEMPLATE'],
+    reentryPolicy: 'ONCE_PER_CONTACT',
+    setup: [
+      TEMPLATE_STEP('welcome', 'Pick the welcome template'),
+      {
+        nodeId: 'tag-new',
+        kind: 'tags',
+        label: 'Choose the new-customer tag',
+        suggestedTag: 'new-customer',
+      },
+      { nodeId: 'wait-1', kind: 'delay', label: 'Choose the first wait' },
+      { nodeId: 'assign', kind: 'agent', label: 'Choose who talks to engaged customers' },
+      TEMPLATE_STEP('nudge', 'Pick the follow-up template'),
+      { nodeId: 'wait-2', kind: 'delay', label: 'Choose the second wait' },
+      {
+        nodeId: 'tag-quiet',
+        kind: 'tags',
+        label: 'Choose the tag for quiet contacts',
+        suggestedTag: 'not-engaged',
+      },
+      {
+        nodeId: 'tag-failed',
+        kind: 'tags',
+        label: 'Choose the tag for failed sends',
+        suggestedTag: 'send-failed',
+      },
+    ],
+    graph: () =>
+      graph(
+        [
+          node('trigger', 'trigger.contact_created'),
+          node('welcome', 'action.send_template', {
+            templateId: '',
+            variables: { body: ['{{contact.firstName}}'] },
+          }),
+          node('tag-failed', 'action.add_tag', { tagIds: [] }),
+          end('end-failed'),
+          node('tag-new', 'action.add_tag', { tagIds: [] }),
+          node('wait-1', 'action.delay', { amount: 1, unit: 'DAYS' }),
+          node('replied-1', 'condition.contact_property', {
+            key: 'lastInboundAt',
+            operator: 'IN_LAST_DAYS',
+            value: 1,
+          }),
+          node('assign', 'action.assign_agent', { mode: 'ROUND_ROBIN' }),
+          end('end-engaged'),
+          node('nudge', 'action.send_template', {
+            templateId: '',
+            variables: { body: ['{{contact.firstName}}'] },
+          }),
+          node('wait-2', 'action.delay', { amount: 3, unit: 'DAYS' }),
+          node('replied-2', 'condition.contact_property', {
+            key: 'lastInboundAt',
+            operator: 'IN_LAST_DAYS',
+            value: 3,
+          }),
+          node('tag-quiet', 'action.add_tag', { tagIds: [] }),
+          end(),
+        ],
+        [
+          edge('trigger', 'welcome'),
+          edge('welcome', 'tag-new'),
+          edge('welcome', 'tag-failed', 'error'),
+          edge('tag-failed', 'end-failed'),
+          ...chain('tag-new', 'wait-1', 'replied-1'),
+          edge('replied-1', 'assign', 'yes'),
+          edge('assign', 'end-engaged'),
+          edge('replied-1', 'nudge', 'no'),
+          ...chain('nudge', 'wait-2', 'replied-2'),
+          edge('replied-2', 'assign', 'yes'),
+          edge('replied-2', 'tag-quiet', 'no'),
+          edge('tag-quiet', 'end'),
+        ],
+      ),
+  },
+  {
+    id: 'template-button-router',
+    title: 'Template button replies',
+    description:
+      'Route the quick-reply buttons of your template: “Interested” goes to sales, “Call me” books a call, “Stop” opts out politely.',
+    categories: ['POPULAR', 'CAMPAIGNS', 'LEADS'],
+    icon: 'condition.equals',
+    requires: [],
+    reentryPolicy: 'ALWAYS',
+    setup: [
+      {
+        nodeId: 'trigger',
+        kind: 'keywords',
+        label: 'Match your template’s button texts',
+        hint: 'Use the exact quick-reply button labels of your approved template.',
+      },
+      {
+        nodeId: 'tag-hot',
+        kind: 'tags',
+        label: 'Choose the interested tag',
+        suggestedTag: 'hot-lead',
+      },
+      { nodeId: 'assign-sales', kind: 'agent', label: 'Choose who gets interested customers' },
+      {
+        nodeId: 'tag-call',
+        kind: 'tags',
+        label: 'Choose the call-back tag',
+        suggestedTag: 'call-back',
+      },
+      {
+        nodeId: 'tag-stop',
+        kind: 'tags',
+        label: 'Choose the not-interested tag',
+        suggestedTag: 'not-interested',
+      },
+    ],
+    graph: () =>
+      graph(
+        [
+          node('trigger', 'trigger.keyword', {
+            keywords: ['Interested', 'Call me', 'Stop'],
+            match: 'EXACT',
+            caseSensitive: false,
+          }),
+          node('is-interested', 'condition.equals', {
+            subject: '{{trigger.message.text}}',
+            value: 'Interested',
+            caseSensitive: false,
+          }),
+          node('tag-hot', 'action.add_tag', { tagIds: [] }),
+          node('assign-sales', 'action.assign_agent', { mode: 'ROUND_ROBIN' }),
+          node('reply-hot', 'action.send_message', {
+            text: 'Great, {{contact.firstName}}! A teammate will message you in a few minutes with the details.',
+          }),
+          end('end-hot'),
+          node('is-call', 'condition.equals', {
+            subject: '{{trigger.message.text}}',
+            value: 'Call me',
+            caseSensitive: false,
+          }),
+          node('tag-call', 'action.add_tag', { tagIds: [] }),
+          node('reply-call', 'action.send_message', {
+            text: 'Sure! What time suits you for a call today? Reply with a time and we will call {{contact.phone}}.',
+          }),
+          end('end-call'),
+          node('tag-stop', 'action.add_tag', { tagIds: [] }),
+          node('reply-stop', 'action.send_message', {
+            text: 'No problem, {{contact.firstName}}. We will not send you more offers. Reply anytime if you need us.',
+          }),
+          end(),
+        ],
+        [
+          edge('trigger', 'is-interested'),
+          edge('is-interested', 'tag-hot', 'yes'),
+          ...chain('tag-hot', 'assign-sales', 'reply-hot', 'end-hot'),
+          edge('is-interested', 'is-call', 'no'),
+          edge('is-call', 'tag-call', 'yes'),
+          ...chain('tag-call', 'reply-call', 'end-call'),
+          edge('is-call', 'tag-stop', 'no'),
+          ...chain('tag-stop', 'reply-stop', 'end'),
+        ],
+      ),
+  },
+  {
+    id: 'campaign-response-booking',
+    title: 'Campaign reply to booking',
+    description:
+      'When customers answer your campaign with “Book now”, confirm with a template, save their reply, and bring in a teammate if they have not booked two hours later.',
+    categories: ['CAMPAIGNS', 'FOLLOW_UPS'],
+    icon: 'trigger.keyword',
+    requires: ['APPROVED_TEMPLATE'],
+    reentryPolicy: 'AFTER_COMPLETION',
+    setup: [
+      {
+        nodeId: 'trigger',
+        kind: 'keywords',
+        label: 'Match the campaign button or reply',
+        hint: 'For example the “Book now” quick-reply button of your campaign template.',
+      },
+      {
+        nodeId: 'tag-responded',
+        kind: 'tags',
+        label: 'Choose the responder tag',
+        suggestedTag: 'campaign-responder',
+      },
+      TEMPLATE_STEP('confirm', 'Pick the booking link template'),
+      { nodeId: 'wait', kind: 'delay', label: 'Choose how long to wait' },
+      {
+        nodeId: 'booked',
+        kind: 'condition_tag',
+        label: 'Choose the booked tag',
+        hint: 'Your team or your booking system (through the API) adds it once the booking is done.',
+        suggestedTag: 'booked',
+      },
+      { nodeId: 'assign', kind: 'agent', label: 'Choose who helps unfinished bookings' },
+    ],
+    graph: () =>
+      graph(
+        [
+          node('trigger', 'trigger.keyword', {
+            keywords: ['Book now', 'Yes'],
+            match: 'EXACT',
+            caseSensitive: false,
+          }),
+          node('tag-responded', 'action.add_tag', { tagIds: [] }),
+          node('save', 'action.update_contact', {
+            updates: [{ field: 'property.campaign_response', value: '{{trigger.message.text}}' }],
+          }),
+          node('confirm', 'action.send_template', {
+            templateId: '',
+            variables: { body: ['{{contact.firstName}}'] },
+          }),
+          node('wait', 'action.delay', { amount: 2, unit: 'HOURS' }),
+          node('booked', 'condition.has_tag', { tagIds: [], match: 'ANY' }),
+          end('end-booked'),
+          node('assign', 'action.assign_agent', { mode: 'ROUND_ROBIN' }),
+          node('help', 'action.send_message', {
+            text: 'Hi {{contact.firstName}}, need a hand finishing your booking? A teammate is here to help.',
+          }),
+          end(),
+        ],
+        [
+          ...chain('trigger', 'tag-responded', 'save', 'confirm', 'wait', 'booked'),
+          // A failed template send goes straight to a person.
+          edge('confirm', 'assign', 'error'),
+          edge('booked', 'end-booked', 'yes'),
+          edge('booked', 'assign', 'no'),
+          ...chain('assign', 'help', 'end'),
+        ],
+      ),
+  },
+  {
+    id: 'order-lifecycle',
+    title: 'Order lifecycle updates',
+    description:
+      'One webhook from your shop: confirmed, shipped and delivered orders each get their template, and delivered orders get a review request two days later.',
+    categories: ['ORDERS'],
+    icon: 'trigger.webhook',
+    requires: ['APPROVED_TEMPLATE'],
+    reentryPolicy: 'ALWAYS',
+    setup: [
+      {
+        nodeId: 'trigger',
+        kind: 'webhook_phone',
+        label: 'Say where the phone number is',
+        hint: 'Your system posts {"customer": {"phone": …}, "status": "confirmed" | "shipped" | "delivered", "order": {…}}.',
+      },
+      TEMPLATE_STEP('confirmed', 'Pick the order confirmed template'),
+      {
+        nodeId: 'tag-customer',
+        kind: 'tags',
+        label: 'Choose the customer tag',
+        suggestedTag: 'customer',
+      },
+      TEMPLATE_STEP('shipped', 'Pick the order shipped template'),
+      TEMPLATE_STEP('delivered', 'Pick the order delivered template'),
+      { nodeId: 'wait-review', kind: 'delay', label: 'Choose when to ask for a review' },
+      TEMPLATE_STEP('review', 'Pick the review request template'),
+    ],
+    graph: () =>
+      graph(
+        [
+          node('trigger', 'trigger.webhook', {
+            contactPhonePath: 'customer.phone',
+            requireSignature: true,
+          }),
+          node('is-confirmed', 'condition.equals', {
+            subject: '{{trigger.webhook.status}}',
+            value: 'confirmed',
+            caseSensitive: false,
+          }),
+          node('confirmed', 'action.send_template', {
+            templateId: '',
+            variables: { body: ['{{contact.firstName}}', '{{trigger.webhook.order.id}}'] },
+          }),
+          node('save-order', 'action.update_contact', {
+            updates: [{ field: 'property.last_order_id', value: '{{trigger.webhook.order.id}}' }],
+          }),
+          node('tag-customer', 'action.add_tag', { tagIds: [] }),
+          end('end-confirmed'),
+          node('is-shipped', 'condition.equals', {
+            subject: '{{trigger.webhook.status}}',
+            value: 'shipped',
+            caseSensitive: false,
+          }),
+          node('shipped', 'action.send_template', {
+            templateId: '',
+            variables: {
+              body: ['{{trigger.webhook.order.id}}', '{{trigger.webhook.order.tracking_url}}'],
+            },
+          }),
+          end('end-shipped'),
+          node('is-delivered', 'condition.equals', {
+            subject: '{{trigger.webhook.status}}',
+            value: 'delivered',
+            caseSensitive: false,
+          }),
+          node('delivered', 'action.send_template', {
+            templateId: '',
+            variables: { body: ['{{contact.firstName}}'] },
+          }),
+          node('wait-review', 'action.delay', { amount: 2, unit: 'DAYS' }),
+          node('review', 'action.send_template', {
+            templateId: '',
+            variables: { body: ['{{contact.firstName}}'] },
+          }),
+          end('end-delivered'),
+          end('end-other'),
+        ],
+        [
+          edge('trigger', 'is-confirmed'),
+          edge('is-confirmed', 'confirmed', 'yes'),
+          ...chain('confirmed', 'save-order', 'tag-customer', 'end-confirmed'),
+          edge('is-confirmed', 'is-shipped', 'no'),
+          edge('is-shipped', 'shipped', 'yes'),
+          edge('shipped', 'end-shipped'),
+          edge('is-shipped', 'is-delivered', 'no'),
+          edge('is-delivered', 'delivered', 'yes'),
+          ...chain('delivered', 'wait-review', 'review', 'end-delivered'),
+          edge('is-delivered', 'end-other', 'no'),
+        ],
+      ),
+  },
+  {
+    id: 'abandoned-cart-recovery',
+    title: 'Abandoned cart recovery',
+    description:
+      'Your shop reports an abandoned cart; Fenwira reminds the customer after an hour and sends an offer the next day, skipping anyone who already bought.',
+    categories: ['ORDERS', 'FOLLOW_UPS'],
+    icon: 'action.delay',
+    requires: ['APPROVED_TEMPLATE'],
+    reentryPolicy: 'AFTER_COMPLETION',
+    setup: [
+      { nodeId: 'trigger', kind: 'webhook_phone', label: 'Say where the phone number is' },
+      { nodeId: 'wait-1', kind: 'delay', label: 'Choose when to send the reminder' },
+      {
+        nodeId: 'bought-1',
+        kind: 'condition_tag',
+        label: 'Choose the tag that means “already bought”',
+        hint: 'For example the customer tag added by the Order lifecycle automation.',
+        suggestedTag: 'customer',
+      },
+      {
+        ...TEMPLATE_STEP('reminder', 'Pick the cart reminder template'),
+        hint: 'Map values from your shop, for example {{trigger.webhook.cart.url}}.',
+      },
+      { nodeId: 'wait-2', kind: 'delay', label: 'Choose when to send the offer' },
+      {
+        nodeId: 'bought-2',
+        kind: 'condition_tag',
+        label: 'Choose the “already bought” tag again',
+        suggestedTag: 'customer',
+      },
+      TEMPLATE_STEP('offer', 'Pick the offer template'),
+      {
+        nodeId: 'tag-lost',
+        kind: 'tags',
+        label: 'Choose the tag for unrecovered carts',
+        suggestedTag: 'cart-abandoned',
+      },
+    ],
+    graph: () =>
+      graph(
+        [
+          node('trigger', 'trigger.webhook', {
+            contactPhonePath: 'customer.phone',
+            requireSignature: true,
+          }),
+          node('wait-1', 'action.delay', { amount: 1, unit: 'HOURS' }),
+          node('bought-1', 'condition.has_tag', { tagIds: [], match: 'ANY' }),
+          end('end-bought'),
+          node('reminder', 'action.send_template', {
+            templateId: '',
+            variables: { body: ['{{contact.firstName}}', '{{trigger.webhook.cart.url}}'] },
+          }),
+          node('wait-2', 'action.delay', { amount: 1, unit: 'DAYS' }),
+          node('bought-2', 'condition.has_tag', { tagIds: [], match: 'ANY' }),
+          end('end-bought-later'),
+          node('offer', 'action.send_template', {
+            templateId: '',
+            variables: { body: ['{{contact.firstName}}'] },
+          }),
+          node('tag-lost', 'action.add_tag', { tagIds: [] }),
+          end(),
+          end('end-failed'),
+        ],
+        [
+          ...chain('trigger', 'wait-1', 'bought-1'),
+          edge('bought-1', 'end-bought', 'yes'),
+          edge('bought-1', 'reminder', 'no'),
+          edge('reminder', 'end-failed', 'error'),
+          ...chain('reminder', 'wait-2', 'bought-2'),
+          edge('bought-2', 'end-bought-later', 'yes'),
+          edge('bought-2', 'offer', 'no'),
+          ...chain('offer', 'tag-lost', 'end'),
+        ],
+      ),
+  },
+  {
+    id: 'crm-lead-sync',
+    title: 'Send new leads to your CRM',
+    description:
+      'Post every new contact to your CRM, save the CRM id on the contact, and tag anything that did not sync so your team can check it.',
+    categories: ['LEADS'],
+    icon: 'action.webhook',
+    requires: [],
+    reentryPolicy: 'ONCE_PER_CONTACT',
+    setup: [
+      {
+        nodeId: 'crm',
+        kind: 'webhook_url',
+        label: 'Enter your CRM’s webhook URL',
+        hint: 'It should answer with JSON such as {"id": "…"}.',
+      },
+      {
+        nodeId: 'tag-failed',
+        kind: 'tags',
+        label: 'Choose the tag for leads that did not sync',
+        suggestedTag: 'crm-sync-failed',
+      },
+    ],
+    graph: () =>
+      graph(
+        [
+          node('trigger', 'trigger.contact_created'),
+          node('crm', 'action.webhook', {
+            method: 'POST',
+            url: '',
+            body: '{"name": "{{contact.name}}", "phone": "{{contact.phone}}", "email": "{{contact.email}}"}',
+            timeoutMs: 5000,
+            saveResponseAs: 'crm',
+          }),
+          node('has-id', 'condition.exists', { subject: '{{vars.crm.id}}' }),
+          node('save-id', 'action.update_contact', {
+            updates: [{ field: 'property.crm_id', value: '{{vars.crm.id}}' }],
+          }),
+          end(),
+          node('tag-failed', 'action.add_tag', { tagIds: [] }),
+          end('end-failed'),
+        ],
+        [
+          edge('trigger', 'crm'),
+          edge('crm', 'has-id'),
+          edge('crm', 'tag-failed', 'error'),
+          edge('has-id', 'save-id', 'yes'),
+          edge('has-id', 'tag-failed', 'no'),
+          ...chain('save-id', 'end'),
+          edge('tag-failed', 'end-failed'),
+        ],
+      ),
+  },
   {
     id: 'ai-assistant',
     title: 'AI assistant',
@@ -345,5 +803,7 @@ export function flowSetupDone(step: FlowSetupStep, node: { config: unknown } | u
       return typeof c.amount === 'number' && c.amount >= 1 && !!c.unit
     case 'webhook_phone':
       return text(c.contactPhonePath).length > 0
+    case 'webhook_url':
+      return /^https:\/\/\S+\.\S+/.test(text(c.url))
   }
 }

@@ -345,7 +345,8 @@ function Canvas({
     } catch {
       /* A missing preference falls back to fitting the graph. */
     }
-    void flow.fitView({ padding: 0.12, minZoom: 0.75, maxZoom: 1 }).then(() => {
+    // Open with the whole flow in view; large multi-branch flows zoom out to at most 50%.
+    void flow.fitView({ padding: 0.12, minZoom: 0.5, maxZoom: 1 }).then(() => {
       const viewport = flow.getViewport()
       const top = Math.min(...nodes.map((n) => n.position.y))
       if (viewport.y + top * viewport.zoom < 0)

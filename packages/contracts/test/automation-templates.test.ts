@@ -24,6 +24,7 @@ function fill(g: DraftGraph, step: FlowSetupStep): DraftGraph {
     agent: { mode: 'ROUND_ROBIN' },
     delay: { amount: 1, unit: 'DAYS' },
     webhook_phone: { contactPhonePath: 'customer.phone' },
+    webhook_url: { url: 'https://crm.example.com/hooks/fenwira' },
   }
   return {
     ...g,
