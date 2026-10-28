@@ -194,6 +194,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         type: content.type,
         status: 'CREATED',
         source: 'INBOX',
+        aiGenerated: false,
         content: content as Message['content'],
         templateSnapshot: null,
         providerMessageId: null,

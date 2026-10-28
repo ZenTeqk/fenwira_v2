@@ -347,6 +347,19 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
             >
               Your changes are still in this editor. Retry saving before leaving.
             </Alert>
+          ) : flow.data?.managedBy === 'AI_ASSISTANT' ? (
+            <Alert
+              tone="info"
+              title="Managed by AI Assistant"
+              action={
+                <Button asChild variant="secondary" size="sm">
+                  <Link href="/ai-assistant">Open AI Assistant</Link>
+                </Button>
+              }
+            >
+              Turn it on or pause it from the AI Assistant page. Changes you publish here are used
+              by the assistant.
+            </Alert>
           ) : undefined
         }
         palette={

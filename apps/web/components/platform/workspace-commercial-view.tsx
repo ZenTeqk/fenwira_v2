@@ -37,6 +37,7 @@ import { usePlatform } from './platform-shell'
 import { WorkspaceMembers } from './platform-accounts'
 import { WorkspaceInvoices } from './workspace-invoices'
 import { WorkspaceNextSteps, useWorkspaceParts } from './workspace-next-steps'
+import { WorkspaceAi } from './workspace-ai'
 import { WorkspaceWhatsApp } from './workspace-whatsapp'
 const valueLabel = (v: boolean | number | null) =>
   v === null
@@ -122,6 +123,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
       <WorkspaceNextSteps data={data} />
       <WorkspaceMembers workspaceId={workspace.id} />
       <WorkspaceWhatsApp workspaceId={workspace.id} name={workspace.name} />
+      <WorkspaceAi workspaceId={workspace.id} />
       <WorkspaceActivity workspaceId={workspace.id} />
       <WorkspaceInvoices workspaceId={workspace.id} name={workspace.name} />
       <div className="grid gap-6 xl:grid-cols-2">

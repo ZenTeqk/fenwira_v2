@@ -20,12 +20,13 @@ describe('navigation', () => {
       'Campaigns',
       'Templates',
       'Automations',
+      'AI Assistant',
       'Analytics',
       'Integrations',
       'Billing',
       'Settings',
     ])
-    expect(flattenLeaves(NAVIGATION)).toHaveLength(32)
+    expect(flattenLeaves(NAVIGATION)).toHaveLength(33)
     const hrefs = flattenLeaves(NAVIGATION).map((l) => l.href)
     expect(new Set(hrefs).size).toBe(hrefs.length)
   })
@@ -54,6 +55,7 @@ describe('navigation', () => {
       'campaigns',
       'templates',
       'automations',
+      'ai-assistant',
       'analytics',
       'integrations',
       'billing',
@@ -87,7 +89,7 @@ describe('navigation', () => {
   })
 
   it('reveals everything in preview mode', () => {
-    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(32)
+    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(33)
   })
 
   it('keeps partially shipped groups with only their shipped children', () => {

@@ -104,7 +104,7 @@ export const categoryOf = (t: NodeType): Category =>
     ? 'trigger'
     : isCondition(t)
       ? 'condition'
-      : t === 'action.send_message' || t === 'action.send_template'
+      : t === 'action.send_message' || t === 'action.send_template' || t === 'action.ai_reply'
         ? 'message'
         : 'action'
 
@@ -126,6 +126,7 @@ export const NODE_LABEL: Record<NodeType, string> = {
   'action.update_contact': 'Update contact',
   'action.webhook': 'Call webhook',
   'action.delay': 'Wait',
+  'action.ai_reply': 'AI reply',
   'action.end': 'End',
 }
 
@@ -134,6 +135,8 @@ export const HANDLE_LABEL: Record<EdgeHandle, string> = {
   yes: 'Yes',
   no: 'No',
   error: 'If it fails',
+  replied: 'Replied',
+  needs_human: 'Needs a human',
 }
 
 /** Palette order. Triggers only while the flow has none (exactly one per flow). */
@@ -151,7 +154,7 @@ export const PALETTE: Array<{ category: Category; title: string; types: NodeType
   {
     category: 'message',
     title: 'Messages',
-    types: ['action.send_message', 'action.send_template'],
+    types: ['action.send_message', 'action.send_template', 'action.ai_reply'],
   },
   {
     category: 'condition',
@@ -197,6 +200,7 @@ export const DEFAULT_CONFIG: Record<NodeType, Record<string, unknown>> = {
   'action.update_contact': { updates: [{ field: 'name', value: '' }] },
   'action.webhook': { method: 'POST', url: 'https://', timeoutMs: 5000 },
   'action.delay': { amount: 1, unit: 'HOURS' },
+  'action.ai_reply': { mode: 'CONVERSATION' },
   'action.end': {},
 }
 
@@ -254,6 +258,10 @@ export function summarize(node: DraftNode): string {
       return `${String(c.method ?? 'POST')} ${String(c.url ?? '')}`.slice(0, 60)
     case 'action.delay':
       return `${String(c.amount ?? '')} ${String(c.unit ?? '').toLowerCase()}`
+    case 'action.ai_reply':
+      return c.mode === 'SINGLE'
+        ? 'Answer once from your knowledge'
+        : 'Answer each message from your knowledge'
     case 'action.end':
       return 'Finish the automation'
   }

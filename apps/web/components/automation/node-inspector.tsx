@@ -707,6 +707,41 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
         </div>
       )
       break
+    case 'action.ai_reply':
+      form = (
+        <>
+          <Choose
+            label="Mode"
+            value={str(c.mode) || 'CONVERSATION'}
+            disabled={readOnly}
+            onChange={(v) => set({ mode: v })}
+            options={[
+              { value: 'CONVERSATION', label: 'Conversation: answer every message until done' },
+              { value: 'SINGLE', label: 'Single reply: answer once, then continue' },
+            ]}
+          />
+          <Field
+            label="Extra instructions (optional)"
+            hint="For example: “Mention we deliver only in Chennai.” Answers still come only from your knowledge."
+          >
+            <Textarea
+              rows={3}
+              maxLength={1000}
+              readOnly={readOnly}
+              value={str(c.instructions)}
+              onChange={(e) => set({ instructions: e.target.value || undefined })}
+            />
+          </Field>
+          <p className="text-sm text-secondary">
+            Knowledge, tone and handover messages are set on the{' '}
+            <a href="/ai-assistant" className="font-medium text-primary-strong underline-offset-4 hover:underline">
+              AI Assistant page
+            </a>
+            . Outside the 24-hour window this step takes its error path.
+          </p>
+        </>
+      )
+      break
     case 'action.end':
       form = <p className="text-sm text-muted">The automation finishes here.</p>
       break

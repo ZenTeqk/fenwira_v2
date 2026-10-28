@@ -48,6 +48,14 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
       >
         <StatusBadge status={automation.status} label={automation.label} />
       </span>
+      {c.aiHandling ? (
+        <span
+          className="shrink-0"
+          title="The AI Assistant is answering this customer. Reply or take over to step in."
+        >
+          <StatusBadge status="AI_HANDLING" />
+        </span>
+      ) : null}
       {c.automationState !== 'AUTOMATION_ACTIVE' && actions.can.reply ? (
         <Button
           size="sm"
