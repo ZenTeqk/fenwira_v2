@@ -126,3 +126,38 @@
     }
   }
 }
+
+/* Shared WhatsApp preview: content can never contribute to the frame's height. */
+.fw-phone-frame {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: min(620px, calc(100dvh - 8rem));
+  max-height: 100%;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  border-width: 4px;
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+}
+.fw-phone-chat {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+  .fw-phone-frame {
+    height: min(560px, calc(100dvh - 8rem));
+  }
+}
+/* Bubbles (including figures with media) must keep their intrinsic height inside the scroller. */
+.fw-phone-chat > * {
+  flex-shrink: 0;
+}
+
+/* Canvas panels bound the phone to the space below their own controls. */
+.fw-phone-frame.fw-phone-frame-fit {
+  flex: 1 1 620px;
+  max-height: 620px;
+}

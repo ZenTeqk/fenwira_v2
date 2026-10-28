@@ -230,14 +230,14 @@ test('Templates are a real message library with filters and keyboard context at 
     const trigger = page.getByRole('button', { name: 'Preview order_update', exact: true })
     await trigger.focus()
     await page.keyboard.press('Enter')
-    const drawer = page.getByRole(width >= 1280 ? 'complementary' : 'dialog', {
+    const drawer = page.getByRole('dialog', {
       name: 'order_update',
       exact: true,
     })
     await expect(drawer.getByRole('figure', { name: 'Message preview' })).toContainText(
       'View order',
     )
-    await expect(drawer.getByLabel('WhatsApp mobile conversation preview')).toBeVisible()
+    await expect(drawer.getByRole('region', { name: 'Message preview' })).toBeVisible()
     const recipientMessage = drawer.getByRole('figure', { name: 'Message preview' })
     await expect(recipientMessage).toContainText('Hi Priya,')
     await expect(recipientMessage.locator('[title="{{1}}"]')).toHaveCount(0)
@@ -263,14 +263,14 @@ test('Templates are a real message library with filters and keyboard context at 
         return {
           sidebar: box(document.querySelector('aside')),
           topbar: box(document.querySelector('header')),
-          context: box(document.querySelector('aside[aria-labelledby]')),
+          context: box(document.querySelector('[data-slot=drawer]')),
           card: box(document.querySelector('[data-template-card]')),
           preview: box(document.querySelector('[data-template-card] figure')),
         }
       })
       expect(geometry.sidebar?.width).toBe(224)
       expect(geometry.topbar?.height).toBe(56)
-      expect(geometry.context?.width).toBe(320)
+      expect(geometry.context?.width).toBe(720)
       expect(geometry.card?.width).toBeGreaterThan(230)
       writeFileSync(
         info.outputPath('templates-geometry-1440.json'),
@@ -294,7 +294,7 @@ test('Templates are a real message library with filters and keyboard context at 
   await expect(preview).toBeFocused()
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.getByRole('button', { name: 'Preview weekly_update', exact: true }).click()
-  const paused = page.getByRole('complementary', { name: 'weekly_update', exact: true })
+  const paused = page.getByRole('dialog', { name: 'weekly_update', exact: true })
   await expect(paused.getByText('Sending unavailable')).toBeVisible()
   await expect(paused.getByRole('link', { name: 'Use in campaign' })).toHaveCount(0)
   await page.keyboard.press('Escape')

@@ -41,3 +41,5 @@ export * from './components/patterns'
 export * from './components/trend-chart'
 
 export * from './components/progress'
+export * from './components/phone-frame'
+export * from './components/popover'

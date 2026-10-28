@@ -17,6 +17,10 @@ import {
   Button,
   BuilderPage,
   ErrorState,
+  Drawer,
+  DrawerContent,
+  Input,
+  Tooltip,
   Modal,
   ModalContent,
   Skeleton,
@@ -30,6 +34,10 @@ import {
 } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  ArrowLeft,
+  CircleHelp,
+  ChevronUp,
+  ChevronDown,
   BarChart3,
   FlaskConical,
   History,
@@ -37,15 +45,16 @@ import {
   Pause,
   PanelLeft,
   Play,
+  Smartphone,
   Rocket,
-  Save,
   Settings2,
   X,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
-import { ApiError, get, post, put } from '@/lib/api/client'
+import { ApiError, get, patch, post, put } from '@/lib/api/client'
 import {
   addNode,
   addTrigger,
@@ -66,6 +75,7 @@ import { AddStepMenu } from './add-step-menu'
 import { FlowCanvas } from './flow-canvas'
 import { FlowOutline } from './flow-outline'
 import { FlowSettings } from './flow-settings'
+import { LivePreview } from './live-preview'
 import { NodeInspector } from './node-inspector'
 import { NodeLibrary } from './node-library'
 import { overlapSentence, PublishedDialog, ReadinessPanel } from './readiness-panel'
@@ -74,11 +84,11 @@ import { TestDrawer } from './test-drawer'
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'conflict' | 'error'
 const SAVE_LABEL: Record<SaveState, string> = {
-  saved: 'All changes saved',
+  saved: 'Saved',
   dirty: 'Unsaved changes',
-  saving: 'Saving…',
+  saving: 'Saving...',
   conflict: 'Someone else changed this flow',
-  error: 'Could not save',
+  error: "Couldn't save, retry",
 }
 /** Server-only checks (they need the workspace's data); kept from the last save. */
 const SERVER_CODES = new Set(['FLOW_REFERENCE_MISSING', 'FLOW_TEMPLATE_NOT_APPROVED'])
@@ -88,7 +98,41 @@ const SERVER_CODES = new Set(['FLOW_REFERENCE_MISSING', 'FLOW_TEMPLATE_NOT_APPRO
  * checklist, dry-run tests and the publish-readiness panel.
  */
 export function FlowBuilder({ flowId }: { flowId: string }) {
-  const { tenantId, can } = useSession()
+  const { tenantId, can, me } = useSession()
+  const router = useRouter()
+  const preferenceKey = `fenwira.canvas.${me.user.id}.${tenantId}`
+  const [libraryCollapsed, setLibraryCollapsed] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [rightTab, setRightTab] = useState('settings')
+  function togglePreview(open: boolean) {
+    setPreviewOpen(open)
+    setRightTab(open ? 'preview' : 'settings')
+    try {
+      localStorage.setItem(`${preferenceKey}.preview`, String(open))
+    } catch {
+      /* Optional preference. */
+    }
+  }
+  const [mobile, setMobile] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [name, setName] = useState<string | null>(null)
+  const namePending = useRef<string | null>(null)
+  useEffect(() => {
+    try {
+      setLibraryCollapsed(localStorage.getItem(`${preferenceKey}.library`) === 'true')
+      const preview = localStorage.getItem(`${preferenceKey}.preview`) === 'true'
+      setPreviewOpen(preview)
+      setRightTab(preview ? 'preview' : 'settings')
+    } catch {
+      /* Optional preference. */
+    }
+    const media = window.matchMedia('(max-width: 767px)')
+    const update = () => setMobile(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [preferenceKey])
   const qc = useQueryClient()
   const confirm = useConfirm()
   const [wide, setWide] = useState(false)
@@ -111,6 +155,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
       inspectorOpener.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null
     setSelected(id)
+    if (!previewOpen) setRightTab('settings')
   }
   const [save, setSave] = useState<SaveState>('saved')
   const [serverIssues, setServerIssues] = useState<FlowIssue[]>([])
@@ -157,31 +202,60 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
     }
   }, [draft.data, graph])
 
-  const flush = useCallback(async () => {
-    clearTimeout(timer.current)
-    const g = pending.current
-    if (!g || !etag.current) return true
-    pending.current = null
-    setSave('saving')
-    try {
-      const r = await put<{ data: { etag: string; validation: { errors: FlowIssue[] } | null } }>(
-        `/flows/${flowId}/draft`,
-        { graph: g },
-        { headers: { 'If-Match': etag.current } },
-      )
-      etag.current = r.data.etag
-      setServerIssues((r.data.validation?.errors ?? []).filter((e) => SERVER_CODES.has(e.code)))
-      setSave(pending.current ? 'dirty' : 'saved')
-      return true
-    } catch (e) {
-      if (e instanceof ApiError && e.code === 'VERSION_CONFLICT') setSave('conflict')
-      else {
-        pending.current ??= g
-        setSave('error')
-      }
-      return false
+  const inFlight = useRef<Promise<boolean> | null>(null)
+  const flush = useCallback(async (): Promise<boolean> => {
+    if (inFlight.current) {
+      const ok = await inFlight.current
+      return ok ? flush() : false
     }
-  }, [flowId])
+    const run = async () => {
+      clearTimeout(timer.current)
+      const g = pending.current
+      const nextName = namePending.current
+      if ((!g || !etag.current) && nextName === null) return true
+      namePending.current = null
+      pending.current = null
+      setSave('saving')
+      try {
+        if (nextName !== null && !nextName.trim()) {
+          namePending.current = nextName
+          pending.current = g
+          setSave('dirty')
+          return false
+        }
+        if (nextName !== null) {
+          await patch(`/flows/${flowId}`, { name: nextName })
+          void qc.invalidateQueries({ queryKey: automationKey(tenantId, 'flow', flowId) })
+        }
+        if (g && etag.current) {
+          const r = await put<{
+            data: { etag: string; validation: { errors: FlowIssue[] } | null }
+          }>(`/flows/${flowId}/draft`, { graph: g }, { headers: { 'If-Match': etag.current } })
+          etag.current = r.data.etag
+          setServerIssues((r.data.validation?.errors ?? []).filter((e) => SERVER_CODES.has(e.code)))
+        }
+        setSave(pending.current || namePending.current !== null ? 'dirty' : 'saved')
+        return true
+      } catch (e) {
+        if (nextName !== null) namePending.current ??= nextName
+        pending.current ??= g
+        if (e instanceof ApiError && e.code === 'VERSION_CONFLICT') setSave('conflict')
+        else {
+          pending.current ??= g
+          setSave('error')
+        }
+        return false
+      }
+    }
+    inFlight.current = run()
+    let ok: boolean
+    try {
+      ok = await inFlight.current
+    } finally {
+      inFlight.current = null
+    }
+    return ok && (pending.current || namePending.current !== null) ? flush() : ok
+  }, [flowId, qc, tenantId])
 
   const change = useCallback(
     (g: DraftGraph) => {
@@ -194,6 +268,60 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
     [flush],
   )
   useEffect(() => () => clearTimeout(timer.current), [])
+  const unsaved = save !== 'saved'
+  useEffect(() => {
+    if (!unsaved) return
+    const protect = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', protect)
+    return () => window.removeEventListener('beforeunload', protect)
+  }, [unsaved])
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (
+        (event.target as HTMLElement)?.closest(
+          '[role="dialog"], [role="alertdialog"], [role="listbox"]',
+        )
+      )
+        return
+      if (event.key === 'Escape') {
+        setSelected(null)
+        setPreviewOpen(false)
+        setRightTab('settings')
+        try {
+          localStorage.setItem(`${preferenceKey}.preview`, 'false')
+        } catch {
+          /* Optional preference. */
+        }
+        return
+      }
+      if (
+        (event.target as HTMLElement)?.closest('input, textarea, select, [contenteditable="true"]')
+      )
+        return
+      if (event.key === '?') {
+        event.preventDefault()
+        setHelpOpen(true)
+      }
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [preferenceKey])
+  async function back() {
+    if (
+      unsaved &&
+      !(await confirm({
+        title: 'Leave with unsaved changes?',
+        description: 'Your latest edits have not been saved.',
+        confirmLabel: 'Leave editor',
+        destructive: true,
+      }))
+    )
+      return
+    router.push('/automations')
+  }
 
   const issues = useMemo(() => {
     if (!graph) return []
@@ -307,15 +435,16 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
     }
   }
 
-  function add(type: NodeType) {
-    if (!graph) return
+  function add(type: NodeType, position?: { x: number; y: number }) {
+    if (!graph || !editable || (mobile && view === 'canvas')) return
     const after =
       selected && !graph.nodes.find((n) => n.id === selected && n.type === 'action.end')
         ? selected
         : undefined
     const r = addNode(graph, type, isTrigger(type) ? undefined : after)
+    if (position) r.graph.layout[r.id] = position
     change(r.graph)
-    setSelected(r.id)
+    selectStep(r.id)
   }
 
   function pick(type: NodeType) {
@@ -373,7 +502,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
       flowId={flowId}
       node={node}
       issues={issues.filter((i) => i.nodeId === node.id)}
-      readOnly={!editable}
+      readOnly={!editable || (mobile && view === 'canvas')}
       onChange={(config) =>
         change({
           ...graph,
@@ -397,59 +526,139 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
       </p>
     </div>
   )
+  const rightPanel = (
+    <Tabs value={rightTab} onValueChange={setRightTab} className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-3 flex shrink-0 items-center gap-1 border-b border-border">
+        <TabsList aria-label="Canvas side panel" className="flex-1 border-b-0">
+          <TabsTrigger value="settings">Node settings</TabsTrigger>
+          {previewOpen ? <TabsTrigger value="preview">Preview</TabsTrigger> : null}
+        </TabsList>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Close side panel"
+          onClick={() => {
+            togglePreview(false)
+            setSelected(null)
+          }}
+        >
+          <X aria-hidden="true" />
+        </Button>
+      </div>
+      <TabsContent value="settings" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+        {inspector}
+      </TabsContent>
+      {previewOpen ? (
+        <TabsContent
+          value="preview"
+          forceMount
+          hidden={rightTab !== 'preview'}
+          className="mt-0 min-h-0 flex-1 overflow-hidden"
+        >
+          <LivePreview
+            graph={graph}
+            templates={templates.data ?? []}
+            issues={issues}
+            selected={selected}
+            onSelect={selectStep}
+            tagName={(id) => tags.data?.find((tag) => tag.id === id)?.name}
+            memberName={(id) => members.data?.find((member) => member.userId === id)?.name}
+          />
+        </TabsContent>
+      ) : null}
+    </Tabs>
+  )
   return (
     <>
       <BuilderPage
-        appearance="studio"
-        header={{
-          title: f.name,
-          breadcrumbs: [{ label: 'Automations', href: '/automations' }, { label: f.name }],
-          linkAs: Link,
-          description: (
-            <span className="flex flex-col gap-2">
-              {f.description ? <span>{f.description}</span> : null}
-              <span className="inline-flex flex-wrap items-center gap-2">
-                <StatusBadge status={f.status} label={f.status === 'ACTIVE' ? 'Live' : undefined} />
-                <span>
-                  {f.activeVersion ? `Live version ${f.activeVersion}` : 'Not published yet'}
-                </span>
-                <span aria-live="polite" className="text-sm">
-                  · {SAVE_LABEL[save]}
-                </span>
-                <span>
-                  · {f.executions.total.toLocaleString('en-IN')} total runs ·{' '}
-                  {f.executions.running.toLocaleString('en-IN')} running
-                </span>
-              </span>
-            </span>
-          ),
-          actions: (
-            <>
+        appearance="canvas"
+        header={{ title: f.name }}
+        topbar={
+          <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-3 py-2 md:flex-nowrap">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Back to Automations"
+              onClick={() => void back()}
+            >
+              <ArrowLeft aria-hidden="true" />
+              <span className="hidden xl:inline">Automations</span>
+            </Button>
+            <h1 className="sr-only">{f.name}</h1>
+            <Input
+              aria-label="Flow name"
+              className="w-32 min-w-0 md:w-44"
+              value={name ?? f.name}
+              readOnly={!editable || (mobile && view === 'canvas')}
+              aria-invalid={name !== null && !name.trim() ? true : undefined}
+              maxLength={120}
+              onChange={(event) => {
+                setName(event.target.value)
+                namePending.current = event.target.value
+                setSave('dirty')
+                clearTimeout(timer.current)
+                if (event.target.value.trim()) timer.current = setTimeout(() => void flush(), 800)
+              }}
+            />
+            <StatusBadge status={f.status} label={f.status === 'ACTIVE' ? 'Live' : undefined} />
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-live="polite"
+              onClick={() => void flush()}
+              disabled={save === 'saved' || save === 'saving'}
+            >
+              {SAVE_LABEL[save]}
+            </Button>
+            <Tooltip content={summary}>
+              <p
+                tabIndex={0}
+                data-testid="flow-summary"
+                className="hidden min-w-0 flex-1 truncate text-sm text-secondary lg:block"
+              >
+                {summary}
+              </p>
+            </Tooltip>
+            <div className="ml-auto flex flex-wrap items-center gap-1">
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-pressed={previewOpen}
+                onClick={() => togglePreview(!previewOpen)}
+              >
+                <Smartphone aria-hidden="true" />
+                Preview
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-pressed={view === 'outline'}
+                onClick={() => setView(view === 'outline' ? 'canvas' : 'outline')}
+              >
+                Outline
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Keyboard shortcuts"
+                onClick={() => setHelpOpen(true)}
+              >
+                <CircleHelp aria-hidden="true" />
+              </Button>
               {editable ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => void flush()}
-                  disabled={save !== 'dirty' && save !== 'error'}
-                  loading={save === 'saving'}
-                >
-                  <Save aria-hidden="true" />
-                  Save
-                </Button>
-              ) : null}
-              {editable ? (
-                <Button variant="secondary" onClick={() => setSettingsOpen(true)}>
+                <Button variant="secondary" size="sm" onClick={() => setSettingsOpen(true)}>
                   <Settings2 aria-hidden="true" />
                   Settings
                 </Button>
               ) : null}
-              <Button variant="secondary" asChild>
+              <Button variant="secondary" size="sm" asChild>
                 <Link href={`/automations/${flowId}/history`}>
                   <History aria-hidden="true" />
                   History
                 </Link>
               </Button>
               {editable ? (
-                <Button variant="secondary" onClick={() => setTestOpen(true)}>
+                <Button variant="secondary" size="sm" onClick={() => setTestOpen(true)}>
                   <FlaskConical aria-hidden="true" />
                   Test
                 </Button>
@@ -468,6 +677,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
               ) : null}
               {can('automations.publish') && editable ? (
                 <Button
+                  size="sm"
                   onClick={() => void publish()}
                   loading={publishing}
                   disabled={issues.length > 0}
@@ -476,9 +686,9 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
                   Publish
                 </Button>
               ) : null}
-            </>
-          ),
-        }}
+            </div>
+          </header>
+        }
         banner={
           save === 'conflict' ? (
             <Alert
@@ -520,32 +730,38 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
           ) : undefined
         }
         palette={
-          editable ? (
-            <div className="hidden lg:block">
-              <NodeLibrary hasTrigger={hasTrigger} onAdd={add} />
-            </div>
+          editable && !libraryCollapsed ? (
+            <NodeLibrary hasTrigger={hasTrigger} onAdd={add} />
           ) : undefined
         }
-        inspector={wide ? inspector : undefined}
+        inspector={wide && (node || previewOpen) ? rightPanel : undefined}
       >
-        <section
-          aria-labelledby="flow-summary-title"
-          className="border-b border-border bg-surface px-4 py-3"
-        >
-          <h2 id="flow-summary-title" className="text-xs font-semibold text-secondary">
-            In plain words
-          </h2>
-          <p data-testid="flow-summary" aria-live="polite" className="mt-0.5 text-base text-slate">
-            {summary}
-          </p>
-        </section>
-        <Tabs value={view} onValueChange={setView}>
+        <Tabs value={view} onValueChange={setView} className="flex min-h-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2">
             <TabsList aria-label="Builder view" className="w-auto border-b-0">
               <TabsTrigger value="canvas">Canvas</TabsTrigger>
               <TabsTrigger value="outline">Outline</TabsTrigger>
             </TabsList>
             <div className="flex flex-wrap gap-2">
+              {editable ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden md:inline-flex"
+                  aria-expanded={!libraryCollapsed}
+                  onClick={() => {
+                    setLibraryCollapsed(!libraryCollapsed)
+                    try {
+                      localStorage.setItem(`${preferenceKey}.library`, String(!libraryCollapsed))
+                    } catch {
+                      /* Optional preference. */
+                    }
+                  }}
+                >
+                  <PanelLeft aria-hidden="true" />
+                  {libraryCollapsed ? 'Show steps' : 'Hide steps'}
+                </Button>
+              ) : null}
               {testPath ? (
                 <Button variant="ghost" size="sm" onClick={() => setTestResult(null)}>
                   <X aria-hidden="true" />
@@ -566,13 +782,19 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="lg:hidden"
+                    className="md:hidden"
+                    disabled={mobile && view === 'canvas'}
                     onClick={() => setLibraryOpen(true)}
                   >
                     <PanelLeft aria-hidden="true" />
                     Add step
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => change(autoLayout(graph))}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={mobile && view === 'canvas'}
+                    onClick={() => change(autoLayout(graph))}
+                  >
                     <LayoutGrid aria-hidden="true" />
                     Tidy up
                   </Button>
@@ -580,16 +802,17 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
               ) : null}
             </div>
           </div>
-          <TabsContent value="canvas" className="mt-0 h-120 xl:h-136">
-            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center md:hidden">
-              <p className="text-base text-slate">The canvas needs a larger screen.</p>
-              <Button variant="secondary" onClick={() => setView('outline')}>
-                Use the outline
-              </Button>
-            </div>
-            <div className="hidden h-full md:block">
+          <TabsContent value="canvas" className="relative mt-0 min-h-0 flex-1">
+            {mobile ? (
+              <p className="absolute top-2 left-2 z-10 rounded-md border border-border bg-surface px-3 py-2 text-sm text-secondary">
+                Editing is best on a larger screen
+              </p>
+            ) : null}
+            <div className="h-full">
               <FlowCanvas
                 graph={graph}
+                viewportKey={`${preferenceKey}.${flowId}.viewport`}
+                onAddNode={add}
                 issues={issues}
                 selectedId={selected}
                 onSelect={selectStep}
@@ -599,11 +822,11 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
                 traversed={testPath?.nodes}
                 traversedEdges={testPath?.edges}
                 stats={statsMap}
-                readOnly={!editable}
+                readOnly={!editable || mobile}
               />
             </div>
           </TabsContent>
-          <TabsContent value="outline" className="p-3">
+          <TabsContent value="outline" className="min-h-0 flex-1 overflow-y-auto p-3">
             <FlowOutline
               graph={graph}
               issues={issues}
@@ -614,21 +837,54 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
             />
           </TabsContent>
         </Tabs>
-        <div className="flex flex-col gap-4 border-t border-border bg-surface p-4">
-          {!wide && checklist.length ? setup : null}
-          <ReadinessPanel
-            graph={graph}
-            issues={issues}
-            overlaps={overlaps}
-            flowId={flowId}
-            onFix={selectStep}
-          />
-        </div>
+        <section
+          aria-label="Publish preparation"
+          className="shrink-0 border-t border-border bg-surface"
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start"
+            aria-expanded={drawerOpen}
+            onClick={() => setDrawerOpen(!drawerOpen)}
+          >
+            {drawerOpen ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
+            Setup checklist · Ready to publish
+          </Button>
+          {drawerOpen ? (
+            <Tabs defaultValue="setup" className="max-h-64 overflow-y-auto p-3">
+              <TabsList aria-label="Publish preparation tabs">
+                <TabsTrigger value="setup">Setup checklist</TabsTrigger>
+                <TabsTrigger value="ready">Ready to publish</TabsTrigger>
+              </TabsList>
+              <TabsContent value="setup">{setup}</TabsContent>
+              <TabsContent value="ready">
+                <ReadinessPanel
+                  graph={graph}
+                  issues={issues}
+                  overlaps={overlaps}
+                  flowId={flowId}
+                  onFix={selectStep}
+                />
+              </TabsContent>
+            </Tabs>
+          ) : null}
+        </section>
       </BuilderPage>
-      <Modal open={!wide && !!node} onOpenChange={(open) => !open && setSelected(null)}>
-        <ModalContent
-          title="Step settings"
-          description="Configure the selected automation step."
+      <Drawer
+        open={!wide && (!!node || previewOpen)}
+        onOpenChange={(open) => {
+          if (!open) {
+            togglePreview(false)
+            setSelected(null)
+          }
+        }}
+      >
+        <DrawerContent
+          title="Step settings and preview"
+          description="Inspect a step or explore the visual conversation."
+          width="md"
+          className="[&>div:last-child]:flex [&>div:last-child]:min-h-0 [&>div:last-child]:flex-col [&>div:last-child]:overflow-hidden"
           onCloseAutoFocus={(event) => {
             event.preventDefault()
             const opener = inspectorOpener.current
@@ -639,7 +895,24 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
                 ?.focus()
           }}
         >
-          {inspector}
+          {rightPanel}
+        </DrawerContent>
+      </Drawer>
+      <Modal open={helpOpen} onOpenChange={setHelpOpen}>
+        <ModalContent
+          title="Keyboard shortcuts"
+          description="Use the outline for keyboard and screen-reader editing."
+        >
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            <dt>Delete / Backspace</dt>
+            <dd>Remove selected node or edge</dd>
+            <dt>Escape</dt>
+            <dd>Close settings and deselect</dd>
+            <dt>?</dt>
+            <dd>Open this help</dd>
+            <dt>Arrow keys</dt>
+            <dd>Move focused canvas node</dd>
+          </dl>
         </ModalContent>
       </Modal>
       <Modal open={libraryOpen} onOpenChange={setLibraryOpen}>
@@ -672,7 +945,15 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
         />
       ) : null}
       {settingsOpen ? (
-        <FlowSettings flow={f} open onOpenChange={setSettingsOpen} onSaved={refresh} />
+        <FlowSettings
+          flow={f}
+          open
+          onOpenChange={setSettingsOpen}
+          onSaved={() => {
+            setName(null)
+            refresh()
+          }}
+        />
       ) : null}
       <PublishedDialog
         open={published}

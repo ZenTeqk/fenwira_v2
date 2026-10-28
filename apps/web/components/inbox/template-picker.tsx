@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@fenwira/ui'
 import { useId, useMemo, useState } from 'react'
-import { TemplatePreview } from '@/components/templates/template-preview'
+import { TemplatePhonePreview } from '@/components/templates/template-phone-preview'
 import { CATEGORY_LABEL, languageLabel, useApprovedTemplates } from '@/lib/templates'
 
 export type TemplateSend = {
@@ -179,7 +179,7 @@ export function TemplatePicker({
                   ) : null}
                 </>
               )}
-              <TemplatePreview
+              <TemplatePhonePreview
                 components={chosen.components}
                 samples={{
                   header: values.header,

@@ -37,7 +37,9 @@ test('campaign detail explains results and remains accessible across screen size
   await expect(page.getByRole('region', { name: 'Campaign milestones' })).toContainText(
     'Campaign completed',
   )
-  await expect(page.getByLabel('WhatsApp mobile conversation preview')).toBeVisible()
+  await expect(
+    page.getByRole('region', { name: 'Message preview', exact: true }).last(),
+  ).toBeVisible()
   for (const width of [1440, 1024, 768, 375]) {
     await page.setViewportSize({ width, height: 1000 })
     await expect

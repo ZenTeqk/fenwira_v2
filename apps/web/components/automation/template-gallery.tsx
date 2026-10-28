@@ -128,7 +128,7 @@ export function TemplateGallery() {
       return { flow, template: t }
     },
     onSuccess: ({ flow, template }) =>
-      router.push(`/automations/${flow.id}${template ? `?template=${template.id}` : ''}`),
+      router.push(`/automations/${flow.id}/edit${template ? `?template=${template.id}` : ''}`),
     onError: (e) =>
       toast.error(e instanceof ApiError ? e.message : 'Could not create the automation.'),
   })

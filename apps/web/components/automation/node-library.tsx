@@ -2,7 +2,7 @@
 import type { NodeType } from '@fenwira/contracts'
 import { Button, EmptyState, Input } from '@fenwira/ui'
 import { useState } from 'react'
-import { NODE_LABEL, PALETTE } from '@/lib/automation'
+import { NODE_LABEL, ADD_MENU } from '@/lib/automation'
 import { NODE_HINT, NodeSymbol } from './node-presentation'
 
 export function NodeLibrary({
@@ -13,7 +13,7 @@ export function NodeLibrary({
   onAdd: (type: NodeType) => void
 }) {
   const [search, setSearch] = useState('')
-  const groups = PALETTE.filter((g) => g.category !== 'trigger' || !hasTrigger)
+  const groups = ADD_MENU.filter((g) => g.title !== 'Triggers' || !hasTrigger)
     .map((g) => ({
       ...g,
       types: g.types.filter((t) =>
@@ -38,6 +38,11 @@ export function NodeLibrary({
           {g.types.map((t) => (
             <Button
               key={t}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.setData('application/fenwira-node', t)
+                event.dataTransfer.effectAllowed = 'copy'
+              }}
               aria-label={NODE_LABEL[t]}
               variant="secondary"
               size="sm"
@@ -47,7 +52,10 @@ export function NodeLibrary({
               <NodeSymbol type={t} compact />
               <span className="min-w-0 flex-1 whitespace-normal">
                 <span className="block text-xs font-medium text-slate">{NODE_LABEL[t]}</span>
-                <span className="mt-0.5 block text-xs font-normal text-secondary">
+                <span
+                  title={NODE_HINT[t]}
+                  className="mt-0.5 block truncate text-xs font-normal text-secondary"
+                >
                   {NODE_HINT[t]}
                 </span>
               </span>

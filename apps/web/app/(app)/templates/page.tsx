@@ -397,6 +397,15 @@ export default function TemplatesPage() {
         name={selected?.name}
         onClose={() => setSelectedId(null)}
         restoreFocus={restoreFocus}
+        preview={
+          selected ? (
+            <TemplateMessage
+              version={selected.currentVersion}
+              businessName={selected.wabaName}
+              library
+            />
+          ) : null
+        }
       >
         {selected ? (
           <>
@@ -446,14 +455,6 @@ export default function TemplatesPage() {
                 <dt className="text-secondary">Created</dt>
                 <dd>{relativeTime(selected.createdAt)}</dd>
               </dl>
-            </section>
-            <section className="border-t border-border pt-3" aria-label="WhatsApp preview">
-              <h3 className="mb-2 text-sm font-semibold">WhatsApp preview</h3>
-              <TemplateMessage
-                version={selected.currentVersion}
-                businessName={selected.wabaName}
-                library
-              />
             </section>
             {selected.currentVersion.samples.body.length ? (
               <section className="border-t border-border pt-3" aria-label="Stored sample values">

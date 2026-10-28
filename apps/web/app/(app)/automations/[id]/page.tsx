@@ -1,13 +1,18 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-import { PermissionState } from '@fenwira/ui'
-import { useParams } from 'next/navigation'
-import { FlowBuilder } from '@/components/automation/flow-builder'
-import { useSession } from '@/components/session/session-provider'
-
-export default function AutomationBuilderPage() {
-  const { id } = useParams<{ id: string }>()
-  const { can } = useSession()
-  if (!can('automations.read')) return <PermissionState what="automations" />
-  return <FlowBuilder flowId={id} />
+/** Preserve older saved editor links, including starter-template checklist context. */
+export default async function AutomationRedirect({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const { id } = await params
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(await searchParams)) {
+    for (const item of Array.isArray(value) ? value : value === undefined ? [] : [value])
+      query.append(key, item)
+  }
+  redirect(`/automations/${id}/edit${query.size ? `?${query}` : ''}`)
 }

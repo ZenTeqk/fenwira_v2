@@ -81,12 +81,18 @@ export const DrawerClose = DialogPrimitive.Close
 
 export type DrawerContentProps = ModalContentProps & {
   side?: 'left' | 'right'
-  width?: 'sm' | 'md' | 'lg'
+  /** `half` takes half the viewport from 768px up and the full width below. */
+  width?: 'sm' | 'md' | 'lg' | 'half'
   /** `dark` matches the slate navigation (mobile sidebar). */
   tone?: 'light' | 'dark'
 }
 
-const drawerWidths = { sm: 'max-w-xs', md: 'max-w-md', lg: 'max-w-xl' } as const
+const drawerWidths = {
+  sm: 'max-w-xs',
+  md: 'max-w-md',
+  lg: 'max-w-xl',
+  half: 'max-w-none md:w-1/2',
+} as const
 
 /** Side sheet for record details and the mobile navigation. */
 export function DrawerContent({

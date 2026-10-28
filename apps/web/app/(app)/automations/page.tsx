@@ -30,7 +30,7 @@ export default function AutomationsPage() {
         <span className="flex flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-2">
             <Link
-              href={`/automations/${row.original.id}`}
+              href={`/automations/${row.original.id}/edit`}
               className="font-medium text-slate underline-offset-4 hover:underline"
             >
               {row.original.name}
