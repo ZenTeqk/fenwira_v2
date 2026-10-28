@@ -237,7 +237,7 @@ test('Templates are a real message library with filters and keyboard context at 
     await expect(drawer.getByRole('figure', { name: 'Message preview' })).toContainText(
       'View order',
     )
-    await expect(drawer.getByLabel('WhatsApp mobile conversation preview')).toBeVisible()
+    await expect(drawer.getByRole('region', { name: 'Message preview' })).toBeVisible()
     const recipientMessage = drawer.getByRole('figure', { name: 'Message preview' })
     await expect(recipientMessage).toContainText('Hi Priya,')
     await expect(recipientMessage.locator('[title="{{1}}"]')).toHaveCount(0)

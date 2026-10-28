@@ -53,7 +53,7 @@ test('pick a template, finish the setup checklist and publish', async ({ page })
   const setup = page.getByRole('region', { name: 'Set up your automation' })
   await expect(setup).toContainText('3 of 4 done')
   await expect(page.getByTestId('flow-node-tag')).toContainText('Needs attention')
-  await expect(page.getByRole('button', { name: 'Publish' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeDisabled()
   await setup.getByRole('button', { name: 'Create the tag “lead”' }).click()
   await expect(setup).toContainText('Everything is set')
   await expect(page.getByTestId('flow-summary')).toHaveText(
