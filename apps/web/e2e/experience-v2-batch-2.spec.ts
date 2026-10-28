@@ -270,7 +270,7 @@ test('Templates are a real message library with filters and keyboard context at 
       })
       expect(geometry.sidebar?.width).toBe(224)
       expect(geometry.topbar?.height).toBe(56)
-      expect(geometry.context?.width).toBe(720)
+      expect(geometry.context?.width).toBe(448)
       expect(geometry.card?.width).toBeGreaterThan(230)
       writeFileSync(
         info.outputPath('templates-geometry-1440.json'),

@@ -4,8 +4,8 @@ import { Drawer, DrawerContent } from '@fenwira/ui'
 import { type ReactNode } from 'react'
 
 /**
- * Template preview sheet: half the page on the right (full width on phones), with the recipient
- * phone beside the details so the customer's view is the focus.
+ * Template preview sheet: a narrow sheet on the right (full width on phones) led by the recipient
+ * phone, so the customer's view is the focus; the details follow below.
  */
 export function TemplateContext({
   name,
@@ -26,19 +26,19 @@ export function TemplateContext({
       <DrawerContent
         title={name ?? 'Template details'}
         description="How customers see this template on WhatsApp"
-        width="half"
+        width="md"
         onCloseAutoFocus={(event) => {
           event.preventDefault()
           restoreFocus()
         }}
       >
         <div className="@container">
-          <div className="flex flex-col gap-6 @xl:flex-row @xl:items-start">
+          <div className="flex flex-col gap-6">
             {preview ? (
-              // The phone stands on a tinted stage that stays in view while the details scroll.
+              // The phone stands on a tinted stage; the details follow below.
               <section
                 aria-label="WhatsApp preview"
-                className="fw-preview-stage flex min-w-0 shrink-0 justify-center rounded-xl bg-primary-soft px-5 py-6 @xl:sticky @xl:top-0 @xl:w-80"
+                className="fw-preview-stage flex min-w-0 shrink-0 justify-center rounded-xl bg-primary-soft px-5 py-6"
               >
                 <div className="w-full max-w-72">{preview}</div>
               </section>
