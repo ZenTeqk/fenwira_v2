@@ -3,6 +3,7 @@ import { type DynamicModule, Module } from '@nestjs/common'
 import { MessageEligibilityService } from './eligibility'
 import { FilesController } from './messaging.controller'
 import { FilesService } from './files.service'
+import { GraphController } from './graph.controller'
 import { InboundProcessor } from './inbound.processor'
 import { MediaProcessor } from './media.processor'
 import { MESSAGING_OPTIONS, type MessagingOptions } from './messaging.options'
@@ -26,7 +27,7 @@ export class MessagingModule {
     return {
       module: MessagingModule,
       imports: [EntitlementsModule.forRoot()],
-      controllers: [WhatsAppWebhookController, FilesController],
+      controllers: [WhatsAppWebhookController, FilesController, GraphController],
       providers: [
         { provide: MESSAGING_OPTIONS, useValue: options },
         MessagingService,

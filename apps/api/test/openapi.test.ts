@@ -65,6 +65,9 @@ describe('OpenAPI document (decision API1)', () => {
       'GET /api/v1/campaigns',
       'GET /api/v1/campaigns/{id}',
       'GET /api/v1/campaigns/{id}/stats',
+      'GET /api/v1/graph/{phoneNumberId}',
+      'POST /api/v1/graph/{phoneNumberId}/media',
+      'POST /api/v1/graph/{phoneNumberId}/messages',
     ].sort()
     const actual = routes
       .filter((r) => r.publicApi)

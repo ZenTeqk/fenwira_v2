@@ -5,7 +5,7 @@ import { TenantDb } from '../../core/database/tenant-db'
 import { AppError } from '../../core/http/app-error'
 import { StorageService } from '../../core/storage/storage.service'
 import { verifyUpload } from '../../core/storage/uploads'
-import { currentAuth } from '../identity'
+import { currentActorId, currentAuth } from '../identity'
 import { currentTenant } from '../tenancy'
 import { conversationVisibility } from './visibility'
 
@@ -90,6 +90,46 @@ export class FilesService {
     const updated = await this.tenantDb.run((tx) =>
       tx.file.update({ where: { id }, data: { status: ok ? 'READY' : 'REJECTED' } }),
     )
+    return toFile(updated)
+  }
+
+  /**
+   * A server-side upload (POST /graph/{id}/media, docs/API_KEYS.md → Meta-compatible send): the
+   * same checks as a presigned upload — accepted type, Meta's size limit, magic bytes — then READY.
+   */
+  async store(input: { bytes: Buffer; mimeType: string; filename?: string }): Promise<FileDto> {
+    const { tenantId } = currentTenant()
+    const limit = Object.values(MEDIA_LIMITS).find((l) => l.mime.test(input.mimeType))
+    if (!limit)
+      throw AppError.validation([
+        { path: 'type', code: 'unsupported', message: 'WhatsApp does not accept this file type.' },
+      ])
+    if (input.bytes.length > limit.max)
+      throw AppError.validation([
+        { path: 'file', code: 'too_large', message: 'This file is larger than WhatsApp allows.' },
+      ])
+    const id = uuidv7()
+    const file = {
+      id,
+      tenantId,
+      bucket: this.storage.mediaBucket,
+      objectKey: `${tenantId}/media/${id}`,
+      mimeType: input.mimeType,
+      sizeBytes: input.bytes.length,
+      filename: input.filename ?? null,
+      purpose: 'MESSAGE_MEDIA' as const,
+      uploadedBy: currentActorId(),
+    }
+    await this.tenantDb.run((tx) => tx.file.create({ data: file }))
+    await this.storage.put(file.bucket, file.objectKey, input.bytes, input.mimeType)
+    const ok = await verifyUpload(this.storage, file)
+    const updated = await this.tenantDb.run((tx) =>
+      tx.file.update({ where: { id }, data: { status: ok ? 'READY' : 'REJECTED' } }),
+    )
+    if (!ok)
+      throw AppError.validation([
+        { path: 'file', code: 'invalid', message: "The file content doesn't match its type." },
+      ])
     return toFile(updated)
   }
 
