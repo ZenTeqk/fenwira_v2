@@ -11,6 +11,7 @@ import {
   ExecutionsController,
   FlowsController,
 } from './flows.controller'
+import { ReplyStudioController } from './reply-studio.controller'
 import { FlowTestService } from './flow-test.service'
 import { FlowsService } from './flows.service'
 
@@ -22,6 +23,7 @@ export class AutomationModule {
       imports: [AuditModule, EntitlementsModule.forRoot(entitlements)],
       controllers: [
         FlowsController,
+        ReplyStudioController,
         ExecutionsController,
         AutomationWebhookController,
         AiAssistantFlowController,

@@ -1,4 +1,7 @@
 import {
+  businessHoursSchema,
+  businessIsOpen,
+  DEFAULT_BUSINESS_HOURS,
   evaluateExpression,
   flowGraphSchema,
   type FlowNode,
@@ -19,6 +22,7 @@ import { normalizePhone } from '../../core/phone'
 import { AuditService } from '../audit'
 import { coercePropertyValue } from '../contacts'
 import { currentTenant } from '../tenancy'
+import { answerValue } from './reply-session'
 import { type ExecutionRow, triggerNodeOf } from './automation.core'
 import {
   type Context,
@@ -99,14 +103,29 @@ export class FlowTestService {
       )
     const graph = flowGraphSchema.parse(version.graph)
     const trigger = triggerNodeOf(graph)!
-    const now = new Date()
+    const now = request.at ? new Date(request.at) : new Date()
 
+    if (trigger.type === 'trigger.keyword' || trigger.type === 'trigger.message_received') {
+      const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: currentTenant().tenantId } })
+      const open = businessIsOpen(
+        businessHoursSchema.parse(tenant.businessHours ?? DEFAULT_BUSINESS_HOURS),
+        now,
+      )
+      const filter = trigger.config.businessHours
+      if (filter && filter !== 'ANY' && (filter === 'OPEN') !== open)
+        return {
+          matched: false,
+          reason: 'The business hours filter does not match this time.',
+          steps: [],
+          truncated: false,
+        }
+    }
     const contactId = await this.sampleContact(tx, request)
     const event = this.triggerEvent(trigger, request)
     if ('reason' in event)
       return { matched: false, reason: event.reason, steps: [], truncated: false }
 
-    const e = {
+    const e: ExecutionRow = {
       id: randomUUID(),
       tenantId: currentTenant().tenantId,
       flowId,
@@ -125,17 +144,19 @@ export class FlowTestService {
       startedAt: now,
       finishedAt: null,
       updatedAt: now,
-    } satisfies ExecutionRow
+    }
 
     const steps: FlowTestStep[] = []
     let clock = now
     let node: FlowNode | undefined = trigger
     while (node && steps.length < MAX_TEST_STEPS) {
       const ctx = (await loadContext(tx, e))!
-      const simulated = isExternal(node) || node.type === 'action.assign_agent'
+      const simulated =
+        isExternal(node) || node.type === 'action.assign_agent' || node.type === 'action.handover'
       const outcome = simulated
-        ? await this.render(tx, node, ctx)
+        ? await this.render(tx, node, ctx, request)
         : await runInternal(tx, e, node, ctx, clock)
+      if (outcome.vars) e.context = { vars: { ...ctx.vars, ...outcome.vars } } as Prisma.JsonObject
       if (outcome.waitUntil) clock = outcome.waitUntil
       steps.push({
         nodeId: node.id,
@@ -276,9 +297,45 @@ export class FlowTestService {
   }
 
   /** Renders what an external step would do. Nothing leaves this method. */
-  private async render(tx: TenantTx, node: FlowNode, ctx: Context): Promise<Outcome> {
+  private async render(
+    tx: TenantTx,
+    node: FlowNode,
+    ctx: Context,
+    request: FlowTestRequest,
+  ): Promise<Outcome> {
     const ev = (t: string) => evaluateExpression(t, ctx)
     switch (node.type) {
+      case 'action.question':
+      case 'action.options': {
+        const value = request.answers?.[node.config.field]
+        const text = ev(node.config.text)
+        if (value === undefined)
+          return {
+            status: 'SUCCEEDED',
+            output: { text: `Would ask: ${text}. Waiting for the customer.` },
+          }
+        const valid = answerValue(node, value)
+        if (valid === null)
+          return {
+            status: 'FAILED',
+            errorCode: 'CONTACT_VALUE_INVALID',
+            errorDetail: `The sample answer for ${node.id} is not a valid ${node.type === 'action.question' ? node.config.answerType.toLowerCase() : 'option'}.`,
+          }
+        return {
+          status: 'SUCCEEDED',
+          handle: 'next',
+          vars: { [node.config.field]: valid },
+          output: { text: `Would ask: ${text}. Customer answers: ${value}` },
+        }
+      }
+      case 'action.handover':
+        return {
+          status: 'SUCCEEDED',
+          terminal: 'COMPLETED',
+          output: {
+            text: `Would hand over the enquiry and add a private note: ${ev(node.config.note)}`,
+          },
+        }
       case 'action.send_message': {
         if (node.config.mediaFileId) {
           const caption = node.config.caption
@@ -380,6 +437,8 @@ export class FlowTestService {
       case 'trigger.contact_created':
       case 'trigger.webhook':
         return `Started: ${started}.`
+      case 'condition.business_hours':
+        return `${verdict}: the workspace is ${yes ? 'open' : 'closed'} at ${String(input.at)} (${String(input.timezone)}).`
       case 'condition.equals':
         return `${verdict}: ${quote(String(input.subject))} ${yes ? 'equals' : 'does not equal'} ${quote(String(input.value))}.`
       case 'condition.contains':

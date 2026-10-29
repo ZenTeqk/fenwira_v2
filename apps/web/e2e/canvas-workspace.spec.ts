@@ -19,7 +19,10 @@ for (const width of [1440, 390])
       await expect(page.getByText('Editing is best on a larger screen')).toBeVisible()
       await expect(page.locator('.react-flow__node.draggable')).toHaveCount(0)
       await page.getByTestId('flow-node-message').click()
-      await expect(page.getByLabel('Message', { exact: true })).toHaveAttribute('readonly', '')
+      await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveAttribute(
+        'readonly',
+        '',
+      )
       await page.keyboard.press('Escape')
       await page.getByRole('tab', { name: 'Outline', exact: true }).click()
     }
@@ -38,9 +41,9 @@ test('add, edit, autosave, publish and protect unsaved Back navigation', async (
   await page.goto('/automations/canvas-fixture/edit')
   await page
     .getByRole('navigation', { name: 'Add a step' })
-    .getByRole('button', { name: 'Send message', exact: true })
+    .getByRole('button', { name: 'Message', exact: true })
     .click()
-  await page.getByLabel('Message', { exact: true }).fill('A new draft message')
+  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('A new draft message')
   await expect(page.getByRole('button', { name: 'Saving...', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeVisible()
   expect(state.graph.nodes.some((node) => node.config.text === 'A new draft message')).toBe(true)
@@ -53,7 +56,7 @@ test('add, edit, autosave, publish and protect unsaved Back navigation', async (
   await page.getByRole('button', { name: 'Done', exact: true }).click()
   state.failSave = true
   await page.getByTestId('flow-node-message').click()
-  await page.getByLabel('Message', { exact: true }).fill('Unsaved message')
+  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Unsaved message')
   await expect(
     page.getByRole('button', { name: "Couldn't save, retry", exact: true }),
   ).toBeVisible()

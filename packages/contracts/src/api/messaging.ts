@@ -83,6 +83,22 @@ export type MessageContent = z.infer<typeof messageContentSchema>
 
 /** What callers may send in Phase 5. Media must reference a READY file we store. */
 export const sendableContentSchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal('INTERACTIVE'),
+      text: z.string().trim().min(1).max(1024),
+      presentation: z.enum(['BUTTONS', 'LIST', 'CTA']),
+      options: z
+        .array(z.object({ id: z.string().min(1).max(200), label: z.string().min(1).max(20) }))
+        .min(1)
+        .max(10),
+      url: z
+        .url()
+        .refine((v) => v.startsWith('https://'))
+        .optional(),
+    })
+    .refine((c) => c.presentation !== 'BUTTONS' || c.options.length <= 3, 'At most three buttons.')
+    .refine((c) => c.presentation !== 'CTA' || !!c.url, 'Enter a link address.'),
   z.object({
     type: z.literal('TEXT'),
     text: z.string().trim().min(1).max(4096),

@@ -36,6 +36,7 @@ import {
   RECOVER_JOB,
   type StartEffects,
 } from './automation.core'
+import { nextReply, prepareReply, replyState, saveReplyProperty } from './reply-session'
 import { AUTOMATION_OPTIONS, type AutomationOptions } from './automation.options'
 import {
   type Context,
@@ -60,7 +61,13 @@ export const AI_SILENCE_MS = 24 * 3600_000
 type Data = { tenantId: string; executionId: string } | Record<string, never>
 
 type Prepared =
-  | { kind: 'send'; target: SendTarget; content: SendableContent; input: Record<string, unknown> }
+  | {
+      kind: 'send'
+      target: SendTarget
+      content: SendableContent
+      input: Record<string, unknown>
+      replyOutcome?: Outcome
+    }
   | {
       kind: 'webhook'
       request: {
@@ -152,7 +159,49 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
     if (job.attemptsMade > 0) this.metrics.automationRetries.inc()
     const d = job.data as { tenantId: string; executionId: string }
     if (job.name !== EXECUTE_JOB || !d.tenantId) return 'ignored'
-    return this.run(d.tenantId, d.executionId)
+    try {
+      return await this.run(d.tenantId, d.executionId)
+    } catch (error) {
+      if (job.attemptsMade + 1 < (job.opts.attempts ?? 3)) throw error
+      const effects: StartEffects = { enqueue: [], started: 0, skipped: 0 }
+      const after: Array<() => Promise<unknown> | void> = []
+      await this.db.withTenant(d.tenantId, async (tx) => {
+        await lockExecution(tx, d.executionId)
+        const e = await tx.automationExecution.findFirst({ where: { id: d.executionId } })
+        if (!e || (e.status !== 'RUNNING' && e.status !== 'WAITING')) return
+        const graph = await this.graphOf(tx, e)
+        const node = nodeById(graph, e.currentNodeId)
+        const now = new Date()
+        await tx.automationExecutionStep.create({
+          data: {
+            tenantId: d.tenantId,
+            executionId: e.id,
+            seq: e.stepCount + 1,
+            nodeId: e.currentNodeId ?? 'unknown',
+            nodeType: node?.type ?? 'unknown',
+            status: 'FAILED',
+            errorCode: 'FLOW_EXECUTION_FAILED',
+            errorDetail:
+              'The step could not finish after retrying. Check the connection and try a new session.',
+            finishedAt: now,
+          },
+        })
+        await this.terminate(
+          tx,
+          e,
+          'FAILED',
+          {
+            code: 'FLOW_EXECUTION_FAILED',
+            detail: 'The session failed after its retries were exhausted.',
+          },
+          now,
+          effects,
+          after,
+        )
+      })
+      await this.flush(d.tenantId, effects, after)
+      return 'failed'
+    }
   }
 
   /** Runs up to STEPS_PER_JOB steps, then yields by re-enqueueing. */
@@ -216,7 +265,12 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
     let e = await tx.automationExecution.findFirst({ where: { id: executionId } })
     if (!e) return { done: 'gone' }
     if (e.status === 'WAITING') {
-      if (e.waitUntil && e.waitUntil > now) return { done: 'not-due' }
+      if (
+        e.waitUntil &&
+        e.waitUntil > now &&
+        !(replyState(e).promptNode && (await nextReply(tx, e)))
+      )
+        return { done: 'not-due' }
       const flow = await tx.flow.findFirst({ where: { id: e.flowId }, select: { status: true } })
       if (flow?.status === 'PAUSED') {
         // Pause stops new executions; waiting ones look again in a minute (never lost).
@@ -313,6 +367,23 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
         after,
       )
       return { done: 'failed' }
+    }
+    if (node.type === 'action.question' || node.type === 'action.options') {
+      const p = await prepareReply(tx, e, node, ctx, graph, now)
+      if (p.content)
+        return {
+          external: {
+            kind: 'send',
+            target: { conversationId: e.conversationId! },
+            content: p.content,
+            input: {},
+            replyOutcome: p.outcome,
+          },
+          execution: e,
+          node,
+        }
+      const r = await this.record(tx, e, graph, node, p.outcome, now, effects, after)
+      return r === 'continue' ? { continue: true } : { done: r }
     }
     if (isExternal(node)) {
       const prepared = await this.prepare(tx, e, node, ctx)
@@ -522,13 +593,20 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
     const key = `auto:${e.id}:${seq}`
     if (p.kind === 'send') {
       const sent = await this.trySend(e, p.target, p.content, key, p.input)
-      if ('status' in sent && !('id' in sent)) return sent
+      if ('status' in sent && !('id' in sent))
+        return p.replyOutcome?.errorCode === 'SESSION_EXPIRED'
+          ? {
+              ...sent,
+              terminal: 'COMPLETED',
+              errorCode: 'SESSION_EXPIRED',
+              output: { expired: true, sendError: sent.errorCode },
+            }
+          : sent
       const message = sent as { id: string; status: string }
       return {
-        status: 'SUCCEEDED',
-        handle: 'next',
+        ...(p.replyOutcome ?? { status: 'SUCCEEDED' as const, handle: 'next' as const }),
         input: p.input,
-        output: { messageId: message.id, status: message.status },
+        output: { ...p.replyOutcome?.output, messageId: message.id, status: message.status },
       }
     }
     if (p.kind === 'ai') return this.externalAi(e, p, seq, key)
@@ -718,6 +796,7 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
     after: Array<() => Promise<unknown> | void>,
   ): Promise<string> {
     const seq = e.stepCount + 1
+    await saveReplyProperty(tx, e, node, o)
     await tx.automationExecutionStep.create({
       data: {
         tenantId: e.tenantId,
@@ -739,14 +818,17 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
       const n = o.notify
       after.push(() => this.realtime.toUser(n.userId, 'notification.created', n.notification))
     }
-    const context = o.vars
-      ? {
-          vars: {
-            ...((e.context as { vars?: Record<string, unknown> }).vars ?? {}),
-            ...o.vars,
-          },
-        }
-      : undefined
+    const context =
+      o.vars || o.reply
+        ? {
+            ...(e.context as object),
+            ...(o.reply ? { reply: o.reply } : {}),
+            vars: {
+              ...((e.context as { vars?: Record<string, unknown> }).vars ?? {}),
+              ...o.vars,
+            },
+          }
+        : undefined
     const moved = await tx.automationExecution.update({
       where: { id: e.id },
       data: { stepCount: seq, ...(context ? { context: context as Prisma.InputJsonValue } : {}) },
@@ -767,8 +849,27 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
       return 'takeover'
     }
     if (o.terminal === 'COMPLETED') {
-      await this.terminate(tx, moved, 'COMPLETED', null, now, effects, after)
+      await this.terminate(
+        tx,
+        moved,
+        'COMPLETED',
+        o.errorCode ? { code: o.errorCode } : null,
+        now,
+        effects,
+        after,
+      )
       return 'completed'
+    }
+    if (o.replyWait) {
+      await tx.automationExecution.update({
+        where: { id: e.id },
+        data: { status: 'WAITING', waitUntil: o.waitUntil },
+      })
+      const queued = await nextReply(tx, moved)
+      const delay = queued ? 0 : Math.max(0, (o.waitUntil?.getTime() ?? now.getTime()) - Date.now())
+      after.push(() => enqueueExecution(this.queues, e.tenantId, e.id, seq, { delay }))
+      this.changed(after, { ...moved, status: 'WAITING' })
+      return 'waiting'
     }
     if (o.aiHandoff) await applyAiHandoff(tx, moved, now)
     if (o.stay) {
@@ -829,7 +930,15 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
     }
     const edge = edgeFrom(graph, node.id, o.handle ?? 'next')
     if (!edge) {
-      await this.terminate(tx, moved, 'COMPLETED', null, now, effects, after)
+      await this.terminate(
+        tx,
+        moved,
+        'COMPLETED',
+        o.errorCode ? { code: o.errorCode } : null,
+        now,
+        effects,
+        after,
+      )
       return 'completed'
     }
     if (o.status === 'WAITING' && o.waitUntil) {

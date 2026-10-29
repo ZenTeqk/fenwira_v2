@@ -508,3 +508,28 @@ The private, cookie-session API under `/api/v1/native-connectors` requires `inte
 Transfer idempotency keys are UUIDs, scoped to workspace and bound to connection/destination. A mismatched reuse returns 409. Only one PENDING transfer per connection is permitted. Imports prepare a private CSV and the existing Contacts mapping/preview/confirmation workflow; successful preparation does not mean contacts have already been imported. Google Sheets requires a spreadsheet ID and `confirmExport: true`; each receipt creates a distinct dedicated tab. Limits are 10,000 records per transfer; excess data fails explicitly rather than silently truncating it.
 
 Provider credentials, OAuth verifier/code/token data and contact snapshots never appear in list/receipt DTOs. See [native connector specification](NATIVE_CONNECTORS.md) for configuration and live acceptance requirements.
+
+### Reply Studio (under Automations)
+
+All routes use `/api/v1`, normal tenant/session/CSRF guards and the named permission.
+Contracts live in `packages/contracts/src/automation/reply-studio.ts` and the existing
+flow API schemas. No secret or Meta credential is returned.
+
+| Method | Route | Permission | Request / response |
+| --- | --- | --- | --- |
+| GET | `/reply-studio/business-hours` | `automations.read` | `{data: BusinessHours}`; defaults when not configured |
+| PUT | `/reply-studio/business-hours` | `automations.write` | Zod `businessHoursSchema`; timezone, 7 Monday-first day entries `{closed,open,close}`, holiday ISO dates; returns `{data}` and audits |
+| GET | `/reply-studio/reports` | `automations.read` | Zod query `{from,to,flowId?}` ISO instants, range ≤366 days; `{data:{totals,flows,failures}}` via `replyReportSchema` |
+
+`POST /flows` additionally accepts `managedBy: "REPLY_STUDIO"` (creation only).
+Flow responses expose optional `replyStudioKind` from the draft/live graph. Draft graphs
+may include versioned `replyStudio` settings (kind, restartWords, expiryMinutes,
+closingMessage, fallbackMessage). New node types: `condition.business_hours`,
+`action.question`, `action.options`, `action.handover`. The existing validate/publish
+endpoints enforce their configs, outputs and tenant-owned references.
+
+`POST /flows/:id/test` also accepts optional `at` (ISO instant) and `answers` (named
+sample answers) for schedule tests and complete phone-preview conversations. It retains
+the existing rollback behavior: no customer sends, assignments, notes or persisted answers.
+`INTERACTIVE` send content supports validated buttons, lists and HTTPS CTAs through the
+same MessagingService → outbound worker path as other sends.

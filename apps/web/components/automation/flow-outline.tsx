@@ -48,9 +48,11 @@ function AddStep({
   label,
   onAdd,
   triggers,
+  replyStudio,
 }: {
   label: string
   onAdd: (t: NodeType) => void
+  replyStudio?: boolean
   triggers: boolean
 }) {
   return (
@@ -62,11 +64,15 @@ function AddStep({
         {PALETTE.filter((g) => triggers === (g.category === 'trigger')).map((g) => (
           <SelectGroup key={g.title}>
             <SelectLabel>{g.title}</SelectLabel>
-            {g.types.map((t) => (
-              <SelectItem key={t} value={t}>
-                {NODE_LABEL[t]}
-              </SelectItem>
-            ))}
+            {g.types
+              .filter(
+                (t) => !replyStudio || (t !== 'action.ai_reply' && t !== 'action.send_template'),
+              )
+              .map((t) => (
+                <SelectItem key={t} value={t}>
+                  {NODE_LABEL[t]}
+                </SelectItem>
+              ))}
           </SelectGroup>
         ))}
       </SelectContent>
@@ -90,6 +96,7 @@ export function FlowOutline({ graph, issues, selectedId, onSelect, onChange, rea
     <div className="flex flex-col gap-4">
       {!hasTrigger && !readOnly ? (
         <AddStep
+          replyStudio={!!graph.replyStudio}
           label="Add a trigger"
           triggers
           onAdd={(t) => {
@@ -164,6 +171,7 @@ export function FlowOutline({ graph, issues, selectedId, onSelect, onChange, rea
                 })}
                 {readOnly || n.type === 'action.end' ? null : (
                   <AddStep
+                    replyStudio={!!graph.replyStudio}
                     label={`Add a step after ${name(n.id)}`}
                     triggers={false}
                     onAdd={(t) => {

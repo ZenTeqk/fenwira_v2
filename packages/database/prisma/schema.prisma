@@ -199,6 +199,7 @@ model Tenant {
   slug                     String                 @unique @db.Citext
   defaultCountry           String                 @default("IN") @map("default_country") @db.Char(2)
   timezone                 String                 @default("Asia/Kolkata")
+  businessHours            Json?                  @map("business_hours")
   currency                 String                 @default("INR") @db.Char(3)
   require2fa               Boolean                @default(false) @map("require_2fa")
   /// Whole-message keywords that revoke / grant MARKETING consent (case-insensitive).

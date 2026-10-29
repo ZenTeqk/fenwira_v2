@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { replyStudioSettingsSchema } from './reply-studio'
 import { OPERATORS } from '../contacts/filter'
 
 /**
@@ -17,6 +18,8 @@ export const TRIGGER_TYPES = [
 ] as const
 export type TriggerType = (typeof TRIGGER_TYPES)[number]
 
+const answerKey = z.string().regex(/^[a-z][a-z0-9_]{0,39}$/)
+
 export const nodeSchema = z.discriminatedUnion('type', [
   z.object({
     id: z.string(),
@@ -24,6 +27,8 @@ export const nodeSchema = z.discriminatedUnion('type', [
     config: z.object({
       phoneNumberIds: z.array(id).max(20).optional(),
       onlyNewConversation: z.boolean().default(false),
+      cooldownHours: z.number().min(0).max(8760).optional(),
+      businessHours: z.enum(['ANY', 'OPEN', 'CLOSED']).optional(),
     }),
   }),
   z.object({
@@ -31,8 +36,10 @@ export const nodeSchema = z.discriminatedUnion('type', [
     type: z.literal('trigger.keyword'),
     config: z.object({
       keywords: z.array(z.string().trim().min(1).max(100)).min(1).max(20),
-      match: z.enum(['EXACT', 'CONTAINS', 'STARTS_WITH']).default('EXACT'),
+      match: z.enum(['EXACT', 'WHOLE_WORD', 'CONTAINS', 'STARTS_WITH']).default('EXACT'),
       caseSensitive: z.boolean().default(false),
+      phoneNumberIds: z.array(id).max(20).optional(),
+      businessHours: z.enum(['ANY', 'OPEN', 'CLOSED']).optional(),
     }),
   }),
   z.object({
@@ -170,6 +177,67 @@ export const nodeSchema = z.discriminatedUnion('type', [
       mode: z.enum(['SINGLE', 'CONVERSATION']).default('SINGLE'),
     }),
   }),
+  z.object({
+    id: z.string(),
+    type: z.literal('condition.business_hours'),
+    config: z.object({}).default({}),
+  }),
+  z.object({
+    id: z.string(),
+    type: z.literal('action.question'),
+    config: z.object({
+      text: z.string().trim().min(1).max(4096),
+      field: answerKey,
+      answerType: z.enum(['TEXT', 'NUMBER', 'DATE', 'EMAIL']).default('TEXT'),
+      contactProperty: z
+        .string()
+        .regex(/^[a-z][a-z0-9_]{0,62}$/)
+        .optional(),
+      maxRetries: z.number().int().min(0).max(10).default(2),
+    }),
+  }),
+  z.object({
+    id: z.string(),
+    type: z.literal('action.options'),
+    config: z
+      .object({
+        text: z.string().trim().min(1).max(1024),
+        field: answerKey,
+        presentation: z.enum(['BUTTONS', 'LIST', 'CTA']).default('BUTTONS'),
+        options: z
+          .array(
+            z.object({
+              value: z.string().trim().min(1).max(80),
+              label: z.string().trim().min(1).max(20),
+            }),
+          )
+          .min(1)
+          .max(10),
+        url: z
+          .url()
+          .refine((v) => v.startsWith('https://'), 'Use an https address.')
+          .optional(),
+        maxRetries: z.number().int().min(0).max(10).default(2),
+      })
+      .refine(
+        (c) => c.presentation !== 'BUTTONS' || c.options.length <= 3,
+        'Buttons allow at most three options.',
+      )
+      .refine((c) => c.presentation !== 'CTA' || !!c.url, 'Enter the address for the link.')
+      .refine(
+        (c) => new Set(c.options.map((o) => o.value)).size === c.options.length,
+        'Give every option a different saved value.',
+      ),
+  }),
+  z.object({
+    id: z.string(),
+    type: z.literal('action.handover'),
+    config: z.object({
+      userId: id.optional(),
+      tagIds: z.array(id).max(20).default([]),
+      note: z.string().trim().min(1).max(4096),
+    }),
+  }),
   z.object({ id: z.string(), type: z.literal('action.end'), config: z.object({}).default({}) }),
 ])
 export type FlowNode = z.infer<typeof nodeSchema>
@@ -195,6 +263,7 @@ export const flowGraphSchema = z.object({
   edges: z.array(edgeSchema).max(400),
   /** Editor-only: canvas positions by node id. Never read by the runtime. */
   layout: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
+  replyStudio: replyStudioSettingsSchema.optional(),
 })
 export type FlowGraph = z.infer<typeof flowGraphSchema>
 
@@ -214,6 +283,7 @@ export const draftGraphSchema = z.object({
     .max(200),
   edges: z.array(edgeSchema).max(400),
   layout: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
+  replyStudio: replyStudioSettingsSchema.optional(),
 })
 export type DraftGraph = z.infer<typeof draftGraphSchema>
 
@@ -224,6 +294,7 @@ export function outputsOf(t: NodeType): EdgeHandle[] {
   if (isTrigger(t)) return ['next']
   if (isCondition(t)) return ['yes', 'no']
   if (t === 'action.end') return []
+  if (t === 'action.question' || t === 'action.options') return ['next', 'error']
   if (t === 'action.ai_reply') return ['replied', 'needs_human', 'error']
   if (
     t === 'action.send_message' ||

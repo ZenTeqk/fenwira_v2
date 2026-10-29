@@ -174,3 +174,22 @@ The outbound-only `message-outbound` surface is **#D2F2DF**, with all actual mes
 ### Campaign operations running state
 
 Campaign statuses use the default `StatusBadge` mapping everywhere (the former `context="campaign"` success override is removed): draft/archived neutral; scheduled, running and processing info; paused, paused for no credits and low balance warning; completed, delivered and read success; failed danger. Message receipts are told apart by icon as well as label: sent a single tick, delivered a double tick, read a heavier double tick. Metric trends render through `StatusBadge` (`TREND_*` presets): the arrow carries direction, the tone carries good or bad news, inverted for metrics where up is bad (failures, spend). Feature code must not substitute ACTIVE for RUNNING or override status colors locally.
+
+## Automations and Reply Studio presentation (2026-10-29)
+
+These screens reuse the existing palette, type scale, 12px card radius, 16px sheet radius
+and `shadow-raised` hover elevation. No tokens are added. Layout follows an 8px grid:
+8px inline gaps, 16px card padding, 24px page sections. Segmented route navigation uses
+links with `aria-current`; in-page Auto Replies/Bot Flows use keyboard-accessible tabs.
+Flow rows share the same hierarchy, labelled status badges and permission-aware switches.
+Starter snippets are illustrative conversation recipes, not Meta message templates.
+
+The wizard has a stepper, form and fixed-height `PhoneFrame`; the stepper moves above
+the form at intermediate widths and the phone moves into a Preview drawer on phones.
+The trial reminder uses a slim warning surface with `warning-strong` text. Dismissal is
+scoped to the user and workspace until the next Asia/Kolkata calendar day; expired or
+sending-blocked reminders cannot be dismissed. Existing billing destinations are retained.
+Stats and previous-period comparisons use the existing reports endpoint. Response previews
+read existing draft versions only for displayed Reply Studio rows; no list/API fields or
+execution behavior change. Empty-draft cleanup archives only drafts verified to have zero
+nodes, after confirmation; drafts containing steps are retained.

@@ -1,4 +1,10 @@
-import { type FlowNode } from '@fenwira/contracts'
+import {
+  businessHoursSchema,
+  businessIsOpen,
+  DEFAULT_BUSINESS_HOURS,
+  normalizeReplyText,
+  type FlowNode,
+} from '@fenwira/contracts'
 import { Database, type Prisma, type TenantTx } from '@fenwira/database'
 import { type EventJob, QUEUES } from '@fenwira/queue'
 import { Inject, Injectable } from '@nestjs/common'
@@ -10,6 +16,8 @@ import { QueueRegistry } from '../../core/queue/queue-registry'
 import { RealtimeEmitter } from '../../core/realtime/realtime-emitter'
 import { EntitlementsService } from '../entitlements'
 import {
+  finishExecution,
+  parseGraph,
   activeAiConversations,
   activeCandidates,
   aiStateOf,
@@ -24,6 +32,8 @@ import {
   triggerNodeOf,
   type TriggerEvent,
 } from './automation.core'
+
+import { replyState } from './reply-session'
 
 type Data =
   | EventJob<'message.inbound.received'>
@@ -83,15 +93,113 @@ export class AutomationTriggerProcessor implements QueueProcessor<Data> {
     const tenantId = e.tenantId!
     const resumed: Array<{ id: string; stage: number }> = []
     const result = await this.handle(tenantId, async (tx, effects, now) => {
+      // Serialize routing per conversation. Session state itself is guarded by its row lock.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${e.payload.conversationId}, 1))::text`
+      if (await tx.automationTriggerRun.findFirst({ where: { eventId: e.eventId } }))
+        return 'duplicate'
       const message = await tx.message.findFirst({ where: { id: e.payload.messageId } })
       const conversation = await tx.conversation.findFirst({
         where: { id: e.payload.conversationId },
       })
       if (!message || !conversation) return 'missing'
       const text = textOf(message.content)
-      const candidates = await activeCandidates(tx, ['trigger.keyword', 'trigger.message_received'])
+      if (conversation.automationState !== 'AUTOMATION_ACTIVE') return 'takeover'
+      if (!conversation.serviceWindowExpiresAt || conversation.serviceWindowExpiresAt <= now)
+        return 'window-closed'
+      const workspace = await tx.tenant.findUniqueOrThrow({ where: { id: tenantId } })
+      const open = businessIsOpen(
+        businessHoursSchema.parse(workspace.businessHours ?? DEFAULT_BUSINESS_HOURS),
+        now,
+      )
+      let candidates = await activeCandidates(tx, ['trigger.keyword', 'trigger.message_received'])
+      candidates = candidates.filter((c) => {
+        const t = triggerNodeOf(c.graph)
+        if (t?.type !== 'trigger.keyword' && t?.type !== 'trigger.message_received') return false
+        if (
+          t.config.phoneNumberIds?.length &&
+          !t.config.phoneNumberIds.includes(conversation.phoneNumberId)
+        )
+          return false
+        return (
+          !t.config.businessHours ||
+          t.config.businessHours === 'ANY' ||
+          (t.config.businessHours === 'OPEN' ? open : !open)
+        )
+      })
+      let restartFlowId: string | null = null
+      const sessions = await tx.automationExecution.findMany({
+        where: {
+          conversationId: conversation.id,
+          status: { in: ['RUNNING', 'WAITING'] },
+        },
+        orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],
+      })
+      for (const session of sessions) {
+        await lockExecution(tx, session.id)
+        const fresh = await tx.automationExecution.findFirstOrThrow({ where: { id: session.id } })
+        if (fresh.status !== 'RUNNING' && fresh.status !== 'WAITING') continue
+        const v = await tx.flowVersion.findFirstOrThrow({ where: { id: fresh.flowVersionId } })
+        const sessionGraph = parseGraph(v.graph)
+        const settings = sessionGraph.replyStudio
+        if (
+          !sessionGraph.nodes.some(
+            (n) => n.type === 'action.question' || n.type === 'action.options',
+          )
+        )
+          continue
+        const state = replyState(fresh)
+        const restart = (settings?.restartWords ?? ['menu', 'restart', 'start over']).some(
+          (w) => normalizeReplyText(w) === normalizeReplyText(text),
+        )
+        const expired =
+          !!state.deadline && Date.parse(state.deadline) <= message.createdAt.getTime()
+        if (restart || expired) {
+          // Stop this event's remaining plan before ending the old session.
+          if (fresh.triggerRunId)
+            await tx.automationTriggerRun.update({
+              where: { id: fresh.triggerRunId },
+              data: {
+                status: 'STOPPED',
+                stopReason: restart ? 'SESSION_RESTART' : 'SESSION_EXPIRED',
+                finishedAt: now,
+              },
+            })
+          await finishExecution(
+            tx,
+            fresh,
+            restart ? 'CANCELLED' : 'COMPLETED',
+            { code: restart ? 'SESSION_RESTART' : 'SESSION_EXPIRED' },
+            this.entitlements,
+            now,
+            effects,
+          )
+          if (restart) restartFlowId = fresh.flowId
+          continue
+        }
+        // A durable inbox cursor consumes this message before any start keyword is evaluated.
+        await tx.automationTriggerRun.create({
+          data: {
+            tenantId,
+            eventId: e.eventId,
+            triggerType: 'trigger.message_received',
+            contactId: conversation.contactId,
+            conversationId: conversation.id,
+            triggerEvent: {
+              type: 'session.reply',
+              executionId: fresh.id,
+              message: { id: message.id },
+            },
+            plan: [],
+            status: 'COMPLETED',
+            finishedAt: now,
+          },
+        })
+        resumed.push({ id: fresh.id, stage: fresh.stepCount })
+        return 'reply-resumed'
+      }
       const byType = (c: (typeof candidates)[number]) => triggerNodeOf(c.graph)
       const keyword = candidates.filter((c) => {
+        if (restartFlowId) return c.flow.id === restartFlowId
         const t = byType(c)
         return (
           t?.type === 'trigger.keyword' &&
@@ -131,8 +239,10 @@ export class AutomationTriggerProcessor implements QueueProcessor<Data> {
           where: {
             conversationId: conversation.id,
             direction: 'INBOUND',
-            id: { not: message.id },
-            createdAt: { lte: message.createdAt },
+            OR: [
+              { createdAt: { lt: message.createdAt } },
+              { createdAt: message.createdAt, id: { lt: message.id } },
+            ],
           },
           select: { id: true },
         }))
@@ -148,6 +258,36 @@ export class AutomationTriggerProcessor implements QueueProcessor<Data> {
           return !cfg.onlyNewConversation || first
         })
       }
+      if (restartFlowId && !matched.length)
+        matched = candidates.filter((c) => c.flow.id === restartFlowId)
+      if (
+        matched.some((c) => {
+          const t = triggerNodeOf(c.graph)
+          return t?.type === 'trigger.message_received' && t.config.onlyNewConversation
+        })
+      )
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${conversation.contactId}, 2))::text`
+      const eligible = []
+      for (const c of matched) {
+        const t = triggerNodeOf(c.graph)
+        if (
+          t?.type === 'trigger.message_received' &&
+          t.config.onlyNewConversation &&
+          (t.config.cooldownHours ?? 24) > 0 &&
+          (await tx.automationExecution.findFirst({
+            where: {
+              flowId: c.flow.id,
+              contactId: conversation.contactId,
+              startedAt: {
+                gte: new Date(now.getTime() - (t.config.cooldownHours ?? 24) * 3600000),
+              },
+            },
+          }))
+        )
+          continue
+        eligible.push(c)
+      }
+      matched = eligible
       if (!matched.length) return 'no-match'
       const event: TriggerEvent = {
         type: keyword.length ? 'trigger.keyword' : 'trigger.message_received',

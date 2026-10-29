@@ -11,11 +11,13 @@ import { NODE_HINT, NodeSymbol } from './node-presentation'
  * with its icon and a one-line description. Arrow keys move between items; Enter picks one.
  */
 export function AddStepMenu({
+  replyStudio = false,
   open,
   onOpenChange,
   mode,
   onPick,
 }: {
+  replyStudio?: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   /** `trigger`: an empty flow needs its trigger; `step`: anything but a trigger. */
@@ -28,6 +30,7 @@ export function AddStepMenu({
     ...g,
     types: g.types.filter(
       (t) =>
+        (!replyStudio || (t !== 'action.ai_reply' && t !== 'action.send_template')) &&
         (mode === 'trigger') === isTrigger(t) &&
         `${NODE_LABEL[t]} ${NODE_HINT[t]}`.toLowerCase().includes(q),
     ),

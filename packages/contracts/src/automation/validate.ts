@@ -58,6 +58,31 @@ export function validateFlowGraph(input: unknown): FlowValidation {
     return { valid: false, errors }
   }
   const g: FlowGraph = parsed.data
+  if (g.replyStudio) {
+    for (const node of g.nodes)
+      if (node.type === 'trigger.keyword' && node.config.caseSensitive)
+        errors.push({
+          code: 'FLOW_NODE_CONFIG_INVALID',
+          nodeId: node.id,
+          message: 'Reply Studio keyword matching ignores upper and lower case.',
+        })
+    for (const node of g.nodes)
+      if (node.type === 'action.ai_reply' || node.type === 'action.send_template')
+        errors.push({
+          code: 'FLOW_NODE_CONFIG_INVALID',
+          nodeId: node.id,
+          message:
+            'Reply Studio uses messages and options. Use the Automations builder for this step.',
+        })
+    if (
+      g.replyStudio.kind === 'AUTO_REPLY' &&
+      g.nodes.some((n) => n.type === 'action.question' || n.type === 'action.options')
+    )
+      errors.push({
+        code: 'FLOW_NODE_CONFIG_INVALID',
+        message: 'Use Bot Flows for conversations with questions or options.',
+      })
+  }
   const ids = new Set(g.nodes.map((n) => n.id))
   const byId = new Map(g.nodes.map((n) => [n.id, n]))
   if (g.nodes.length > MAX_FLOW_NODES)
@@ -90,6 +115,15 @@ export function validateFlowGraph(input: unknown): FlowValidation {
   const out = (nodeId: string, handle: string) =>
     g.edges.filter((e) => e.source === nodeId && e.sourceHandle === handle)
   for (const n of g.nodes) {
+    if (
+      (n.type === 'action.question' || n.type === 'action.options') &&
+      out(n.id, 'error').length !== 1
+    )
+      errors.push({
+        code: 'FLOW_DANGLING_NODE',
+        nodeId: n.id,
+        message: 'Connect the fallback path to a Handover or End step.',
+      })
     if (n.type === 'action.ai_reply') {
       for (const [handle, label] of [
         ['replied', 'Replied'],

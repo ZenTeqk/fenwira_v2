@@ -138,26 +138,17 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
   {
     id: 'out-of-hours',
     title: 'Out-of-hours reply',
-    description: 'Tell customers your opening hours when a contact tagged out-of-hours writes in.',
+    description: 'Reply when your workspace schedule or holiday calendar says you are closed.',
     categories: ['WELCOME'],
-    icon: 'condition.has_tag',
+    icon: 'condition.business_hours',
     requires: [],
     reentryPolicy: 'AFTER_COMPLETION',
-    setup: [
-      {
-        nodeId: 'check',
-        kind: 'condition_tag',
-        label: 'Choose the out-of-hours tag',
-        hint: 'Fenwira has no business-hours condition yet, so this checks a tag your team or another automation adds.',
-        suggestedTag: 'out-of-hours',
-      },
-      { nodeId: 'hours', kind: 'message', label: 'Write your opening hours' },
-    ],
+    setup: [{ nodeId: 'hours', kind: 'message', label: 'Write your opening hours' }],
     graph: () =>
       graph(
         [
           node('trigger', 'trigger.message_received', { onlyNewConversation: false }),
-          node('check', 'condition.has_tag', { tagIds: [], match: 'ANY' }),
+          node('check', 'condition.business_hours', {}),
           node('hours', 'action.send_message', {
             text: 'Hi {{contact.firstName}}, we are closed right now. We are open Monday to Saturday, 9 am to 6 pm, and will reply as soon as we are back.',
           }),
@@ -166,8 +157,8 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
         ],
         [
           edge('trigger', 'check'),
-          edge('check', 'hours', 'yes'),
-          edge('check', 'end-open', 'no'),
+          edge('check', 'hours', 'no'),
+          edge('check', 'end-open', 'yes'),
           edge('hours', 'end'),
         ],
       ),

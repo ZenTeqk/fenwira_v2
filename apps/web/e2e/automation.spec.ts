@@ -39,16 +39,16 @@ test('build a keyword flow on the canvas, publish, and the customer gets the rep
   const palette = page.getByRole('navigation', { name: 'Add a step' })
   await palette.getByRole('button', { name: 'Keyword', exact: true }).click()
   await page.getByLabel('Keywords').fill('pricing, prices')
-  await palette.getByRole('button', { name: 'Send message', exact: true }).click()
+  await palette.getByRole('button', { name: 'Message', exact: true }).click()
   await page.getByRole('button', { name: 'Setup checklist · Ready to publish' }).click()
   await page.getByRole('tab', { name: 'Ready to publish', exact: true }).click()
   // Live validation: the empty message is flagged before publishing.
   await expect(page.getByText(/things? to fix first/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeDisabled()
-  await page.getByLabel('Message', { exact: true }).fill('Our plans start at ₹99, ')
+  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Our plans start at ₹99, ')
   await page.getByRole('combobox', { name: 'Insert a value into Message' }).click()
   await page.getByRole('option', { name: 'First name' }).click()
-  await expect(page.getByLabel('Message', { exact: true })).toHaveValue(
+  await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue(
     'Our plans start at ₹99, {{contact.firstName}}',
   )
   await palette.getByRole('button', { name: 'End', exact: true }).click()

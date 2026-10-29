@@ -149,10 +149,10 @@ test('light automation studio preserves draft editing, responsive settings and r
   const library = page.getByRole('navigation', { name: 'Add a step' })
   await library.getByRole('textbox', { name: 'Search steps' }).fill('wait')
   await expect(library.getByRole('button', { name: 'Wait', exact: true })).toBeVisible()
-  await expect(library.getByRole('button', { name: 'Send message', exact: true })).toHaveCount(0)
+  await expect(library.getByRole('button', { name: 'Message', exact: true })).toHaveCount(0)
   await library.getByRole('textbox', { name: 'Search steps' }).fill('')
   await expect(page.getByText('Customer replied?', { exact: true })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Test', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Test flow', exact: true })).toBeVisible()
   for (const width of [1440, 1024, 768, 375]) {
     await page.setViewportSize({ width, height: 1000 })
     if (width === 375) {

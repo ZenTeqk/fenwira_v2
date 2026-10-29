@@ -36,6 +36,7 @@ import { automationKey, type DraftNode, EXPRESSION_PATHS, NODE_LABEL } from '@/l
 import { useProperties, useTags } from '@/lib/contacts'
 import { useApprovedTemplates, useTemplateSampleUrl } from '@/lib/templates'
 import { TemplatePhonePreview } from '@/components/templates/template-phone-preview'
+import { ReplyNodeFields } from '@/components/reply-studio/node-fields'
 import { NODE_HINT, NodeSymbol } from './node-presentation'
 
 type Config = Record<string, unknown>
@@ -263,6 +264,12 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
 
   let form: React.ReactNode = null
   switch (node.type) {
+    case 'action.question':
+    case 'action.options':
+    case 'action.handover':
+    case 'condition.business_hours':
+      form = <ReplyNodeFields node={node} onChange={onChange} readOnly={readOnly} />
+      break
     case 'trigger.keyword':
       form = (
         <>
@@ -277,7 +284,8 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
             disabled={readOnly}
             onChange={(v) => set({ match: v })}
             options={[
-              { value: 'EXACT', label: 'The whole message' },
+              { value: 'EXACT', label: 'Exact phrase' },
+              { value: 'WHOLE_WORD', label: 'Whole word' },
               { value: 'CONTAINS', label: 'Anywhere in the message' },
               { value: 'STARTS_WITH', label: 'Start of the message' },
             ]}
@@ -804,6 +812,33 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
       ) : null}
       <p className="text-sm text-secondary">{NODE_HINT[node.type]}</p>
       {form}
+      {node.type === 'trigger.keyword' || node.type === 'trigger.message_received' ? (
+        <>
+          <Choose
+            label="Business hours filter"
+            value={str(c.businessHours) || 'ANY'}
+            disabled={readOnly}
+            onChange={(v) => set({ businessHours: v })}
+            options={[
+              { value: 'ANY', label: 'Any time' },
+              { value: 'OPEN', label: 'Only during business hours' },
+              { value: 'CLOSED', label: 'Only outside business hours' },
+            ]}
+          />
+          {node.type === 'trigger.message_received' && c.onlyNewConversation ? (
+            <Field label="Per-contact cooldown (hours)">
+              <Input
+                type="number"
+                min={0}
+                max={8760}
+                readOnly={readOnly}
+                value={Number(c.cooldownHours ?? 24)}
+                onChange={(e) => set({ cooldownHours: Number(e.target.value) })}
+              />
+            </Field>
+          ) : null}
+        </>
+      ) : null}
       {node.type === 'action.send_message' && typeof c.text === 'string' && c.text ? (
         <section
           aria-label="Message preview"

@@ -1,3 +1,4 @@
+import { cancelQueuedAutomation } from './cancel-automation'
 import {
   type HeaderFile,
   MEDIA_LIMITS,
@@ -256,6 +257,7 @@ export class MessagingService {
       },
     })
     if (input.source === 'INBOX' && conversation.automationState === 'AUTOMATION_ACTIVE') {
+      await cancelQueuedAutomation(tx, conversation.id, now)
       // Running automation for this conversation stops (P10-D2).
       await tx.outboxEvent.create({
         data: {
@@ -390,7 +392,7 @@ export class MessagingService {
 
   private async storedContent(tx: TenantTx, content: SendableContent): Promise<MessageContent> {
     if (content.type === 'TEMPLATE') throw new Error('templates use templateContent')
-    if (content.type === 'TEXT') return content
+    if (content.type === 'TEXT' || content.type === 'INTERACTIVE') return content
     const file = await tx.file.findFirst({
       where: { id: content.fileId, purpose: 'MESSAGE_MEDIA' },
     })

@@ -80,6 +80,7 @@ import { NodeInspector } from './node-inspector'
 import { NodeLibrary } from './node-library'
 import { overlapSentence, PublishedDialog, ReadinessPanel } from './readiness-panel'
 import { SetupPanel } from './setup-panel'
+import { ReplyTestPhone } from '@/components/reply-studio/test-phone'
 import { TestDrawer } from './test-drawer'
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'conflict' | 'error'
@@ -660,7 +661,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
               {editable ? (
                 <Button variant="secondary" size="sm" onClick={() => setTestOpen(true)}>
                   <FlaskConical aria-hidden="true" />
-                  Test
+                  Test flow
                 </Button>
               ) : null}
               {can('automations.publish') && f.status === 'ACTIVE' ? (
@@ -714,6 +715,18 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
             >
               Your changes are still in this editor. Retry saving before leaving.
             </Alert>
+          ) : flow.data?.managedBy === 'REPLY_STUDIO' ? (
+            <Alert
+              tone="info"
+              title="Managed by Reply Studio"
+              action={
+                <Button asChild variant="secondary" size="sm">
+                  <Link href="/automations/reply-studio">Open Reply Studio</Link>
+                </Button>
+              }
+            >
+              Published versions guide customer enquiries and connect customers with your team.
+            </Alert>
           ) : flow.data?.managedBy === 'AI_ASSISTANT' ? (
             <Alert
               tone="info"
@@ -731,7 +744,11 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
         }
         palette={
           editable && !libraryCollapsed ? (
-            <NodeLibrary hasTrigger={hasTrigger} onAdd={add} />
+            <NodeLibrary
+              replyStudio={flow.data?.managedBy === 'REPLY_STUDIO'}
+              hasTrigger={hasTrigger}
+              onAdd={add}
+            />
           ) : undefined
         }
         inspector={wide && (node || previewOpen) ? rightPanel : undefined}
@@ -918,6 +935,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
       <Modal open={libraryOpen} onOpenChange={setLibraryOpen}>
         <ModalContent title="Add a step" description="Choose a supported step for this flow.">
           <NodeLibrary
+            replyStudio={flow.data?.managedBy === 'REPLY_STUDIO'}
             hasTrigger={hasTrigger}
             onAdd={(type) => {
               add(type)
@@ -927,12 +945,26 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
         </ModalContent>
       </Modal>
       <AddStepMenu
+        replyStudio={flow.data?.managedBy === 'REPLY_STUDIO'}
         open={!!addMenu}
         onOpenChange={(open) => !open && setAddMenu(null)}
         mode={addMenu?.mode ?? 'step'}
         onPick={pick}
       />
-      {editable ? (
+      {editable && graph.replyStudio ? (
+        <Drawer open={testOpen} onOpenChange={setTestOpen}>
+          <DrawerContent title="Test flow">
+            <ReplyTestPhone
+              graph={graph}
+              save={async () => {
+                if (!(await flush())) throw new Error('Save your changes before testing.')
+                return flowId
+              }}
+              onResult={setTestResult}
+            />
+          </DrawerContent>
+        </Drawer>
+      ) : editable ? (
         <TestDrawer
           flowId={flowId}
           open={testOpen}
@@ -947,6 +979,11 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
       {settingsOpen ? (
         <FlowSettings
           flow={f}
+          replyStudio={graph.replyStudio}
+          onReplyStudioSave={async (settings) => {
+            change({ ...graph, replyStudio: settings })
+            if (!(await flush())) throw new Error('Session settings could not be saved. Try again.')
+          }}
           open
           onOpenChange={setSettingsOpen}
           onSaved={() => {

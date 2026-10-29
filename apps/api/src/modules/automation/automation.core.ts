@@ -1,3 +1,4 @@
+import { cancelQueuedAutomation } from '../messaging'
 import {
   type Execution,
   type ExecutionStatus,
@@ -361,6 +362,7 @@ export async function stopConversationAutomation(
   now: Date,
   effects: StartEffects,
 ): Promise<ExecutionRow[]> {
+  await cancelQueuedAutomation(tx, conversationId, now)
   const active = await tx.automationExecution.findMany({
     where: { conversationId, status: { in: ['RUNNING', 'WAITING'] } },
     orderBy: { id: 'asc' },
@@ -556,6 +558,7 @@ export function toFlow(
     draftUpdatedAt: Date | null
     running: number
     total: number
+    replyStudioKind?: Flow['replyStudioKind']
     last7d?: number
   },
 ): Flow {
@@ -572,7 +575,9 @@ export function toFlow(
     activeVersion: extra.activeVersion,
     draftUpdatedAt: iso(extra.draftUpdatedAt),
     hasWebhookToken: !!f.webhookTokenHash,
-    managedBy: f.managedBy === 'AI_ASSISTANT' ? 'AI_ASSISTANT' : null,
+    managedBy:
+      f.managedBy === 'AI_ASSISTANT' || f.managedBy === 'REPLY_STUDIO' ? f.managedBy : null,
+    ...(extra.replyStudioKind ? { replyStudioKind: extra.replyStudioKind } : {}),
     executions: { running: extra.running, total: extra.total, last7d: extra.last7d ?? 0 },
     createdAt: f.createdAt.toISOString(),
     updatedAt: f.updatedAt.toISOString(),

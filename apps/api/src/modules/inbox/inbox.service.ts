@@ -1,3 +1,4 @@
+import { cancelQueuedAutomation } from '../messaging'
 import {
   type AutomationState,
   type Conversation,
@@ -517,6 +518,7 @@ export class InboxService {
           automationStateChangedBy: userId,
         },
       })
+      if (state !== 'AUTOMATION_ACTIVE') await cancelQueuedAutomation(tx, id, new Date())
       const event =
         state === 'AGENT_TAKEOVER'
           ? 'takeover'

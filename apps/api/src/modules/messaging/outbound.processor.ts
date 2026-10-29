@@ -177,12 +177,14 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
       throw new DelayedError()
     }
 
-    await this.db.withTenant(tenantId, (tx) =>
+    const claimed = await this.db.withTenant(tenantId, (tx) =>
       tx.message.updateMany({
         where: { id: message.id, status: { in: [...SENDABLE] } },
         data: { status: 'SENDING', sendingAt: new Date(), attempts: { increment: 1 } },
       }),
     )
+    // A takeover may cancel the queued row after it was loaded, before this claim.
+    if (!claimed.count) return 'cancelled'
     await this.emitStatus(tenantId, message.id)
 
     const started = Date.now()

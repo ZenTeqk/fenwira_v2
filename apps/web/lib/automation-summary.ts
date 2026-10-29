@@ -84,6 +84,8 @@ function conditionClause(n: Node, names: SummaryNames): string {
   const c = n.config as Config
   const subject = (v: unknown) => quote(String(v ?? '') || '…')
   switch (n.type) {
+    case 'condition.business_hours':
+      return 'your business is open'
     case 'condition.has_tag':
       return `the contact has ${c.match === 'ALL' ? 'all of ' : ''}${tags(c, names)}`
     case 'condition.equals':
@@ -109,6 +111,12 @@ function conditionClause(n: Node, names: SummaryNames): string {
 function actionPhrase(n: Node, names: SummaryNames): string | null {
   const c = n.config as Config
   switch (n.type) {
+    case 'action.question':
+      return `ask and save ${String(c.field ?? 'the answer')}`
+    case 'action.options':
+      return 'offer options and wait for a choice'
+    case 'action.handover':
+      return 'hand the enquiry to your team'
     case 'action.send_message':
       return String(c.text ?? '').trim() ? `send ${quote(String(c.text))}` : 'send a message'
     case 'action.send_template': {

@@ -30,6 +30,39 @@ export function buildSendPayload(
         type: 'text',
         text: { body: content.text, preview_url: !!content.previewUrl },
       }
+    case 'INTERACTIVE': {
+      const action =
+        content.presentation === 'CTA'
+          ? {
+              name: 'cta_url',
+              parameters: { display_text: content.options[0]!.label, url: content.url },
+            }
+          : content.presentation === 'LIST'
+            ? {
+                button: 'Choose an option',
+                sections: [{ rows: content.options.map((o) => ({ id: o.id, title: o.label })) }],
+              }
+            : {
+                buttons: content.options.map((o) => ({
+                  type: 'reply',
+                  reply: { id: o.id, title: o.label },
+                })),
+              }
+      return {
+        ...base,
+        type: 'interactive',
+        interactive: {
+          type:
+            content.presentation === 'CTA'
+              ? 'cta_url'
+              : content.presentation === 'LIST'
+                ? 'list'
+                : 'button',
+          body: { text: content.text },
+          action,
+        },
+      }
+    }
     case 'TEMPLATE': {
       // A media header's parameter carries MEDIA_PLACEHOLDER until the file is uploaded.
       const components = mediaId
