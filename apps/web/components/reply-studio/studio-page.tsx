@@ -1,6 +1,7 @@
 'use client'
 import { Breadcrumb, Button, ListPage, PermissionState } from '@fenwira/ui'
 import Link from 'next/link'
+import { useState } from 'react'
 import { AutomationNavigation } from '@/components/automation-list/navigation'
 import { FlowCollection } from '@/components/automation-list/flow-collection'
 import { ReplyOverview, BusinessHoursAction } from './overview'
@@ -8,8 +9,9 @@ import { ReplyStarterCards } from './starter-cards'
 import { useSession } from '@/components/session/session-provider'
 import { useFlows } from '@/lib/automation'
 export function ReplyStudioPage({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
+  const [archived, setArchived] = useState(false)
   const { can } = useSession(),
-    flows = useFlows()
+    flows = useFlows(archived)
   if (!can('automations.read')) return <PermissionState what="Reply Studio" />
   const managed = (flows.data ?? []).filter(
     (f) => f.managedBy === 'REPLY_STUDIO' && f.replyStudioKind === kind,
@@ -51,15 +53,31 @@ export function ReplyStudioPage({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
         ) : (
           <ReplyOverview />
         )}
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-pressed={archived}
+            onClick={() => setArchived(!archived)}
+          >
+            {archived ? 'Back to current items' : 'Archived items'}
+          </Button>
+        </div>
         <FlowCollection
           studio
           flows={managed}
           loading={flows.isPending}
           error={flows.isError}
           retry={() => void flows.refetch()}
-          empty={can('automations.write') ? <ReplyStarterCards kind={kind} /> : undefined}
+          empty={
+            archived ? (
+              <p className="text-sm text-secondary">No archived items</p>
+            ) : can('automations.write') ? (
+              <ReplyStarterCards kind={kind} />
+            ) : undefined
+          }
         />
-        {managed.length > 0 && can('automations.write') ? (
+        {!archived && managed.length > 0 && can('automations.write') ? (
           <ReplyStarterCards kind={kind} populated />
         ) : null}
       </ListPage>

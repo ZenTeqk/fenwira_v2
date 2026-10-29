@@ -34,6 +34,7 @@ import {
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useId, useState } from 'react'
+import { FlowActivity } from '@/components/automation/flow-activity'
 import { useSession } from '@/components/session/session-provider'
 import { del, errorText, get, post, put } from '@/lib/api/client'
 import { automationKey } from '@/lib/automation'
@@ -56,7 +57,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
   const draft = useQuery({
     queryKey: automationKey(tenantId, 'draft', flow.id),
     queryFn: () => get<{ data: FlowVersion }>(`/flows/${flow.id}/draft`).then((r) => r.data),
-    enabled: studio,
+    enabled: studio && flow.status !== 'ARCHIVED',
     refetchOnWindowFocus: false,
   })
   const response = draft.data?.graph.nodes.find((n) =>
@@ -64,7 +65,8 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
   )?.config.text
   const keywords = (flow.trigger?.config.keywords as string[] | undefined) ?? []
   const change = useMutation({
-    mutationFn: async (action: 'toggle' | 'duplicate' | 'archive') => {
+    mutationFn: async (action: 'toggle' | 'duplicate' | 'archive' | 'restore') => {
+      if (action === 'restore') return post(`/flows/${flow.id}/restore`, {})
       if (action === 'toggle')
         return post(`/flows/${flow.id}/${flow.status === 'ACTIVE' ? 'pause' : 'resume'}`, {})
       if (action === 'archive') {
@@ -122,6 +124,11 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/automations/${flow.id}/edit`}
+              aria-disabled={flow.status === 'ARCHIVED' || undefined}
+              tabIndex={flow.status === 'ARCHIVED' ? -1 : undefined}
+              onClick={(e) => {
+                if (flow.status === 'ARCHIVED') e.preventDefault()
+              }}
               className="rounded-sm text-md font-semibold text-slate hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-strong"
             >
               {flow.name || 'Untitled automation'}
@@ -145,7 +152,9 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
             <p className="text-sm text-secondary">{triggerClause(flow.trigger ?? undefined)}</p>
           )}
           {studio ? (
-            draft.isPending ? (
+            flow.status === 'ARCHIVED' ? (
+              <p className="text-sm text-muted">Restore this item to edit it.</p>
+            ) : draft.isPending ? (
               <Skeleton className="h-4 w-56 max-w-full" />
             ) : (
               <p className="truncate text-sm text-secondary">
@@ -192,15 +201,17 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
             </label>
           ) : null}
         </div>
+        {studio && flow.status !== 'ARCHIVED' ? <FlowActivity flowId={flow.id} /> : null}
         <RowActions
           label={`Actions for ${flow.name}`}
           actions={[
             {
               label: 'Open',
+              disabled: flow.status === 'ARCHIVED',
               icon: <FolderOpen />,
               onSelect: () => router.push(`/automations/${flow.id}/edit`),
             },
-            ...(editable
+            ...(editable && flow.status !== 'ARCHIVED'
               ? [
                   {
                     label: 'Duplicate',
@@ -223,11 +234,12 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
             ...(editable
               ? [
                   {
-                    label: 'Archive',
+                    label: flow.status === 'ARCHIVED' ? 'Restore' : 'Archive',
                     icon: <Archive />,
-                    destructive: true,
+                    destructive: flow.status !== 'ARCHIVED',
                     disabled: change.isPending,
-                    onSelect: () => change.mutate('archive'),
+                    onSelect: () =>
+                      change.mutate(flow.status === 'ARCHIVED' ? 'restore' : 'archive'),
                   },
                 ]
               : []),
