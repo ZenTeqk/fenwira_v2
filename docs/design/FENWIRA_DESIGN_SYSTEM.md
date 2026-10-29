@@ -202,3 +202,8 @@ The old `/automations` and `/automations/reply-studio` entry URLs redirect to
 Four linked metrics share one compact summary surface; the live hours indicator belongs
 to the header action. Starter conversations retain their token-drawn previews within 128px.
 No new tokens are introduced.
+
+Reply Studio empty tabs show relevant starters immediately, with no search/status controls.
+Populated tabs show every saved item, including drafts, before an optionally expanded starter
+section. Its preference is stored per user/workspace/kind. Starter cards share preview, title,
+purpose, metadata and aligned Use starter actions. Five starters do not need a gallery.

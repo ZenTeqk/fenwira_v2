@@ -46,7 +46,11 @@ export function ReplyStudioPage({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
         }}
       >
         <AutomationNavigation active={kind} />
-        <ReplyOverview />
+        {!flows.isPending && !flows.isError && !managed.length ? (
+          <p className="text-sm text-muted">Activity will appear after your first reply runs.</p>
+        ) : (
+          <ReplyOverview />
+        )}
         <FlowCollection
           studio
           flows={managed}
@@ -55,6 +59,9 @@ export function ReplyStudioPage({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
           retry={() => void flows.refetch()}
           empty={can('automations.write') ? <ReplyStarterCards kind={kind} /> : undefined}
         />
+        {managed.length > 0 && can('automations.write') ? (
+          <ReplyStarterCards kind={kind} populated />
+        ) : null}
       </ListPage>
     </div>
   )

@@ -255,8 +255,8 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
         .toLocaleLowerCase()
         .includes(search.trim().toLocaleLowerCase()),
   )
-  const drafts = matches.filter((f) => f.status === 'DRAFT'),
-    live = matches.filter((f) => f.status !== 'DRAFT')
+  const drafts = studio ? [] : matches.filter((f) => f.status === 'DRAFT'),
+    live = studio ? matches : matches.filter((f) => f.status !== 'DRAFT')
   async function clearEmpty() {
     setClearing(true)
     try {
@@ -296,6 +296,17 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
       setClearing(false)
     }
   }
+  if (studio && !loading && !error && flows.length === 0)
+    return (
+      <>
+        {empty ?? (
+          <EmptyState
+            title="No items yet"
+            description="An editor can add a starter conversation."
+          />
+        )}
+      </>
+    )
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -352,8 +363,20 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
       ) : !matches.length ? (
         flows.length || search ? (
           <EmptyState
-            title="No matching automations"
+            title="No results match your filters"
             description="Try a different name, keyword or status."
+            action={
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setSearch('')
+                  setStatus('ALL')
+                  setLimit(20)
+                }}
+              >
+                Clear filters
+              </Button>
+            }
           />
         ) : (
           (empty ?? (

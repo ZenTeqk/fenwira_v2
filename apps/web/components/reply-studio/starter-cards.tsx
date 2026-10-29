@@ -3,6 +3,8 @@ import { REPLY_PRESETS, type ReplyPresetId } from '@fenwira/contracts'
 import { Button, cn } from '@fenwira/ui'
 import {
   ArrowRight,
+  ChevronDown,
+  ChevronRight,
   Clock3,
   GitBranch,
   Handshake,
@@ -11,6 +13,8 @@ import {
   MessagesSquare,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useEffect, useId, useState } from 'react'
+import { useSession } from '@/components/session/session-provider'
 
 const SNIPPETS: Record<ReplyPresetId, [string, string]> = {
   welcome: ['Hi, I have a question', 'Welcome! How can we help?'],
@@ -66,20 +70,63 @@ export const PRESET_ICON = {
   'product-enquiry': Handshake,
   blank: GitBranch,
 }
-export function ReplyStarterCards({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
+export function ReplyStarterCards({
+  kind,
+  populated = false,
+}: {
+  kind: 'AUTO_REPLY' | 'BOT_FLOW'
+  populated?: boolean
+}) {
+  const { me, tenantId } = useSession()
+  const key = `fenwira.reply-starters.${me.user.id}.${tenantId}.${kind}`
+  const [expanded, setExpanded] = useState(false)
+  const region = useId()
+  useEffect(() => {
+    try {
+      setExpanded(localStorage.getItem(key) === 'open')
+    } catch {
+      /* Optional preference. */
+    }
+  }, [key])
+  const show = !populated || expanded
   return (
     <section aria-label="Starter flows" className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-lg font-semibold text-slate">
-          {kind === 'AUTO_REPLY'
-            ? 'Your first reply, ready in minutes'
-            : 'Turn a conversation into an enquiry'}
-        </h2>
-        <p className="mt-2 text-sm text-secondary">
-          Start with an editable conversation recipe. Nothing runs until you publish.
-        </p>
-      </div>
-      <div className={cn('grid gap-4 md:grid-cols-2', kind === 'AUTO_REPLY' && 'xl:grid-cols-3')}>
+      {populated ? (
+        <Button
+          variant="ghost"
+          className="justify-start self-start"
+          aria-expanded={expanded}
+          aria-controls={region}
+          onClick={() => {
+            setExpanded(!expanded)
+            try {
+              localStorage.setItem(key, !expanded ? 'open' : 'closed')
+            } catch {
+              /* Optional preference. */
+            }
+          }}
+        >
+          {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+          Starter conversations
+        </Button>
+      ) : (
+        <div>
+          <h2 className="text-lg font-semibold text-slate">
+            {kind === 'AUTO_REPLY' ? 'Create your first auto reply' : 'Create your first bot flow'}
+          </h2>
+          <p className="mt-2 text-sm text-secondary">
+            Start with an editable conversation recipe. Nothing runs until you publish.
+          </p>
+        </div>
+      )}
+      <div
+        id={region}
+        hidden={!show}
+        className={cn(
+          show ? 'grid gap-4 md:grid-cols-2' : 'hidden',
+          kind === 'AUTO_REPLY' && 'xl:grid-cols-3',
+        )}
+      >
         {REPLY_PRESETS.filter((p) => p.kind === kind).map((p) => {
           const Icon = PRESET_ICON[p.id]
           return (
@@ -93,12 +140,23 @@ export function ReplyStarterCards({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' })
                 <h3 className="text-md font-semibold text-slate">{p.title}</h3>
               </div>
               <p className="flex-1 text-sm text-secondary">{p.help}</p>
+              <p className="text-xs text-muted">
+                {
+                  {
+                    welcome: 'New conversation · Contact cooldown',
+                    'out-of-hours': 'Workspace hours · Holidays',
+                    keyword: 'Keywords · Matching rules',
+                    faq: 'Options · Team handover',
+                    'product-enquiry': 'Questions · Review · Handover',
+                  }[p.id]
+                }
+              </p>
               <Button asChild variant="secondary" className="w-full justify-between">
                 <Link
-                  aria-label={`Use ${p.title}`}
+                  aria-label={`Use starter: ${p.title}`}
                   href={`/automations/reply-studio/new?kind=${kind}&preset=${p.id}`}
                 >
-                  Use this
+                  Use starter
                   <ArrowRight aria-hidden="true" className="size-4" />
                 </Link>
               </Button>
