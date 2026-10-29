@@ -30,7 +30,10 @@ export const SCANNED_PDF_MESSAGE = 'This PDF looks scanned. Upload a text-based 
 /** Fewer letters than this per page on average = no usable text layer. */
 const MIN_PDF_CHARS_PER_PAGE = 20
 
-export async function extractText(bytes: Uint8Array, kind: KnowledgeFileKind): Promise<TextSection[]> {
+export async function extractText(
+  bytes: Uint8Array,
+  kind: KnowledgeFileKind,
+): Promise<TextSection[]> {
   let sections: TextSection[]
   try {
     sections = await extractRaw(bytes, kind)
@@ -86,7 +89,9 @@ export function csvToText(csv: string): string {
   return body
     .map((r) =>
       r
-        .map((cell, i) => (cell.trim() ? `${header![i]?.trim() || `Column ${i + 1}`}: ${cell.trim()}` : ''))
+        .map((cell, i) =>
+          cell.trim() ? `${header![i]?.trim() || `Column ${i + 1}`}: ${cell.trim()}` : '',
+        )
         .filter(Boolean)
         .join('; '),
     )
@@ -126,12 +131,14 @@ function parseCsv(text: string): string[][] {
 }
 
 function normalize(text: string): string {
-  return text
-    .replace(/\r\n?/g, '\n')
-    // Strips control characters PDF/DOCX extraction leaves behind (deliberate).
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  return (
+    text
+      .replace(/\r\n?/g, '\n')
+      // Strips control characters PDF/DOCX extraction leaves behind (deliberate).
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  )
 }

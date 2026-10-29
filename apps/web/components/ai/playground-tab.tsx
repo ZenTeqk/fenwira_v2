@@ -21,7 +21,13 @@ const OUTCOME_NOTE: Partial<Record<AiPlaygroundResponse['outcome'], string>> = {
  * Test (docs/AI_ASSISTANT.md → Playground): ask like a customer and see what the assistant would
  * send, plus the sources it used. Counts against the monthly quota (operator setting).
  */
-export function PlaygroundTab({ samples, onGo }: { samples: string[]; onGo: (tab: string) => void }) {
+export function PlaygroundTab({
+  samples,
+  onGo,
+}: {
+  samples: string[]
+  onGo: (tab: string) => void
+}) {
   const { can } = useSession()
   const ask = usePlayground()
   const [question, setQuestion] = useState('')

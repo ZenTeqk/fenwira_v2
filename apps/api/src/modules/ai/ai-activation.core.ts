@@ -74,6 +74,10 @@ export function assertCanRequest(
       409,
       'This workspace already has an activation request in review.',
     )
-  if (input.planId === null ? state.activePlanIds.length > 0 : !state.activePlanIds.includes(input.planId))
+  if (
+    input.planId === null
+      ? state.activePlanIds.length > 0
+      : !state.activePlanIds.includes(input.planId)
+  )
     throw new AppError('AI_PLAN_UNAVAILABLE', 400, 'Choose one of the available plans.')
 }

@@ -170,7 +170,9 @@ export class AutomationTriggerProcessor implements QueueProcessor<Data> {
       return run.created ? `planned ${matched.length}` : 'duplicate'
     })
     for (const r of resumed)
-      await enqueueExecution(this.queues, tenantId, r.id, r.stage, { suffix: `m${e.payload.messageId}` })
+      await enqueueExecution(this.queues, tenantId, r.id, r.stage, {
+        suffix: `m${e.payload.messageId}`,
+      })
     return result
   }
 

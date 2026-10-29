@@ -12,7 +12,10 @@ export function makeTestPdf(pages: string[]): Uint8Array {
     pageIds.push(pageId)
     const lines = text
       .split('\n')
-      .map((l, j) => `BT /F1 12 Tf 50 ${750 - j * 16} Td (${l.replace(/[\\()]/g, (c) => `\\${c}`)}) Tj ET`)
+      .map(
+        (l, j) =>
+          `BT /F1 12 Tf 50 ${750 - j * 16} Td (${l.replace(/[\\()]/g, (c) => `\\${c}`)}) Tj ET`,
+      )
       .join('\n')
     const stream = text ? lines : ''
     objects[pageId] =
@@ -30,7 +33,8 @@ export function makeTestPdf(pages: string[]): Uint8Array {
   }
   const xref = out.length
   out += `xref\n0 ${objects.length}\n0000000000 65535 f \n`
-  for (let id = 1; id < objects.length; id++) out += `${String(offsets[id]).padStart(10, '0')} 00000 n \n`
+  for (let id = 1; id < objects.length; id++)
+    out += `${String(offsets[id]).padStart(10, '0')} 00000 n \n`
   out += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
   return new TextEncoder().encode(out)
 }

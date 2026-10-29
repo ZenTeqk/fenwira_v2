@@ -164,13 +164,15 @@ export async function validateWithReferences(tx: TenantTx, raw: unknown): Promis
         errors.push({
           code: 'FLOW_AI_NO_KNOWLEDGE',
           nodeId: n.id,
-          message: 'Add at least one knowledge source on the AI Assistant page and wait until it is ready.',
+          message:
+            'Add at least one knowledge source on the AI Assistant page and wait until it is ready.',
         })
       if (quota && !quota.available)
         warnings.push({
           code: 'FLOW_AI_QUOTA',
           nodeId: n.id,
-          message: 'This month’s AI replies are used up: the step will hand conversations to your team.',
+          message:
+            'This month’s AI replies are used up: the step will hand conversations to your team.',
         })
     }
   }

@@ -71,7 +71,11 @@ export function KnowledgeTab() {
     for (const s of list.data ?? []) {
       const before = seen.get(s.id)
       if (before === 'PROCESSING' && s.status !== 'PROCESSING')
-        changes.push(s.status === 'READY' ? `${s.title} is ready.` : `${s.title} failed: ${s.failureReason ?? ''}`)
+        changes.push(
+          s.status === 'READY'
+            ? `${s.title} is ready.`
+            : `${s.title} failed: ${s.failureReason ?? ''}`,
+        )
       seen.set(s.id, s.status)
     }
     if (changes.length) setAnnounce(changes.join(' '))
@@ -84,7 +88,8 @@ export function KnowledgeTab() {
         {
           onSuccess: (s) =>
             toast.success(replace ? `Replacing “${s.title}”…` : `“${s.title}” added. Processing…`),
-          onError: (err) => toast.error(err instanceof Error && !('code' in err) ? err.message : errorText(err)),
+          onError: (err) =>
+            toast.error(err instanceof Error && !('code' in err) ? err.message : errorText(err)),
         },
       )
   }
@@ -98,7 +103,9 @@ export function KnowledgeTab() {
     input.current?.click()
   }
   const onReplace = (s: AiKnowledgeSource) =>
-    s.type === 'FILE' ? pick(s.id) : setPanel({ kind: s.type === 'FAQ' ? 'faq' : 'text', replace: s })
+    s.type === 'FILE'
+      ? pick(s.id)
+      : setPanel({ kind: s.type === 'FAQ' ? 'faq' : 'text', replace: s })
   const onDelete = async (s: AiKnowledgeSource) => {
     const ok = await confirm({
       title: `Delete “${s.title}”?`,
@@ -206,7 +213,9 @@ export function KnowledgeTab() {
                     <p className="text-sm text-secondary">
                       {TYPE_LABEL[s.type]} · {formatBytes(s.sizeBytes)}
                       {s.status === 'READY' || s.replacing ? ` · ${s.chunkCount} sections` : ''}
-                      {s.replacing ? ' · the previous version answers until the new one is ready' : ''}
+                      {s.replacing
+                        ? ' · the previous version answers until the new one is ready'
+                        : ''}
                     </p>
                     {s.status === 'FAILED' && s.failureReason ? (
                       <p className="text-sm text-danger-strong">{s.failureReason}</p>
@@ -233,7 +242,10 @@ export function KnowledgeTab() {
                         >
                           Reprocess
                         </DropdownItem>
-                        <DropdownItem onSelect={() => void onDelete(s)} className="text-danger-strong">
+                        <DropdownItem
+                          onSelect={() => void onDelete(s)}
+                          className="text-danger-strong"
+                        >
                           <Trash2 aria-hidden="true" />
                           Delete
                         </DropdownItem>
@@ -271,7 +283,12 @@ function FaqPanel({ panel, onClose }: { panel: Panel; onClose: () => void }) {
   const submit = (e: FormEvent) => {
     e.preventDefault()
     const clean = pairs.filter((p) => p.question.trim() || p.answer.trim())
-    const done = { onSuccess: () => { toast.success('FAQ saved. Processing…'); onClose() } }
+    const done = {
+      onSuccess: () => {
+        toast.success('FAQ saved. Processing…')
+        onClose()
+      },
+    }
     if (panel?.replace) replace.mutate({ id: panel.replace.id, input: { pairs: clean } }, done)
     else add.mutate({ title, pairs: clean }, done)
   }
@@ -297,7 +314,11 @@ function FaqPanel({ panel, onClose }: { panel: Panel; onClose: () => void }) {
         <FormError error={mutation.error} />
         {!panel?.replace ? (
           <Field label="Title" required>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Delivery FAQ" />
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Delivery FAQ"
+            />
           </Field>
         ) : null}
         {pairs.map((p, i) => (
@@ -307,7 +328,9 @@ function FaqPanel({ panel, onClose }: { panel: Panel; onClose: () => void }) {
               <Input
                 value={p.question}
                 onChange={(e) =>
-                  setPairs((all) => all.map((x, j) => (j === i ? { ...x, question: e.target.value } : x)))
+                  setPairs((all) =>
+                    all.map((x, j) => (j === i ? { ...x, question: e.target.value } : x)),
+                  )
                 }
               />
             </Field>
@@ -316,7 +339,9 @@ function FaqPanel({ panel, onClose }: { panel: Panel; onClose: () => void }) {
                 rows={3}
                 value={p.answer}
                 onChange={(e) =>
-                  setPairs((all) => all.map((x, j) => (j === i ? { ...x, answer: e.target.value } : x)))
+                  setPairs((all) =>
+                    all.map((x, j) => (j === i ? { ...x, answer: e.target.value } : x)),
+                  )
                 }
               />
             </Field>
@@ -363,7 +388,12 @@ function TextPanel({ panel, onClose }: { panel: Panel; onClose: () => void }) {
   const mutation = panel?.replace ? replace : add
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    const done = { onSuccess: () => { toast.success('Text saved. Processing…'); onClose() } }
+    const done = {
+      onSuccess: () => {
+        toast.success('Text saved. Processing…')
+        onClose()
+      },
+    }
     if (panel?.replace) replace.mutate({ id: panel.replace.id, input: { text } }, done)
     else add.mutate({ title, text }, done)
   }
@@ -389,7 +419,11 @@ function TextPanel({ panel, onClose }: { panel: Panel; onClose: () => void }) {
         <FormError error={mutation.error} />
         {!panel?.replace ? (
           <Field label="Title" required>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Return policy" />
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Return policy"
+            />
           </Field>
         ) : null}
         <Field label="Text" required hint="Plain text. Headings and short paragraphs work best.">

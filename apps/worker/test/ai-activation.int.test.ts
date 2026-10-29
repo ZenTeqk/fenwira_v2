@@ -159,9 +159,13 @@ describe('operator decisions', () => {
     expect((await owner.client.get('/ai/overview')).body.error.code).toBe('AI_NOT_ENABLED')
     const queue = await operator.get('/platform/ai/requests?status=REQUESTED')
     expect(queue.status).toBe(200)
-    expect(queue.body.data.find((r: { id: string }) => r.id === created.body.data.id)).toMatchObject(
-      { workspaceId: owner.tenantId, includedReplies: 250, expectedConversations: 300 },
-    )
+    expect(
+      queue.body.data.find((r: { id: string }) => r.id === created.body.data.id),
+    ).toMatchObject({
+      workspaceId: owner.tenantId,
+      includedReplies: 250,
+      expectedConversations: 300,
+    })
     const path = `/platform/ai/workspaces/${owner.tenantId}/requests/${created.body.data.id}`
     const approved = await operator.post(`${path}/approve`, { note: 'Welcome aboard' })
     expect(approved.status, approved.text).toBe(200)
@@ -169,7 +173,10 @@ describe('operator decisions', () => {
       alreadyEnabled: false,
       request: { status: 'APPROVED', decisionNote: 'Welcome aboard' },
     })
-    expect(await settings(owner.tenantId)).toMatchObject({ enabled: true, monthlyMessageQuota: 250 })
+    expect(await settings(owner.tenantId)).toMatchObject({
+      enabled: true,
+      monthlyMessageQuota: 250,
+    })
     expect(await audits(owner.tenantId, 'ai.activation_approved')).toBe(1)
     expect(await outbox(owner.tenantId, 'ai.activation.decided')).toBe(1)
     expect((await owner.client.get('/ai/overview')).status).toBe(200)
@@ -249,7 +256,9 @@ describe('operator decisions', () => {
     createdPlans.push(created.body.data.id)
     const owner = await createOwner(api, 'ai-plans')
     const names = async () =>
-      (await owner.client.get('/ai/activation')).body.data.plans.map((p: { name: string }) => p.name)
+      (await owner.client.get('/ai/activation')).body.data.plans.map(
+        (p: { name: string }) => p.name,
+      )
     expect(await names()).toContain('Temporary plan')
     const off = await operator.post(`/platform/ai/plans/${created.body.data.id}`, {
       ...created.body.data,

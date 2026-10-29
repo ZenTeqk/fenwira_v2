@@ -27,7 +27,8 @@ import { useRealtimeEvent } from '@/lib/realtime'
 
 /** AI Assistant (docs/AI_ASSISTANT.md). Every route answers AI_NOT_ENABLED (403) when off. */
 
-export const isNotEnabled = (err: unknown) => err instanceof ApiError && err.code === 'AI_NOT_ENABLED'
+export const isNotEnabled = (err: unknown) =>
+  err instanceof ApiError && err.code === 'AI_NOT_ENABLED'
 
 const noRetryWhenOff = (count: number, err: unknown) => !isNotEnabled(err) && count < 2
 
@@ -109,8 +110,7 @@ export function useAiSources(enabled = true) {
     queryFn: () => get<{ data: AiKnowledgeSource[] }>('/ai/knowledge').then((r) => r.data),
     enabled,
     retry: noRetryWhenOff,
-    refetchInterval: (q) =>
-      q.state.data?.some((s) => s.status === 'PROCESSING') ? 3000 : false,
+    refetchInterval: (q) => (q.state.data?.some((s) => s.status === 'PROCESSING') ? 3000 : false),
   })
 }
 
@@ -119,7 +119,9 @@ export function useAiSource(id: string | null) {
   return useQuery({
     queryKey: key('knowledge', id ?? 'none'),
     queryFn: () =>
-      get<{ data: AiKnowledgeSource & { body: unknown } }>(`/ai/knowledge/${id}`).then((r) => r.data),
+      get<{ data: AiKnowledgeSource & { body: unknown } }>(`/ai/knowledge/${id}`).then(
+        (r) => r.data,
+      ),
     enabled: !!id,
   })
 }
@@ -144,7 +146,10 @@ export function useAiActivity(enabled = true) {
   })
 }
 
-function useAiMutation<I, O>(fn: (input: I) => Promise<O>, refresh: string[] = ['knowledge', 'overview']) {
+function useAiMutation<I, O>(
+  fn: (input: I) => Promise<O>,
+  refresh: string[] = ['knowledge', 'overview'],
+) {
   const key = useAiKey()
   const client = useQueryClient()
   return useMutation({
@@ -182,8 +187,7 @@ export const useReprocessSource = () =>
     post<{ data: AiKnowledgeSource }>(`/ai/knowledge/${id}/reprocess`).then((r) => r.data),
   )
 
-export const useDeleteSource = () =>
-  useAiMutation((id: string) => del(`/ai/knowledge/${id}`))
+export const useDeleteSource = () => useAiMutation((id: string) => del(`/ai/knowledge/${id}`))
 
 export const usePlayground = () =>
   useAiMutation(
@@ -227,7 +231,8 @@ export function useUploadKnowledge() {
         data: { fileId: string; url: string; headers: Record<string, string> }
       }>('/ai/knowledge/upload-url', { mimeType, sizeBytes: file.size, filename: file.name })
       const put = await fetch(up.data.url, { method: 'PUT', headers: up.data.headers, body: file })
-      if (!put.ok) throw new Error('The upload did not finish. Check your connection and try again.')
+      if (!put.ok)
+        throw new Error('The upload did not finish. Check your connection and try again.')
       const done = replaceId
         ? await post<{ data: AiKnowledgeSource }>(`/ai/knowledge/${replaceId}/replace`, {
             fileId: up.data.fileId,

@@ -36,7 +36,8 @@ for (const width of [1440, 390])
     await page.getByRole('link', { name: 'See how it works' }).click()
     await expect(page).toHaveURL(/#how-it-works$/)
     await expectNoViolations(page)
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/ai-activation-${width}.png`, fullPage: true })
+    if (SHOTS)
+      await page.screenshot({ path: `${SHOTS}/ai-activation-${width}.png`, fullPage: true })
   })
 
 test('request activation, see Requested, operator approves, page becomes the dashboard', async ({

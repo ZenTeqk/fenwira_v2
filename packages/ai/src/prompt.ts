@@ -24,7 +24,8 @@ const TONES: Record<AiTone, string> = {
   CONCISE: 'brief and to the point',
 }
 
-const DATA_TAGS = /<\s*\/?\s*(documents|excerpt|conversation|customer_message|business_guidance)\b[^>]*>/gi
+const DATA_TAGS =
+  /<\s*\/?\s*(documents|excerpt|conversation|customer_message|business_guidance)\b[^>]*>/gi
 
 /**
  * Untrusted text can never open or close one of our data sections: tag-like sequences that name

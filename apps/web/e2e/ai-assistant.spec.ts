@@ -15,7 +15,10 @@ const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 async function expectNoViolations(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze()
   expect(
-    results.violations.map((v) => ({ id: v.id, targets: v.nodes.slice(0, 5).map((n) => n.target) })),
+    results.violations.map((v) => ({
+      id: v.id,
+      targets: v.nodes.slice(0, 5).map((n) => n.target),
+    })),
   ).toEqual([])
 }
 
@@ -30,7 +33,19 @@ function enableAi(tenantId: string) {
     ON CONFLICT (tenant_id) DO UPDATE SET enabled = true, monthly_message_quota = 100`
   execFileSync(
     'docker',
-    ['compose', 'exec', '-T', 'fenwira-postgres', 'psql', '-U', 'postgres', '-d', 'fenwira', '-c', sql],
+    [
+      'compose',
+      'exec',
+      '-T',
+      'fenwira-postgres',
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'fenwira',
+      '-c',
+      sql,
+    ],
     { cwd: resolve(__dirname, '../../..') },
   )
 }
@@ -71,7 +86,9 @@ test('upload, test with sources, turn on, and a customer gets an AI reply', asyn
   await page.getByLabel('Test question').fill('What are the opening hours on weekdays?')
   await page.getByRole('button', { name: 'Ask' }).click()
   const log = page.getByRole('log', { name: 'Test conversation' })
-  await expect(log.getByText('Anna Bakery is open on weekdays from 9am to 6pm.', { exact: true })).toBeVisible()
+  await expect(
+    log.getByText('Anna Bakery is open on weekdays from 9am to 6pm.', { exact: true }),
+  ).toBeVisible()
   await log.getByText(/Sources used/).click()
   await expect(log.getByText('opening-hours', { exact: true })).toBeVisible()
   await page.getByLabel('Test question').fill('Do you repair bicycles?')
@@ -92,9 +109,13 @@ test('upload, test with sources, turn on, and a customer gets an AI reply', asyn
   await page.goto('/inbox')
   await page.getByRole('list', { name: 'Conversation list' }).getByText(customer).click()
   const thread = page.getByRole('log', { name: 'Messages' })
-  await expect(thread.getByText('Anna Bakery is open on weekdays from 9am to 6pm.', { exact: true })).toBeVisible({
+  await expect(
+    thread.getByText('Anna Bakery is open on weekdays from 9am to 6pm.', { exact: true }),
+  ).toBeVisible({
     timeout: 20_000,
   })
   await expect(thread.getByText('AI', { exact: true })).toBeVisible()
-  await expect(page.getByRole('group', { name: 'Conversation state' }).getByText('AI handling')).toBeVisible()
+  await expect(
+    page.getByRole('group', { name: 'Conversation state' }).getByText('AI handling'),
+  ).toBeVisible()
 })
