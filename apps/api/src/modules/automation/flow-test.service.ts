@@ -25,7 +25,7 @@ import { normalizePhone } from '../../core/phone'
 import { AuditService } from '../audit'
 import { coercePropertyValue } from '../contacts'
 import { currentTenant } from '../tenancy'
-import { evaluateEligibility } from '../messaging/eligibility'
+import { evaluateEligibility } from '../messaging'
 import { answerValue } from './reply-session'
 import { type ExecutionRow, triggerNodeOf } from './automation.core'
 import {
