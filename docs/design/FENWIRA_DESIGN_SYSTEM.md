@@ -207,3 +207,18 @@ Reply Studio empty tabs show relevant starters immediately, with no search/statu
 Populated tabs show every saved item, including drafts, before an optionally expanded starter
 section. Its preference is stored per user/workspace/kind. Starter cards share preview, title,
 purpose, metadata and aligned Use starter actions. Five starters do not need a gallery.
+
+## Reply Studio editors and diagnostics
+
+Single-rule Auto Replies use a left configuration column with a shared fixed-height phone
+on the right; mobile opens that preview in a drawer. The view reuses the canvas save,
+validation and publish handlers. Draft changes and Published version have separate labelled
+status badges, version metadata and an optimistic discard action. Bot Flow nodes retain
+actual snippets and saved field names; branches use node-aware labels without changing
+persisted handles. Session/ordering controls remain under Advanced settings.
+
+A dry-run transcript explains matching, conditions and eligibility with shared reason codes.
+Sample eligibility is labelled, and reports distinguish execution outcomes from sends.
+Recent activity reuses the last-20 executions endpoint. Failure links open the canvas at the
+reported node; publishing previews illustrative saved fields, customer review and the existing
+private handover note. Existing tokens and PhoneFrame are reused throughout.

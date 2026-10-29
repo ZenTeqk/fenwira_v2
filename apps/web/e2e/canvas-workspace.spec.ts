@@ -38,6 +38,7 @@ for (const width of [1440, 390])
 test('add, edit, autosave, publish and protect unsaved Back navigation', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   const state = await mockCanvas(page)
+  state.saveDelayMs = 1000
   await page.goto('/automations/canvas-fixture/edit')
   await page
     .getByRole('navigation', { name: 'Add a step' })
@@ -47,7 +48,7 @@ test('add, edit, autosave, publish and protect unsaved Back navigation', async (
   await expect(page.getByRole('button', { name: 'Saving...', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeVisible()
   expect(state.graph.nodes.some((node) => node.config.text === 'A new draft message')).toBe(true)
-  await page.getByRole('button', { name: 'Delete step Send message', exact: true }).click()
+  await page.getByRole('button', { name: 'Delete step Message', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Publish', exact: true }).click()
   await page.getByRole('button', { name: 'Publish automation', exact: true }).click()

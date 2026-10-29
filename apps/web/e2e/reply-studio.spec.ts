@@ -44,7 +44,9 @@ test('Product Enquiry wizard, phone test, published mock conversation and report
     await page.getByRole('button', { name: 'Reply', exact: true }).click()
   }
   await page.getByRole('button', { name: 'Confirm', exact: true }).click()
-  await expect(page.getByText(/Would hand over the enquiry and add a private note/)).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Test transcript' })).toContainText(
+    'Would hand over the enquiry and add a private note',
+  )
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     expect(
@@ -59,6 +61,10 @@ test('Product Enquiry wizard, phone test, published mock conversation and report
     ).toBe(true)
   }
   await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await expect(page.getByRole('table', { name: 'Saved answer fields' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Collected-answer preview' })).toContainText(
+    'Private note · salesperson sees',
+  )
   await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeEnabled()
   await page.getByRole('button', { name: 'Publish', exact: true }).click()
   await expect(page).toHaveURL(/\/automations\/reply-studio\/auto-replies$/)

@@ -201,19 +201,24 @@ export function ReplyNodeFields({
           ) : null}
         </>
       )}
-      <Field
-        label="Re-ask invalid answers"
-        hint="After this many retries, follow the fallback path and offer a person."
-      >
-        <Input
-          type="number"
-          min={0}
-          max={10}
-          value={Number(c.maxRetries ?? 2)}
-          readOnly={readOnly}
-          onChange={(e) => set({ maxRetries: Number(e.target.value) })}
-        />
-      </Field>
+      <details>
+        <summary className="text-sm font-medium text-slate">Advanced settings</summary>
+        <div className="mt-4">
+          <Field
+            label="Re-ask invalid answers"
+            hint="After this many retries, follow the fallback path and offer a person."
+          >
+            <Input
+              type="number"
+              min={0}
+              max={10}
+              value={Number(c.maxRetries ?? 2)}
+              readOnly={readOnly}
+              onChange={(e) => set({ maxRetries: Number(e.target.value) })}
+            />
+          </Field>{' '}
+        </div>
+      </details>
     </div>
   )
 }

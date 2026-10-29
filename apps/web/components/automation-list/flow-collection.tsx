@@ -175,7 +175,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
           </time>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-4 border-t border-border pt-4 md:border-0 md:pt-0">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 md:flex-nowrap md:border-0 md:pt-0">
         <Link
           href={`/automations/${flow.id}/history`}
           className="flex min-w-16 flex-col gap-1 rounded-sm text-right focus-visible:outline-2 focus-visible:outline-primary-strong"

@@ -5,6 +5,7 @@ import {
   type EdgeHandle,
   findOverlaps,
   type FlowIssue,
+  type FlowVersion,
   type FlowTestResult,
   type Member,
   isTrigger,
@@ -51,10 +52,10 @@ import {
   X,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
-import { ApiError, get, patch, post, put } from '@/lib/api/client'
+import { ApiError, del, get, patch, post, put } from '@/lib/api/client'
 import {
   addNode,
   addTrigger,
@@ -81,6 +82,10 @@ import { NodeLibrary } from './node-library'
 import { overlapSentence, PublishedDialog, ReadinessPanel } from './readiness-panel'
 import { SetupPanel } from './setup-panel'
 import { ReplyTestPhone } from '@/components/reply-studio/test-phone'
+import { VersionState } from './version-state'
+import { AutoReplyEditor } from '@/components/reply-studio/auto-reply-editor'
+import { FlowActivity } from './flow-activity'
+import { CollectedAnswersPreview } from '@/components/reply-studio/collected-answers-preview'
 import { TestDrawer } from './test-drawer'
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'conflict' | 'error'
@@ -101,6 +106,7 @@ const SERVER_CODES = new Set(['FLOW_REFERENCE_MISSING', 'FLOW_TEMPLATE_NOT_APPRO
 export function FlowBuilder({ flowId }: { flowId: string }) {
   const { tenantId, can, me } = useSession()
   const router = useRouter()
+  const search = useSearchParams()
   const preferenceKey = `fenwira.canvas.${me.user.id}.${tenantId}`
   const [libraryCollapsed, setLibraryCollapsed] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -150,6 +156,13 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
   const editable = can('automations.write') && flow.data?.status !== 'ARCHIVED'
   const [graph, setGraph] = useState<DraftGraph | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  useEffect(() => {
+    const id = search.get('node')
+    if (id && graph?.nodes.some((n) => n.id === id)) {
+      setSelected(id)
+      setRightTab('settings')
+    }
+  }, [search, graph?.nodes.length])
   const inspectorOpener = useRef<HTMLElement | null>(null)
   function selectStep(id: string | null) {
     if (id)
@@ -229,11 +242,19 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
           void qc.invalidateQueries({ queryKey: automationKey(tenantId, 'flow', flowId) })
         }
         if (g && etag.current) {
-          const r = await put<{
-            data: { etag: string; validation: { errors: FlowIssue[] } | null }
-          }>(`/flows/${flowId}/draft`, { graph: g }, { headers: { 'If-Match': etag.current } })
+          const r = await put<{ data: FlowVersion }>(
+            `/flows/${flowId}/draft`,
+            { graph: g },
+            { headers: { 'If-Match': etag.current } },
+          )
           etag.current = r.data.etag
-          setServerIssues((r.data.validation?.errors ?? []).filter((e) => SERVER_CODES.has(e.code)))
+          qc.setQueryData(automationKey(tenantId, 'draft', flowId), r.data)
+          void qc.invalidateQueries({ queryKey: automationKey(tenantId, 'flow', flowId) })
+          setServerIssues(
+            (r.data.validation?.errors ?? []).filter((e): e is FlowIssue =>
+              SERVER_CODES.has(e.code),
+            ),
+          )
         }
         setSave(pending.current || namePending.current !== null ? 'dirty' : 'saved')
         return true
@@ -257,6 +278,50 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
     }
     return ok && (pending.current || namePending.current !== null) ? flush() : ok
   }, [flowId, qc, tenantId])
+
+  useEffect(() => {
+    if (draft.data && !pending.current && save === 'saved') etag.current = draft.data.etag
+  }, [draft.data, save])
+
+  async function discard() {
+    if (
+      !(await confirm({
+        title: 'Discard draft changes?',
+        description: 'Return to the published version. Running sessions are unchanged.',
+        confirmLabel: 'Discard draft changes',
+        destructive: true,
+      }))
+    )
+      return
+    clearTimeout(timer.current)
+    if (inFlight.current) await inFlight.current
+    const queued = pending.current
+    try {
+      pending.current = null
+      const current =
+        qc.getQueryData<FlowVersion>(automationKey(tenantId, 'draft', flowId)) ?? draft.data!
+      const version =
+        current.state === 'DRAFT'
+          ? (
+              await del<{ data: FlowVersion }>(`/flows/${flowId}/draft`, {
+                headers: { 'If-Match': etag.current ?? current.etag },
+              })
+            ).data
+          : current
+      setGraph(version.graph)
+      etag.current = version.etag
+      setSave('saved')
+      setServerIssues([])
+      setTestResult(null)
+      qc.setQueryData(automationKey(tenantId, 'draft', flowId), version)
+      void qc.invalidateQueries({ queryKey: automationKey(tenantId, 'flow', flowId) })
+      void qc.invalidateQueries({ queryKey: automationKey(tenantId, 'flows') })
+      toast.success('Draft changes discarded.')
+    } catch (e) {
+      pending.current ??= queued
+      toast.error(e instanceof ApiError ? e.message : 'Could not discard draft changes.')
+    }
+  }
 
   const change = useCallback(
     (g: DraftGraph) => {
@@ -397,6 +462,13 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
           'The saved draft becomes the active published version.',
           'Existing runs stay on the version they started with.',
           ...overlaps.map((o) => overlapSentence(o, flowId)),
+          ...(graph?.replyStudio?.kind === 'BOT_FLOW'
+            ? [
+                <div key="answers" className="max-h-64 overflow-y-auto">
+                  <CollectedAnswersPreview graph={graph} />
+                </div>,
+              ]
+            : []),
         ],
         confirmLabel: 'Publish automation',
       }))
@@ -569,6 +641,44 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
       ) : null}
     </Tabs>
   )
+  if (
+    graph.replyStudio?.kind === 'AUTO_REPLY' &&
+    search.get('canvas') !== '1' &&
+    !search.get('node')
+  )
+    return (
+      <AutoReplyEditor
+        flow={f}
+        draft={draft.data!}
+        graph={graph}
+        onChange={change}
+        onSave={flush}
+        onPublish={() => void publish()}
+        onDiscard={() => void discard()}
+        saveLabel={SAVE_LABEL[save]}
+        readOnly={!editable}
+        canPublish={can('automations.publish')}
+        issues={issues}
+        overlaps={overlaps}
+        name={name ?? f.name}
+        onName={(value) => {
+          setName(value)
+          namePending.current = value
+          setSave('dirty')
+          clearTimeout(timer.current)
+          timer.current = setTimeout(() => void flush(), 800)
+        }}
+        onPriority={async (value) => {
+          try {
+            await patch(`/flows/${flowId}`, { priority: value })
+            refresh()
+          } catch (e) {
+            toast.error(e instanceof ApiError ? e.message : 'Could not save priority.')
+          }
+        }}
+        busy={publishing}
+      />
+    )
   return (
     <>
       <BuilderPage
@@ -652,6 +762,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
                   Settings
                 </Button>
               ) : null}
+              <FlowActivity flowId={flowId} />
               <Button variant="secondary" size="sm" asChild>
                 <Link href={`/automations/${flowId}/history`}>
                   <History aria-hidden="true" />
@@ -684,7 +795,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
                   disabled={issues.length > 0}
                 >
                   <Rocket aria-hidden="true" />
-                  Publish
+                  {f.activeVersion ? 'Publish changes' : 'Publish'}
                 </Button>
               ) : null}
             </div>
@@ -716,17 +827,13 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
               Your changes are still in this editor. Retry saving before leaving.
             </Alert>
           ) : flow.data?.managedBy === 'REPLY_STUDIO' ? (
-            <Alert
-              tone="info"
-              title="Managed by Reply Studio"
-              action={
-                <Button asChild variant="secondary" size="sm">
-                  <Link href="/automations/reply-studio">Open Reply Studio</Link>
-                </Button>
-              }
-            >
-              Published versions guide customer enquiries and connect customers with your team.
-            </Alert>
+            <VersionState
+              flow={f}
+              draft={draft.data!}
+              dirty={save !== 'saved'}
+              onDiscard={() => void discard()}
+              disabled={!editable}
+            />
           ) : flow.data?.managedBy === 'AI_ASSISTANT' ? (
             <Alert
               tone="info"
@@ -740,7 +847,15 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
               Turn it on or pause it from the AI Assistant page. Changes you publish here are used
               by the assistant.
             </Alert>
-          ) : undefined
+          ) : (
+            <VersionState
+              flow={f}
+              draft={draft.data!}
+              dirty={save !== 'saved'}
+              onDiscard={() => void discard()}
+              disabled={!editable}
+            />
+          )
         }
         palette={
           editable && !libraryCollapsed ? (
@@ -960,7 +1075,14 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
                 if (!(await flush())) throw new Error('Save your changes before testing.')
                 return flowId
               }}
-              onResult={setTestResult}
+              onResult={(r) => {
+                setTestResult(r)
+                if (r?.steps.at(-1)) setSelected(r.steps.at(-1)!.nodeId)
+              }}
+              onSelect={(id) => {
+                selectStep(id)
+                setTestOpen(false)
+              }}
             />
           </DrawerContent>
         </Drawer>
@@ -972,7 +1094,14 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
           trigger={graph.nodes.find((n) => isTrigger(n.type))}
           beforeRun={flush}
           result={testResult}
-          onResult={setTestResult}
+          onResult={(r) => {
+            setTestResult(r)
+            if (r?.steps.at(-1)) setSelected(r.steps.at(-1)!.nodeId)
+          }}
+          onSelect={(id) => {
+            selectStep(id)
+            setTestOpen(false)
+          }}
           blocked={blocked}
         />
       ) : null}

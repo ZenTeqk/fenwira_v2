@@ -229,7 +229,7 @@ export const PALETTE: Array<{ category: Category; title: string; types: NodeType
 export type NodeKind = 'trigger' | 'message' | 'condition' | 'action' | 'ai'
 export const kindOf = (t: NodeType): NodeKind => (t === 'action.ai_reply' ? 'ai' : categoryOf(t))
 export const KIND_LABEL: Record<NodeKind, string> = {
-  trigger: 'Trigger',
+  trigger: 'Start',
   message: 'Message',
   condition: 'Condition',
   action: 'Action',
