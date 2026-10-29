@@ -193,3 +193,12 @@ Stats and previous-period comparisons use the existing reports endpoint. Respons
 read existing draft versions only for displayed Reply Studio rows; no list/API fields or
 execution behavior change. Empty-draft cleanup archives only drafts verified to have zero
 nodes, after confirmation; drafts containing steps are retained.
+
+## Reply Studio compact overview
+
+Workflows, Auto Replies, Bot Flows and Reports use one plain route navigation row.
+The old `/automations` and `/automations/reply-studio` entry URLs redirect to
+`/automations/workflows` and `/automations/reply-studio/auto-replies`.
+Four linked metrics share one compact summary surface; the live hours indicator belongs
+to the header action. Starter conversations retain their token-drawn previews within 128px.
+No new tokens are introduced.

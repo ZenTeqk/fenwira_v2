@@ -16,7 +16,7 @@ describe('Reply Studio display values', () => {
   })
   it('does not invent a percentage when the previous period is empty', () => {
     expect(metricChange(10, 0)).toBe('New this week')
-    expect(metricChange(0, 0)).toBe('No change')
+    expect(metricChange(0, 0)).toBe('No activity yet')
     expect(metricChange(15, 10)).toBe('+50% vs previous 7 days')
     expect(metricChange(5, 10)).toBe('-50% vs previous 7 days')
   })

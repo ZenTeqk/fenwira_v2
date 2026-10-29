@@ -89,7 +89,7 @@ function MiniFlow({ graph }: { graph: DraftGraph }) {
 }
 
 const REQUIREMENT_LABEL = {
-  APPROVED_TEMPLATE: 'Needs an approved template',
+  APPROVED_TEMPLATE: 'Needs approved WhatsApp template',
   AI_ASSISTANT: 'Needs AI Assistant',
 } as const
 
@@ -206,21 +206,24 @@ export function TemplateGallery() {
     <div className="flex flex-col gap-4">
       <Tabs value={tab} onValueChange={(v) => setTab(v as FlowTemplateCategory)}>
         <div className="flex flex-col gap-3 border-b border-border pb-3 lg:flex-row lg:items-center lg:justify-between">
-          <TabsList aria-label="Template categories" className="w-auto overflow-x-auto border-b-0">
+          <TabsList
+            aria-label="Starter workflow categories"
+            className="w-auto overflow-x-auto border-b-0"
+          >
             {FLOW_TEMPLATE_CATEGORIES.map((c) => (
               <TabsTrigger key={c.id} value={c.id}>
                 {c.label}
               </TabsTrigger>
             ))}
           </TabsList>
-          <SearchInput label="Search templates" value={search} onValueChange={setSearch} />
+          <SearchInput label="Search starter workflows" value={search} onValueChange={setSearch} />
         </div>
         {FLOW_TEMPLATE_CATEGORIES.map((c) => {
           const list = FLOW_TEMPLATES.filter((t) => t.categories.includes(c.id) && matches(t))
           return (
             <TabsContent key={c.id} value={c.id} className="mt-4">
               <ul
-                aria-label={`${c.label} templates`}
+                aria-label={`${c.label} starter workflows`}
                 className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
               >
                 {card(null)}
@@ -228,7 +231,7 @@ export function TemplateGallery() {
               </ul>
               {q && !list.length ? (
                 <p className="mt-4 text-sm text-secondary">
-                  No {c.label.toLowerCase()} templates match “{search.trim()}”. Try another
+                  No {c.label.toLowerCase()} starter workflows match “{search.trim()}”. Try another
                   category, or start from scratch.
                 </p>
               ) : null}

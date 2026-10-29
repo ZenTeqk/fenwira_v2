@@ -12,8 +12,8 @@ export default function NewAutomationPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Create automation"
-        breadcrumbs={[{ label: 'Automations', href: '/automations' }, { label: 'Create' }]}
+        title="Starter workflows"
+        breadcrumbs={[{ label: 'Workflows', href: '/automations' }, { label: 'Create' }]}
         linkAs={Link}
         description="Pick a ready-made automation and fill in a few details, or start from scratch. Nothing runs until you publish."
       />

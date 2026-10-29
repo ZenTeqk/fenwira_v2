@@ -99,16 +99,9 @@ test('polished lists, existing actions, starter wizard and responsive accessibil
   await page.reload()
   await expect(banner).toBeVisible()
   await expect(page.getByRole('link', { name: 'Use Welcome reply' })).toBeVisible()
-  await page.getByRole('button', { name: 'Create', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'What would you like to create?' })
-  await expect(dialog.getByRole('link', { name: 'Create Auto Reply' })).toBeVisible()
-  await expect(dialog.getByRole('link', { name: 'Create Bot Flow' })).toBeVisible()
-  expect(
-    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze())
-      .violations,
-  ).toEqual([])
-  await page.keyboard.press('Escape')
-  await page.getByRole('tab', { name: 'Bot Flows', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Create auto reply', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Bot Flows', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Create bot flow', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Use FAQ menu' })).toBeVisible()
   await page.getByRole('link', { name: 'Use Product Enquiry' }).click()
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Product Enquiry')
@@ -131,7 +124,7 @@ test('polished lists, existing actions, starter wizard and responsive accessibil
   await expect(
     page
       .getByRole('navigation', { name: 'Automation tools' })
-      .getByRole('link', { name: 'Reply Studio' }),
+      .getByRole('link', { name: 'Auto Replies' }),
   ).toBeVisible()
   const row = page.getByRole('article', { name: 'Location reply', exact: true })
   await expect(row.getByText('Live', { exact: true })).toBeVisible()

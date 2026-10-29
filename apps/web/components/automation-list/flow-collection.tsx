@@ -10,7 +10,11 @@ import {
   Skeleton,
   StatusBadge,
   Switch,
-  cn,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   toast,
   useConfirm,
 } from '@fenwira/ui'
@@ -261,12 +265,10 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
       for (let i = 0; i < candidates.length; i += 12)
         checked.push(
           ...(await Promise.all(
-            candidates
-              .slice(i, i + 12)
-              .map(async (f) => ({
-                flow: f,
-                version: (await get<{ data: FlowVersion }>(`/flows/${f.id}/draft`)).data,
-              })),
+            candidates.slice(i, i + 12).map(async (f) => ({
+              flow: f,
+              version: (await get<{ data: FlowVersion }>(`/flows/${f.id}/draft`)).data,
+            })),
           )),
         )
       const empty = checked.filter((c) => c.version.graph.nodes.length === 0)
@@ -306,37 +308,31 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
           }}
           placeholder={studio ? 'Search names or keywords…' : 'Search automations…'}
         />
-        <div aria-label="Filter by status" className="flex max-w-full gap-2 overflow-x-auto pb-1">
-          {[
-            { id: 'ALL', label: 'All' },
-            { id: 'ACTIVE', label: 'Live' },
-            { id: 'PAUSED', label: 'Paused' },
-            { id: 'DRAFT', label: 'Draft' },
-          ].map((s) => (
-            <Button
-              key={s.id}
-              variant="ghost"
-              size="sm"
-              aria-pressed={status === s.id}
-              onClick={() => {
-                setStatus(s.id)
-                setDraftsOpen(s.id === 'DRAFT')
-                setLimit(20)
-              }}
-              className={cn(
-                'shrink-0 gap-2 rounded-full border px-4',
-                status === s.id
-                  ? 'border-primary/30 bg-primary-soft text-primary-strong'
-                  : 'border-border bg-surface text-secondary',
-              )}
-            >
-              <span>{s.label}</span>
-              <span className="text-xs tabular-nums">
-                {s.id === 'ALL' ? flows.length : flows.filter((f) => f.status === s.id).length}
-              </span>
-            </Button>
-          ))}
-        </div>
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v)
+            setDraftsOpen(v === 'DRAFT')
+            setLimit(20)
+          }}
+        >
+          <SelectTrigger aria-label="Status" className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[
+              { id: 'ALL', label: 'All' },
+              { id: 'ACTIVE', label: 'Live' },
+              { id: 'PAUSED', label: 'Paused' },
+              { id: 'DRAFT', label: 'Draft' },
+            ].map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.label} (
+                {s.id === 'ALL' ? flows.length : flows.filter((f) => f.status === s.id).length})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {loading ? (
         <div aria-label="Loading automations" role="status" className="flex flex-col gap-4">

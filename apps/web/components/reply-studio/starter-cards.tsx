@@ -34,7 +34,10 @@ export function MiniChat({
   return (
     <div
       aria-hidden="true"
-      className={cn('flex flex-col gap-2 rounded-lg bg-neutral-soft p-4', className)}
+      className={cn(
+        'flex h-32 flex-col justify-center gap-2 overflow-hidden rounded-lg bg-neutral-soft p-4',
+        className,
+      )}
     >
       <div className="max-w-full self-start rounded-lg rounded-tl-sm border border-border bg-surface px-4 py-2 text-xs text-secondary">
         {incoming}

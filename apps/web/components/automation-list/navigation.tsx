@@ -1,29 +1,30 @@
-import { Button, cn } from '@fenwira/ui'
+import { cn } from '@fenwira/ui'
 import Link from 'next/link'
-export function AutomationNavigation({ studio = false }: { studio?: boolean }) {
+export function AutomationNavigation({ active = 'workflows' }: { active?: string }) {
   return (
     <nav
       aria-label="Automation tools"
-      className="flex w-fit max-w-full gap-2 overflow-x-auto rounded-lg border border-border bg-neutral-soft p-1"
+      className="flex min-w-0 gap-4 overflow-x-auto border-b border-border"
     >
       {[
-        { label: 'All automations', href: '/automations', active: !studio },
-        { label: 'Reply Studio', href: '/automations/reply-studio', active: studio },
+        { id: 'workflows', label: 'Workflows', href: '/automations/workflows' },
+        { id: 'AUTO_REPLY', label: 'Auto Replies', href: '/automations/reply-studio/auto-replies' },
+        { id: 'BOT_FLOW', label: 'Bot Flows', href: '/automations/reply-studio/bot-flows' },
+        { id: 'reports', label: 'Reports', href: '/automations/reply-studio/reports' },
       ].map((t) => (
-        <Button
-          key={t.href}
-          asChild
-          variant="ghost"
-          size="sm"
+        <Link
+          key={t.id}
+          href={t.href}
+          aria-current={active === t.id ? 'page' : undefined}
           className={cn(
-            'shrink-0 px-4',
-            t.active ? 'bg-surface text-slate shadow-raised' : 'text-secondary',
+            'shrink-0 border-b-2 px-2 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary-strong',
+            active === t.id
+              ? 'border-primary text-slate'
+              : 'border-transparent text-secondary hover:text-slate',
           )}
         >
-          <Link href={t.href} aria-current={t.active ? 'page' : undefined}>
-            {t.label}
-          </Link>
-        </Button>
+          {t.label}
+        </Link>
       ))}
     </nav>
   )

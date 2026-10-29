@@ -1,8 +1,8 @@
 'use client'
 import { type BusinessHours, type ReplyReport } from '@fenwira/contracts'
-import { Button, MetricCard, Skeleton, StatusBadge } from '@fenwira/ui'
+import { Button, Skeleton, StatusBadge } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, CheckCheck, Handshake, MessageCircle, TriangleAlert } from 'lucide-react'
+import { CheckCheck, Handshake, MessageCircle, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
@@ -15,13 +15,44 @@ const METRICS = [
   { key: 'handovers', label: 'Handed over', icon: Handshake },
   { key: 'failures', label: 'Failed', icon: TriangleAlert },
 ] as const
-export function ReplyOverview() {
+export function BusinessHoursAction() {
   const { tenantId } = useSession()
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(timer)
   }, [])
+  const hours = useQuery({
+    queryKey: automationKey(tenantId, 'business-hours'),
+    queryFn: () => get<{ data: BusinessHours }>('/reply-studio/business-hours').then((r) => r.data),
+  })
+  const state = useMemo(
+    () => (hours.data ? businessHoursLabel(hours.data, now) : null),
+    [hours.data, now],
+  )
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button asChild variant="ghost" size="sm">
+        <Link href="/automations/reply-studio/business-hours">Business hours</Link>
+      </Button>
+      {hours.isPending ? (
+        <Skeleton className="h-6 w-40" />
+      ) : state ? (
+        <span className="flex items-center gap-2 text-xs text-secondary">
+          <StatusBadge
+            status={state.open ? 'ACTIVE' : 'INACTIVE'}
+            label={state.open ? 'Open now' : 'Closed'}
+          />
+          <span>· {state.detail}</span>
+        </span>
+      ) : (
+        <span className="text-xs text-muted">Schedule unavailable</span>
+      )}
+    </div>
+  )
+}
+export function ReplyOverview() {
+  const { tenantId } = useSession()
   const period = useMemo(() => {
     const end = new Date()
     return {
@@ -44,30 +75,12 @@ export function ReplyOverview() {
       return { current: current.data.totals, previous: previous.data.totals }
     },
   })
-  const hours = useQuery({
-    queryKey: automationKey(tenantId, 'business-hours'),
-    queryFn: () => get<{ data: BusinessHours }>('/reply-studio/business-hours').then((r) => r.data),
-  })
-  const state = useMemo(
-    () => (hours.data ? businessHoursLabel(hours.data, now) : null),
-    [hours.data, now],
-  )
   return (
-    <section aria-label="Reply Studio overview" className="flex min-w-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-medium text-secondary">Last 7 days</h2>
-          <span className="text-xs text-muted">vs previous 7 days</span>
-        </div>
-        <Link
-          href="/automations/reply-studio/reports"
-          className="inline-flex items-center gap-2 rounded-sm text-sm font-medium text-primary-strong hover:underline focus-visible:outline-2 focus-visible:outline-primary-strong"
-        >
-          View reports
-          <ArrowRight aria-hidden="true" className="size-4" />
-        </Link>
-      </div>
-      <div className="flex gap-4 overflow-x-auto pb-2 md:grid md:grid-cols-4">
+    <section
+      aria-label="Reply Studio overview"
+      className="overflow-hidden rounded-lg border border-border bg-surface"
+    >
+      <div className="flex divide-x divide-border overflow-x-auto">
         {METRICS.map((m) => {
           const value = totals.data?.current[m.key],
             previous = totals.data?.previous[m.key]
@@ -76,54 +89,30 @@ export function ReplyOverview() {
               key={m.key}
               href="/automations/reply-studio/reports"
               aria-label={`${m.label}: ${value ?? 'loading'}. View reports`}
-              className="min-w-44 flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-strong"
+              className="flex min-w-44 flex-1 items-center gap-4 px-4 py-2 focus-visible:outline-2 focus-visible:outline-primary-strong"
             >
-              <MetricCard
-                compact
-                label={m.label}
-                value={totals.isError ? '—' : (value?.toLocaleString('en-IN') ?? '—')}
-                icon={<m.icon aria-hidden="true" />}
-                loading={totals.isPending}
-                hint={
-                  value !== undefined && previous !== undefined
+              <m.icon className="size-4 shrink-0 text-muted" aria-hidden="true" />
+              <div>
+                <p className="text-xs text-secondary">
+                  {m.label} <span className="text-muted">· 7 days</span>
+                </p>
+                <p className="text-lg font-semibold text-slate">
+                  {totals.isPending ? '…' : totals.isError ? '—' : value?.toLocaleString('en-IN')}
+                </p>
+                <p className="text-xs text-muted">
+                  {value !== undefined && previous !== undefined
                     ? metricChange(value, previous)
                     : totals.isError
                       ? 'Reports unavailable'
-                      : 'Compared with last week'
-                }
-                className="h-full border-border bg-surface p-4 shadow-none"
-              />
+                      : 'Loading activity'}
+                </p>
+              </div>
             </Link>
           )
         })}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        {hours.isPending ? (
-          <Skeleton className="h-8 w-60" />
-        ) : (
-          <Link
-            href="/automations/reply-studio/business-hours"
-            className="inline-flex min-h-9 flex-wrap items-center gap-2 rounded-full border border-border bg-surface px-4 py-1 text-xs text-secondary hover:border-border-strong focus-visible:outline-2 focus-visible:outline-primary-strong"
-            aria-label={`Business hours: ${state ? (state.open ? 'Open now' : 'Closed') : 'View schedule'}`}
-          >
-            {state ? (
-              <StatusBadge
-                status={state.open ? 'ACTIVE' : 'INACTIVE'}
-                label={state.open ? 'Open now' : 'Closed'}
-              />
-            ) : null}
-            <span>{state ? `· ${state.detail}` : 'Business hours'}</span>
-          </Link>
-        )}
-        <p className="text-xs text-muted">A little setup. A lot less repetitive work.</p>
-      </div>
       {totals.isError ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="self-start"
-          onClick={() => void totals.refetch()}
-        >
+        <Button variant="ghost" size="sm" onClick={() => void totals.refetch()}>
           Retry overview
         </Button>
       ) : null}

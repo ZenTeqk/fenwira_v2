@@ -2,7 +2,7 @@ import { businessIsOpen, type BusinessHours } from '@fenwira/contracts'
 
 /** Display-only helpers; matching and eligibility remain in the existing engine. */
 export function metricChange(current: number, previous: number): string {
-  if (!previous) return current ? 'New this week' : 'No change'
+  if (!previous) return current ? 'New this week' : 'No activity yet'
   const change = Math.round(((current - previous) / previous) * 100)
   return change
     ? `${change > 0 ? '+' : ''}${change}% vs previous 7 days`
