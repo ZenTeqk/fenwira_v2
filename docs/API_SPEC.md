@@ -549,6 +549,6 @@ otherwise DRAFT. Webhook secrets erased on archive are not restored; rotate them
 `DELETE /flows/:id/draft` requires automations.write and the current If-Match, and returns
 the published FlowVersion/ETag. It archives and detaches the current draft, preserving
 published versions and running executions. No published version or no draft returns 409.
-Reports add per-flow kind, sent/blocked/sendFailed message counts and flowId/code on
+Reports add per-flow kind, sent messages and blocked/sendFailed attempt counts and flowId/code on
 failure rows. Existing execution counts retain their definitions. All reads/writes use
 existing tenant RLS. No migration is required.

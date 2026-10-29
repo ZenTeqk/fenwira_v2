@@ -318,7 +318,7 @@ Discard archives only the unpublished draft, with If-Match concurrency protectio
 never activates sending: a published archive returns paused, otherwise draft. Existing
 published session pinning is unchanged.
 
-Auto Reply reports distinguish sent/delivered/read messages, policy-blocked messages and
-other delivery failures. Bot Flow Completed means reaching End or Handover successfully;
+Auto Reply reports distinguish sent/delivered/read messages, policy-blocked send attempts (including attempts refused before creating a message) and
+other send failures. Bot Flow Completed means reaching End or Handover successfully;
 expiry is excluded. Execution completion is separate from asynchronous delivery. Failure
 rows expose time, conversation, flow/node and technical code. No reporting table is added.

@@ -77,7 +77,7 @@ export const replyReportsQuerySchema = z
 export const replyReportCountsSchema = z.object({
   flowId: z.string(),
   name: z.string(),
-  kind: z.enum(['AUTO_REPLY', 'BOT_FLOW']).optional(),
+  kind: z.enum(['AUTO_REPLY', 'BOT_FLOW']).nullable().optional(),
   sent: z.number().optional(),
   blocked: z.number().optional(),
   sendFailed: z.number().optional(),

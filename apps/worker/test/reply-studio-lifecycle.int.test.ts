@@ -95,7 +95,7 @@ it('discards only the current draft with If-Match and restores an archive withou
   expect(report.body.data.flows.find((f: { flowId: string }) => f.flowId === id)).toMatchObject({
     kind: 'AUTO_REPLY',
     sent: 0,
-    blocked: 0,
+    blocked: 1,
     sendFailed: 0,
     failures: 1,
   })
