@@ -18,7 +18,7 @@ import {
 import { type FormEvent, useState } from 'react'
 import { FormError } from '@/components/auth/form-error'
 import { useRequestAiActivation } from '@/lib/ai'
-import { formatPlanPrice } from './activation-page'
+import { formatPlanPrice } from './plan-price'
 
 type Errors = Partial<
   Record<'planId' | 'expectedConversations' | 'useCase' | 'contactEmail' | 'contactPhone', string>
