@@ -1,5 +1,6 @@
 import {
   createFlowSchema,
+  flowsQuerySchema,
   executionsQuerySchema,
   flowTestRequestSchema,
   putDraftSchema,
@@ -44,8 +45,8 @@ export class FlowsController {
 
   @Get()
   @RequirePermission('automations.read')
-  async list() {
-    return { data: await this.flows.list() }
+  async list(@Query(pipe(flowsQuerySchema)) query: In<typeof flowsQuerySchema>) {
+    return { data: await this.flows.list(query.archived === 'true') }
   }
 
   @Post()
@@ -74,6 +75,25 @@ export class FlowsController {
   @HttpCode(204)
   async remove(@Param('id', uuidParam) id: string): Promise<void> {
     await this.flows.remove(id)
+  }
+
+  @Post(':id/restore')
+  @RequirePermission('automations.write')
+  @HttpCode(200)
+  async restore(@Param('id', uuidParam) id: string) {
+    return { data: await this.flows.restore(id) }
+  }
+
+  @Delete(':id/draft')
+  @RequirePermission('automations.write')
+  async discard(
+    @Param('id', uuidParam) id: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const version = await this.flows.discardDraft(id, ifMatch)
+    res.setHeader('ETag', version.etag)
+    return { data: version }
   }
 
   @Get(':id/draft')

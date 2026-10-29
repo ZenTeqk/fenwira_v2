@@ -16,3 +16,5 @@ export * from './automation/matching'
 export * from './automation/templates'
 
 export * from './automation/reply-presets'
+
+export * from './automation/explanations'

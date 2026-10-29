@@ -28,7 +28,7 @@ const graph = (): Graph => ({
     { id: 'vip', type: 'condition.has_tag', config: { tagIds: [vip], match: 'ANY' } },
     { id: 'tag', type: 'action.add_tag', config: { tagIds: [lead] } },
     { id: 'assign', type: 'action.assign_agent', config: { mode: 'ROUND_ROBIN' } },
-    { id: 'wait', type: 'action.delay', config: { amount: 1, unit: 'DAYS' } },
+    { id: 'wait', type: 'action.delay', config: { amount: 1, unit: 'MINUTES' } },
     {
       id: 'replied',
       type: 'condition.contact_property',
@@ -120,7 +120,7 @@ describe('POST /flows/:id/test', () => {
     })
     expect(by('tag')).toMatchObject({ mode: 'RAN', summary: 'Would add the tag lead.' })
     expect(by('assign').mode).toBe('SIMULATED')
-    expect(by('wait').summary).toBe('Would wait 1 day, then continue (skipped in a test).')
+    expect(by('wait').summary).toBe('Would wait 1 minute, then continue (skipped in a test).')
     // A made-up contact never wrote in, so "replied in the last day" is No.
     expect(by('replied').handle).toBe('no')
     expect(by('send')).toMatchObject({ mode: 'SIMULATED', summary: 'Would send: “Hi Asha!”' })
@@ -177,5 +177,30 @@ describe('POST /flows/:id/test', () => {
       config: { keywords: ['price'], match: 'CONTAINS', caseSensitive: false },
     })
     expect(mine.liveTrigger).toBeNull()
+  })
+  it('explains matches, non-matches and a window that closes during a simulated wait without sending', async () => {
+    const g = graph()
+    g.nodes.find((n) => n.id === 'wait')!.config = { amount: 1, unit: 'DAYS' }
+    await saveDraft(owner, flowId, g)
+    const before = await footprint()
+    const r = await owner.client.post(`/flows/${flowId}/test`, {
+      contact: { name: 'Asha', tagIds: [vip] },
+      message: 'price',
+    })
+    expect(r.status, r.text).toBe(200)
+    expect(r.body.data.explanations).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'KEYWORD_MATCHED' })]),
+    )
+    expect(r.body.data.steps.find((s: { nodeId: string }) => s.nodeId === 'send')).toMatchObject({
+      status: 'FAILED',
+      errorCode: 'CONVERSATION_WINDOW_CLOSED',
+      explanations: expect.arrayContaining([expect.objectContaining({ code: 'WINDOW_CLOSED' })]),
+    })
+    const miss = await owner.client.post(`/flows/${flowId}/test`, { message: 'unrelated' })
+    expect(miss.body.data.explanations).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'KEYWORD_NOT_MATCHED' })]),
+    )
+    expect(await footprint()).toEqual(before)
+    await saveDraft(owner, flowId, graph())
   })
 })

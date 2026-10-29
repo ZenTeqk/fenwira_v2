@@ -102,6 +102,8 @@ export const flowVersionSchema = z.object({
 })
 export type FlowVersion = z.infer<typeof flowVersionSchema>
 
+export const flowsQuerySchema = z.object({ archived: z.enum(['true', 'false']).optional() })
+
 export const createFlowSchema = z.object({
   managedBy: z.literal('REPLY_STUDIO').optional(),
   name: z.string().trim().min(1).max(120),
@@ -205,6 +207,15 @@ export const flowTestRequestSchema = z
         tagIds: z.array(idSchema).max(20).optional(),
       })
       .optional(),
+    sampleEligibility: z
+      .object({
+        window: z.enum(['OPEN', 'CLOSED']).default('OPEN'),
+        marketingConsent: z.enum(['NONE', 'GRANTED', 'REVOKED']).default('NONE'),
+        utilityConsent: z.enum(['NONE', 'GRANTED', 'REVOKED']).default('NONE'),
+        contactStatus: z.enum(['ACTIVE', 'BLOCKED']).default('ACTIVE'),
+        newConversation: z.boolean().default(true),
+      })
+      .optional(),
     at: z.iso.datetime().optional(),
     answers: z.record(z.string(), z.string().max(4096)).optional(),
     /** Incoming message text (Message received and Keyword triggers). */
@@ -217,6 +228,8 @@ export const flowTestRequestSchema = z
   })
 export type FlowTestRequest = z.infer<typeof flowTestRequestSchema>
 
+export const flowExplanationSchema = z.object({ code: z.string(), text: z.string() })
+
 export const flowTestStepSchema = z.object({
   nodeId: z.string(),
   nodeType: z.string(),
@@ -226,6 +239,7 @@ export const flowTestStepSchema = z.object({
   handle: z.enum(EDGE_HANDLES).nullable(),
   /** Plain language: "Would send: Hi Asha…", "Yes: the contact has the tag lead". */
   summary: z.string(),
+  explanations: z.array(flowExplanationSchema).optional(),
   errorCode: z.string().nullable(),
 })
 export type FlowTestStep = z.infer<typeof flowTestStepSchema>
@@ -233,6 +247,7 @@ export type FlowTestStep = z.infer<typeof flowTestStepSchema>
 export const flowTestResultSchema = z.object({
   /** False when the sample would not start this automation (e.g. no keyword matched). */
   matched: z.boolean(),
+  explanations: z.array(flowExplanationSchema).optional(),
   reason: z.string().nullable(),
   steps: z.array(flowTestStepSchema),
   /** True when the run stopped at the step limit (a loop through a delay). */

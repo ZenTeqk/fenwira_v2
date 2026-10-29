@@ -10,6 +10,9 @@ import {
   type FlowTestStep,
   getPath,
   keywordMatches,
+  explainKeywordMatch,
+  explainStep,
+  type FlowExplanation,
   renderTemplateText,
   validateFlowGraph,
 } from '@fenwira/contracts'
@@ -22,6 +25,7 @@ import { normalizePhone } from '../../core/phone'
 import { AuditService } from '../audit'
 import { coercePropertyValue } from '../contacts'
 import { currentTenant } from '../tenancy'
+import { evaluateEligibility } from '../messaging/eligibility'
 import { answerValue } from './reply-session'
 import { type ExecutionRow, triggerNodeOf } from './automation.core'
 import {
@@ -105,6 +109,9 @@ export class FlowTestService {
     const trigger = triggerNodeOf(graph)!
     const now = request.at ? new Date(request.at) : new Date()
 
+    const explanations: FlowExplanation[] = []
+    if (trigger.type === 'trigger.keyword')
+      explanations.push(explainKeywordMatch(trigger.config, request.message ?? ''))
     if (trigger.type === 'trigger.keyword' || trigger.type === 'trigger.message_received') {
       const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: currentTenant().tenantId } })
       const open = businessIsOpen(
@@ -112,10 +119,15 @@ export class FlowTestService {
         now,
       )
       const filter = trigger.config.businessHours
+      explanations.push({
+        code: open ? 'BUSINESS_HOURS_OPEN' : 'BUSINESS_HOURS_CLOSED',
+        text: `The workspace is ${open ? 'open' : 'closed'}. ${!filter || filter === 'ANY' ? 'No business-hours restriction is set.' : (filter === 'OPEN') === open ? 'Business hours filter passed.' : 'Business hours filter did not pass.'}`,
+      })
       if (filter && filter !== 'ANY' && (filter === 'OPEN') !== open)
         return {
           matched: false,
           reason: 'The business hours filter does not match this time.',
+          explanations,
           steps: [],
           truncated: false,
         }
@@ -123,8 +135,49 @@ export class FlowTestService {
     const contactId = await this.sampleContact(tx, request)
     const event = this.triggerEvent(trigger, request)
     if ('reason' in event)
-      return { matched: false, reason: event.reason, steps: [], truncated: false }
+      return { matched: false, reason: event.reason, steps: [], truncated: false, explanations }
 
+    if (trigger.type === 'trigger.message_received' && trigger.config.onlyNewConversation) {
+      const prior = request.contactId
+        ? await tx.conversation.findFirst({ where: { contactId }, orderBy: { createdAt: 'desc' } })
+        : null
+      const fresh = request.contactId
+        ? !prior
+        : request.sampleEligibility?.newConversation !== false
+      const cooldown = trigger.config.cooldownHours ?? 24
+      const previous =
+        cooldown > 0
+          ? await tx.automationExecution.findFirst({
+              where: {
+                flowId,
+                contactId,
+                startedAt: { gte: new Date(now.getTime() - cooldown * 3600000) },
+              },
+            })
+          : null
+      explanations.push({
+        code: previous ? 'COOLDOWN_BLOCKED' : 'COOLDOWN_ALLOWED',
+        text: previous
+          ? `Contact cooldown of ${cooldown} hours has not elapsed.`
+          : `Cooldown allows this reply (${cooldown} hours).`,
+      })
+      explanations.push({
+        code: fresh ? 'NEW_CONVERSATION' : 'EXISTING_CONVERSATION',
+        text: fresh
+          ? 'Sample represents the first message of a new conversation.'
+          : 'This is an existing conversation; a welcome rule would not start.',
+      })
+      if (previous || !fresh)
+        return {
+          matched: false,
+          reason: previous
+            ? 'Contact cooldown has not elapsed.'
+            : 'This rule only starts a new conversation.',
+          explanations,
+          steps: [],
+          truncated: false,
+        }
+    }
     const e: ExecutionRow = {
       id: randomUUID(),
       tenantId: currentTenant().tenantId,
@@ -153,9 +206,73 @@ export class FlowTestService {
       const ctx = (await loadContext(tx, e))!
       const simulated =
         isExternal(node) || node.type === 'action.assign_agent' || node.type === 'action.handover'
-      const outcome = simulated
+      let outcome = simulated
         ? await this.render(tx, node, ctx, request)
         : await runInternal(tx, e, node, ctx, clock)
+      const stepExplanations: FlowExplanation[] = []
+      if (
+        [
+          'action.send_message',
+          'action.options',
+          'action.question',
+          'action.send_template',
+        ].includes(node.type)
+      ) {
+        const contact = await tx.contact.findFirstOrThrow({ where: { id: contactId } })
+        const conversation = request.contactId
+          ? await tx.conversation.findFirst({
+              where: { contactId },
+              orderBy: { createdAt: 'desc' },
+            })
+          : null
+        const sample = request.sampleEligibility
+        const windowEnd = request.contactId
+          ? (conversation?.serviceWindowExpiresAt ?? null)
+          : sample?.window === 'CLOSED'
+            ? null
+            : new Date(now.getTime() + 86400000)
+        const template =
+          node.type === 'action.send_template'
+            ? await tx.template.findFirst({
+                where: { id: node.config.templateId, deletedAt: null },
+              })
+            : null
+        const decision = evaluateEligibility({
+          purpose: 'SERVICE',
+          category: template?.category,
+          contentType: node.type === 'action.send_template' ? 'TEMPLATE' : 'TEXT',
+          contact: request.contactId
+            ? contact
+            : {
+                ...contact,
+                status: sample?.contactStatus ?? 'ACTIVE',
+                marketingConsent: sample?.marketingConsent ?? 'NONE',
+                utilityConsent: sample?.utilityConsent ?? 'NONE',
+              },
+          serviceWindowExpiresAt: windowEnd,
+          now: clock,
+        })
+        stepExplanations.push({
+          code: windowEnd && windowEnd > clock ? 'WINDOW_OPEN' : 'WINDOW_CLOSED',
+          text:
+            windowEnd && windowEnd > clock
+              ? 'The 24-hour customer service window is open.'
+              : 'The window is closed; an approved WhatsApp template is required.',
+        })
+        stepExplanations.push({
+          code: decision.allowed ? 'ELIGIBILITY_ALLOWED' : decision.code,
+          text: decision.allowed
+            ? `Eligibility passed. ${template?.category === 'MARKETING' ? 'Marketing opt-in is granted.' : 'Service replies do not require marketing opt-in.'}`
+            : decision.reason,
+        })
+        if (!decision.allowed)
+          outcome = {
+            status: 'FAILED',
+            handle: 'error',
+            errorCode: decision.code,
+            errorDetail: decision.reason,
+          }
+      }
       if (outcome.vars) e.context = { vars: { ...ctx.vars, ...outcome.vars } } as Prisma.JsonObject
       if (outcome.waitUntil) clock = outcome.waitUntil
       steps.push({
@@ -169,6 +286,16 @@ export class FlowTestService {
             ? (outcome.errorDetail ?? 'This step failed.')
             : await this.describe(tx, node, outcome, ctx, event.label),
         errorCode: outcome.errorCode ?? null,
+        explanations: [
+          ...stepExplanations,
+          explainStep(
+            node.type,
+            outcome.handle ?? null,
+            outcome.status === 'FAILED'
+              ? (outcome.errorDetail ?? 'This step failed.')
+              : await this.describe(tx, node, outcome, ctx, event.label),
+          ),
+        ],
       })
       if (outcome.terminal || !outcome.handle) break
       const next = edgeFrom(graph, node.id, outcome.handle)
@@ -176,6 +303,7 @@ export class FlowTestService {
     }
     return {
       matched: true,
+      explanations,
       reason: null,
       steps,
       truncated: !!node && steps.length >= MAX_TEST_STEPS,
