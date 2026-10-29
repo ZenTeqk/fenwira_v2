@@ -187,7 +187,8 @@ describe('Meta-compatible send', () => {
     const [payload] = sentTo(to).map((m) => m.payload)
     const header = (payload!.template as { components: Array<{ parameters: unknown[] }> })
       .components[0]!.parameters[0] as { document: { id: string; filename: string } }
-    expect(mock.state.media.get(header.document.id)?.bytes.subarray(0, 5).toString()).toBe('%PDF-')
+    // The mock keeps the raw multipart upload body, so look for our PDF inside it.
+    expect(mock.state.media.get(header.document.id)?.bytes.includes(PDF)).toBe(true)
     expect(header.document.filename).toBe('Invoice-45.pdf')
   })
 
