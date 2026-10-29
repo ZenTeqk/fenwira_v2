@@ -17,3 +17,5 @@ export {
   type EligibilityInput,
 } from './eligibility'
 export { conversationVisibility } from './visibility'
+
+export { cancelQueuedAutomation } from './cancel-automation'

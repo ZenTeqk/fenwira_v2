@@ -53,7 +53,8 @@ export const flowSchema = z.object({
   draftUpdatedAt: z.string().nullable(),
   hasWebhookToken: z.boolean(),
   /** `AI_ASSISTANT`: created and switched on/off from the AI Assistant page. */
-  managedBy: z.enum(['AI_ASSISTANT']).nullable().default(null),
+  managedBy: z.enum(['AI_ASSISTANT', 'REPLY_STUDIO']).nullable().default(null),
+  replyStudioKind: z.enum(['AUTO_REPLY', 'BOT_FLOW']).optional(),
   executions: z.object({
     running: z.number().int(),
     total: z.number().int(),
@@ -102,12 +103,13 @@ export const flowVersionSchema = z.object({
 export type FlowVersion = z.infer<typeof flowVersionSchema>
 
 export const createFlowSchema = z.object({
+  managedBy: z.literal('REPLY_STUDIO').optional(),
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(500).optional(),
   priority: z.number().int().min(0).max(100_000).default(100),
   reentryPolicy: z.enum(REENTRY_POLICIES).default('AFTER_COMPLETION'),
 })
-export const updateFlowSchema = createFlowSchema.partial()
+export const updateFlowSchema = createFlowSchema.omit({ managedBy: true }).partial()
 export const putDraftSchema = z.object({ graph: draftGraphSchema })
 
 export const executionSchema = z.object({
@@ -203,6 +205,8 @@ export const flowTestRequestSchema = z
         tagIds: z.array(idSchema).max(20).optional(),
       })
       .optional(),
+    at: z.iso.datetime().optional(),
+    answers: z.record(z.string(), z.string().max(4096)).optional(),
     /** Incoming message text (Message received and Keyword triggers). */
     message: z.string().max(4096).optional(),
     /** Webhook body (Incoming webhook trigger). */

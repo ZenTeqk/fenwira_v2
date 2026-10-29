@@ -6,18 +6,22 @@ import { NODE_LABEL, ADD_MENU } from '@/lib/automation'
 import { NODE_HINT, NodeSymbol } from './node-presentation'
 
 export function NodeLibrary({
+  replyStudio = false,
   hasTrigger,
   onAdd,
 }: {
+  replyStudio?: boolean
   hasTrigger: boolean
   onAdd: (type: NodeType) => void
 }) {
   const [search, setSearch] = useState('')
-  const groups = ADD_MENU.filter((g) => g.title !== 'Triggers' || !hasTrigger)
+  const groups = ADD_MENU.filter((g) => g.title !== 'Start' || !hasTrigger)
     .map((g) => ({
       ...g,
-      types: g.types.filter((t) =>
-        `${NODE_LABEL[t]} ${NODE_HINT[t]}`.toLowerCase().includes(search.trim().toLowerCase()),
+      types: g.types.filter(
+        (t) =>
+          (!replyStudio || (t !== 'action.ai_reply' && t !== 'action.send_template')) &&
+          `${NODE_LABEL[t]} ${NODE_HINT[t]}`.toLowerCase().includes(search.trim().toLowerCase()),
       ),
     }))
     .filter((g) => g.types.length)

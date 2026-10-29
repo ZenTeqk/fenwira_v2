@@ -1,4 +1,7 @@
 import {
+  businessHoursSchema,
+  businessIsOpen,
+  DEFAULT_BUSINESS_HOURS,
   type EdgeHandle,
   evaluateExpression,
   type ExpressionContext,
@@ -29,6 +32,8 @@ export type Outcome = {
   errorCode?: string
   errorDetail?: string
   waitUntil?: Date
+  reply?: Record<string, unknown>
+  replyWait?: boolean
   /** Ends the execution with this status (end node, takeover). */
   terminal?: 'COMPLETED' | 'STOPPED_TAKEOVER'
   /** Values saved into `vars` (webhook saveResponseAs). */
@@ -99,6 +104,8 @@ const DELAY_MS = { MINUTES: 60_000, HOURS: 3_600_000, DAYS: 86_400_000 } as cons
 
 /** Nodes handled inside the step transaction. Sends, webhooks and round-robin are external. */
 export const isExternal = (node: FlowNode) =>
+  node.type === 'action.question' ||
+  node.type === 'action.options' ||
   node.type === 'action.send_message' ||
   node.type === 'action.send_template' ||
   node.type === 'action.webhook' ||
@@ -119,6 +126,14 @@ export async function runInternal(
     case 'trigger.contact_created':
     case 'trigger.webhook':
       return { status: 'SUCCEEDED', handle: 'next', output: { eventType: node.type } }
+    case 'condition.business_hours': {
+      const workspace = await tx.tenant.findUniqueOrThrow({ where: { id: e.tenantId } })
+      const schedule = businessHoursSchema.parse(workspace.businessHours ?? DEFAULT_BUSINESS_HOURS)
+      return yesNo(businessIsOpen(schedule, now), {
+        at: now.toISOString(),
+        timezone: schedule.timezone,
+      })
+    }
     case 'condition.equals':
     case 'condition.contains': {
       const fold = (s: string) => (node.config.caseSensitive ? s : s.toLowerCase())
@@ -156,6 +171,72 @@ export async function runInternal(
         input: { amount: node.config.amount, unit: node.config.unit },
         output: { waitUntil: waitUntil.toISOString() },
       }
+    }
+    case 'action.handover': {
+      if (!e.conversationId) return failed('NO_CONVERSATION', 'Handover needs a conversation.')
+      const flow = await tx.flow.findFirstOrThrow({ where: { id: e.flowId } })
+      if (!flow.createdBy)
+        return failed('FLOW_REFERENCE_MISSING', 'Choose an owner for this enquiry.')
+      // Let an already queued acknowledgement reach Meta before takeover cancels bot sends.
+      const lastSend = await tx.automationExecutionStep.findFirst({
+        where: { executionId: e.id, nodeType: 'action.send_message' },
+        orderBy: { seq: 'desc' },
+      })
+      const messageId = (lastSend?.output as { messageId?: string } | undefined)?.messageId
+      const acknowledgement = messageId
+        ? await tx.message.findFirst({ where: { id: messageId } })
+        : null
+      if (acknowledgement && ['CREATED', 'QUEUED', 'SENDING'].includes(acknowledgement.status))
+        return {
+          status: 'WAITING',
+          replyWait: true,
+          waitUntil: new Date(now.getTime() + 2000),
+          output: { awaitingAcknowledgement: true },
+        }
+      if (node.config.tagIds.length) {
+        const tags = await tagAction(tx, e, {
+          id: node.id,
+          type: 'action.add_tag',
+          config: { tagIds: node.config.tagIds },
+        })
+        if (tags.status === 'FAILED') return tags
+      }
+      if (node.config.userId) {
+        const assigned = await assignUser(tx, e, {
+          id: node.id,
+          type: 'action.assign_agent',
+          config: { mode: 'USER', userId: node.config.userId },
+        })
+        if (assigned.status === 'FAILED') return assigned
+      }
+      await tx.conversationNote.create({
+        data: {
+          tenantId: e.tenantId,
+          conversationId: e.conversationId,
+          authorId: flow.createdBy,
+          body: ev(node.config.note),
+          mentions: [],
+        },
+      })
+      await tx.conversation.update({
+        where: { id: e.conversationId },
+        data: { automationState: 'AGENT_TAKEOVER', automationStateChangedAt: now },
+      })
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: e.tenantId,
+          eventType: 'conversation.automation_state.changed',
+          aggregateType: 'conversation',
+          aggregateId: e.conversationId,
+          payload: {
+            conversationId: e.conversationId,
+            from: 'AUTOMATION_ACTIVE',
+            to: 'AGENT_TAKEOVER',
+            actorId: null,
+          },
+        },
+      })
+      return { status: 'SUCCEEDED', terminal: 'COMPLETED', output: { handover: true } }
     }
     case 'action.end':
       return { status: 'SUCCEEDED', terminal: 'COMPLETED' }

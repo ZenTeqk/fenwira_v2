@@ -1,7 +1,9 @@
 'use client'
 
-import { type Flow } from '@fenwira/contracts'
+import { replyStudioSettingsSchema, type DraftGraph, type Flow } from '@fenwira/contracts'
 import {
+  Alert,
+  Textarea,
   Button,
   Field,
   Input,
@@ -20,27 +22,41 @@ import { PRIORITY_HINT, REENTRY_OPTIONS } from '@/lib/automation'
 /** Name, priority and when the automation may start again (re-entry), in plain language. */
 export function FlowSettings({
   flow,
+  replyStudio,
+  onReplyStudioSave,
   open,
   onOpenChange,
   onSaved,
 }: {
   flow: Flow
+  replyStudio?: DraftGraph['replyStudio']
+  onReplyStudioSave?: (settings: NonNullable<DraftGraph['replyStudio']>) => Promise<void>
   open: boolean
   onOpenChange: (open: boolean) => void
   onSaved: () => void
 }) {
   const ids = useId()
+  const [sessionSettings, setSessionSettings] = useState(replyStudio)
   const [name, setName] = useState(flow.name)
   const [priority, setPriority] = useState(String(flow.priority))
   const [reentry, setReentry] = useState(flow.reentryPolicy)
   const [errors, setErrors] = useState<{ name?: string; priority?: string }>({})
   const save = useMutation({
-    mutationFn: () =>
-      patch(`/flows/${flow.id}`, {
+    mutationFn: async () => {
+      if (sessionSettings && onReplyStudioSave) {
+        const parsed = replyStudioSettingsSchema.safeParse(sessionSettings)
+        if (!parsed.success)
+          throw new Error(
+            `Session settings: ${parsed.error.issues[0]?.message ?? 'Check the values.'}`,
+          )
+        await onReplyStudioSave(parsed.data)
+      }
+      return patch(`/flows/${flow.id}`, {
         name: name.trim(),
         priority: Number(priority),
         reentryPolicy: reentry,
-      }),
+      })
+    },
     onSuccess: () => {
       toast.success('Settings saved.')
       onSaved()
@@ -49,14 +65,18 @@ export function FlowSettings({
     onError: (e) => {
       if (e instanceof ApiError && (e.field('name') || e.field('priority')))
         setErrors({ name: e.field('name'), priority: e.field('priority') })
-      else toast.error(e instanceof ApiError ? e.message : 'Could not save the settings.')
+      else toast.error(e instanceof Error ? e.message : 'Could not save the settings.')
     },
   })
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent
         title="Automation settings"
-        description="These apply to every version of this automation."
+        description={
+          replyStudio
+            ? 'Session changes become live when you publish. Name, priority and re-entry apply immediately.'
+            : 'These apply to every version of this automation.'
+        }
         footer={
           <>
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
@@ -92,6 +112,58 @@ export function FlowSettings({
               className="w-32"
             />
           </Field>
+          {sessionSettings ? (
+            <section className="flex flex-col gap-4">
+              <h3 className="text-md font-semibold text-slate">Reply Studio session settings</h3>
+              <Alert tone="info" title="Publish these changes">
+                Running conversations keep the settings from their original published version.
+              </Alert>
+              <Field label="Restart words" hint="Separate phrases with commas.">
+                <Input
+                  value={sessionSettings.restartWords.join(', ')}
+                  onChange={(e) =>
+                    setSessionSettings({
+                      ...sessionSettings,
+                      restartWords: e.target.value.split(',').map((s) => s.trim()),
+                    })
+                  }
+                />
+              </Field>
+              <Field
+                label="Inactivity expiry (minutes)"
+                hint="Up to 1440 minutes, capped by the WhatsApp reply window."
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={sessionSettings.expiryMinutes}
+                  onChange={(e) =>
+                    setSessionSettings({
+                      ...sessionSettings,
+                      expiryMinutes: Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Fallback message">
+                <Textarea
+                  value={sessionSettings.fallbackMessage}
+                  onChange={(e) =>
+                    setSessionSettings({ ...sessionSettings, fallbackMessage: e.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Optional closing message">
+                <Textarea
+                  value={sessionSettings.closingMessage}
+                  onChange={(e) =>
+                    setSessionSettings({ ...sessionSettings, closingMessage: e.target.value })
+                  }
+                />
+              </Field>
+            </section>
+          ) : null}
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1 text-sm font-medium text-slate">
               Can it start again for the same person?

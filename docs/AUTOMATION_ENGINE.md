@@ -206,3 +206,102 @@ None. Resolved in the specification freeze (2026-09-26); see `PRODUCT.md` → De
 ### Experience V2 studio
 
 The shared BuilderPage studio appearance joins the searchable node library, warm canvas and selected-step settings. Below 1280px settings use a focus-trapped modal; below 768px the Outline is the initial view. The catalog, expressions, graph adapter, validation, optimistic If-Match autosave, published versions, history and replay are reused. An explicit Save flushes that same autosave path, and Publish confirms version impact. Message/template previews preserve unresolved expressions and use authorized template samples. Header counts are the existing all-time total/running values, not invented daily metrics. Draft-read errors now expose retry instead of an indefinite skeleton. No wait-for-reply/customer-replied node is added; the dry-run test came later (see Guided creation). [Visual checkpoint](design/EXPERIENCE_V2_AUTOMATIONS_RECONSTRUCTION.md).
+
+## Reply Studio (October 2026 addendum)
+
+Reply Studio lives at `/automations/reply-studio`, within Automations. Auto Replies are
+single rule/response flows; Bot Flows collect answers across multiple customer messages.
+Both compile to the existing `flows` / immutable `flow_versions` graph. `managed_by =
+REPLY_STUDIO` identifies them; `graph.replyStudio.kind` distinguishes the two types. The
+existing interpreter, messaging service, outbox, eligibility checks, assignment and step
+history are the only runtime. Starter flows are editable conversation recipes, distinct
+from approved Meta message templates. These features use no model or generated replies.
+The earlier AE1 decision limiting the initial release to delay waits is superseded for
+these managed flows by the question/options nodes below.
+
+### Nodes and publishing
+
+Friendly palette names are Start (triggers), Message, Options, Question, Condition
+(including Business hours), Handover and End. Questions and options have `next` and
+`error` (fallback) outputs; both must be connected before publishing. Questions validate
+text, positive numbers, real ISO dates or email addresses, save a named field under
+`vars`, and may also map it through the existing typed contact-property handler. Options
+send real WhatsApp buttons (max 3), lists (max 10), or an HTTPS CTA with a typed answer.
+Each option tap carries the execution and node identifiers. Review in Product Enquiry
+asks the customer to confirm all collected answers before the acknowledgement/handover.
+
+Handover reuses individual assignment and tags, writes a private enquiry summary note
+under the flow creator, and sets human takeover. It waits for the queued acknowledgement
+to leave the pending send states before applying takeover, so that acknowledgement is
+not cancelled with other pending bot replies. Staff confirm availability, price and any
+commitment; this is an enquiry, not a confirmed sale. Teams are not an existing entity;
+the setup offers a named salesperson or the shared team queue rather than inventing a
+parallel team system.
+
+Publishing uses the existing server validation/reference gate and immutable versions.
+The setup wizard saves a draft, lets an operator walk through the phone test, and publishes
+only after its complete sample conversation passes. The canvas keeps its own existing
+server validation gate. Draft edits never change a running session's pinned graph.
+
+### Business hours
+
+`tenants.business_hours` stores the workspace's Zod-validated weekly schedule and optional
+holiday dates. The existing tenant RLS applies; no new tenant table is introduced.
+Missing settings use Monday–Friday 09:00–18:00, closed weekends, Asia/Kolkata. Timezones
+must be valid IANA identifiers. Opening boundaries are inclusive and closing boundaries
+exclusive, at minute resolution; holidays close the entire local date. Close must follow
+open within a day; overnight intervals must be split into separate days. A condition
+returns Yes when open and No when closed. Both inbound triggers can filter ANY, OPEN
+or CLOSED. Dry runs accept an ISO `at` to evaluate the same condition at a specified time.
+The out-of-hours starter now checks the schedule instead of a manually maintained tag.
+
+### Matching and session rules
+
+- Keyword rules accept multiple spellings and exact phrase, whole word, contains or
+  starts-with modes. Reply Studio compiles case-insensitive rules. Unicode NFKC,
+  punctuation/symbol removal and whitespace normalization are shared with matching and
+  overlap checks. Whole word matches complete normalized words, avoiding "location"
+  matching "relocation".
+- Welcome rules use the first inbound message of a conversation, only inside the reply
+  window, plus a configurable per-contact cooldown (default 24 hours).
+- An existing Reply Studio session consumes subsequent persisted inbound messages before
+  start keywords are considered. Routing uses a transaction advisory lock per conversation;
+  execution steps use the existing execution row lock. PostgreSQL's inbound message rows
+  are the durable FIFO, ordered by receipt time then id, with the last consumed message id
+  persisted in `execution.context.reply.cursor`. Multiple rapid messages cannot overwrite
+  a single pending answer slot. Recovery reads this same state after a worker restart.
+- Reserved restart phrases (default `menu`, `restart`, `start over`, configurable per
+  published graph) cancel the old session and start its active published flow afresh.
+  An expired session ends with `SESSION_EXPIRED`; the next inbound message starts fresh
+  through normal matching. A restart does not mutate the old version.
+- Inactivity expires per flow, default 1440 minutes, never beyond the WhatsApp window.
+  Successful answers renew the inactivity deadline, still capped by the current window.
+  The durable waiting job and recovery sweep drive expiry. A configured closing message
+  is attempted only while inside the window and is subject to the usual consent/takeover
+  gates. If a new inbound message discovers expiry before the timer runs, it marks the
+  old session expired and matches the new message without sending an obsolete closure.
+- Invalid answers re-ask at most `maxRetries` times, then take the fallback path. A stale
+  button/list tap never raises an operator error: one polite "That option is no longer
+  available" notice per current menu accompanies that menu; repeated stale taps redisplay
+  the current menu. A fallback offering a human is sent at most once per 24 hours per
+  conversation, using persisted step history (`fallbackSent`), across flow sessions.
+- Meta message ids dedupe inbound ingestion. Consumed session events also receive an
+  existing trigger-run receipt with an empty completed plan, making trigger redelivery
+  harmless without creating another execution. Messages and steps keep existing send
+  idempotency keys. Session data lives in Postgres, not solely in Redis.
+- Eligibility (window, suppression, consent and takeover) is checked on EVERY send at
+  queueing and delivery. Takeover stops sessions and persistently marks CREATED/QUEUED
+  automation messages FAILED with `AUTOMATION_BLOCKED_BY_TAKEOVER`; their queue jobs
+  become no-ops, including after automation is released. A network send already in flight
+  cannot be recalled.
+
+### Reports
+
+`GET /reply-studio/reports` aggregates existing execution, step and message history on
+the server. It reports starts, completions, fallback sessions, handovers, expired sessions
+and failures, overall and per flow. Ranges group by execution start time (`from` inclusive,
+`to` exclusive, at most 366 days). The UI uses India calendar dates and labels this
+explicitly. One execution counts once in each metric even if multiple steps failed.
+Failures include failed step outcomes and asynchronous outbound failures through the
+step's message id. The latest 100 failure rows include the conversation, step and reason.
+No reporting projection or session table is added. RLS scopes all queries.

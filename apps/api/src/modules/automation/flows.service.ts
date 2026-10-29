@@ -92,6 +92,7 @@ export class FlowsService {
   }
 
   create(input: {
+    managedBy?: 'REPLY_STUDIO'
     name: string
     description?: string
     priority: number
@@ -104,6 +105,7 @@ export class FlowsService {
         data: {
           tenantId,
           name: input.name,
+          managedBy: input.managedBy,
           description: input.description ?? null,
           priority: input.priority,
           reentryPolicy: input.reentryPolicy,
@@ -221,6 +223,14 @@ export class FlowsService {
           'Someone else saved this flow since you opened it. Reload to see their changes.',
           { etag: versionEtag(current) },
         )
+      if (flow.managedBy === 'REPLY_STUDIO' && !graph.replyStudio)
+        throw AppError.validation([
+          {
+            path: 'graph.replyStudio',
+            code: 'required',
+            message: 'Keep the Reply Studio settings with this flow.',
+          },
+        ])
       const trigger = triggerNodeOf(graph)
       const validation = await validateWithReferences(tx, graph)
       const data = {
@@ -658,6 +668,7 @@ export class FlowsService {
           version: true,
           triggerType: true,
           triggerConfig: true,
+          graph: true,
           updatedAt: true,
         },
       }),
@@ -681,6 +692,10 @@ export class FlowsService {
       const triggerOf = (x?: { triggerType: string | null; triggerConfig: unknown }) =>
         x?.triggerType ? { type: x.triggerType, config: x.triggerConfig ?? {} } : null
       return toFlow(r, {
+        replyStudioKind: (
+          (draft ?? active)?.graph as
+            { replyStudio?: { kind: Flow['replyStudioKind'] } } | undefined
+        )?.replyStudio?.kind,
         triggerType: (draft ?? active)?.triggerType ?? null,
         trigger: triggerOf(draft ?? active),
         liveTrigger: triggerOf(active),

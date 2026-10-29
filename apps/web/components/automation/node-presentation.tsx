@@ -33,6 +33,10 @@ export const NODE_HINT: Record<NodeType, string> = {
   'action.webhook': 'Send data to your system',
   'action.delay': 'Wait for a specified time',
   'action.ai_reply': 'Answer with the AI Assistant',
+  'condition.business_hours': 'Check the workspace schedule and holidays',
+  'action.question': 'Ask and wait, then save the answer',
+  'action.options': 'Offer buttons, a list or a link',
+  'action.handover': 'Pass the enquiry and a private note to your team',
   'action.end': 'Finish this automation',
 }
 

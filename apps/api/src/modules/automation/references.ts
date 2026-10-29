@@ -32,6 +32,13 @@ export async function validateWithReferences(tx: TenantTx, raw: unknown): Promis
   const phoneIds = new Set<string>()
   for (const n of graph.nodes) {
     switch (n.type) {
+      case 'action.handover':
+        n.config.tagIds?.forEach((t) => tagIds.add(t))
+        if (n.config.userId) userIds.add(n.config.userId)
+        break
+      case 'action.question':
+        if (n.config.contactProperty) propertyKeys.add(n.config.contactProperty)
+        break
       case 'condition.has_tag':
       case 'action.add_tag':
       case 'action.remove_tag':
@@ -53,6 +60,7 @@ export async function validateWithReferences(tx: TenantTx, raw: unknown): Promis
       case 'action.send_message':
         if (n.config.mediaFileId) fileIds.add(n.config.mediaFileId)
         break
+      case 'trigger.keyword':
       case 'trigger.message_received':
         n.config.phoneNumberIds?.forEach((p) => phoneIds.add(p))
         break
@@ -106,6 +114,16 @@ export async function validateWithReferences(tx: TenantTx, raw: unknown): Promis
 
   for (const n of graph.nodes) {
     switch (n.type) {
+      case 'action.handover':
+        if (n.config.tagIds.some((t) => !tagSet.has(t)))
+          missing(n.id, 'Choose an existing enquiry tag.')
+        if (n.config.userId && !agents.has(n.config.userId))
+          missing(n.id, 'Choose an active teammate who can reply.')
+        break
+      case 'action.question':
+        if (n.config.contactProperty && !propSet.has(n.config.contactProperty))
+          missing(n.id, 'Choose an existing contact property.')
+        break
       case 'condition.has_tag':
       case 'action.add_tag':
       case 'action.remove_tag':
@@ -140,6 +158,7 @@ export async function validateWithReferences(tx: TenantTx, raw: unknown): Promis
         if (n.config.mediaFileId && !fileSet.has(n.config.mediaFileId))
           missing(n.id, 'The attachment is missing or not uploaded yet.')
         break
+      case 'trigger.keyword':
       case 'trigger.message_received':
         if (n.config.phoneNumberIds?.some((p) => !phoneSet.has(p)))
           missing(n.id, 'A WhatsApp number used here was removed.')

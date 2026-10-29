@@ -7,17 +7,26 @@ import { type DraftGraph, isTrigger, type TriggerType } from './graph'
 
 export type KeywordConfig = {
   keywords: string[]
-  match: 'EXACT' | 'CONTAINS' | 'STARTS_WITH'
+  match: 'EXACT' | 'WHOLE_WORD' | 'CONTAINS' | 'STARTS_WITH'
   caseSensitive: boolean
 }
 
+export const normalizeReplyText = (text: string, caseSensitive = false) =>
+  (caseSensitive ? text : text.toLocaleLowerCase())
+    .normalize('NFKC')
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+
 /** Keyword match per `trigger.keyword` config. Whitespace-trimmed; case-insensitive by default. */
 export function keywordMatches(config: KeywordConfig, text: string): boolean {
-  const norm = (s: string) => (config.caseSensitive ? s.trim() : s.trim().toLowerCase())
+  const norm = (s: string) => normalizeReplyText(s, config.caseSensitive)
   const t = norm(text)
   if (!t) return false
   return config.keywords.some((k) => {
     const kw = norm(k)
+    if (!kw) return false
+    if (config.match === 'WHOLE_WORD') return ` ${t} `.includes(` ${kw} `)
     if (config.match === 'EXACT') return t === kw
     if (config.match === 'STARTS_WITH') return t.startsWith(kw)
     return t.includes(kw)

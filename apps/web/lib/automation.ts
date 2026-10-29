@@ -132,7 +132,7 @@ export const NODE_LABEL: Record<NodeType, string> = {
   'condition.exists': 'If value is set',
   'condition.has_tag': 'If contact has tag',
   'condition.contact_property': 'If contact field',
-  'action.send_message': 'Send message',
+  'action.send_message': 'Message',
   'action.send_template': 'Send template',
   'action.add_tag': 'Add tag',
   'action.remove_tag': 'Remove tag',
@@ -141,6 +141,10 @@ export const NODE_LABEL: Record<NodeType, string> = {
   'action.webhook': 'Call webhook',
   'action.delay': 'Wait',
   'action.ai_reply': 'AI reply',
+  'condition.business_hours': 'Business hours',
+  'action.question': 'Question',
+  'action.options': 'Options',
+  'action.handover': 'Handover',
   'action.end': 'End',
 }
 
@@ -157,7 +161,7 @@ export const HANDLE_LABEL: Record<EdgeHandle, string> = {
 export const PALETTE: Array<{ category: Category; title: string; types: NodeType[] }> = [
   {
     category: 'trigger',
-    title: 'Triggers',
+    title: 'Start',
     types: [
       'trigger.keyword',
       'trigger.message_received',
@@ -168,12 +172,19 @@ export const PALETTE: Array<{ category: Category; title: string; types: NodeType
   {
     category: 'message',
     title: 'Messages',
-    types: ['action.send_message', 'action.send_template', 'action.ai_reply'],
+    types: [
+      'action.send_message',
+      'action.options',
+      'action.question',
+      'action.send_template',
+      'action.ai_reply',
+    ],
   },
   {
     category: 'condition',
     title: 'Conditions',
     types: [
+      'condition.business_hours',
       'condition.has_tag',
       'condition.equals',
       'condition.contains',
@@ -185,6 +196,7 @@ export const PALETTE: Array<{ category: Category; title: string; types: NodeType
     category: 'action',
     title: 'Actions',
     types: [
+      'action.handover',
       'action.add_tag',
       'action.remove_tag',
       'action.assign_agent',
@@ -209,11 +221,17 @@ export const KIND_LABEL: Record<NodeKind, string> = {
 
 /** The "+" menu on the canvas: Triggers, Conditions, Actions (messages included) and AI. */
 export const ADD_MENU: Array<{ title: string; types: NodeType[] }> = [
-  { title: 'Triggers', types: PALETTE[0]!.types },
+  { title: 'Start', types: PALETTE[0]!.types },
   { title: 'Conditions', types: PALETTE[2]!.types },
   {
     title: 'Actions',
-    types: ['action.send_message', 'action.send_template', ...PALETTE[3]!.types],
+    types: [
+      'action.send_message',
+      'action.options',
+      'action.question',
+      'action.send_template',
+      ...PALETTE[3]!.types,
+    ],
   },
   { title: 'AI', types: ['action.ai_reply'] },
 ]
@@ -262,6 +280,16 @@ export const DEFAULT_CONFIG: Record<NodeType, Record<string, unknown>> = {
   'action.webhook': { method: 'POST', url: 'https://', timeoutMs: 5000 },
   'action.delay': { amount: 1, unit: 'HOURS' },
   'action.ai_reply': { mode: 'CONVERSATION' },
+  'condition.business_hours': {},
+  'action.question': { text: '', field: 'answer', answerType: 'TEXT', maxRetries: 2 },
+  'action.options': {
+    text: '',
+    field: 'choice',
+    presentation: 'BUTTONS',
+    options: [],
+    maxRetries: 2,
+  },
+  'action.handover': { note: 'Customer enquiry', tagIds: [] },
   'action.end': {},
 }
 
@@ -304,6 +332,14 @@ export function summarize(node: DraftNode): string {
       return `${String(c.key ?? '') || '…'} ${String(c.operator ?? '')
         .toLowerCase()
         .replaceAll('_', ' ')}`
+    case 'action.question':
+      return `Ask and save as ${String(c.field ?? 'answer')}`
+    case 'action.options':
+      return `Offer ${list(c.options)} options and wait`
+    case 'action.handover':
+      return 'Assign the enquiry and add a private note'
+    case 'condition.business_hours':
+      return 'Yes when open, No when closed'
     case 'action.send_message':
       return String(c.text ?? '').slice(0, 60) || 'Write a message'
     case 'action.send_template':
@@ -349,6 +385,7 @@ export function removeNode(g: DraftGraph, id: string): DraftGraph {
   const layout = { ...g.layout }
   delete layout[id]
   return {
+    ...g,
     nodes: g.nodes.filter((n) => n.id !== id),
     edges: g.edges.filter((e) => e.source !== id && e.target !== id),
     layout,

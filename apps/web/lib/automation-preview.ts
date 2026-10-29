@@ -111,6 +111,14 @@ export function draftToPreview(graph: DraftGraph, options: PreviewOptions): Prev
         case 'trigger.webhook':
           step.text = 'Webhook received'
           break
+        case 'action.question':
+        case 'action.options':
+          step.kind = 'outgoing'
+          step.text = `${fill(config.text)} (waits for an answer)`
+          break
+        case 'action.handover':
+          step.text = 'Hand the enquiry and collected answers to your team'
+          break
         case 'action.send_message':
           step.kind = 'outgoing'
           step.text = fill(config.text || config.caption)

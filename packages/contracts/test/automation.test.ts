@@ -110,7 +110,11 @@ describe('validateFlowGraph (publish gate)', () => {
   })
 
   it('offers the documented handles per node type', () => {
-    expect(NODE_TYPES).toHaveLength(19)
+    expect(NODE_TYPES).toHaveLength(23)
+    expect(outputsOf('condition.business_hours')).toEqual(['yes', 'no'])
+    expect(outputsOf('action.question')).toEqual(['next', 'error'])
+    expect(outputsOf('action.options')).toEqual(['next', 'error'])
+    expect(outputsOf('action.handover')).toEqual(['next'])
     expect(outputsOf('action.ai_reply')).toEqual(['replied', 'needs_human', 'error'])
     expect(outputsOf('condition.equals')).toEqual(['yes', 'no'])
     expect(outputsOf('action.end')).toEqual([])
