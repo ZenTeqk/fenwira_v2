@@ -62,7 +62,8 @@ export class AiController {
   @RequirePermission('ai.manage')
   @HttpCode(201)
   async uploadUrl(
-    @Body(new ZodValidationPipe(aiKnowledgeUploadUrlRequestSchema)) body: AiKnowledgeUploadUrlRequest,
+    @Body(new ZodValidationPipe(aiKnowledgeUploadUrlRequestSchema))
+    body: AiKnowledgeUploadUrlRequest,
   ) {
     return { data: await this.ai.uploadUrl(body) }
   }

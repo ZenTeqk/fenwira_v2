@@ -83,6 +83,7 @@ DRAFT ──submit──► PENDING ──Meta APPROVED──► APPROVED ──
 - `variables` is `{ header?: string[]; body: string[]; buttons?: Record<index, string[]> }`, positional.
 - Every variable is required. An empty string is rejected with `TEMPLATE_VARIABLES_INVALID`.
 - Media headers at send time take `{ header: { fileId } }` or fall back to the sample.
+- A send by name with raw Meta `components` whose header parameter already carries its media (a `link` or a Meta media id) is sent as-is: no Fenwira header file is required or uploaded (docs/API_KEYS.md → Meta-compatible send).
 
 Campaigns resolve variables from mapping expressions (`CAMPAIGN_ENGINE.md`) before calling `MessagingService`. The inbox fills them in a form. Automation uses node config with `{{contact.*}}` expressions.
 

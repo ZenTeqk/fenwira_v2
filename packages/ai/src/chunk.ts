@@ -16,7 +16,10 @@ export const estimateTokens = (text: string) => Math.ceil(text.length / CHARS_PE
 
 const isHeading = (block: string) =>
   /^#{1,6}\s/.test(block) ||
-  (block.length <= 80 && !/[.!?:,;]$/.test(block) && !block.includes('\n') && /[A-Za-z]/.test(block) &&
+  (block.length <= 80 &&
+    !/[.!?:,;]$/.test(block) &&
+    !block.includes('\n') &&
+    /[A-Za-z]/.test(block) &&
     (block === block.toUpperCase() || /^\d+(\.\d+)*\s+\S/.test(block)))
 
 /**
@@ -36,15 +39,20 @@ export function chunkSections(sections: TextSection[], opts: ChunkOptions = {}):
 
   const flush = (carry: boolean) => {
     const content = current.trim()
-    if (content && chunks.length < maxChunks)
-      chunks.push({ ordinal: chunks.length, content, page })
+    if (content && chunks.length < maxChunks) chunks.push({ ordinal: chunks.length, content, page })
     const tail = carry ? tailOf(content, overlap) : ''
     current = tail ? (heading && !tail.startsWith(heading) ? `${heading}\n${tail}` : tail) : ''
   }
 
   for (const section of sections) {
     // A new PDF page starts a new chunk, so a cited page is always the page the text is on.
-    if (section.page != null && page != null && section.page !== page && current.trim() && current.trim() !== heading)
+    if (
+      section.page != null &&
+      page != null &&
+      section.page !== page &&
+      current.trim() &&
+      current.trim() !== heading
+    )
       flush(false)
     for (const raw of section.text.split(/\n\s*\n/)) {
       const block = raw.trim()

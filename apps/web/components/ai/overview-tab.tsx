@@ -51,7 +51,13 @@ const CHECKS: Array<{
 ]
 
 /** On/off, the readiness checklist, usage against quota and the managed flow (AI_ASSISTANT.md). */
-export function OverviewTab({ overview, onGo }: { overview: AiOverview; onGo: (tab: string) => void }) {
+export function OverviewTab({
+  overview,
+  onGo,
+}: {
+  overview: AiOverview
+  onGo: (tab: string) => void
+}) {
   const { can } = useSession()
   const turnOn = useTurnOnAssistant()
   const pause = usePauseAssistant()
@@ -116,8 +122,8 @@ export function OverviewTab({ overview, onGo }: { overview: AiOverview; onGo: (t
           )}
           {flow ? (
             <p className="text-sm text-secondary">
-              It runs as the managed “AI assistant” automation (low priority, so keyword flows
-              still win).{' '}
+              It runs as the managed “AI assistant” automation (low priority, so keyword flows still
+              win).{' '}
               <Link
                 href={`/automations/${flow.id}`}
                 className="font-medium text-primary-strong underline-offset-4 hover:underline"
@@ -144,8 +150,8 @@ export function OverviewTab({ overview, onGo }: { overview: AiOverview; onGo: (t
           <Progress label="AI replies used this month" value={used} max={Math.max(quota, 1)} />
           {quota > 0 && used >= quota ? (
             <Alert tone="warning">
-              The assistant hands every new conversation to your team until next month or until
-              your allowance is raised.
+              The assistant hands every new conversation to your team until next month or until your
+              allowance is raised.
             </Alert>
           ) : null}
         </CardContent>

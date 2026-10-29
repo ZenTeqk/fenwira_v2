@@ -11,7 +11,11 @@ import {
   variablesFromMetaComponents,
 } from '@fenwira/contracts'
 import { type Prisma, type TenantTx } from '@fenwira/database'
-import { buildTemplateSendComponents, templateStatusFromMeta } from '@fenwira/whatsapp'
+import {
+  buildTemplateSendComponents,
+  MEDIA_PLACEHOLDER,
+  templateStatusFromMeta,
+} from '@fenwira/whatsapp'
 import { AppError } from '../../core/http/app-error'
 import { createNotification } from '../notifications'
 
@@ -80,6 +84,24 @@ export type ResolvedTemplate = {
   /** The version's definition and the values sent: what the template snapshot renders. */
   definition: TemplateComponents
   values: TemplateVariables
+}
+
+const HEADER_MEDIA_KINDS = ['image', 'video', 'document']
+
+/** A raw `header` component whose media parameter already names its file (link or Meta id). */
+function rawHeaderHasMedia(raw: unknown[]): boolean {
+  return raw.some((c) => {
+    const comp = c as { type?: unknown; parameters?: unknown }
+    if (String(comp?.type).toLowerCase() !== 'header' || !Array.isArray(comp.parameters))
+      return false
+    return comp.parameters.some((p: Record<string, unknown> | null) => {
+      const kind = String(p?.type)
+      const media = HEADER_MEDIA_KINDS.includes(kind)
+        ? (p?.[kind] as { id?: unknown; link?: unknown } | undefined)
+        : undefined
+      return Boolean(media && (media.link || (media.id && media.id !== MEDIA_PLACEHOLDER)))
+    })
+  })
 }
 
 /**
@@ -153,11 +175,18 @@ export async function resolveTemplateForSend(
     sendComponents = buildTemplateSendComponents(template.category, components, values)
   }
   const header = components.header
+  // Raw components may carry the header media themselves (a `link` or a Meta media id): sent as-is,
+  // with no Fenwira file to upload.
+  const ownMedia =
+    Boolean(input.rawComponents?.length) &&
+    !input.templateVersionId &&
+    rawHeaderHasMedia(input.rawComponents!)
   const headerFileId =
     header && header.format !== 'TEXT'
-      ? (input.variables?.headerFileId ?? version.sampleFileId ?? header.sampleFileId ?? null)
+      ? (input.variables?.headerFileId ??
+        (ownMedia ? null : (version.sampleFileId ?? header.sampleFileId ?? null)))
       : null
-  if (header && header.format !== 'TEXT' && !headerFileId)
+  if (header && header.format !== 'TEXT' && !headerFileId && !ownMedia)
     throw new AppError(
       'TEMPLATE_VARIABLES_INVALID',
       422,

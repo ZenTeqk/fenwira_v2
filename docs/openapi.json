@@ -9237,6 +9237,234 @@
         "x-permission": "automations.write"
       }
     },
+    "/api/v1/graph/{phoneNumberId}": {
+      "get": {
+        "operationId": "Graph_phone",
+        "tags": [
+          "Graph"
+        ],
+        "parameters": [
+          {
+            "name": "phoneNumberId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "x-permission": "inbox.reply",
+        "x-public": true
+      }
+    },
+    "/api/v1/graph/{phoneNumberId}/media": {
+      "post": {
+        "operationId": "Graph_media",
+        "tags": [
+          "Graph"
+        ],
+        "parameters": [
+          {
+            "name": "phoneNumberId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "x-permission": "inbox.reply",
+        "x-public": true
+      }
+    },
+    "/api/v1/graph/{phoneNumberId}/messages": {
+      "post": {
+        "operationId": "Graph_send",
+        "tags": [
+          "Graph"
+        ],
+        "parameters": [
+          {
+            "name": "phoneNumberId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "messaging_product": {
+                    "type": "string",
+                    "const": "whatsapp"
+                  },
+                  "recipient_type": {
+                    "type": "string",
+                    "const": "individual"
+                  },
+                  "to": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "default": "text",
+                    "type": "string",
+                    "enum": [
+                      "template",
+                      "text"
+                    ]
+                  },
+                  "text": {
+                    "type": "object",
+                    "properties": {
+                      "body": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4096
+                      },
+                      "preview_url": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "body"
+                    ]
+                  },
+                  "template": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512,
+                        "pattern": "^[a-z0-9_]+$"
+                      },
+                      "language": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 15
+                          }
+                        },
+                        "required": [
+                          "code"
+                        ]
+                      },
+                      "components": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {}
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "language"
+                    ]
+                  }
+                },
+                "required": [
+                  "to"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "x-permission": "inbox.reply",
+        "x-public": true
+      }
+    },
     "/api/v1/imports": {
       "post": {
         "operationId": "ImportExport_create",

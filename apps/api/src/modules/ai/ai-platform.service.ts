@@ -1,7 +1,4 @@
-import {
-  type PlatformAiSettings,
-  type UpdatePlatformAiSettingsRequest,
-} from '@fenwira/contracts'
+import { type PlatformAiSettings, type UpdatePlatformAiSettingsRequest } from '@fenwira/contracts'
 import { Database } from '@fenwira/database'
 import { Inject, Injectable } from '@nestjs/common'
 import { requestContext } from '../../core/context/request-context'

@@ -30,7 +30,12 @@ describe('chunkSections', () => {
     for (const c of chunks) expect(estimateTokens(c.content)).toBeLessThanOrEqual(520)
     // ~50 tokens of the previous chunk's tail start the next one.
     const tail = chunks[0]!.content.slice(-120)
-    expect(chunks[1]!.content).toContain(tail.slice(tail.indexOf('.') + 1).trim().slice(0, 40))
+    expect(chunks[1]!.content).toContain(
+      tail
+        .slice(tail.indexOf('.') + 1)
+        .trim()
+        .slice(0, 40),
+    )
     expect(chunks.map((c) => c.ordinal)).toEqual(chunks.map((_, i) => i))
   })
 
@@ -70,7 +75,10 @@ describe('chunkSections', () => {
 
 describe('extractText', () => {
   it('reads the text layer per page', async () => {
-    const pdf = makeTestPdf(['Opening hours are 9am to 6pm on weekdays.', 'Returns accepted within 7 days.'])
+    const pdf = makeTestPdf([
+      'Opening hours are 9am to 6pm on weekdays.',
+      'Returns accepted within 7 days.',
+    ])
     const sections = await extractText(pdf, 'pdf')
     expect(sections.map((s) => s.page)).toEqual([1, 2])
     expect(sections[1]!.text).toContain('Returns accepted')
@@ -107,7 +115,9 @@ describe('buildReplyPrompt', () => {
     expect(p.system).toContain('Anna Bakery')
     expect(p.system).not.toContain('Cakes cost 500')
     const user = p.messages[0]!.text
-    expect(user).toMatch(/<documents>\n<excerpt id="1" source="Menu" page="2">\nCakes cost 500\.\n<\/excerpt>\n<\/documents>/)
+    expect(user).toMatch(
+      /<documents>\n<excerpt id="1" source="Menu" page="2">\nCakes cost 500\.\n<\/excerpt>\n<\/documents>/,
+    )
     expect(user).toContain('<customer_message>\nHow much is a cake?\n</customer_message>')
   })
 
@@ -148,18 +158,24 @@ describe('buildReplyPrompt', () => {
 describe('parseModelOutput / toWhatsAppText', () => {
   it('reads the JSON even with fences or text around it', () => {
     expect(
-      parseModelOutput('```json\n{"answer":"We open at 9.","can_answer":true,"wants_human":false}\n```'),
+      parseModelOutput(
+        '```json\n{"answer":"We open at 9.","can_answer":true,"wants_human":false}\n```',
+      ),
     ).toEqual({ answer: 'We open at 9.', can_answer: true, wants_human: false })
   })
 
   it('rejects malformed output and treats an empty answer as cannot answer', () => {
     expect(parseModelOutput('Sure! We open at 9.')).toBeNull()
     expect(parseModelOutput('{"answer": 3}')).toBeNull()
-    expect(parseModelOutput('{"answer":"  ","can_answer":true}')).toMatchObject({ can_answer: false })
+    expect(parseModelOutput('{"answer":"  ","can_answer":true}')).toMatchObject({
+      can_answer: false,
+    })
   })
 
   it('strips tables and headings for WhatsApp', () => {
-    expect(toWhatsAppText('## Prices\n| a | b |\n|---|---|\n**Tea** is 20.')).toBe('Prices\n*Tea* is 20.')
+    expect(toWhatsAppText('## Prices\n| a | b |\n|---|---|\n**Tea** is 20.')).toBe(
+      'Prices\n*Tea* is 20.',
+    )
   })
 })
 

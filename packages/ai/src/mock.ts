@@ -51,7 +51,10 @@ export class MockProvider implements AiProvider {
     this.calls.embed.push(texts)
     return {
       vectors: texts.map((t) => this.vector(t)),
-      usage: { inputTokens: texts.reduce((n, t) => n + Math.ceil(t.length / 4), 0), outputTokens: 0 },
+      usage: {
+        inputTokens: texts.reduce((n, t) => n + Math.ceil(t.length / 4), 0),
+        outputTokens: 0,
+      },
       model: 'mock-embed',
     }
   }
@@ -85,8 +88,7 @@ export class MockProvider implements AiProvider {
       const score = new Set(contentWords(e).filter((w) => asked.has(w))).size
       if (score > best.score) best = { text: e, score }
     }
-    if (best.score < 2)
-      return JSON.stringify({ answer: '', can_answer: false, wants_human: false })
+    if (best.score < 2) return JSON.stringify({ answer: '', can_answer: false, wants_human: false })
     const sentence =
       best.text
         .split(/(?<=[.!?])\s+/)

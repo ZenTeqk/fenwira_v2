@@ -3,10 +3,7 @@ import { type DynamicModule, Module } from '@nestjs/common'
 import { PinoLogger } from 'nestjs-pino'
 import { AuditModule } from '../audit'
 import { AiActivationPlatformService } from './ai-activation-platform.service'
-import {
-  AiActivationController,
-  AiActivationPlatformController,
-} from './ai-activation.controller'
+import { AiActivationController, AiActivationPlatformController } from './ai-activation.controller'
 import { AiActivationService } from './ai-activation.service'
 import { AiAnswerService } from './ai-answer.service'
 import { AiIngestProcessor } from './ai-ingest.processor'

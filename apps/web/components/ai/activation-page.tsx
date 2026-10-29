@@ -1,6 +1,6 @@
 'use client'
 
-import { type AiActivationRequest, type AiPlan } from '@fenwira/contracts'
+import { type AiActivationRequest } from '@fenwira/contracts'
 import {
   Alert,
   Button,
@@ -34,12 +34,7 @@ import { useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { useAiActivation, useCancelAiActivation } from '@/lib/ai'
 import { ActivationRequestDialog } from './activation-request-dialog'
-
-export function formatPlanPrice(plan: Pick<AiPlan, 'monthlyPriceMinor' | 'currency'>) {
-  const format = new Intl.NumberFormat('en-IN', { style: 'currency', currency: plan.currency })
-  const digits = format.resolvedOptions().maximumFractionDigits ?? 2
-  return `${format.format(plan.monthlyPriceMinor / 10 ** digits)} / month`
-}
+import { formatPlanPrice } from './plan-price'
 
 const BENEFITS = [
   {

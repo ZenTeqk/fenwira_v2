@@ -37,7 +37,8 @@ export function WorkspaceAi({ workspaceId }: { workspaceId: string }) {
   const q = useQuery({
     queryKey: key,
     retry: false,
-    queryFn: async () => platformAiSettingsSchema.parse(await platformRequest(`/workspaces/${workspaceId}/ai`)),
+    queryFn: async () =>
+      platformAiSettingsSchema.parse(await platformRequest(`/workspaces/${workspaceId}/ai`)),
   })
   const [enabled, setEnabled] = useState(false)
   const [quota, setQuota] = useState('0')
@@ -107,7 +108,10 @@ export function WorkspaceAi({ workspaceId }: { workspaceId: string }) {
                   <Switch id="ai-enabled" checked={enabled} onCheckedChange={setEnabled} />
                   <Label htmlFor="ai-enabled">AI Assistant enabled</Label>
                 </div>
-                <Field label="Monthly AI replies" hint="0 means the assistant hands every conversation to the team.">
+                <Field
+                  label="Monthly AI replies"
+                  hint="0 means the assistant hands every conversation to the team."
+                >
                   <Input
                     type="number"
                     min={0}
@@ -116,10 +120,19 @@ export function WorkspaceAi({ workspaceId }: { workspaceId: string }) {
                     onChange={(e) => setQuota(e.target.value)}
                   />
                 </Field>
-                <Field label="Reason" required hint="Recorded in the audit log, e.g. the UPI payment reference.">
+                <Field
+                  label="Reason"
+                  required
+                  hint="Recorded in the audit log, e.g. the UPI payment reference."
+                >
                   <Input value={reason} onChange={(e) => setReason(e.target.value)} />
                 </Field>
-                <Button type="submit" className="self-start" loading={saving} disabled={reason.trim().length < 3}>
+                <Button
+                  type="submit"
+                  className="self-start"
+                  loading={saving}
+                  disabled={reason.trim().length < 3}
+                >
                   Save AI settings
                 </Button>
               </form>

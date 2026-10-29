@@ -87,7 +87,7 @@ A tenant API key must **not** reach: platform administration, provider-cost or i
 
 ## Public route allowlist (decision P11-D18, pinned by `test/openapi.test.ts`)
 
-Exactly these 15 routes carry `@PublicApi()` + `@RequirePermission(...)`, and therefore can ever be reached by an API key. The committed `docs/openapi.json`'s `x-public: true` flags and this list are the same set, cross-checked by a test — not maintained by hand in two places.
+Exactly these 18 routes carry `@PublicApi()` + `@RequirePermission(...)`, and therefore can ever be reached by an API key. The committed `docs/openapi.json`'s `x-public: true` flags and this list are the same set, cross-checked by a test — not maintained by hand in two places.
 
 | Method | Path | Required scope |
 | --- | --- | --- |
@@ -106,6 +106,9 @@ Exactly these 15 routes carry `@PublicApi()` + `@RequirePermission(...)`, and th
 | `GET` | `/campaigns` | `campaigns.read` |
 | `GET` | `/campaigns/{id}` | `campaigns.read` |
 | `GET` | `/campaigns/{id}/stats` | `campaigns.read` |
+| `GET` | `/graph/{phoneNumberId}` | `inbox.reply` |
+| `POST` | `/graph/{phoneNumberId}/media` | `inbox.reply` |
+| `POST` | `/graph/{phoneNumberId}/messages` | `inbox.reply` |
 
 Growing this list is a product decision (a new row in this table and `test/openapi.test.ts`'s `ALLOWLIST_V1`), never a side effect of adding `@RequirePermission` to a new route.
 
@@ -115,6 +118,21 @@ A few routes behave slightly differently under key auth than under a human sessi
 
 - **Starting a conversation / sending a reply** (`POST /conversations`, `POST /conversations/{id}/messages`): attributed as `source: 'API'`; an API-key reply bypasses the human compose lock and per-agent takeover rules (there is no agent to take over from) and calls `MessagingService.send` directly.
 - **`currentActorId()`** returns `null` for an API-key request instead of throwing, at the handful of call sites that record a human `createdBy`/`actorId` (`contacts.create`, `contacts.changeConsent`) — those columns have no foreign key to `users`, so `null` is safe and simply means "not a human."
+
+## Meta-compatible send
+
+An integration already built for Meta's Cloud API switches to Fenwira by changing two settings: the base URL `https://graph.facebook.com/{version}` becomes `https://api.fenwira.com/api/v1/graph`, and the Meta access token becomes a Fenwira API key with `inbox.reply`. Request and response bodies keep Meta's shape, so the integration's message-building code is unchanged. Every send goes through `MessagingService` (source `API`) with the same eligibility, window, balance and entitlement checks as any other send, and appears in the Inbox with live status.
+
+| Meta call | Fenwira | Notes |
+| --- | --- | --- |
+| `GET /{phone-number-id}` | `GET /graph/{phoneNumberId}` | Returns `id`, `display_phone_number`, `verified_name`; a connection test. |
+| `POST /{phone-number-id}/media` (multipart `file`, `type`) | `POST /graph/{phoneNumberId}/media` | Stores the file in Fenwira (accepted types, Meta's size limits, magic bytes; at most 16 MB) and returns `{ id }`, a Fenwira file id. |
+| `POST /{phone-number-id}/messages` | `POST /graph/{phoneNumberId}/messages` | `template` and `text` only. Returns `messages[0].id` = the Fenwira message id (`GET /messages/{id}` for status), not a wamid: the send is queued. |
+
+- `{phoneNumberId}` is Meta's phone number id of a number connected to the key's workspace, or `default` for the default number. Any other value answers 404.
+- A template header media `id` that is a Fenwira file id (from `/media`) becomes the message's header file: the worker uploads it to Meta at send time, and the Inbox shows the attachment. A `link`, or any other id, is passed to Meta unchanged.
+- `Idempotency-Key` is optional here (Meta has none); with one, a retry returns the same message and never sends twice. Without one, each request is a new send.
+- Errors use Fenwira's shape, `{ "error": { "code", "message" } }`, so a client reading `error.message` keeps working; Meta's numeric codes are not reproduced.
 
 ## Errors
 

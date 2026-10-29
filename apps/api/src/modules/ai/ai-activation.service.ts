@@ -37,7 +37,10 @@ export class AiActivationService {
     return this.tenantDb.run(async (tx) => {
       const [settings, plans, latest, user] = await Promise.all([
         tx.aiSettings.findFirst({ where: { tenantId }, select: { enabled: true } }),
-        tx.aiPlan.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
+        tx.aiPlan.findMany({
+          where: { active: true },
+          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        }),
         this.latest(tx, tenantId),
         tx.user.findUnique({ where: { id: userId }, select: { email: true } }),
       ])

@@ -212,7 +212,8 @@ export class AiAnswerService {
         return { outcome: row.outcome, text: row.reply, handoff: isHandoff(row.outcome) }
       const settings = await loadSettings(tx, tenantId)
       let decision: StepDecision
-      if (row.outcome === 'REPLIED') decision = { outcome: 'REPLIED', text: row.reply, handoff: false }
+      if (row.outcome === 'REPLIED')
+        decision = { outcome: 'REPLIED', text: row.reply, handoff: false }
       else if (row.outcome === 'ERROR') decision = { outcome: 'ERROR', text: null, handoff: false }
       else if (row.outcome === 'NO_ANSWER') {
         const previous = await tx.aiReplyLog.findFirst({
@@ -229,7 +230,11 @@ export class AiAnswerService {
         const handoff = ctx.mode === 'SINGLE' || previous?.outcome === 'NO_ANSWER'
         decision = handoff
           ? { outcome: 'HANDOFF', text: handoffText(settings, true), handoff: true }
-          : { outcome: 'NO_ANSWER', text: settings?.fallbackMessage || DEFAULT_FALLBACK, handoff: false }
+          : {
+              outcome: 'NO_ANSWER',
+              text: settings?.fallbackMessage || DEFAULT_FALLBACK,
+              handoff: false,
+            }
       } else
         decision = {
           outcome: row.outcome,

@@ -109,13 +109,34 @@ export async function answerQuestion(deps: AnswerDeps, input: AnswerInput): Prom
   const { config } = deps
   const empty = { reply: null, embedding: null }
   if (!(await deps.quotaAvailable()))
-    return { outcome: 'QUOTA', reason: 'QUOTA_EXHAUSTED', answer: null, sources: [], billable: false, usage: empty }
+    return {
+      outcome: 'QUOTA',
+      reason: 'QUOTA_EXHAUSTED',
+      answer: null,
+      sources: [],
+      billable: false,
+      usage: empty,
+    }
 
   const question = input.question.trim().slice(0, 2000)
   if (!question)
-    return { outcome: 'NO_ANSWER', reason: 'NO_MATCH', answer: null, sources: [], billable: false, usage: empty }
+    return {
+      outcome: 'NO_ANSWER',
+      reason: 'NO_MATCH',
+      answer: null,
+      sources: [],
+      billable: false,
+      usage: empty,
+    }
   if (asksForHuman(question))
-    return { outcome: 'HANDOFF', reason: 'WANTS_HUMAN', answer: null, sources: [], billable: false, usage: empty }
+    return {
+      outcome: 'HANDOFF',
+      reason: 'WANTS_HUMAN',
+      answer: null,
+      sources: [],
+      billable: false,
+      usage: empty,
+    }
   const embedded = await deps.provider.embed([question], 'query')
   await deps.recordUsage({ kind: 'EMBEDDING', model: embedded.model, ...embedded.usage })
   const usage: AnswerResult['usage'] = { reply: null, embedding: embedded.usage }
@@ -132,7 +153,14 @@ export async function answerQuestion(deps: AnswerDeps, input: AnswerInput): Prom
     similarity: Math.round(c.similarity * 1000) / 1000,
   }))
   if (!hits.length)
-    return { outcome: 'NO_ANSWER', reason: 'NO_MATCH', answer: null, sources, billable: false, usage }
+    return {
+      outcome: 'NO_ANSWER',
+      reason: 'NO_MATCH',
+      answer: null,
+      sources,
+      billable: false,
+      usage,
+    }
 
   const request = buildReplyPrompt({
     ...input.settings,
@@ -152,7 +180,8 @@ export async function answerQuestion(deps: AnswerDeps, input: AnswerInput): Prom
     deps.logger.warn({ ai: 'answer', reason: 'UNREADABLE_OUTPUT' }, 'ai reply not usable')
     return { ...base, outcome: 'NO_ANSWER', reason: 'UNREADABLE_OUTPUT', answer: null }
   }
-  if (parsed.wants_human) return { ...base, outcome: 'HANDOFF', reason: 'WANTS_HUMAN', answer: null }
+  if (parsed.wants_human)
+    return { ...base, outcome: 'HANDOFF', reason: 'WANTS_HUMAN', answer: null }
   if (!parsed.can_answer)
     return { ...base, outcome: 'NO_ANSWER', reason: 'CANNOT_ANSWER', answer: null }
   const answer = toWhatsAppText(parsed.answer)

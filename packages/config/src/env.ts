@@ -65,7 +65,11 @@ const aiEnv = {
   /** Characters of retrieved text sent to the model. */
   AI_RETRIEVAL_CHAR_BUDGET: z.coerce.number().int().min(500).max(40_000).default(6000),
   AI_HISTORY_MESSAGES: z.coerce.number().int().min(0).max(20).default(6),
-  AI_MAX_UPLOAD_BYTES: z.coerce.number().int().min(1024).default(10 * 1024 * 1024),
+  AI_MAX_UPLOAD_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1024)
+    .default(10 * 1024 * 1024),
   AI_MAX_SOURCES_PER_WORKSPACE: z.coerce.number().int().min(1).max(1000).default(50),
   AI_MAX_CHUNKS_PER_SOURCE: z.coerce.number().int().min(1).max(10_000).default(500),
   AI_MAX_CHUNKS_PER_WORKSPACE: z.coerce.number().int().min(1).max(200_000).default(5000),

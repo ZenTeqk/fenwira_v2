@@ -134,7 +134,13 @@ describe('AI reply step', () => {
 
   it('publishes with all three outputs connected', () => {
     expect(
-      validateFlowGraph(ai([['replied', 'e1'], ['needs_human', 'e2'], ['error', 'e3']])).valid,
+      validateFlowGraph(
+        ai([
+          ['replied', 'e1'],
+          ['needs_human', 'e2'],
+          ['error', 'e3'],
+        ]),
+      ).valid,
     ).toBe(true)
   })
 

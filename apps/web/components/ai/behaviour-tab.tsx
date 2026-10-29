@@ -31,15 +31,19 @@ const TONE_LABEL: Record<AiTone, { label: string; hint: string }> = {
 
 /** An illustration of the tone only; real replies come from your documents. */
 const EXAMPLE: Record<AiTone, (name: string) => string> = {
-  FRIENDLY: (n) => `Hi! Thanks for messaging ${n}. We're open 9am to 6pm on weekdays. See you soon!`,
-  PROFESSIONAL: (n) => `Thank you for contacting ${n}. Our opening hours are 9am to 6pm, Monday to Friday.`,
+  FRIENDLY: (n) =>
+    `Hi! Thanks for messaging ${n}. We're open 9am to 6pm on weekdays. See you soon!`,
+  PROFESSIONAL: (n) =>
+    `Thank you for contacting ${n}. Our opening hours are 9am to 6pm, Monday to Friday.`,
   CONCISE: () => 'Open 9am–6pm, Monday to Friday.',
 }
 
 const DEFAULT_FALLBACK =
   "Sorry, I couldn't find the answer to that in our information. Could you rephrase your question?"
 
-type Form = Required<{ [K in keyof UpdateAiSettingsRequest]: NonNullable<UpdateAiSettingsRequest[K]> }>
+type Form = Required<{
+  [K in keyof UpdateAiSettingsRequest]: NonNullable<UpdateAiSettingsRequest[K]>
+}>
 
 /** Behaviour (docs/AI_ASSISTANT.md → Settings): business details, tone and the two fixed messages. */
 export function BehaviourTab() {
@@ -162,7 +166,10 @@ export function BehaviourTab() {
           <CardTitle as="h2">Example reply</CardTitle>
           <CardDescription>A customer asks: “When are you open?”</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3 rounded-lg bg-background p-4" aria-live="polite">
+        <CardContent
+          className="flex flex-col gap-3 rounded-lg bg-background p-4"
+          aria-live="polite"
+        >
           <p className="max-w-9/10 self-start rounded-xl border border-border bg-surface px-3.5 py-2.5 text-message text-slate">
             When are you open?
           </p>

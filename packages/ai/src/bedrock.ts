@@ -106,9 +106,7 @@ export class BedrockProvider implements AiProvider {
             inputTokens += out.inputTextTokenCount ?? 0
           }
         }
-        await Promise.all(
-          Array.from({ length: Math.min(EMBED_CONCURRENCY, texts.length) }, worker),
-        )
+        await Promise.all(Array.from({ length: Math.min(EMBED_CONCURRENCY, texts.length) }, worker))
       }
     } catch (err) {
       throw this.wrap(err, model)

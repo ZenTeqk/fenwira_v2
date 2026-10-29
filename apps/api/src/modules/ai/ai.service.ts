@@ -79,7 +79,9 @@ export class AiService {
         }),
       ])
       const sampleQuestions = faqs
-        .flatMap((f) => ((f.body as { pairs?: Array<{ question: string }> })?.pairs ?? []).slice(0, 3))
+        .flatMap((f) =>
+          ((f.body as { pairs?: Array<{ question: string }> })?.pairs ?? []).slice(0, 3),
+        )
         .map((p) => p.question)
         .slice(0, 4)
       return {
@@ -231,7 +233,13 @@ export class AiService {
         (row.type === 'TEXT' && 'text' in input)
       if (!ok)
         throw AppError.validation(
-          [{ path: 'type', code: 'mismatch', message: 'Replace a source with the same kind of content.' }],
+          [
+            {
+              path: 'type',
+              code: 'mismatch',
+              message: 'Replace a source with the same kind of content.',
+            },
+          ],
           'This content does not match the source type.',
         )
       const body =
@@ -249,7 +257,9 @@ export class AiService {
   }
 
   reprocess(id: string): Promise<AiKnowledgeSource> {
-    return this.run(async (tx) => this.requeue(tx, await this.find(tx, id, true), 'ai.source_reprocessed', {}))
+    return this.run(async (tx) =>
+      this.requeue(tx, await this.find(tx, id, true), 'ai.source_reprocessed', {}),
+    )
   }
 
   /** Chunks go with the source (cascade); usage rows and reply logs stay for reporting. */
@@ -274,7 +284,12 @@ export class AiService {
     const { tenantId } = currentTenant()
     const settings = await this.run(async (_tx, s) => s)
     await this.limits.consume([
-      { bucket: 'ai-playground', key: tenantId, limit: this.config.playgroundPerMinute, windowSeconds: 60 },
+      {
+        bucket: 'ai-playground',
+        key: tenantId,
+        limit: this.config.playgroundPerMinute,
+        windowSeconds: 60,
+      },
     ])
     const a = await this.answers.answer(tenantId, { question, history: [], playground: true })
     const text = playgroundText(a, settings)
@@ -285,7 +300,11 @@ export class AiService {
     return {
       outcome: a.outcome,
       answer: text,
-      sources: a.sources.map((s) => ({ documentTitle: s.documentTitle, page: s.page, snippet: s.snippet })),
+      sources: a.sources.map((s) => ({
+        documentTitle: s.documentTitle,
+        page: s.page,
+        snippet: s.snippet,
+      })),
       tokens: a.tokens,
     }
   }
@@ -349,7 +368,10 @@ export class AiService {
 
   /** Every AI route: the workspace must have AI enabled (operator switch). */
   private run<T>(
-    fn: (tx: TenantTx, settings: NonNullable<Awaited<ReturnType<typeof loadSettings>>>) => Promise<T>,
+    fn: (
+      tx: TenantTx,
+      settings: NonNullable<Awaited<ReturnType<typeof loadSettings>>>,
+    ) => Promise<T>,
   ): Promise<T> {
     const { tenantId } = currentTenant()
     return this.tenantDb.run(async (tx) => {
@@ -452,7 +474,8 @@ export class AiService {
 
   private async find(tx: TenantTx, id: string, lock = false) {
     const { tenantId } = currentTenant()
-    if (lock) await tx.$queryRaw`SELECT id FROM ai_knowledge_sources WHERE id = ${id}::uuid FOR UPDATE`
+    if (lock)
+      await tx.$queryRaw`SELECT id FROM ai_knowledge_sources WHERE id = ${id}::uuid FOR UPDATE`
     const row = await tx.aiKnowledgeSource.findFirst({ where: { id, tenantId } })
     if (!row) throw AppError.notFound('Knowledge source not found.')
     return row

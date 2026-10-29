@@ -135,11 +135,19 @@ const aiMessages = (w: Ws, conversationId: string) =>
   )
 
 const usageRows = (w: Ws, kind: 'REPLY' | 'EMBEDDING', runId?: string) =>
-  db.withTenant(tenant(w), (tx) => tx.aiUsage.count({ where: { kind, ...(runId ? { runId } : {}) } }))
+  db.withTenant(tenant(w), (tx) =>
+    tx.aiUsage.count({ where: { kind, ...(runId ? { runId } : {}) } }),
+  )
 
 const messageReceived = { id: 'trigger', type: 'trigger.message_received', config: {} }
 const aiFlow = (mode: 'SINGLE' | 'CONVERSATION'): Graph => ({
-  nodes: [messageReceived, { id: 'ai', type: 'action.ai_reply', config: { mode } }, end('e1'), end('e2'), end('e3')],
+  nodes: [
+    messageReceived,
+    { id: 'ai', type: 'action.ai_reply', config: { mode } },
+    end('e1'),
+    end('e2'),
+    end('e3'),
+  ],
   edges: [
     { id: '1', source: 'trigger', target: 'ai', sourceHandle: 'next' },
     { id: '2', source: 'ai', target: 'e1', sourceHandle: 'replied' },
@@ -207,7 +215,9 @@ describe('AI Assistant: knowledge and answers', { timeout: 120_000 }, () => {
     expect(ok.body.data.answer).toContain('9am to 6pm')
     expect(ok.body.data.sources[0].documentTitle).toBe('Hours')
     const before = model().calls.converse.length
-    const none = await w.owner.client.post('/ai/playground', { question: 'Do you repair bicycles?' })
+    const none = await w.owner.client.post('/ai/playground', {
+      question: 'Do you repair bicycles?',
+    })
     expect(none.body.data).toMatchObject({ outcome: 'NO_ANSWER', answer: FALLBACK, sources: [] })
     expect(model().calls.converse.length).toBe(before)
     const usage = (await w.owner.client.get('/ai/usage')).body.data
@@ -227,8 +237,12 @@ describe('AI Assistant: knowledge and answers', { timeout: 120_000 }, () => {
     const v = model().vector('gold plan cost per month')
     const dim = v.length
     // Bound to A, filtering for B: nothing (RLS). Bound to B, filtering for A: nothing (filter).
-    expect(await db.withTenant(tenant(a), (tx) => searchChunks(tx, tenant(b), v, 5, dim))).toEqual([])
-    expect(await db.withTenant(tenant(b), (tx) => searchChunks(tx, tenant(a), v, 5, dim))).toEqual([])
+    expect(await db.withTenant(tenant(a), (tx) => searchChunks(tx, tenant(b), v, 5, dim))).toEqual(
+      [],
+    )
+    expect(await db.withTenant(tenant(b), (tx) => searchChunks(tx, tenant(a), v, 5, dim))).toEqual(
+      [],
+    )
     const own = await db.withTenant(tenant(b), (tx) => searchChunks(tx, tenant(b), v, 5, dim))
     expect(own[0]?.title).toBe('Secret pricing')
   })
@@ -280,7 +294,9 @@ describe('AI Assistant: the AI reply step', { timeout: 180_000 }, () => {
     expect(model().calls.converse.length).toBe(calls)
     expect(await aiMessages(w, c.id)).toHaveLength(1)
     expect(await usageRows(w, 'REPLY', done!.id)).toBe(1)
-    const logs = await db.withTenant(tenant(w), (tx) => tx.aiReplyLog.findMany({ where: { runId: done!.id } }))
+    const logs = await db.withTenant(tenant(w), (tx) =>
+      tx.aiReplyLog.findMany({ where: { runId: done!.id } }),
+    )
     expect(logs).toHaveLength(1)
     expect(logs[0]).toMatchObject({ outcome: 'REPLIED', decided: true })
   })
@@ -342,11 +358,17 @@ describe('AI Assistant: managed flow and conversation mode', { timeout: 240_000 
   it('turn on creates and publishes one managed flow; again reuses it; pause pauses it', async () => {
     const on = await w.owner.client.post('/ai/assistant/turn-on', {})
     expect(on.status, on.text).toBe(200)
-    expect(on.body.data).toMatchObject({ status: 'ACTIVE', priority: 900, managedBy: 'AI_ASSISTANT' })
+    expect(on.body.data).toMatchObject({
+      status: 'ACTIVE',
+      priority: 900,
+      managedBy: 'AI_ASSISTANT',
+    })
     flowId = on.body.data.id
     const again = await w.owner.client.post('/ai/assistant/turn-on', {})
     expect(again.body.data.id).toBe(flowId)
-    const flows = (await w.owner.client.get('/flows')).body.data as Array<{ managedBy: string | null }>
+    const flows = (await w.owner.client.get('/flows')).body.data as Array<{
+      managedBy: string | null
+    }>
     expect(flows.filter((f) => f.managedBy === 'AI_ASSISTANT')).toHaveLength(1)
     expect((await w.owner.client.post('/ai/assistant/pause', {})).body.data.status).toBe('PAUSED')
     const resumed = await w.owner.client.post('/ai/assistant/turn-on', {})
@@ -361,7 +383,10 @@ describe('AI Assistant: managed flow and conversation mode', { timeout: 240_000 
     const { c, e } = await aiRun(from, (x) => x.status === 'WAITING')
     expect((await w.owner.client.get(`/conversations/${c.id}`)).body.data.aiHandling).toBe(true)
     await inbound(w, from, 'And the Saturday opening hours?')
-    await waitFor(() => aiMessages(w, c.id), (m) => m.length === 2)
+    await waitFor(
+      () => aiMessages(w, c.id),
+      (m) => m.length === 2,
+    )
     const same = await aiRun(from, (x) => x.status === 'WAITING' && x.id === e.id)
     expect(same.e.id).toBe(e.id)
     const sent = await aiMessages(w, c.id)
@@ -396,7 +421,8 @@ describe('AI Assistant: managed flow and conversation mode', { timeout: 240_000 
     expect((await aiMessages(w, c.id)).map(textOf)).toEqual([FALLBACK, HANDOFF])
     const conv = (await w.owner.client.get(`/conversations/${c.id}`)).body.data
     expect(conv).toMatchObject({ automationState: 'AGENT_TAKEOVER', aiHandling: false })
-    const thread = (await w.owner.client.get(`/conversations/${c.id}/messages`)).body.data as Array<{
+    const thread = (await w.owner.client.get(`/conversations/${c.id}/messages`)).body
+      .data as Array<{
       content: { event?: string }
     }>
     expect(thread.some((m) => m.content.event === 'ai_handoff')).toBe(true)

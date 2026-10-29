@@ -460,7 +460,12 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
     const messageId = ai.pendingMessageId ?? (ai.lastHandledMessageId ? null : trigger?.id)
     if (!messageId) {
       if (ai.lastHandledMessageId)
-        return { status: 'SUCCEEDED', handle: 'replied', input: { mode }, output: { ended: 'SILENCE' } }
+        return {
+          status: 'SUCCEEDED',
+          handle: 'replied',
+          input: { mode },
+          output: { ended: 'SILENCE' },
+        }
       return failed('AI_NO_MESSAGE', 'There is no customer message for the AI to answer.', { mode })
     }
     const [message, conversation] = await Promise.all([
@@ -630,7 +635,8 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
           input,
         }
       // P10-D1: never retried and never waits for credit.
-      if (err.code === 'INSUFFICIENT_BALANCE') return failed('INSUFFICIENT_FUNDS', err.message, input)
+      if (err.code === 'INSUFFICIENT_BALANCE')
+        return failed('INSUFFICIENT_FUNDS', err.message, input)
       return failed(err.code, err.message, input)
     }
   }
@@ -688,7 +694,12 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
     if (decision.handoff)
       return { status: 'SUCCEEDED', handle: 'needs_human', aiHandoff: true, input: p.input, output }
     if (p.mode === 'CONVERSATION')
-      return { status: 'SUCCEEDED', stay: { handledMessageId: p.messageId }, input: p.input, output }
+      return {
+        status: 'SUCCEEDED',
+        stay: { handledMessageId: p.messageId },
+        input: p.input,
+        output,
+      }
     return { status: 'SUCCEEDED', handle: 'replied', input: p.input, output }
   }
 
