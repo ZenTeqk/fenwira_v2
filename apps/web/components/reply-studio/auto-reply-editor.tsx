@@ -100,7 +100,11 @@ export function AutoReplyEditor(p: Props) {
     )
     p.onChange({ ...p.graph, nodes, edges })
   }
-  const phone = <ReplyPhonePreview graph={p.graph} />
+  const phone = (
+    <div className="w-80 max-w-full">
+      <ReplyPhonePreview graph={p.graph} />
+    </div>
+  )
   return (
     <div className="min-h-dvh bg-background p-4 md:p-6">
       <div className="mx-auto max-w-7xl">

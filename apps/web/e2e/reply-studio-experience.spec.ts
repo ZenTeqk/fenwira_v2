@@ -37,6 +37,13 @@ async function quality(page: Page, name: string) {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    if (name === 'editor' && width === 1440)
+      expect(
+        await page
+          .getByRole('complementary', { name: 'Live phone preview' })
+          .getByRole('region', { name: 'Message preview', exact: true })
+          .evaluate((el) => el.getBoundingClientRect().width),
+      ).toBeLessThanOrEqual(360)
     const result = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
       .analyze()
@@ -63,6 +70,9 @@ test('compact overview and empty, populated and filtered states preserve managed
   await expect(page).toHaveURL(/\/automations\/workflows$/)
   await expect(page.getByRole('heading', { name: 'Workflows', exact: true })).toBeVisible()
   await quality(page, 'overview')
+  await page.getByRole('button', { name: 'Archived workflows', exact: true }).click()
+  await expect(page.getByText('No archived workflows', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Current workflows', exact: true }).click()
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/automations/reply-studio')
   await expect(page).toHaveURL(/\/auto-replies$/)
@@ -87,9 +97,13 @@ test('compact overview and empty, populated and filtered states preserve managed
   const starters = page.getByRole('button', { name: 'Starter conversations', exact: true })
   await expect(starters).toHaveAttribute('aria-expanded', 'false')
   await starters.click()
+  // Let any in-flight session rotation finish before a hard reload.
+  await page.waitForLoadState('networkidle')
   await page.reload()
   await expect(starters).toHaveAttribute('aria-expanded', 'true')
   await starters.click()
+  // Let any in-flight session rotation finish before a hard reload.
+  await page.waitForLoadState('networkidle')
   await page.reload()
   await expect(starters).toHaveAttribute('aria-expanded', 'false')
   await page.getByRole('searchbox', { name: 'Search replies and flows' }).fill('unmatched')

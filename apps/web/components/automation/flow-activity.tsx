@@ -121,7 +121,9 @@ export function FlowActivity({ flowId }: { flowId: string }) {
                       className="flex flex-col gap-2 rounded-lg border border-border p-4"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <StatusBadge status={r.status} />
+                        <StatusBadge
+                          status={r.errorCode === 'SESSION_EXPIRED' ? 'EXPIRED' : r.status}
+                        />
                         <time dateTime={r.startedAt} className="text-xs text-muted">
                           {new Date(r.startedAt).toLocaleString()}
                         </time>
