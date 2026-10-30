@@ -4,7 +4,7 @@ import { type Conversation } from '@fenwira/contracts'
 import { useEffect, useState } from 'react'
 
 export const displayName = (c: Pick<Conversation, 'contact'>) =>
-  c.contact.name ?? c.contact.waProfileName ?? c.contact.phoneE164
+  c.contact.name?.trim() || c.contact.waProfileName?.trim() || c.contact.phoneE164
 
 export const initials = (name: string) =>
   name

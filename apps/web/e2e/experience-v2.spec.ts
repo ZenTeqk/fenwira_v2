@@ -122,7 +122,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     'true',
   )
   await views.getByRole('button', { name: /^Mine/ }).click()
-  await expect(page.getByRole('heading', { name: /^Mine/ })).toBeVisible()
+  await expect(views.getByRole('button', { name: /^Mine/ })).toHaveAttribute('aria-pressed', 'true')
   await views.getByRole('button', { name: /^All/ }).click()
   await unread.click()
   await list.getByText(customer).click()
@@ -162,22 +162,22 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     if (width < 1440) {
       await page.getByRole('button', { name: 'Show contact details' }).click()
       await page
-        .getByRole(width >= 1024 ? 'complementary' : 'dialog', {
-          name: width >= 1024 ? 'Customer details' : 'Contact details',
+        .getByRole(width >= 1280 ? 'complementary' : 'dialog', {
+          name: 'Customer details',
           exact: true,
         })
         .getByRole('button', { name: 'Messaging eligibility' })
         .click()
       await expect(
         page
-          .getByRole(width >= 1024 ? 'complementary' : 'dialog', {
-            name: width >= 1024 ? 'Customer details' : 'Contact details',
+          .getByRole(width >= 1280 ? 'complementary' : 'dialog', {
+            name: 'Customer details',
             exact: true,
           })
           .getByRole('region', { name: 'Messaging eligibility' }),
       ).toBeVisible()
       expect((await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations).toEqual([])
-      if (width >= 1024) await page.getByRole('button', { name: 'Close contact details' }).click()
+      if (width >= 1280) await page.getByRole('button', { name: 'Close contact details' }).click()
       else await page.keyboard.press('Escape')
       await expect(page.getByRole('button', { name: 'Show contact details' })).toBeFocused()
     }

@@ -213,6 +213,11 @@ test('a template shows its full content, and ticks change live as Meta reports s
     await mock('status', { wamid, status: 'read' })
     await expect(bubble.getByRole('img', { name: 'Read' })).toBeVisible()
     await expect(bubble.getByRole('img', { name: 'Read' }).locator('svg')).toHaveClass(/text-info/)
+    const listRow = page
+      .getByRole('list', { name: 'Conversation list' })
+      .getByRole('button')
+      .filter({ hasText: 'You: Hi Ravi, your voucher V-77 is ready.' })
+    await expect(listRow.locator('[data-status="READ"]')).toBeVisible()
 
     // A failure says so in words, never with ticks, and "View details" shows Meta's reason.
     const failing = await send(page, owner, thread.conversationId, {
@@ -225,6 +230,11 @@ test('a template shows its full content, and ticks change live as Meta reports s
       .getByText('This one will bounce')
       .locator('xpath=ancestor::div[@data-message-id]')
     await expect(failedRow.getByText('Failed', { exact: true })).toBeVisible()
+    const failedPreview = page
+      .getByRole('list', { name: 'Conversation list' })
+      .getByRole('button')
+      .filter({ hasText: 'You: This one will bounce' })
+    await expect(failedPreview.locator('[data-status="FAILED"]')).toBeVisible()
     await expect(failedRow.getByRole('img', { name: /Sent|Delivered|Read|Sending/ })).toHaveCount(0)
     await failedRow.getByRole('button', { name: 'View details' }).click()
     const details = page.getByRole('dialog', { name: 'Message not sent' })

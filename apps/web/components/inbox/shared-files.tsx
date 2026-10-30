@@ -36,8 +36,8 @@ export function SharedFiles({
       ),
   })
   return (
-    <div className="flex flex-col gap-1 pt-4">
-      <div className="px-5">
+    <div className="flex min-w-0 flex-col gap-1 pt-3">
+      <div className="px-4">
         <Segmented
           label="File type"
           value={kind}
@@ -48,7 +48,13 @@ export function SharedFiles({
           }))}
         />
       </div>
-      <MediaResults conversationId={conversationId} filter={kind} loaded={[]} onJump={onJump} />
+      <MediaResults
+        conversationId={conversationId}
+        filter={kind}
+        loaded={[]}
+        onJump={onJump}
+        compact
+      />
     </div>
   )
 }

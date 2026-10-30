@@ -7,5 +7,5 @@ export const INBOX_VIEWS: Array<{ id: InboxView; label: string; title: string }>
   { id: 'unassigned', label: 'Unassigned', title: 'Unassigned' },
 ]
 
-/** The unique list filter remains available as a text toggle beside status and unread. */
+/** Advanced takeover combines with the visible assignee view, search, status and unread. */
 export type AdvancedFilter = 'none' | 'takeover'

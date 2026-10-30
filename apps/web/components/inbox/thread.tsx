@@ -25,7 +25,17 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import Image from 'next/image'
 import { followsSameSender } from '@/lib/message-grouping'
-import { ArrowDown, Download, FileText, Lock, Paperclip } from 'lucide-react'
+import {
+  ArrowDown,
+  Download,
+  FileText,
+  Hand,
+  Lock,
+  Paperclip,
+  Play,
+  UserRound,
+  CircleDot,
+} from 'lucide-react'
 import { type ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
@@ -142,12 +152,14 @@ function MediaBody({
         </video>
       ) : null}
       {kind === 'DOCUMENT' ? (
-        <div className="flex min-w-0 items-center gap-3 rounded-md border border-border bg-surface p-3">
+        <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-surface p-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-danger-soft text-danger-strong">
             <FileText aria-hidden="true" className="size-6" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="break-words text-base font-semibold">{label}</p>
+            <p className="break-words text-base font-semibold" title={label}>
+              {label}
+            </p>
             <p className="text-xs text-secondary">
               {fileType(label, media?.mimeType ?? null)}
               {media?.sizeBytes != null ? ` · ${fileSize(media.sizeBytes)}` : ''}
@@ -159,6 +171,7 @@ function MediaBody({
               target="_blank"
               rel="noreferrer"
               aria-label={`Download ${label}`}
+              title={`Download ${label}`}
               className={cn(
                 'flex size-9 shrink-0 items-center justify-center rounded-md border border-border text-secondary hover:bg-neutral-soft sm:size-8',
                 focusRing,
@@ -218,9 +231,20 @@ function Row({
   const m = item.message
   if (m.direction === 'SYSTEM') {
     const c = m.content as { event?: string; data?: Record<string, unknown> }
+    const Icon =
+      c.event === 'takeover'
+        ? Hand
+        : c.event === 'automation_resumed'
+          ? Play
+          : c.event === 'assigned' || c.event === 'unassigned'
+            ? UserRound
+            : CircleDot
     return (
-      <p className="mx-auto w-fit max-w-5/6 rounded-full border border-border bg-surface/80 px-3 py-1.5 text-center text-xs text-secondary">
-        {(c.event && EVENT_TEXT[c.event]?.(c.data ?? {})) ?? c.event} · {clockTime(m.createdAt)}
+      <p className="mx-auto flex w-fit max-w-5/6 items-start justify-center gap-1.5 px-2 py-0.5 text-center text-xs text-secondary">
+        <Icon aria-hidden="true" className="mt-0.5 size-3 shrink-0" />
+        <span>
+          {(c.event && EVENT_TEXT[c.event]?.(c.data ?? {})) ?? c.event} · {clockTime(m.createdAt)}
+        </span>
       </p>
     )
   }
@@ -250,7 +274,7 @@ function Row({
             }
           : {})}
         className={cn(
-          'fw-inbox-bubble flex min-w-0 flex-col gap-1 rounded-lg border px-3.5 py-2.5 text-base leading-normal text-slate',
+          'fw-inbox-bubble flex min-w-0 flex-col gap-1 rounded-lg border px-3 py-2.5 text-base leading-normal text-slate',
           outbound
             ? 'border-border bg-message-outbound'
             : 'border border-border bg-surface contrast-more:border-border-strong',
@@ -629,7 +653,14 @@ export function Thread({
                   key={item.kind === 'note' ? `n-${item.note.id}` : item.message.id}
                   data-index={v.index}
                   ref={virtualizer.measureElement}
-                  className={cn('absolute left-0 top-0 w-full pb-1', grouped ? 'pt-0.5' : 'pt-4')}
+                  className={cn(
+                    'absolute left-0 top-0 w-full pb-1',
+                    item.kind === 'message' && item.message.direction === 'SYSTEM'
+                      ? 'pt-1'
+                      : grouped
+                        ? 'pt-0.5'
+                        : 'pt-4',
+                  )}
                   style={{ transform: `translateY(${v.start}px)` }}
                 >
                   {newDay ? (

@@ -22,7 +22,7 @@ type PanelProps = {
   onJump: (messageId: string) => void
 }
 
-/** Contact details beside the chat (docs/INBOX.md → Layout): docked on desktop; a separate details view below 1024px. */
+/** Customer context docks on wide desktops; narrower viewports use the accessible drawer. */
 export function ContactDetailsPanel({
   id,
   conversation: c,
@@ -36,6 +36,7 @@ export function ContactDetailsPanel({
 }: PanelProps) {
   const body = (
     <ContactPane
+      key={c.contact.id}
       contactId={c.contact.id}
       conversation={c}
       tab={tab}
@@ -48,18 +49,17 @@ export function ContactDetailsPanel({
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent
           id={id}
-          title="Contact details"
+          title="Customer details"
           side="right"
           width="sm"
           // One view at a time on phones: the details take the whole screen.
-          className="fw-inbox-theme fw-inbox-compact-icons fw-inbox-compact-type max-w-full md:max-w-xs"
+          className="fw-inbox-customer-panel fw-inbox-theme fw-inbox-compact-icons fw-inbox-compact-type max-w-full md:max-w-xs"
           onCloseAutoFocus={(event) => {
             event.preventDefault()
             returnFocus.current?.focus()
           }}
         >
-          {/* The drawer pads its body; the pane brings its own spacing. */}
-          <div className="-m-4">{body}</div>
+          {body}
         </DrawerContent>
       </Drawer>
     )
@@ -68,15 +68,16 @@ export function ContactDetailsPanel({
     <aside
       id={id}
       aria-labelledby={`${id}-title`}
-      className="flex min-h-0 w-80 shrink-0 flex-col border-l border-border bg-surface"
+      className="fw-inbox-customer-panel flex min-h-0 min-w-0 w-80 shrink-0 flex-col border-l border-border bg-surface"
     >
-      <div className="flex h-16 shrink-0 items-center justify-between gap-2 px-4">
+      <div className="flex min-h-12 shrink-0 items-center justify-between gap-2 px-4 py-2">
         <h2 id={`${id}-title`} className="text-lg font-semibold text-slate">
           Customer details
         </h2>
         <Button
           variant="ghost"
           size="icon"
+          className="size-8"
           aria-label="Close contact details"
           title="Close contact details"
           onClick={() => {

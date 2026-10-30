@@ -5,6 +5,7 @@ import { type ContactEligibility, type PhoneStatus } from '@fenwira/contracts'
  * never re-implements consent rules; it only chooses how to present the server's verdicts).
  */
 export type ComposerState =
+  | { kind: 'checking' }
   | { kind: 'reply' }
   /** Window open, but the server would refuse free text (e.g. opted out). */
   | { kind: 'reply-restricted'; reason: string }
@@ -32,25 +33,24 @@ export function composerState(input: {
   const numberBlock = numberStatus ? NUMBER_BLOCKS[numberStatus] : undefined
   if (numberBlock)
     return { kind: 'blocked', title: 'WhatsApp number unavailable', message: numberBlock }
-  if (windowOpen) {
-    if (eligibility && !eligibility.freeform.allowed)
-      return {
-        kind: 'reply-restricted',
-        reason:
-          eligibility.freeform.reason ?? 'Review messaging eligibility in the contact details.',
-      }
-    return { kind: 'reply' }
-  }
+  if (!eligibility) return { kind: 'checking' }
+  // A blocked contact or consent restriction must not be described as a closed window.
+  if (!eligibility.freeform.allowed && eligibility.freeform.code !== 'CONVERSATION_WINDOW_CLOSED')
+    return {
+      kind: 'reply-restricted',
+      reason: eligibility.freeform.reason ?? 'Review messaging eligibility in the contact details.',
+    }
+  if (windowOpen && eligibility.freeform.allowed) return { kind: 'reply' }
   if (!canSendTemplates)
     return {
       kind: 'blocked',
-      title: 'Reply window closed',
+      title: 'Template messages unavailable',
       message: 'Only an approved template can reach this customer, and your role can’t send one.',
     }
-  if (eligibility && !eligibility.utilityTemplate.allowed && !eligibility.marketingTemplate.allowed)
+  if (!eligibility.utilityTemplate.allowed && !eligibility.marketingTemplate.allowed)
     return {
       kind: 'blocked',
-      title: 'Reply window closed',
+      title: 'Template messages unavailable',
       message:
         eligibility.utilityTemplate.reason ??
         eligibility.marketingTemplate.reason ??

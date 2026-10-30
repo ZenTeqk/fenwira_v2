@@ -2,43 +2,27 @@
 
 import { type Conversation } from '@fenwira/contracts'
 import { Button, StatusBadge } from '@fenwira/ui'
-import { useNow, windowLeft } from '@/lib/inbox'
 import { useConversationActions } from './conversation-actions'
 
 const AUTOMATION = {
   AUTOMATION_ACTIVE: { status: 'ACTIVE', label: 'Automation active' },
-  AUTOMATION_PAUSED: { status: 'PAUSED', label: 'Automation paused' },
-  AGENT_TAKEOVER: { status: 'AGENT_TAKEOVER', label: 'Agent takeover' },
+  AUTOMATION_PAUSED: { status: 'PAUSED', label: 'Automation paused manually' },
+  AGENT_TAKEOVER: { status: 'AGENT_TAKEOVER', label: 'Automation paused' },
 } as const
 
 /**
- * One ~36px strip (docs/INBOX.md → Layout): the messaging window and the automation state, kept
- * as separate facts, with Resume (the existing return-to-automation call) on the right. Workflow
- * status and assignment live in the header; what can be sent now lives in the composer.
+ * Automation policy only. Reply eligibility and the single countdown live in the composer.
  */
 export function ConversationStatusBar({ conversation: c }: { conversation: Conversation }) {
-  const now = useNow()
   const actions = useConversationActions(c)
-  const left = c.serviceWindow.isOpen ? windowLeft(c.serviceWindow.expiresAt, now) : null
-  const expiring =
-    !!left &&
-    !!c.serviceWindow.expiresAt &&
-    new Date(c.serviceWindow.expiresAt).getTime() - now <= 3600_000
   const automation = AUTOMATION[c.automationState]
+  if (!automation) return null
   return (
     <div
       role="group"
       aria-label="Conversation state"
-      className="mx-3 mb-2 flex min-h-10 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-info-soft px-3 py-2 md:mx-4"
+      className="mx-3 mb-2 flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-surface px-3 py-1 md:mx-4"
     >
-      <span title="WhatsApp 24-hour customer service window" className="shrink-0">
-        <StatusBadge
-          status={left ? (expiring ? 'EXPIRING' : 'WINDOW_OPEN') : 'WINDOW_CLOSED'}
-          appearance="inline"
-          label={left ? `Reply window · ${left}` : 'Window closed'}
-        />
-      </span>
-      <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border-strong" />
       <span
         className="min-w-0 truncate"
         title={
@@ -47,7 +31,12 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
             : 'Automated messages won’t be sent in this conversation.'
         }
       >
-        <StatusBadge appearance="inline" status={automation.status} label={automation.label} />
+        <StatusBadge
+          appearance="inline"
+          status={automation.status}
+          label={automation.label}
+          className="text-secondary"
+        />
       </span>
       {c.aiHandling ? (
         <span
@@ -61,13 +50,24 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
         <Button
           size="sm"
           variant="link"
-          className="ml-auto shrink-0 text-sm text-info-strong"
+          className="ml-auto h-8 shrink-0 px-1 text-xs text-primary-strong sm:h-6"
           aria-label="Resume automation"
           title="Return this conversation to automation"
           loading={actions.pending}
           onClick={() => actions.setAutomation('AUTOMATION_ACTIVE')}
         >
-          Resume
+          Resume automation
+        </Button>
+      ) : null}
+      {c.automationState === 'AUTOMATION_ACTIVE' && actions.can.reply ? (
+        <Button
+          size="sm"
+          variant="link"
+          className="ml-auto h-8 shrink-0 px-1 text-xs text-primary-strong sm:h-6"
+          loading={actions.pending}
+          onClick={() => actions.setAutomation('AGENT_TAKEOVER')}
+        >
+          Take over
         </Button>
       ) : null}
     </div>

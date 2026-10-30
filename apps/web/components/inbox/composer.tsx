@@ -32,17 +32,17 @@ import {
   useState,
 } from 'react'
 import { useSession } from '@/components/session/session-provider'
-import { useEligibility } from '@/components/contacts/eligibility-summary'
 import { useConnections } from '@/lib/workspace-status'
 import { ApiError, del, get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { matchCanned, useCannedReplies } from '@/lib/canned-replies'
 import { composerState } from '@/lib/composer-state'
 import { draftScope, type DraftMode, drafts } from '@/lib/drafts'
-import { useNow } from '@/lib/inbox'
 import { useRealtimeEvent, useSocket } from '@/lib/realtime'
 import { TemplatePicker, type TemplateSend } from './template-picker'
 import { notesKey, threadKey } from './thread'
+import { useReplyWindow } from './use-reply-window'
+import { ReplyWindowIndicator } from './reply-window-indicator'
 
 type Page = { data: Message[]; page: { nextCursor: string | null } }
 const HEARTBEAT_MS = 10_000
@@ -64,11 +64,23 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const { tenantId, me, can } = useSession()
   const socket = useSocket()
   const queryClient = useQueryClient()
-  const now = useNow(15_000)
   const id = conversation.id
-  const eligibility = useEligibility(conversation.contact.id, id)
+  const replyWindow = useReplyWindow(conversation)
+  const { eligibility } = replyWindow
   const connections = useConnections()
   const connection = connections.data?.find((c) => c.id === conversation.phoneNumber.id)
+  const state = composerState({
+    windowOpen: replyWindow.window.kind === 'open',
+    eligibility:
+      replyWindow.window.kind === 'checking' || eligibility.isError ? undefined : eligibility.data,
+    numberStatus: connection?.status,
+    canSendTemplates: can('templates.read'),
+  })
+  const templatesAvailable =
+    can('templates.read') &&
+    !eligibility.isError &&
+    !!eligibility.data &&
+    (eligibility.data.utilityTemplate.allowed || eligibility.data.marketingTemplate.allowed)
   const [mode, setMode] = useState<DraftMode>('reply')
   const panelId = useId()
   // Drafts per conversation and mode survive switching conversations and reloads (lib/drafts).
@@ -85,7 +97,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const setText = (value: string) => setDraft(mode, value)
   const writing = useRef<HTMLTextAreaElement>(null)
   // Presentation only: resize after typing, canned insertion, mode change and send/clear.
-  // CSS supplies the 64px resting / 160px maximum; no messaging state changes here.
+  // CSS supplies the 80px resting / 180px maximum; no messaging state changes here.
   useLayoutEffect(() => {
     const element = writing.current
     if (!element) return
@@ -106,20 +118,11 @@ export function Composer({ conversation }: { conversation: Conversation }) {
       widthObserver.observe(element.parentElement)
       return () => widthObserver.disconnect()
     }
-  }, [text, mode, conversation.serviceWindow.isOpen])
+  }, [text, mode, state.kind])
   const [picking, setPicking] = useState(false)
   const [lock, setLock] = useState<ComposeLock | null>(null)
   const holding = lock?.holder?.id === me.user.id
   const lockedByOther = !!lock?.holder && !holding
-  const windowOpen =
-    conversation.serviceWindow.isOpen &&
-    !!conversation.serviceWindow.expiresAt &&
-    new Date(conversation.serviceWindow.expiresAt).getTime() > now
-  const minutesLeft = conversation.serviceWindow.expiresAt
-    ? Math.floor((new Date(conversation.serviceWindow.expiresAt).getTime() - now) / 60_000)
-    : 0
-  // Warn before free-form replies stop being possible (UX_PATTERNS → Inbox).
-  const closingSoon = windowOpen && minutesLeft < 60
   const canForce = conversation.assignee?.id === me.user.id || can('inbox.reassign')
   // Canned replies: "/" at the start of the reply box opens a picker (docs/INBOX.md).
   const canned = useCannedReplies().data ?? []
@@ -256,8 +259,21 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         queryKey: keys.tenant(tenantId, 'inbox', 'conversation', id),
       })
     },
-    onError: (err) =>
-      toast.error(err instanceof ApiError ? err.message : 'The message was not sent.'),
+    onError: (err) => {
+      if (err instanceof ApiError && err.code === 'CONVERSATION_WINDOW_CLOSED') {
+        replyWindow.rejectExpiry()
+        toast.error(
+          'Reply window closed. Your draft is saved; choose an approved template to continue.',
+        )
+      } else {
+        if (
+          err instanceof ApiError &&
+          (err.code === 'CONTACT_BLOCKED' || err.code === 'CONSENT_REQUIRED')
+        )
+          replyWindow.recheck()
+        toast.error(err instanceof ApiError ? err.message : 'The message was not sent.')
+      }
+    },
   })
   const note = useMutation({
     mutationFn: () => post(`/conversations/${id}/notes`, { body: text }),
@@ -298,7 +314,8 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const submit = () => {
     if (busy || (mode === 'reply' && lockedByOther)) return
     if (mode === 'note') return text.trim() && note.mutate()
-    if (state.kind === 'reply-restricted' || state.kind === 'blocked') return
+    if (state.kind === 'reply-restricted' || state.kind === 'blocked' || state.kind === 'checking')
+      return
     if (state.kind === 'template-only') return setPicking(true)
     if (text.trim()) send.mutate({ content: { type: 'TEXT', text: text.trim() } })
   }
@@ -335,71 +352,101 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     }
   }
   const disabled = mode === 'reply' && lockedByOther
-  const state = composerState({
-    windowOpen,
-    eligibility: eligibility.data,
-    numberStatus: connection?.status,
-    canSendTemplates: can('templates.read'),
-  })
   const freeformRestricted = mode === 'reply' && state.kind === 'reply-restricted'
+  const replyUnavailable = mode === 'reply' && state.kind !== 'reply'
+  const previousWindow = useRef(replyWindow.window.kind)
+  const [windowAnnouncement, setWindowAnnouncement] = useState('')
+  useEffect(() => {
+    if (
+      mode === 'reply' &&
+      previousWindow.current === 'open' &&
+      replyWindow.window.kind === 'closed'
+    )
+      setWindowAnnouncement(
+        'Reply window closed. Choose an approved template to message this customer.',
+      )
+    else if (mode === 'note' || replyWindow.window.kind === 'open') setWindowAnnouncement('')
+    previousWindow.current = replyWindow.window.kind
+  }, [mode, replyWindow.window.kind])
 
   return (
     <div
       className={cn(
-        'fw-inbox-composer relative z-10 mx-3 mb-3 flex shrink-0 flex-col gap-2 rounded-lg border border-border px-3 pt-2 md:mx-4',
-        mode === 'note' ? 'bg-note-soft' : 'bg-surface',
+        'fw-inbox-composer relative z-10 mx-3 mb-3 flex min-w-0 shrink-0 flex-col rounded-lg border px-3 pt-3 md:mx-4',
+        mode === 'note' ? 'border-inbox-note-border bg-note-soft' : 'border-border bg-surface',
       )}
     >
-      <div
-        role="tablist"
-        aria-label="Compose"
-        className="flex gap-1 border-b border-border"
-        onKeyDown={(e) => {
-          // ARIA tabs: arrow keys move between Reply and Internal note.
-          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-          e.preventDefault()
-          const next = mode === 'reply' ? 'note' : 'reply'
-          setMode(next)
-          document.getElementById(`${panelId}-${next}`)?.focus()
-        }}
-      >
-        {(
-          [
-            { value: 'reply', label: 'Reply', icon: MessageSquareText },
-            { value: 'note', label: 'Internal note', icon: Lock },
-          ] as const
-        ).map(({ value, label, icon: Icon }) => (
-          <button
-            key={value}
-            id={`${panelId}-${value}`}
-            type="button"
-            role="tab"
-            disabled={busy}
-            aria-selected={mode === value}
-            aria-controls={panelId}
-            tabIndex={mode === value ? 0 : -1}
-            onClick={() => setMode(value)}
-            className={cn(
-              'inline-flex h-10 items-center gap-2 border-b-2 px-3 text-base font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-              focusRing,
-              mode === value
-                ? value === 'note'
-                  ? 'border-inbox-note-text text-inbox-note-text'
-                  : 'border-primary-strong text-primary-strong'
-                : 'border-transparent text-secondary hover:bg-neutral-soft hover:text-slate',
-            )}
-          >
-            <Icon aria-hidden="true" className="size-4" />
-            {label}
-          </button>
-        ))}
+      <span role="status" aria-live="polite" className="sr-only">
+        {windowAnnouncement}
+      </span>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border">
+        <div
+          role="tablist"
+          aria-label="Compose"
+          className="flex shrink-0 gap-1"
+          onKeyDown={(e) => {
+            // ARIA tabs: arrow keys move between Reply and Internal note.
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+            e.preventDefault()
+            const next = mode === 'reply' ? 'note' : 'reply'
+            setMode(next)
+            document.getElementById(`${panelId}-${next}`)?.focus()
+          }}
+        >
+          {(
+            [
+              { value: 'reply', label: 'Reply', icon: MessageSquareText },
+              { value: 'note', label: 'Internal note', icon: Lock },
+            ] as const
+          ).map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              id={`${panelId}-${value}`}
+              type="button"
+              role="tab"
+              disabled={busy}
+              aria-selected={mode === value}
+              aria-controls={panelId}
+              tabIndex={mode === value ? 0 : -1}
+              onClick={() => setMode(value)}
+              className={cn(
+                'inline-flex h-9 items-center gap-1.5 border-b-2 px-2 text-base font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:h-8',
+                focusRing,
+                mode === value
+                  ? value === 'note'
+                    ? 'border-inbox-note-text text-inbox-note-text'
+                    : 'border-primary-strong text-primary-strong'
+                  : 'border-transparent text-secondary hover:bg-neutral-soft hover:text-slate',
+              )}
+            >
+              <Icon aria-hidden="true" className="size-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+        {mode === 'reply' && (state.kind === 'reply' || state.kind === 'checking') ? (
+          <ReplyWindowIndicator window={replyWindow.window} checking={state.kind === 'checking'} />
+        ) : null}
       </div>
       <div
         role="tabpanel"
         id={panelId}
         aria-label={mode === 'note' ? 'Internal note composer' : 'Reply composer'}
-        className="flex flex-col gap-2"
+        className="flex min-w-0 flex-col gap-1"
       >
+        {mode === 'reply' && state.kind === 'checking' && eligibility.isError ? (
+          <p className="flex flex-wrap items-center gap-1 text-xs text-secondary">
+            Eligibility couldn’t be checked.
+            <Button
+              size="sm"
+              variant="link"
+              className="h-7 px-1 text-xs"
+              onClick={replyWindow.recheck}
+            >
+              Try again
+            </Button>
+          </p>
+        ) : null}
         {mode === 'reply' && state.kind === 'blocked' ? (
           <ComposerStrip title={state.title} message={state.message} />
         ) : null}
@@ -423,27 +470,33 @@ export function Composer({ conversation }: { conversation: Conversation }) {
             You can reply when they finish.
           </Alert>
         ) : null}
-        {mode === 'reply' && closingSoon && state.kind === 'reply' ? (
-          <Alert
-            tone="warning"
-            title={`The 24-hour window closes in ${Math.max(minutesLeft, 1)} min`}
-          >
-            After that, only an approved template can reach this customer.
-          </Alert>
+        {mode === 'reply' &&
+        state.kind === 'reply' &&
+        replyWindow.window.kind === 'open' &&
+        replyWindow.window.phase === 'imminent' ? (
+          <p className="text-xs text-warning-strong">
+            Reply window closes soon. Templates remain available afterward.
+          </p>
         ) : null}
         {mode === 'reply' && state.kind === 'blocked' ? null : mode === 'reply' &&
           state.kind === 'template-only' ? (
           <ComposerStrip
             title="Reply window closed"
-            message="Use an approved template to send a message."
+            message="Choose an approved template to message this customer."
+            live={false}
             action={
-              <Button disabled={disabled} onClick={() => setPicking(true)}>
+              <Button
+                size="sm"
+                className="h-8"
+                disabled={disabled || !templatesAvailable || busy}
+                onClick={() => setPicking(true)}
+              >
                 Choose template
               </Button>
             }
           />
         ) : (
-          <div className="relative flex min-w-0 flex-col gap-2">
+          <div className="relative flex min-w-0 flex-col gap-1">
             {matches.length ? (
               <ul
                 id={listId}
@@ -478,7 +531,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
             <div
               data-slot="composer-field"
               className={cn(
-                'group relative flex min-w-0 flex-1 flex-col rounded-md border border-border',
+                'relative flex min-w-0 flex-1 flex-col',
                 mode === 'note' ? 'bg-note-soft' : 'bg-surface',
               )}
             >
@@ -491,9 +544,8 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 placeholder={mode === 'note' ? 'Only your team sees notes' : 'Type a reply…'}
                 title="Enter to send; Shift+Enter for a new line; / for canned replies"
                 className={cn(
-                  'peer min-h-16 max-h-40 w-full min-w-0 resize-none overflow-y-auto rounded-md border-0 bg-transparent px-3 py-2.5 text-base text-slate',
-                  // The surrounding field draws the focus ring, so the field itself shows none.
-                  'focus-visible:outline-transparent',
+                  'min-h-20 max-h-45 w-full min-w-0 resize-none overflow-y-auto rounded-md border-0 bg-transparent px-1 py-2 text-base text-slate',
+                  'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-strong',
                   disabled && 'cursor-not-allowed opacity-60',
                 )}
                 rows={1}
@@ -503,7 +555,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 onKeyDown={onKeyDown}
                 onBlur={() => !text.trim() && release()}
               />
-              <div className="flex w-full flex-wrap items-center gap-1 px-2 pb-2">
+              <div className="flex w-full flex-wrap items-center gap-1 border-t border-border pt-1">
                 {mode === 'reply' && can('templates.read') ? (
                   <Button
                     variant="ghost"
@@ -511,7 +563,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                     className="h-10 px-2 text-secondary sm:h-8"
                     aria-label="Send a template"
                     title="Send a template"
-                    disabled={disabled || busy}
+                    disabled={disabled || busy || !templatesAvailable}
                     onClick={() => setPicking(true)}
                   >
                     <FileText aria-hidden="true" />
@@ -547,7 +599,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                     title="Attach a file"
                     className={cn(
                       'inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 text-secondary hover:bg-neutral-soft sm:h-8',
-                      disabled && 'pointer-events-none opacity-60',
+                      (disabled || replyUnavailable || busy) && 'pointer-events-none opacity-60',
                       'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong',
                     )}
                   >
@@ -557,7 +609,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                     <input
                       type="file"
                       className="sr-only"
-                      disabled={disabled || busy}
+                      disabled={disabled || busy || replyUnavailable}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => {
                         const f = e.target.files?.[0]
                         if (f) attach.mutate(f)
@@ -573,17 +625,13 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                   )}
                   aria-label={mode === 'note' ? 'Save note' : 'Send'}
                   loading={busy}
-                  disabled={disabled || freeformRestricted || !text.trim()}
+                  disabled={disabled || replyUnavailable || !text.trim()}
                   onClick={submit}
                 >
                   {mode === 'note' ? <Lock aria-hidden="true" /> : <Send aria-hidden="true" />}
                   {mode === 'note' ? 'Save note' : 'Send'}
                 </Button>
               </div>
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -inset-px rounded-md border-2 border-transparent peer-focus-visible:border-primary-strong"
-              />
             </div>
             <p className="hidden self-end text-xs text-secondary sm:block">
               Enter to send · Shift+Enter for a new line
@@ -596,34 +644,44 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         open={picking}
         onOpenChange={setPicking}
         sending={send.isPending}
-        onSend={(t: TemplateSend) => send.mutate(t)}
+        onSend={(t: TemplateSend) => {
+          if (templatesAvailable) send.mutate(t)
+          else
+            toast.error(
+              'Template messages are unavailable. Review messaging eligibility in the customer details.',
+            )
+        }}
       />
     </div>
   )
 }
 
 /**
- * The composer's one-line explanation when free text can't be sent: warning-soft with a warning
- * edge; `action` only when that action can succeed.
+ * Compact eligibility notice; `action` only when that action can succeed.
  */
 function ComposerStrip({
   title,
   message,
   action,
+  live = true,
 }: {
   title: string
   message: string
   action?: ReactNode
+  live?: boolean
 }) {
   return (
     <div
       role="status"
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-l-4 border-warning bg-warning-soft py-2.5 pr-3 pl-3"
+      aria-live={live ? 'polite' : 'off'}
+      className="fw-inbox-composer-notice flex flex-col items-start gap-2 rounded-md border border-inbox-note-border bg-note-soft p-3"
     >
-      <Clock aria-hidden="true" className="size-5 shrink-0 text-warning-strong" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <p className="text-base font-semibold text-warning-strong">{title}</p>
-        <p className="text-sm text-slate">{message}</p>
+      <div className="flex min-w-0 flex-1 items-start gap-2">
+        <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-inbox-note-text" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="text-base font-semibold text-inbox-note-text">{title}</p>
+          <p className="text-sm text-slate">{message}</p>
+        </div>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
