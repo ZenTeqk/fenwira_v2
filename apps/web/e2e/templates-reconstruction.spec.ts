@@ -42,7 +42,7 @@ test('Templates read-only members see message context without write/sync actions
     ).toBe(200)
     await viewer.setViewportSize({ width: 1440, height: 1000 })
     await viewer.goto('/templates')
-    await expect(viewer.getByRole('link', { name: 'hello_world', exact: true })).toBeVisible()
+    await expect(viewer.getByRole('link', { name: 'Hello world', exact: true })).toBeVisible()
     await expect(viewer.getByRole('link', { name: 'Create template', exact: true })).toHaveCount(0)
     await expect(
       viewer.getByRole('button', { name: 'Sync with WhatsApp', exact: true }),

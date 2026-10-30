@@ -1,7 +1,7 @@
 'use client'
 
 import { type TemplateVersion } from '@fenwira/contracts'
-import { Button, cn } from '@fenwira/ui'
+import { Button } from '@fenwira/ui'
 import { useTemplateSampleUrl } from '@/lib/templates'
 import { TemplatePreview } from './template-preview'
 import { TemplatePhonePreview } from './template-phone-preview'
@@ -23,12 +23,7 @@ export function TemplateMessage({
   const sampleId = header && header.format !== 'TEXT' ? header.sampleFileId : null
   const sample = useTemplateSampleUrl(sampleId)
   return (
-    <div
-      className={cn(
-        'flex min-w-0 flex-col gap-2',
-        library && compact && '[&_figure>div>p]:line-clamp-4 [&_figure_img]:max-h-24',
-      )}
-    >
+    <div className="flex min-w-0 flex-col gap-2">
       {!compact ? (
         <TemplatePhonePreview
           components={version.components}
@@ -37,13 +32,22 @@ export function TemplateMessage({
           businessName={businessName}
         />
       ) : (
-        <TemplatePreview
-          components={version.components}
-          samples={version.samples}
-          headerImageUrl={sample.data}
-          compact={compact}
-          className={library ? 'max-w-none rounded-md p-2 [&_p]:text-sm [&_li]:py-1.5' : undefined}
-        />
+        <div
+          className={
+            library
+              ? 'fw-template-library-preview relative h-48 min-w-0 overflow-hidden rounded-lg bg-template-preview p-3'
+              : undefined
+          }
+        >
+          <TemplatePreview
+            components={version.components}
+            samples={version.samples}
+            headerImageUrl={sample.data}
+            compact={compact}
+            library={library}
+            className={library ? '[&_p]:text-sm [&_li]:py-1.5' : undefined}
+          />
+        </div>
       )}
       {sample.isError ? (
         <p className="text-sm text-secondary">

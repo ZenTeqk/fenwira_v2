@@ -43,6 +43,18 @@
   --color-thread-soft: #f3f2ed;
   --color-message-outbound: #d2f2df;
   --color-note-soft: #fff8eb;
+  --color-template-border: #e3e7e4;
+  --color-template-preview: #eef4f0;
+  --color-template-marketing: #f5f3ff;
+  --color-template-marketing-text: #6d28d9;
+  --color-template-authentication: #fff7ed;
+  --color-template-authentication-text: #c2410c;
+  --color-template-approved: #ecfdf5;
+  --color-template-approved-text: #047857;
+  --color-template-review: #fffbeb;
+  --color-template-attention: #fef2f2;
+  --color-template-preview-action: #e8f5ef;
+  --color-template-preview-action-hover: #d5eee2;
   --color-inbox-primary: #047857;
   --color-inbox-primary-hover: #065f46;
   --color-inbox-selected: #ecfdf5;
@@ -334,4 +346,20 @@
 .fw-inbox-customer-activity > li > span.absolute {
   top: 1.5rem;
   left: 0.75rem;
+}
+
+/* Template library only: preserve shared tab and preview defaults in other modules. */
+.fw-template-library [data-slot='tabs-trigger'][data-state='active'] {
+  border-color: var(--color-primary-strong);
+  color: var(--color-primary-strong);
+}
+.fw-template-library-preview::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2rem;
+  pointer-events: none;
+  background: linear-gradient(transparent, var(--color-template-preview));
 }

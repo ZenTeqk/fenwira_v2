@@ -300,3 +300,19 @@ Jump to message. Tabs, closing/reopening and delayed responses from another cust
 drafts, thread scroll and contact/workspace cache isolation intact. Loading, empty and retry states
 stay local to the affected section. Unsupported photos, note edit/delete and flow context remain
 absent. Evidence: `experience-v2/evidence/inbox-customer-refinement/`.
+
+### Templates library presentation
+
+Use the warm canvas behind individual white cards; only search and filters share a compact white
+toolbar. Keep 3/2/1 grid columns, 16–20px gaps, 12px card corners and 16px padding. A readable
+sentence-case title links to the existing detail route, with the unchanged technical name below.
+Category/language pills follow; approval has a consistent position and retains its actual label.
+Use the scoped category/status palette, icons and semantic count colours; zero counts stay neutral.
+
+The card preview is a 192px sage stage containing the existing white message bubble, media,
+header/footer/buttons and mint sample variables. Crop with a quiet bottom fade and no nested
+scrollbar; the working eye-button Preview opens complete content in the existing sheet. Keep
+timestamps and Preview aligned at the bottom. Media errors/retry remain outside the crop. Preserve
+server query filters, sync, creation, permissions, preview focus return and authoritative sending
+options. Do not introduce summary cards or menus without existing actions. The full recipient and
+editor previews keep their prior presentation. Evidence: `experience-v2/evidence/templates-polish/`.

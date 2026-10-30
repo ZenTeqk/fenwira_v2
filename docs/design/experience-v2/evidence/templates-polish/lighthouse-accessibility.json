@@ -1,0 +1,13 @@
+{
+  "capturedAt": "2026-10-30T14:06:33.266Z",
+  "lighthouse": "12.8.2",
+  "category": "accessibility",
+  "finalUrlsVerified": true,
+  "scores": [
+    {
+      "path": "/templates",
+      "score": 100,
+      "failing": []
+    }
+  ]
+}
