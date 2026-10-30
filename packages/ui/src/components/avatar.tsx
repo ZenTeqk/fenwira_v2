@@ -13,6 +13,8 @@ export type AvatarProps = {
   appearance?: 'default' | 'varied' | 'inbox'
   /** Stable contact ID when names change or are shared by several contacts. */
   identityKey?: string
+  /** Optional visible fallback (for example a generated contact's distinguishing number). */
+  fallbackLabel?: string
   className?: string
 }
 
@@ -54,6 +56,7 @@ export function Avatar({
   size = 'md',
   appearance = 'default',
   identityKey,
+  fallbackLabel,
   className,
 }: AvatarProps) {
   return (
@@ -77,7 +80,7 @@ export function Avatar({
         )}
         aria-label={name}
       >
-        {initials(name)}
+        {fallbackLabel ?? initials(name)}
       </AvatarPrimitive.Fallback>
     </AvatarPrimitive.Root>
   )

@@ -1,18 +1,40 @@
 'use client'
 
 import { type Contact, type ContactNote, type Conversation } from '@fenwira/contracts'
-import { Avatar, ErrorState, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@fenwira/ui'
-import { ArrowUpRight, Globe, Languages, Mail } from 'lucide-react'
-import { type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import {
+  Avatar,
+  Button,
+  Skeleton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  toast,
+} from '@fenwira/ui'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowUpRight, Copy, Pencil } from 'lucide-react'
 import Link from 'next/link'
+import { type ReactNode, useState } from 'react'
+import { ContactFormModal } from '@/components/contacts/contact-form-modal'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
+import { useProperties } from '@/lib/contacts'
+import { conversationAvatarLabel } from '@/lib/conversation-preview'
+import { displayName } from '@/lib/inbox'
 import { formatPhone } from '@/lib/phone'
+import { useRealtimeEvent, useRealtimeReconnect } from '@/lib/realtime'
 import { relativeTime } from '@/lib/relative-time'
-import { AssignControl } from './conversation-header'
-import { AutomationSection, ContactNotes, ContactTags, EligibilitySection } from './contact-details'
+import {
+  AutomationSection,
+  ContactNotes,
+  ContactTags,
+  CustomerAssignment,
+  CustomerPanelError,
+  EligibilitySection,
+} from './contact-details'
+import { CustomerActivity } from './customer-activity'
+import { CustomerFields } from './customer-fields'
 
 type PastConversation = {
   id: string
@@ -21,13 +43,8 @@ type PastConversation = {
   lastMessageAt: string | null
   lastMessagePreview: string | null
 }
-
 export type PanelTab = 'details' | 'activity' | 'files'
 
-/**
- * Contact details (docs/INBOX.md → Contact pane): profile, then Details | Shared files. The
- * profile comes from the conversation, so Shared files works without contacts.read.
- */
 export function ContactPane({
   contactId,
   conversation,
@@ -39,54 +56,145 @@ export function ContactPane({
   conversation: Conversation
   tab: PanelTab
   onTabChange: (tab: PanelTab) => void
-  /** The Shared files tab's content. */
   files: ReactNode
 }) {
-  const conversationId = conversation.id
   const { tenantId, can } = useSession()
+  const client = useQueryClient()
   const enabled = can('contacts.read')
   const base = keys.tenant(tenantId, 'contact', contactId)
+  const [editing, setEditing] = useState(false)
+  const [copying, setCopying] = useState(false)
   const contact = useQuery({
     queryKey: base,
-    queryFn: () => get<{ data: Contact }>(`/contacts/${contactId}`).then((r) => r.data),
+    queryFn: () =>
+      get<{ data: Contact }>(`/contacts/${contactId}`).then((response) => response.data),
     enabled,
+    refetchOnWindowFocus: true,
   })
   const notes = useQuery({
     queryKey: [...base, 'notes'],
-    queryFn: () => get<{ data: ContactNote[] }>(`/contacts/${contactId}/notes`).then((r) => r.data),
+    queryFn: () =>
+      get<{ data: ContactNote[] }>(`/contacts/${contactId}/notes`).then(
+        (response) => response.data,
+      ),
     enabled,
+    refetchOnWindowFocus: true,
   })
   const past = useQuery({
     queryKey: [...base, 'conversations'],
     queryFn: () =>
-      get<{ data: PastConversation[] }>(`/contacts/${contactId}/conversations`).then((r) => r.data),
-    enabled,
+      get<{ data: PastConversation[] }>(`/contacts/${contactId}/conversations`).then(
+        (response) => response.data,
+      ),
+    enabled: enabled && tab === 'activity',
+    refetchOnWindowFocus: true,
+  })
+  const definitions = useProperties()
+  const refresh = () => {
+    if (enabled) void client.invalidateQueries({ queryKey: base })
+  }
+  useRealtimeReconnect(refresh)
+  useRealtimeEvent<{ contactId?: string }>('contact.updated', (event) => {
+    if (event.contactId === contactId) {
+      refresh()
+      void client.invalidateQueries({ queryKey: keys.tenant(tenantId, 'inbox') })
+      void client.invalidateQueries({
+        queryKey: keys.tenant(tenantId, 'contacts', contactId, 'eligibility'),
+      })
+    }
+  })
+  useRealtimeEvent<{ contactId?: string }>('consent.changed', (event) => {
+    if (event.contactId === contactId) {
+      refresh()
+      void client.invalidateQueries({
+        queryKey: keys.tenant(tenantId, 'contacts', contactId, 'eligibility'),
+      })
+    }
+  })
+  const refreshActivity = (event: { conversationId?: string }) => {
+    if (event.conversationId === conversation.id)
+      void client.invalidateQueries({ queryKey: [...base, 'inbox-activity', conversation.id] })
+  }
+  useRealtimeEvent('conversation.assigned', refreshActivity)
+  useRealtimeEvent('conversation.updated', refreshActivity)
+  useRealtimeEvent<{ conversationId?: string; direction?: string }>('message.created', (event) => {
+    if (event.direction === 'SYSTEM') refreshActivity(event)
   })
   const who = conversation.contact
-  const name = who.name ?? who.waProfileName ?? formatPhone(who.phoneE164)
+  const name = displayName(conversation)
   const c = contact.data
-  const others = (past.data ?? []).filter((p) => p.id !== conversationId)
+  const editable = can('contacts.write') && definitions.isSuccess
+  const others = (past.data ?? []).filter(
+    (pastConversation) => pastConversation.id !== conversation.id,
+  )
+  const copyPhone = async () => {
+    if (copying) return
+    setCopying(true)
+    try {
+      await navigator.clipboard.writeText(who.phoneE164)
+      toast.success('Phone number copied')
+    } catch {
+      toast.error('Couldn’t copy the phone number. Select and copy it manually.')
+    } finally {
+      setCopying(false)
+    }
+  }
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center gap-3 px-4 pt-2 pb-4" aria-label="Customer identity">
+    <div className="flex min-w-0 flex-col">
+      <div
+        className="flex min-h-22 min-w-0 items-start gap-3 px-4 py-2"
+        aria-label="Customer identity"
+      >
         <Avatar
           appearance="inbox"
           identityKey={who.id}
+          fallbackLabel={conversationAvatarLabel(name)}
           name={name}
           size="lg"
-          className="size-12 text-lg"
+          className="size-10 shrink-0 text-md"
         />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h3 className="truncate text-md font-semibold text-slate" title={name}>
-            {name}
-          </h3>
-          <span className="text-base text-secondary tabular-nums">
-            {formatPhone(who.phoneE164)}
-          </span>
+          <div className="flex min-w-0 items-start gap-1">
+            <h3
+              className="min-w-0 flex-1 break-words text-md font-semibold text-slate"
+              title={name}
+            >
+              {name}
+            </h3>
+            {can('contacts.write') && c ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="-mt-1 size-8 shrink-0 sm:size-7"
+                aria-label="Edit contact"
+                title="Edit contact"
+                disabled={!editable}
+                onClick={() => setEditing(true)}
+              >
+                <Pencil aria-hidden="true" />
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex min-w-0 items-center gap-1">
+            <span className="min-w-0 select-text break-words text-base text-secondary tabular-nums">
+              {formatPhone(who.phoneE164)}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 shrink-0 sm:size-7"
+              aria-label="Copy phone number"
+              title="Copy phone number"
+              loading={copying}
+              onClick={() => void copyPhone()}
+            >
+              <Copy aria-hidden="true" />
+            </Button>
+          </div>
           {enabled ? (
             <Link
               href={`/contacts/${who.id}`}
-              className="inline-flex items-center gap-1 self-start text-base font-medium text-primary-strong underline-offset-4 hover:underline"
+              className="inline-flex items-center gap-1 self-start text-xs font-medium text-primary-strong hover:underline"
             >
               Open contact
               <ArrowUpRight aria-hidden="true" className="size-4" />
@@ -94,130 +202,133 @@ export function ContactPane({
           ) : null}
         </div>
       </div>
-      <Tabs value={tab} onValueChange={(v) => onTabChange(v as PanelTab)} className="gap-0">
-        <TabsList className="px-4" aria-label="Contact panel">
-          <TabsTrigger value="details" className="flex-1 justify-center">
+      <Tabs
+        value={tab}
+        onValueChange={(value) => onTabChange(value as PanelTab)}
+        className="min-w-0 gap-0"
+      >
+        <TabsList className="sticky top-0 z-10 shrink-0 bg-surface px-4" aria-label="Contact panel">
+          <TabsTrigger
+            value="details"
+            className="h-9 flex-1 justify-center px-2 py-0 text-sm"
+          >
             Overview
           </TabsTrigger>
           {enabled ? (
-            <TabsTrigger value="activity" className="flex-1 justify-center">
+            <TabsTrigger
+              value="activity"
+              className="h-9 flex-1 justify-center px-2 py-0 text-sm"
+            >
               Activity
             </TabsTrigger>
           ) : null}
-          <TabsTrigger value="files" className="flex-1 justify-center">
+          <TabsTrigger
+            value="files"
+            className="h-9 flex-1 justify-center px-2 py-0 text-sm"
+          >
             Files
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="files">{files}</TabsContent>
+        <TabsContent value="files" className="min-w-0">
+          {files}
+        </TabsContent>
         {enabled ? (
-          <TabsContent value="activity" className="p-4">
+          <TabsContent value="activity" className="flex min-w-0 flex-col gap-4 p-4">
+            <CustomerActivity contactId={contactId} conversationId={conversation.id} />
             {past.isPending ? (
-              <Skeleton className="h-24" />
+              <Skeleton className="h-12" />
             ) : past.isError ? (
-              <ErrorState
+              <CustomerPanelError
                 title="Conversation history couldn’t be loaded"
                 onRetry={() => void past.refetch()}
               />
+            ) : others.length ? (
+              <details className="border-t border-border pt-2">
+                <summary className="cursor-pointer py-1 text-base font-semibold text-slate">
+                  Other conversations ({others.length})
+                </summary>
+                <ul className="flex flex-col gap-2 pt-2">
+                  {others.map((pastConversation) => (
+                    <li key={pastConversation.id}>
+                      <Link
+                        href={`/inbox?c=${pastConversation.id}`}
+                        className="flex min-w-0 flex-col gap-1 border-l-2 border-primary-soft pl-2 text-base hover:underline"
+                      >
+                        <span className="line-clamp-2 break-words">
+                          {pastConversation.lastMessagePreview ?? 'No messages'}
+                        </span>
+                        <span className="text-xs text-secondary">
+                          Via {pastConversation.phoneNumber}
+                          {pastConversation.lastMessageAt
+                            ? ` · ${relativeTime(pastConversation.lastMessageAt)}`
+                            : ''}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             ) : (
-              <section aria-label="Conversation history" className="flex flex-col gap-3">
-                <h3 className="text-base font-semibold text-slate">Other conversations</h3>
-                {others.length ? (
-                  <ul className="flex flex-col gap-3">
-                    {others.map((p) => (
-                      <li key={p.id}>
-                        <Link
-                          href={`/inbox?c=${p.id}`}
-                          className="flex flex-col gap-1 border-l-2 border-primary-soft pl-3 text-sm hover:underline"
-                        >
-                          <span className="line-clamp-2">
-                            {p.lastMessagePreview ?? 'No messages'}
-                          </span>
-                          <span className="text-xs text-secondary">
-                            Via {p.phoneNumber}
-                            {p.lastMessageAt ? ` · ${relativeTime(p.lastMessageAt)}` : ''}
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-secondary">
-                    No other conversations with this customer.
-                  </p>
-                )}
-              </section>
+              <p className="text-xs text-secondary">No other conversations with this customer.</p>
             )}
           </TabsContent>
         ) : null}
-        <TabsContent value="details" className="flex flex-col gap-4 p-4">
+        <TabsContent value="details" className="flex min-w-0 flex-col gap-2 p-4">
+          <CustomerAssignment conversation={conversation} />
           {!enabled ? (
-            <p className="text-sm text-secondary">Your role can&apos;t view contact details.</p>
+            <p className="text-xs text-secondary">Your role can&apos;t view contact details.</p>
           ) : contact.isPending ? (
             <Skeleton className="h-40" />
           ) : contact.isError || !c ? (
-            <ErrorState
+            <CustomerPanelError
               title="Contact details couldn’t be loaded"
               onRetry={() => void contact.refetch()}
             />
           ) : (
             <>
-              <section
-                className="flex flex-col gap-2"
-                aria-labelledby={`${conversationId}-assigned`}
-              >
-                <h3 id={`${conversationId}-assigned`} className="text-sm font-semibold text-slate">
-                  Assigned to
-                </h3>
-                {/* The header's control: one source of truth (the conversation query). */}
-                <AssignControl c={conversation} variant="panel" />
-              </section>
               <ContactTags contact={c} />
-              <section
-                className="flex flex-col gap-2 border-t border-border pt-4"
-                aria-label="Contact fields"
-              >
-                <h3 className="text-base font-semibold text-slate">Contact details</h3>
-                <dl className="flex flex-col gap-2 text-base">
-                  <div className="flex min-w-0 items-start gap-2">
-                    <dt className="flex shrink-0 items-center gap-1">
-                      <Mail aria-hidden="true" className="size-4" />
-                      <span className="sr-only">Email</span>
-                    </dt>
-                    <dd className="min-w-0 break-words">
-                      {c.email ?? <span className="text-secondary">Email not provided</span>}
-                    </dd>
-                  </div>
-                  <div className="flex min-w-0 items-start gap-2">
-                    <dt className="flex shrink-0 items-center gap-1">
-                      <Languages aria-hidden="true" className="size-4" />
-                      <span className="sr-only">Language</span>
-                    </dt>
-                    <dd className="min-w-0 break-words">
-                      {c.language ?? <span className="text-secondary">Language not provided</span>}
-                    </dd>
-                  </div>
-                  {c.country ? (
-                    <div className="flex items-start gap-2">
-                      <dt>
-                        <Globe aria-hidden="true" className="size-4" />
-                        <span className="sr-only">Country</span>
-                      </dt>
-                      <dd>{c.country}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </section>
+              <CustomerFields
+                contact={c}
+                definitions={definitions.data ?? []}
+                editable={editable}
+                onEdit={() => setEditing(true)}
+              />
+              {definitions.isError && can('contacts.write') ? (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-7 self-start px-0 text-xs"
+                  onClick={() => void definitions.refetch()}
+                >
+                  Retry field definitions
+                </Button>
+              ) : null}
               <ContactNotes
+                key={contactId}
                 contactId={contactId}
                 notes={notes}
                 onRetry={() => void notes.refetch()}
               />
-              <EligibilitySection contact={c} conversationId={conversationId} />
+              <EligibilitySection contact={c} conversationId={conversation.id} />
               <AutomationSection conversation={conversation} />
             </>
           )}
         </TabsContent>
       </Tabs>
+      {editing && c && editable ? (
+        <ContactFormModal
+          open={editing}
+          onOpenChange={setEditing}
+          contact={c}
+          onSaved={(saved) => {
+            client.setQueryData(base, saved)
+            void client.invalidateQueries({ queryKey: keys.tenant(tenantId, 'contacts') })
+            void client.invalidateQueries({ queryKey: keys.tenant(tenantId, 'inbox') })
+            refresh()
+            toast.success('Contact updated')
+          }}
+        />
+      ) : null}
     </div>
   )
 }

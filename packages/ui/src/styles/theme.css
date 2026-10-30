@@ -205,6 +205,7 @@
   overflow-wrap: anywhere;
 }
 .fw-inbox-composer {
+  container-type: inline-size;
   padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 @media (max-width: 767px) {
@@ -281,4 +282,56 @@
   --text-lg--line-height: 1.5rem;
   font-size: var(--text-base);
   line-height: var(--text-base--line-height);
+}
+
+/* Allocate more space to the longer view label while retaining readable server counts. */
+.fw-inbox-view-segments {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.85fr);
+}
+@container (min-width: 400px) {
+  .fw-inbox-composer-notice {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+/* Right-panel density is opt-in; shared drawers, timelines and the centre panel keep defaults. */
+.fw-inbox-customer-panel {
+  overflow-wrap: anywhere;
+}
+.fw-inbox-customer-panel .lucide[class~='size-3.5'] {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.fw-inbox-customer-panel [data-slot='tabs-trigger'][data-state='active'] {
+  color: var(--color-primary-strong);
+}
+.fw-inbox-customer-panel > [data-slot='drawer-header'] {
+  min-height: 3rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+}
+.fw-inbox-customer-panel > [data-slot='drawer-header'] > button {
+  display: inline-flex;
+  min-width: 2rem;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+}
+.fw-inbox-customer-panel > [data-slot='drawer-body'] {
+  min-height: 0;
+  padding: 0;
+}
+.fw-inbox-customer-activity > li {
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+}
+.fw-inbox-customer-activity > li > span.relative {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.fw-inbox-customer-activity > li > span.absolute {
+  top: 1.5rem;
+  left: 0.75rem;
 }

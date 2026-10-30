@@ -18,7 +18,7 @@ import { ConversationList } from './conversation-list'
 import { ConversationStatusBar } from './conversation-status-bar'
 import { Thread } from './thread'
 
-/** Desktop details are always docked. Smaller desktops start with them collapsed. */
+/** Dock details only where the conversation has enough room beside both side panels. */
 function useMediaQuery(query: string) {
   const subscribe = useCallback(
     (callback: () => void) => {
@@ -66,9 +66,7 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
   const { tenantId, can, me } = useSession()
   const queryClient = useQueryClient()
   const wide = useMediaQuery('(min-width: 1280px)')
-  const desktop = useMediaQuery('(min-width: 1024px)')
   const [inlineOpen, setInlineOpen] = usePanelPreference(me.user.id)
-  const [compactOpen, setCompactOpen] = useState(false)
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [filtersExpanded, setFiltersExpanded] = useState(false)
   const [panelTab, setPanelTab] = useState<PanelTab>('details')
@@ -76,8 +74,8 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
   const panelId = useId()
   const toggle = useRef<HTMLButtonElement>(null)
   useEffect(() => {
-    if (desktop) setOverlayOpen(false)
-  }, [desktop])
+    if (wide) setOverlayOpen(false)
+  }, [wide])
 
   const key = keys.tenant(tenantId, 'inbox', 'conversation', id)
   const conversation = useQuery({
@@ -110,8 +108,8 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
       <ErrorState title="Conversation not available" onRetry={() => void conversation.refetch()} />
     )
   const c = conversation.data
-  const panelOpen = wide ? inlineOpen : desktop ? compactOpen : overlayOpen
-  const setPanelOpen = wide ? setInlineOpen : desktop ? setCompactOpen : setOverlayOpen
+  const panelOpen = wide ? inlineOpen : overlayOpen
+  const setPanelOpen = wide ? setInlineOpen : setOverlayOpen
   return (
     <div className="fw-inbox-compact-icons fw-inbox-compact-type flex min-h-0 min-w-0 flex-1">
       <section aria-label="Conversation" className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -123,7 +121,7 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
           onBack={onBack}
           contactExpanded={panelOpen}
           contactControlsId={panelId}
-          contactIsDrawer={!desktop}
+          contactIsDrawer={!wide}
           onToggleContact={() => setPanelOpen(!panelOpen)}
           onSharedFiles={() => {
             setPanelTab('files')
@@ -148,7 +146,7 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
       <ContactDetailsPanel
         id={panelId}
         conversation={c}
-        variant={desktop ? 'inline' : 'overlay'}
+        variant={wide ? 'inline' : 'overlay'}
         open={panelOpen}
         onOpenChange={setPanelOpen}
         returnFocus={toggle}
@@ -156,7 +154,7 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
         onTabChange={setPanelTab}
         onJump={(messageId) => {
           // The overlay covers the chat, so it closes to show the message.
-          if (!desktop) setOverlayOpen(false)
+          if (!wide) setOverlayOpen(false)
           setJump((j) => ({ id: messageId, seq: (j?.seq ?? 0) + 1 }))
         }}
       />

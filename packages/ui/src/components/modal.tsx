@@ -123,6 +123,7 @@ export function DrawerContent({
         {...props}
       >
         <div
+          data-slot="drawer-header"
           className={cn(
             'flex items-start justify-between gap-4 border-b p-4',
             tone === 'dark' ? 'border-slate-800' : 'border-border',
@@ -160,7 +161,9 @@ export function DrawerContent({
             </DialogPrimitive.Close>
           )}
         </div>
-        <div className="flex-1 overflow-y-auto p-4">{children}</div>
+        <div data-slot="drawer-body" className="flex-1 overflow-y-auto p-4">
+          {children}
+        </div>
         {footer ? (
           <div className="flex justify-end gap-2 border-t border-border p-4">{footer}</div>
         ) : null}

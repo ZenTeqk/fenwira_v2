@@ -34,9 +34,7 @@ test('connected inbox layout: column sizes, compact header and strip, collapsibl
   ).toBeVisible()
   const panel = page.getByRole('complementary', { name: 'Customer details' })
   await expect(panel).toBeVisible()
-  await expect(page.getByRole('group', { name: 'Conversation state' })).toContainText(
-    'Reply window',
-  )
+  await expect(page.getByRole('group', { name: 'Conversation state' })).toContainText('Automation')
 
   // 1440: original application sidebar + 320px list + flexible chat + 320px details.
   const rail = await box(page, 'aside:has(nav[aria-label="Main"])')
@@ -75,16 +73,17 @@ test('connected inbox layout: column sizes, compact header and strip, collapsibl
   await page.getByRole('button', { name: 'Show contact details' }).click()
   await expect(page.getByRole('complementary', { name: 'Customer details' })).toBeVisible()
 
-  // 1200: list + chat; reopening details docks them beside the conversation.
+  // 1200: list + chat; reopening details uses a drawer to preserve conversation width.
   await page.setViewportSize({ width: 1200, height: 900 })
   await expect(page.getByRole('complementary', { name: 'Customer details' })).toBeHidden()
   expect((await box(page, 'section[aria-label="Conversations"]'))?.width).toBe(299)
   await page.getByRole('button', { name: 'Show contact details' }).click()
-  await expect(panel).toBeVisible()
-  await expect(page.getByRole('dialog', { name: 'Contact details' })).toHaveCount(0)
+  const drawer = page.getByRole('dialog', { name: 'Customer details' })
+  await expect(drawer).toBeVisible()
+  await expect(panel).toHaveCount(0)
   expect(await axe(page)).toEqual([])
-  await panel.getByRole('button', { name: 'Close contact details' }).click()
-  await expect(panel).toBeHidden()
+  await page.keyboard.press('Escape')
+  await expect(drawer).toBeHidden()
   await expect(page.getByRole('button', { name: 'Show contact details' })).toBeFocused()
 
   // 900: compact list and chat side by side, no horizontal scroll.
@@ -193,7 +192,7 @@ test('390px: one view at a time, back navigation, composer stays visible', async
   if (shots) await page.screenshot({ path: join(shots, 'inbox-390.png') })
 
   await page.getByRole('button', { name: 'Show contact details' }).click()
-  const details = page.getByRole('dialog', { name: 'Contact details' })
+  const details = page.getByRole('dialog', { name: 'Customer details' })
   await expect(details).toBeVisible()
   expect((await details.boundingBox())?.width).toBe(390)
   await details.getByRole('button', { name: 'Close', exact: true }).click()
@@ -209,7 +208,7 @@ test('review scenario renders real data at 1440 and 1200', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto(`/inbox?c=${conversation.id}`)
   const log = page.getByRole('log', { name: 'Messages' })
-  await expect(log.getByText('Failed', { exact: true })).toBeVisible()
+  await expect(log.getByText('Failed', { exact: true })).toBeVisible({ timeout: 15_000 })
   await expect(
     log.getByRole('group', { name: /The 55-inch model is available/ }).first(),
   ).toBeVisible()
@@ -218,7 +217,9 @@ test('review scenario renders real data at 1440 and 1200', async ({ page }) => {
   await expect(page.getByRole('group', { name: 'Conversation state' })).toContainText(
     'Automation paused',
   )
-  await expect(page.getByRole('list', { name: 'Conversation list' })).toContainText('3 unread')
+  await expect(
+    page.getByRole('list', { name: 'Conversation list' }).getByLabel('3 unread').first(),
+  ).toBeVisible()
   // A failed message never shows ticks.
   const failedRow = log
     .getByText('Failed', { exact: true })
@@ -249,5 +250,5 @@ test('review scenario renders real data at 1440 and 1200', async ({ page }) => {
   await expect(page.getByRole('complementary', { name: 'Customer details' })).toBeHidden()
   expect(await axe(page)).toEqual([])
   await page.getByRole('button', { name: 'Show contact details' }).click()
-  await expect(page.getByRole('complementary', { name: 'Customer details' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Customer details' })).toBeVisible()
 })

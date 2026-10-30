@@ -13,6 +13,7 @@ import {
   DropdownTrigger,
   focusRing,
   StatusBadge,
+  Tooltip,
 } from '@fenwira/ui'
 import { type Ref } from 'react'
 import {
@@ -239,6 +240,7 @@ export function ConversationHeader({
         size="icon"
         className="-ml-2 size-10 md:hidden"
         aria-label="Back to conversations"
+        title="Back to conversations"
         onClick={onBack}
       >
         <ArrowLeft aria-hidden="true" />
@@ -279,16 +281,19 @@ export function ConversationHeader({
             </Button>
           )
         ) : null}
-        <Button
-          size="icon"
-          variant="secondary"
-          aria-label="Filter conversation messages"
-          aria-expanded={filtersExpanded}
-          onClick={onToggleFilters}
-          className="hidden @lg:inline-flex"
-        >
-          <ListFilter aria-hidden="true" />
-        </Button>
+        <Tooltip content="Filter conversation messages by type">
+          <Button
+            size="icon"
+            variant="secondary"
+            aria-label="Filter conversation messages"
+            title="Filter conversation messages by type"
+            aria-expanded={filtersExpanded}
+            onClick={onToggleFilters}
+            className="hidden @lg:inline-flex"
+          >
+            <ListFilter aria-hidden="true" />
+          </Button>
+        </Tooltip>
         <Dropdown>
           <DropdownTrigger asChild>
             <Button

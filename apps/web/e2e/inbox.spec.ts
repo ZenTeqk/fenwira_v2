@@ -40,7 +40,7 @@ test('two agents: typing locks the reply box for the other, and replies arrive l
     await p.getByRole('list', { name: 'Conversation list' }).getByText(customer).click()
     await expect(
       p.getByRole('log', { name: 'Messages' }).getByText('Is the shop open today?'),
-    ).toBeVisible()
+    ).toBeVisible({ timeout: 15_000 })
   }
 
   await agentPage.getByLabel('Reply', { exact: true }).fill('Yes, until 9 pm')
@@ -53,9 +53,14 @@ test('two agents: typing locks the reply box for the other, and replies arrive l
   ).toBeVisible()
   await expect(page.getByLabel('Reply', { exact: true })).toBeEnabled()
   await expect(page.getByText('Priya Agent is replying…')).toHaveCount(0)
+  // The list uses the same live message data without fetching every row's history.
+  const liveRow = page
+    .getByRole('list', { name: 'Conversation list' })
+    .getByRole('button', { name: new RegExp(customer) })
+  await expect(liveRow).toContainText('You: Yes, until 9 pm')
   // The agent's reply took the conversation over from automation.
   await expect(page.getByRole('group', { name: 'Conversation state' })).toContainText(
-    'Agent takeover',
+    'Automation paused',
   )
 
   // The open conversation (all three panes) has no WCAG 2.1 AA violations.

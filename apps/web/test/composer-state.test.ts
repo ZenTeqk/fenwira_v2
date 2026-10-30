@@ -36,9 +36,11 @@ describe('composerState', () => {
   })
 
   it('window closed: Choose template when a template can be sent', () => {
-    expect(
-      composerState({ ...base, windowOpen: false, eligibility: eligibility(false, true, false) }),
-    ).toEqual({ kind: 'template-only' })
+    const closed = eligibility(false, true, false)
+    closed.freeform.code = 'CONVERSATION_WINDOW_CLOSED'
+    expect(composerState({ ...base, windowOpen: false, eligibility: closed })).toEqual({
+      kind: 'template-only',
+    })
   })
 
   it('blockers override Choose template with an accurate message and no action', () => {
@@ -48,15 +50,31 @@ describe('composerState', () => {
         windowOpen: false,
         eligibility: eligibility(false, false, false, 'The customer opted out.'),
       }),
-    ).toEqual({ kind: 'blocked', title: 'Reply window closed', message: 'The customer opted out.' })
+    ).toEqual({ kind: 'reply-restricted', reason: 'The customer opted out.' })
     expect(
       composerState({ ...base, canSendTemplates: false, windowOpen: false, eligibility: undefined })
         .kind,
-    ).toBe('blocked')
+    ).toBe('checking')
     for (const numberStatus of ['RESTRICTED', 'DISCONNECTED'] as const)
       for (const windowOpen of [true, false])
         expect(
           composerState({ ...base, numberStatus, windowOpen, eligibility: undefined }),
         ).toMatchObject({ kind: 'blocked', title: 'WhatsApp number unavailable' })
+  })
+  it('does not assume a reply or template is permitted while eligibility is unknown', () => {
+    for (const windowOpen of [true, false])
+      expect(composerState({ ...base, windowOpen, eligibility: undefined })).toEqual({
+        kind: 'checking',
+      })
+  })
+  it('honours a closed-window server verdict even when the cached expiry is still open', () => {
+    const closed = eligibility(false, true, false)
+    closed.freeform.code = 'CONVERSATION_WINDOW_CLOSED'
+    expect(composerState({ ...base, windowOpen: true, eligibility: closed })).toEqual({
+      kind: 'template-only',
+    })
+    expect(
+      composerState({ ...base, windowOpen: false, canSendTemplates: false, eligibility: closed }),
+    ).toMatchObject({ kind: 'blocked', title: 'Template messages unavailable' })
   })
 })

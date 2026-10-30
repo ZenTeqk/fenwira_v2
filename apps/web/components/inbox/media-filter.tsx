@@ -10,7 +10,15 @@ import {
 } from '@fenwira/contracts'
 import { Button, cn, ErrorState, focusRing, Skeleton } from '@fenwira/ui'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, FileText, Image as ImageIcon, Play, Video } from 'lucide-react'
+import {
+  ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Image as ImageIcon,
+  Play,
+  Video,
+} from 'lucide-react'
 import Image from 'next/image'
 import { type ReactNode, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
@@ -117,6 +125,7 @@ export function ThreadFilterChips({
           size="icon"
           className="size-8 text-secondary sm:size-6"
           aria-label="Scroll message filters left"
+          title="Scroll message filters left"
           aria-controls={viewportId}
           disabled={!scroll.left}
           onClick={() => move(-1)}
@@ -172,6 +181,7 @@ export function ThreadFilterChips({
           size="icon"
           className="size-8 text-secondary sm:size-6"
           aria-label="Scroll message filters right"
+          title="Scroll message filters right"
           aria-controls={viewportId}
           disabled={!scroll.right}
           onClick={() => move(1)}
@@ -234,12 +244,15 @@ export function MediaResults({
   filter,
   loaded,
   onJump,
+  compact = false,
 }: {
   conversationId: string
   filter: ThreadMediaFilter
   /** Messages already in the thread: filtered client-side while the server page loads. */
   loaded: Message[]
   onJump: (messageId: string) => void
+  /** Customer-panel presentation only; the centre panel retains its existing layout. */
+  compact?: boolean
 }) {
   const { tenantId } = useSession()
   const kind = MEDIA_FILTER_KIND[filter]
@@ -262,19 +275,46 @@ export function MediaResults({
   const items = (query.data?.pages ?? []).flatMap((p) => p.data)
 
   if (query.isError)
-    return <ErrorState title="Media couldn’t be loaded" onRetry={() => void query.refetch()} />
+    return (
+      <ErrorState
+        title="Media couldn’t be loaded"
+        onRetry={() => void query.refetch()}
+        className={
+          compact
+            ? 'items-start gap-2 p-4 text-left [&>div:first-child]:hidden [&_p]:text-xs'
+            : undefined
+        }
+      />
+    )
   if (query.isPending)
     return (
-      <div className="grid grid-cols-3 gap-2 p-4 sm:grid-cols-4">
-        {Array.from({ length: 8 }, (_, i) => (
-          <Skeleton key={i} className="aspect-square w-full" />
+      <div
+        className={cn(
+          'grid gap-2 p-4',
+          compact
+            ? kind === 'DOCUMENT'
+              ? 'grid-cols-1'
+              : 'grid-cols-2'
+            : 'grid-cols-3 sm:grid-cols-4',
+        )}
+      >
+        {Array.from({ length: compact ? (kind === 'DOCUMENT' ? 3 : 4) : 8 }, (_, i) => (
+          <Skeleton
+            key={i}
+            className={compact && kind === 'DOCUMENT' ? 'h-14 w-full' : 'aspect-square w-full'}
+          />
         ))}
       </div>
     )
   if (!items.length) {
     const Icon = EMPTY_ICON[filter]
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+      <div
+        className={cn(
+          'flex flex-1 flex-col items-center justify-center text-center',
+          compact ? 'gap-2 p-4' : 'gap-3 p-8',
+        )}
+      >
         <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-soft">
           <Icon aria-hidden="true" className="size-6 text-secondary" />
         </span>
@@ -283,8 +323,15 @@ export function MediaResults({
     )
   }
   const jump = (m: Message) => (
-    <Button variant="link" size="sm" onClick={() => onJump(m.id)}>
-      Jump to message
+    <Button
+      variant="link"
+      size="sm"
+      className={compact ? 'size-7 shrink-0 p-0' : undefined}
+      aria-label={compact ? 'Jump to message' : undefined}
+      title={compact ? `Jump to message: ${nameOf(m) ?? 'Attachment'}` : undefined}
+      onClick={() => onJump(m.id)}
+    >
+      {compact ? <ArrowUpRight aria-hidden="true" /> : 'Jump to message'}
     </Button>
   )
   return (
@@ -292,13 +339,13 @@ export function MediaResults({
       {kind === 'DOCUMENT' ? (
         <ul aria-label="Documents" className="flex flex-col gap-2">
           {items.map((m) => (
-            <DocumentRow key={m.id} m={m} action={jump(m)} />
+            <DocumentRow key={m.id} m={m} action={jump(m)} compact={compact} />
           ))}
         </ul>
       ) : (
         <ul
           aria-label={kind === 'IMAGE' ? 'Images' : 'Videos'}
-          className="grid grid-cols-3 gap-3 sm:grid-cols-4"
+          className={cn('grid gap-3', compact ? 'grid-cols-2' : 'grid-cols-3 sm:grid-cols-4')}
         >
           {items.map((m) => (
             <li key={m.id} className="flex flex-col items-start gap-1">
@@ -337,7 +384,15 @@ export function MediaResults({
   )
 }
 
-function DocumentRow({ m, action }: { m: Message; action: ReactNode }) {
+function DocumentRow({
+  m,
+  action,
+  compact = false,
+}: {
+  m: Message
+  action: ReactNode
+  compact?: boolean
+}) {
   const fileId = fileIdOf(m)
   const url = useFileUrl(fileId)
   const name = nameOf(m) ?? 'Document'
@@ -349,7 +404,12 @@ function DocumentRow({ m, action }: { m: Message; action: ReactNode }) {
     .filter(Boolean)
     .join(' · ')
   return (
-    <li className="flex items-center gap-3 rounded-md border border-border bg-surface px-3 py-2">
+    <li
+      className={cn(
+        'flex min-w-0 items-center rounded-md border border-border bg-surface py-2',
+        compact ? 'gap-2 px-2' : 'gap-3 px-3',
+      )}
+    >
       <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-neutral-soft">
         <FileText aria-hidden="true" className="size-5 text-secondary" />
       </span>
@@ -359,14 +419,27 @@ function DocumentRow({ m, action }: { m: Message; action: ReactNode }) {
             href={url.data}
             target="_blank"
             rel="noreferrer"
-            className={cn('truncate font-medium text-primary-strong underline', focusRing)}
+            title={name}
+            className={cn(
+              compact ? 'line-clamp-2 break-words text-base' : 'truncate',
+              'font-medium text-primary-strong underline',
+              focusRing,
+            )}
           >
             {name}
           </a>
         ) : (
-          <span className="truncate font-medium text-slate">{name}</span>
+          <span
+            title={name}
+            className={cn(
+              compact ? 'line-clamp-2 break-words text-base' : 'truncate',
+              'font-medium text-slate',
+            )}
+          >
+            {name}
+          </span>
         )}
-        <span className="text-xs text-muted">{meta}</span>
+        <span className={cn('text-xs text-muted', compact && 'break-words')}>{meta}</span>
       </div>
       {action}
     </li>

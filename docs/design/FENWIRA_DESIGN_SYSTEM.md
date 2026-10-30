@@ -249,8 +249,8 @@ This presentation is scoped with `fw-inbox-theme` inside the Inbox workspace. Th
 sidebar and topbar retain their original presentation, including the 224px expanded / 64px
 collapsed sidebar and original palette. At 1440px the conversation list and customer panel are
 320px each, and the thread fills the remainder. The topbar is 56px, conversation header 72px,
-rows at least 80px and avatars 40px. Below 1280px desktop customer details start collapsed and reopen docked; below 1024px
-they use the existing accessible drawer; below 768px list and conversation are separate views.
+conversation rows at least 76px with 36px avatars. Below 1280px customer details use the
+existing accessible drawer; below 768px list and conversation are separate views.
 
 Inbox semantic tokens: action `inbox-primary` #047857, hover #065F46, selected #ECFDF5,
 outbound #E8F7F0, main text #172B25, secondary #66756F, border #E5EAE7. The existing
@@ -264,7 +264,7 @@ lavender (#EBDDFB/#66379B), peach (#FFE1C7/#974613), mint (#CFF3E8/#065F46) or b
 (#DAE7FF/#274B97). These are identity colors and convey no presence or status.
 
 The docked rectangular composer retains the existing send, template, immediate file-upload,
-internal-note, draft and collision-control paths. It grows to 160px and respects IME entry.
+internal-note, draft and collision-control paths. Its input grows to 180px and respects IME entry.
 Message-type filters remain accessible from the header and its overflow menu. Overview,
 Activity (existing conversation history) and Files use real permission-gated data. Team,
 pinning, emoji and new-conversation controls are omitted because the inbox has no such
@@ -276,7 +276,8 @@ Within conversation and customer panels only, use 14px action glyphs, 12px metad
 18–20px file icons and 24px media play marks. Scope this with `fw-inbox-compact-icons`, including
 the customer drawer. File-icon containers are 32px and desktop icon-only controls 32px;
 preserve mobile targets. Global navigation and avatars retain their existing sizes. The
-redundant list view menu is removed; its unique agent-takeover filter remains a text toggle.
+redundant list view menu is removed; its unique agent-takeover filter is in the advanced menu
+beside search, with a removable active chip.
 
 ### Inbox typography density refinement
 
@@ -285,3 +286,97 @@ customer drawer. Body text is 13px, supporting text and metadata 12px, compact h
 and panel titles 16px. Message text uses a 1.5 line height for readability. The application
 navigation and inbox conversation-list typography retain their existing scale. This uses
 scoped typography tokens so controls, messages and details share a consistent hierarchy.
+
+### Conversation-list refinement (2026-10-30)
+
+The list keeps its 320px desktop width and original application navigation. Its fixed control
+area uses an 18px Inbox heading, 36px search with an adjacent advanced-filter button, a 36px
+neutral segmented group (32px buttons), and 32px status/unread controls. Selected segments
+use a white surface, subtle border/shadow and emerald text instead of an underline. Counts
+come from the existing server endpoint; compact visible numbers retain full accessible labels.
+Agent takeover moves into the advanced menu, with a removable chip while active. Counts remain
+hidden during takeover filtering because the count endpoint does not support that combination.
+
+Rows have a 76px minimum height, 36px stable identity avatars, 14px names, 13px one-line previews
+and 12px timestamps. An 8px list inset surrounds rounded mint selection; its short inset
+indicator is 3px wide. Rows grow with text scaling. Unread uses weight, darker preview text and
+a labelled count. Keyboard focus has its own outline and never selects or marks a row read.
+Hover/tinted-surface text uses main text for AA contrast. Full names and assignment context
+remain available through the shared tooltip. Only the generated `Textile Demo Shopper N`
+pattern substitutes its final number for normal initials; other names keep their initials.
+
+Previews use stored summaries, with richer content from already-loaded unfiltered thread
+caches when their latest-message timestamp matches. Frozen template bodies are used only
+without unresolved variable markers. Fallback template names replace underscores with spaces;
+the message details retain technical identifiers. Search snippets keep priority without inferred
+sender attribution. Delivery/failure states use inline `StatusBadge`; event updates refresh
+existing caches without per-row requests. Current summaries do not expose direction, status,
+rendered template body or contact photos, so those are not synthesized for unloaded rows.
+
+Customer context docks at 1280px and above; narrower desktop/tablet widths use the accessible
+drawer to keep the conversation usable. System events use 12px text, small corners and reduced
+padding/margins without grouping or hiding history. The composer eligibility notice uses a
+single subtle amber border, small clock, concise copy and the existing template action. Its
+action stacks below the copy when the composer container is narrower than 400px.
+
+### Centre-panel reply-window refinement
+
+The centre panel has one reply-window indicator, beside the composer tabs in Reply mode.
+`useReplyWindow` shares the existing eligibility query and one countdown timeout. It uses the
+server expiry, checks on focus/visibility, reconnection, inbound messages and eligibility or
+conversation-window updates, and clears its listeners/timeouts on unmount. More than 60 minutes
+uses muted inline text; 15–60 minutes uses amber inline text; the last 15 minutes uses a small
+amber badge and one helper sentence. Positive partial minutes round up; expired windows never
+show 0m. The tooltip uses the existing workspace metadata query/timezone and AM/PM dates, with
+the established India timezone convention as metadata fallback. Minute changes are not live
+announcements; expiry is announced politely. Internal notes hide all customer-window messaging.
+
+Unknown/failed eligibility checks do not enable sending. Server contact/consent/number blockers
+retain their own explanations. A closed-window rejection removes the optimistic message,
+preserves the draft, refreshes eligibility and offers only permitted template actions. The closed
+notice says “Choose an approved template to message this customer.” It uses 12px padding and
+the existing subtle amber treatment and responsive action layout.
+
+The unified composer has 12px padding, an 80px resting input, 180px input maximum, one toolbar
+and 12px keyboard hint; its normal desktop height is approximately 196px. Text scaling can grow
+the container. Note mode retains its amber surface/lock. The header strip is now automation-only,
+neutral and approximately 36px on desktop. Explicit takeover shows Automation paused; explicit
+pause shows Automation paused manually; active policy retains Take over. Existing permissions,
+mutation pending/error behavior and automation endpoint remain authoritative. The API exposes
+policy state, not flow applicability or detailed pause reasons; no running flow is inferred.
+
+Timeline system events retain every entry, timestamp and historical wording, with small relevant
+icons and no outlined pill. Document bubbles use 12px horizontal padding and compact 8px card
+padding/gaps, retaining real filename/type/size, downloads, sender grouping and receipt states.
+
+### Customer-panel refinement
+
+The right panel retains its 320px desktop width, accessible drawer below 1280px and independent
+scrolling. Its heading uses a 48px minimum row; the profile has an 88px minimum, a 40px avatar,
+14px wrapping name, 13px phone and 12px Open contact link. Profile identity reuses the list's
+contact identity and generated-name fallback. Phone copying reports success or failure through
+accessible toasts. Existing contact editing opens from the profile or missing-field actions only
+with write permission and loaded property definitions. Tabs are 36px with a thin emerald selection
+and stay at the top of the panel's scroller. These are minimums and can grow with text scaling.
+
+Overview uses 16px horizontal padding, 13px section headings/values and 12px secondary text.
+Sections combine 8px top padding with 8px gaps and fine separators. Assignment keeps the existing
+actions in a 32px desktop/36px mobile dropdown. Tags retain semantic colours, 24px minimum height,
+wrapping labels and labelled remove/add controls. Label/value rows show stored email/language,
+readable country names and actual custom properties. Missing fields use working edit actions or
+a dash according to permissions. No attributes or consent are inferred.
+
+Contact notes use pale amber cards with 8px padding, three-line previews, full-content expansion
+and 12px author/time metadata. The count covers all loaded notes; Show all preserves access to
+every note. Messaging eligibility and automation are collapsed by default. Eligibility uses actual
+backend verdicts with small amber restriction badges and recorded reasons/consent on expansion;
+unknown values never appear allowed. Automation uses a neutral inline badge for the explicit
+policy state. No countdown, template picker or Resume automation action is duplicated here.
+
+Activity merges recorded contact tag/note audits with conversation assignment/automation system
+events, newest first. Independent cursors and a shared coverage boundary preserve chronological
+order without paging or scrolling the chat. Files retain existing image/video/document filters,
+authorized file links and Jump to message, with compact rows and two-column media thumbnails.
+Drawer density and timeline rules are scoped to the customer-panel marker; other modules keep
+their default components. Current APIs expose no contact photo, note edit/delete, flow applicability
+or detailed automation context; the panel does not invent those capabilities.

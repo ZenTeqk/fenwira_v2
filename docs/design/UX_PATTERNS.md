@@ -236,9 +236,61 @@ icon-only collapsed desktop sidebar retains its module link.
 
 The user's approved inbox reference supersedes the older Inbox shell/density checkpoints:
 original application navigation, 320px conversation list and 320px customer context at 1440px;
-compact 56px global header, flexible warm thread, 80px conversation rows and one docked
+compact 56px global header, flexible warm thread, 76px minimum conversation rows and one docked
 rectangular composer. The latest user correction preserves the original sidebar and topbar.
-Scope the new palette inside Inbox so navigation retains its original presentation. Customer details start collapsed below 1280px and reopen docked on desktop; below 1024px
-they use the existing drawer, while mobile
+Scope the new palette inside Inbox so navigation retains its original presentation. Customer details
+use the existing accessible drawer below 1280px, while mobile
 keeps sequential list/chat/details navigation. All/Mine/Unassigned use server counts; message
 filters open on demand. See the design-system section for tokens and supported capabilities.
+
+### Conversation-list refinement
+
+The latest inbox refinement replaces the underline view tabs with a compact neutral segmented
+selector and moves Agent takeover beside search in an advanced-filter menu. An active takeover
+chip is removable; view/status/unread/search combinations retain their original server semantics.
+Rows use 36px stable identity avatars, one-line previews, a right timestamp/count column and
+rounded mint selection with a short emerald inset indicator. Focusing a row shows its full name
+and context without opening or marking it read. Keep controls fixed above the scrolling list.
+
+Existing thread caches can enrich matching latest-message summaries without extra requests;
+unavailable direction, rendered template text, delivery status and photos remain unavailable.
+Do not manufacture values from identifiers. Below 1280px, details now use the accessible drawer
+instead of reopening a narrow docked panel. Compact system events preserve every history entry;
+the amber closed-window notice retains the existing eligibility and Choose template action.
+
+### Centre-panel reply-window refinement
+
+Keep the sole centre-panel countdown next to Reply/Internal note in the composer. The header
+strip describes automation only. Use muted, amber and imminent badge treatments at the 60/15
+minute thresholds, with one short imminent-expiry explanation and a compact closed-window
+template notice afterward. Never display a countdown or customer restriction in note mode.
+Unknown eligibility disables customer sends; actual server restrictions and rejected sends retain
+their explanations and drafts. Recheck on focus, reconnect, inbound updates and expiry without
+announcing every minute. The expiry tooltip follows the workspace timezone.
+
+Use one compact composer surface, 80–180px input, one toolbar and a quiet keyboard hint.
+System events have small contextual icons and no outlined pills; attachment cards reduce padding
+without changing file permissions, receipts or history grouping. The original application shell,
+conversation list and customer-panel presentation retain the preceding refinements.
+
+### Customer-panel refinement
+
+The right context panel now uses a compact profile, sticky 36px tabs and independent scrolling.
+Keep its 320px dock, original collapse/reopen focus and accessible mobile drawer. Reuse the same
+avatar identity as the conversation list, including generated numbered names. Copy phone reports
+accessible feedback; Edit and missing-field actions reuse the existing validated contact editor.
+
+Overview orders assignment, tags, label/value contact fields, contact notes, eligibility and
+automation. Use wrapping semantic tags, readable stored country names and compact amber note
+previews that expand to full content. The notes count remains complete even when only the first
+three cards are initially shown. Read-only roles get values and quiet missing-field dashes.
+Eligibility and automation start collapsed with truthful summaries and recorded details. Keep the
+sole countdown, template action and primary Resume action in the centre panel.
+
+Activity shows recorded assignment, tags, contact notes and automation events newest first.
+Page its two existing data sources independently from the chat, revealing older events only when
+both cursors cover that time range. Files preserve authorized links, existing type filters and
+Jump to message. Tabs, closing/reopening and delayed responses from another customer must keep
+drafts, thread scroll and contact/workspace cache isolation intact. Loading, empty and retry states
+stay local to the affected section. Unsupported photos, note edit/delete and flow context remain
+absent. Evidence: `experience-v2/evidence/inbox-customer-refinement/`.
