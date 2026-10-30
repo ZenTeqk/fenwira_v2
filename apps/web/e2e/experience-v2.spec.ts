@@ -105,7 +105,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
   const list = page.getByRole('list', { name: 'Conversation list' })
   await expect(list.getByText(customer)).toBeVisible()
   // Unread only is a server filter; the tabs show server counts for the same filters.
-  const unread = page.getByRole('switch', { name: 'Unread only' })
+  const unread = page.getByRole('button', { name: 'Unread', exact: true })
   await Promise.all([
     page.waitForResponse(
       (r) =>
@@ -114,18 +114,16 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     ),
     unread.click(),
   ])
-  await expect(unread).toBeChecked()
-  // Views live in the Filter menu, with server counts.
-  await page.getByRole('button', { name: /^Filter · All conversations/ }).click()
-  const menu = page.getByRole('menu')
-  await expect(menu.getByRole('menuitem', { name: /^All conversations \d+/ })).toHaveAttribute(
-    'aria-current',
+  await expect(unread).toHaveAttribute('aria-pressed', 'true')
+  // The visible tabs are the only selector for All / Mine / Unassigned.
+  const views = page.getByRole('group', { name: 'Inbox views', exact: true })
+  await expect(views.getByRole('button', { name: /^All \d+/ })).toHaveAttribute(
+    'aria-pressed',
     'true',
   )
-  await menu.getByRole('menuitem', { name: /^Mine/ }).click()
+  await views.getByRole('button', { name: /^Mine/ }).click()
   await expect(page.getByRole('heading', { name: /^Mine/ })).toBeVisible()
-  await page.getByRole('button', { name: /^Filter · Mine/ }).click()
-  await menu.getByRole('menuitem', { name: /^All conversations/ }).click()
+  await views.getByRole('button', { name: /^All/ }).click()
   await unread.click()
   await list.getByText(customer).click()
   await expect(
@@ -137,8 +135,8 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     page.getByRole('log', { name: 'Messages' }).getByText('I’ll check the delivery for you.'),
   ).toBeVisible()
   await expect(page.getByLabel('Reply', { exact: true })).toHaveValue('')
-  // Send swaps out once the reply is sent and the box is empty.
-  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeHidden()
+  // The docked Send action stays visible and is disabled for an empty draft.
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled()
   await page.getByRole('tab', { name: 'Internal note', exact: true }).click()
   await page
     .getByLabel('Internal note', { exact: true })
@@ -148,7 +146,7 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     page.getByRole('log', { name: 'Messages' }).getByText('Delivery needs a follow-up tomorrow.'),
   ).toBeVisible()
   await expect(
-    page.getByRole('log', { name: 'Messages' }).getByText(/Private note ·/),
+    page.getByRole('log', { name: 'Messages' }).getByText(/Internal note ·/),
   ).toBeVisible()
   await page.getByRole('tab', { name: 'Reply', exact: true }).click()
   for (const width of WIDTHS) {
@@ -164,19 +162,23 @@ test('Inbox views, reply/note and sequential context stay accessible at four wid
     if (width < 1440) {
       await page.getByRole('button', { name: 'Show contact details' }).click()
       await page
-        .getByRole('dialog', { name: 'Contact details', exact: true })
+        .getByRole(width >= 1024 ? 'complementary' : 'dialog', {
+          name: width >= 1024 ? 'Customer details' : 'Contact details',
+          exact: true,
+        })
         .getByRole('button', { name: 'Messaging eligibility' })
         .click()
       await expect(
         page
-          .getByRole('dialog', { name: 'Contact details', exact: true })
+          .getByRole(width >= 1024 ? 'complementary' : 'dialog', {
+            name: width >= 1024 ? 'Customer details' : 'Contact details',
+            exact: true,
+          })
           .getByRole('region', { name: 'Messaging eligibility' }),
       ).toBeVisible()
-      expect(
-        (await new AxeBuilder({ page }).withTags(TAGS).include('[data-slot="drawer"]').analyze())
-          .violations,
-      ).toEqual([])
-      await page.keyboard.press('Escape')
+      expect((await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations).toEqual([])
+      if (width >= 1024) await page.getByRole('button', { name: 'Close contact details' }).click()
+      else await page.keyboard.press('Escape')
       await expect(page.getByRole('button', { name: 'Show contact details' })).toBeFocused()
     }
   }

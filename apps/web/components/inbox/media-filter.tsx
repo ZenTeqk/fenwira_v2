@@ -10,9 +10,9 @@ import {
 } from '@fenwira/contracts'
 import { Button, cn, ErrorState, focusRing, Skeleton } from '@fenwira/ui'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { FileText, Image as ImageIcon, Play, Video } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText, Image as ImageIcon, Play, Video } from 'lucide-react'
 import Image from 'next/image'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
@@ -55,40 +55,130 @@ export function ThreadFilterChips({
   counts: ChipCounts | undefined
   onChange: (value: ThreadFilter | null) => void
 }) {
+  const row = useRef<HTMLDivElement>(null)
+  const viewport = useRef<HTMLDivElement>(null)
+  const content = useRef<HTMLDivElement>(null)
+  const viewportId = useId()
+  const [scroll, setScroll] = useState({ overflow: false, left: false, right: false })
+  useLayoutEffect(() => {
+    const root = row.current
+    const el = viewport.current
+    const items = content.current
+    if (!root || !el || !items) return
+    const update = () => {
+      // Measure against the entire row, so adding the arrows cannot keep them visible
+      // unnecessarily after the conversation grows or counts become shorter.
+      const style = getComputedStyle(root)
+      const available =
+        root.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+      const overflow = items.scrollWidth > available + 1
+      const next = {
+        overflow,
+        left: overflow && el.scrollLeft > 1,
+        right: overflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+      }
+      setScroll((previous) =>
+        previous.overflow === next.overflow &&
+        previous.left === next.left &&
+        previous.right === next.right
+          ? previous
+          : next,
+      )
+    }
+    update()
+    const resize = new ResizeObserver(update)
+    resize.observe(root)
+    resize.observe(el)
+    resize.observe(items)
+    el.addEventListener('scroll', update, { passive: true })
+    return () => {
+      resize.disconnect()
+      el.removeEventListener('scroll', update)
+    }
+  }, [])
+  const move = (direction: number) => {
+    const el = viewport.current
+    if (!el) return
+    el.scrollBy({
+      left: direction * el.clientWidth * 0.8,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    })
+  }
   return (
     <div
+      ref={row}
       role="group"
       aria-label="Show messages"
-      className="flex shrink-0 gap-2 overflow-x-auto border-b border-border bg-surface px-5 py-2"
+      className="flex min-w-0 shrink-0 items-center gap-1 border-b border-border bg-surface px-3 py-0.5"
     >
-      {CHIPS.map((chip) => {
-        const active = chip.value === value
-        const count = counts?.[chip.count]
-        return (
-          <button
-            key={chip.label}
-            type="button"
-            aria-pressed={active}
-            // Clicking the active chip goes back to All.
-            onClick={() => onChange(active ? null : chip.value)}
-            className={cn(
-              'group flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors',
-              focusRing,
-              active
-                ? 'border-primary-strong bg-primary-soft text-primary-strong'
-                : 'border-border-strong bg-surface text-secondary hover:bg-neutral-soft hover:text-slate',
-            )}
-          >
-            {chip.label}
-            {count !== undefined ? ' ' : null}
-            {count !== undefined ? (
-              <span className={cn('tabular-nums', active ? 'text-primary-strong' : 'text-muted')}>
-                {count}
-              </span>
-            ) : null}
-          </button>
-        )
-      })}
+      {scroll.overflow ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 text-secondary sm:size-6"
+          aria-label="Scroll message filters left"
+          aria-controls={viewportId}
+          disabled={!scroll.left}
+          onClick={() => move(-1)}
+        >
+          <ChevronLeft aria-hidden="true" />
+        </Button>
+      ) : null}
+      <div
+        ref={viewport}
+        id={viewportId}
+        data-slot="message-filter-scroll"
+        className="fw-inbox-filter-scroll min-w-0 flex-1 snap-x snap-proximity overflow-x-auto"
+        onFocusCapture={(event) => {
+          if (event.target instanceof HTMLButtonElement)
+            event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+        }}
+      >
+        <div ref={content} className="flex w-max items-center gap-1 p-1">
+          {CHIPS.map((chip) => {
+            const active = chip.value === value
+            const count = counts?.[chip.count]
+            return (
+              <button
+                key={chip.label}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onChange(active ? null : chip.value)}
+                className={cn(
+                  'group flex h-8 shrink-0 snap-start scroll-mx-1 items-center gap-1 rounded-md border px-1.5 text-xs font-medium whitespace-nowrap transition-colors sm:h-6',
+                  focusRing,
+                  active
+                    ? 'border-primary-strong bg-primary-soft text-primary-strong'
+                    : 'border-border-strong bg-surface text-secondary hover:bg-neutral-soft hover:text-slate',
+                )}
+              >
+                {chip.label}
+                {count !== undefined ? ' ' : null}
+                {count !== undefined ? (
+                  <span
+                    className={cn('tabular-nums', active ? 'text-primary-strong' : 'text-muted')}
+                  >
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      {scroll.overflow ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 text-secondary sm:size-6"
+          aria-label="Scroll message filters right"
+          aria-controls={viewportId}
+          disabled={!scroll.right}
+          onClick={() => move(1)}
+        >
+          <ChevronRight aria-hidden="true" />
+        </Button>
+      ) : null}
     </div>
   )
 }
@@ -185,7 +275,7 @@ export function MediaResults({
     const Icon = EMPTY_ICON[filter]
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-        <span className="flex size-12 items-center justify-center rounded-lg bg-neutral-soft">
+        <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-soft">
           <Icon aria-hidden="true" className="size-6 text-secondary" />
         </span>
         <p className="text-sm text-muted">No {NOUN[filter]} in this conversation</p>
@@ -260,7 +350,7 @@ function DocumentRow({ m, action }: { m: Message; action: ReactNode }) {
     .join(' · ')
   return (
     <li className="flex items-center gap-3 rounded-md border border-border bg-surface px-3 py-2">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-neutral-soft">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-neutral-soft">
         <FileText aria-hidden="true" className="size-5 text-secondary" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col">

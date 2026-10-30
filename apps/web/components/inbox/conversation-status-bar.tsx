@@ -29,12 +29,13 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
     <div
       role="group"
       aria-label="Conversation state"
-      className="flex h-11 shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-background px-5"
+      className="mx-3 mb-2 flex min-h-10 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-info-soft px-3 py-2 md:mx-4"
     >
       <span title="WhatsApp 24-hour customer service window" className="shrink-0">
         <StatusBadge
           status={left ? (expiring ? 'EXPIRING' : 'WINDOW_OPEN') : 'WINDOW_CLOSED'}
-          label={left ? `Window open · ${left}` : 'Window closed'}
+          appearance="inline"
+          label={left ? `Reply window · ${left}` : 'Window closed'}
         />
       </span>
       <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border-strong" />
@@ -46,7 +47,7 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
             : 'Automated messages won’t be sent in this conversation.'
         }
       >
-        <StatusBadge status={automation.status} label={automation.label} />
+        <StatusBadge appearance="inline" status={automation.status} label={automation.label} />
       </span>
       {c.aiHandling ? (
         <span
@@ -60,7 +61,7 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
         <Button
           size="sm"
           variant="link"
-          className="ml-auto shrink-0 text-sm"
+          className="ml-auto shrink-0 text-sm text-info-strong"
           aria-label="Resume automation"
           title="Return this conversation to automation"
           loading={actions.pending}

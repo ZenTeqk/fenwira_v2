@@ -240,3 +240,48 @@ conversation previews. Both dashboards use two-column metric grids on phones, an
 permission gates, confirmations, archive/restore and node-linked activity remain available.
 Screenshot counts, workspace identity and example conversations are not product data. Populated
 visual evidence uses isolated browser fixtures; no runtime, schema or messaging behavior changes.
+
+
+## Approved three-panel inbox (2026-10-30)
+
+The supplied WhatsApp team inbox reference supersedes prior Inbox geometry checkpoints.
+This presentation is scoped with `fw-inbox-theme` inside the Inbox workspace. The application
+sidebar and topbar retain their original presentation, including the 224px expanded / 64px
+collapsed sidebar and original palette. At 1440px the conversation list and customer panel are
+320px each, and the thread fills the remainder. The topbar is 56px, conversation header 72px,
+rows at least 80px and avatars 40px. Below 1280px desktop customer details start collapsed and reopen docked; below 1024px
+they use the existing accessible drawer; below 768px list and conversation are separate views.
+
+Inbox semantic tokens: action `inbox-primary` #047857, hover #065F46, selected #ECFDF5,
+outbound #E8F7F0, main text #172B25, secondary #66756F, border #E5EAE7. The existing
+#F7F7F4 canvas and white panels remain. Notes use #FFF7E6 with #FDE3B0 borders and #92400E
+labels; warning tags retain their recorded meaning with #FFF1DE / #9A4D0B. Informational
+controls reuse blue. Secondary text is used on white; outgoing metadata uses main text to
+maintain AA contrast on mint. The scoped palette is tested alongside the original contract.
+
+Opt-in `Avatar` inbox appearance hashes the stable contact identity to pink (#FCE0EC/#9D2455),
+lavender (#EBDDFB/#66379B), peach (#FFE1C7/#974613), mint (#CFF3E8/#065F46) or blue
+(#DAE7FF/#274B97). These are identity colors and convey no presence or status.
+
+The docked rectangular composer retains the existing send, template, immediate file-upload,
+internal-note, draft and collision-control paths. It grows to 160px and respects IME entry.
+Message-type filters remain accessible from the header and its overflow menu. Overview,
+Activity (existing conversation history) and Files use real permission-gated data. Team,
+pinning, emoji and new-conversation controls are omitted because the inbox has no such
+capabilities. No consent or contact details are synthesized from the reference.
+
+### Inbox icon density refinement
+
+Within conversation and customer panels only, use 14px action glyphs, 12px metadata icons,
+18–20px file icons and 24px media play marks. Scope this with `fw-inbox-compact-icons`, including
+the customer drawer. File-icon containers are 32px and desktop icon-only controls 32px;
+preserve mobile targets. Global navigation and avatars retain their existing sizes. The
+redundant list view menu is removed; its unique agent-takeover filter remains a text toggle.
+
+### Inbox typography density refinement
+
+Scope `fw-inbox-compact-type` to the conversation and customer panels, including the mobile
+customer drawer. Body text is 13px, supporting text and metadata 12px, compact headings 14px
+and panel titles 16px. Message text uses a 1.5 line height for readability. The application
+navigation and inbox conversation-list typography retain their existing scale. This uses
+scoped typography tokens so controls, messages and details share a consistent hierarchy.

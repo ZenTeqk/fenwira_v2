@@ -15,7 +15,16 @@ import {
   StatusBadge,
 } from '@fenwira/ui'
 import { type Ref } from 'react'
-import { ArrowLeft, ChevronDown, Ellipsis, Paperclip, UserRound } from 'lucide-react'
+import {
+  ArrowLeft,
+  ChevronDown,
+  Check,
+  Ellipsis,
+  ListFilter,
+  Paperclip,
+  PanelRightClose,
+  PanelRightOpen,
+} from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
 import { useTags } from '@/lib/contacts'
 import { displayName } from '@/lib/inbox'
@@ -131,7 +140,10 @@ export function AssignControl({
   const trigger = (
     <Button
       variant="secondary"
-      className={cn('max-w-48 min-w-0 gap-1.5', panel ? 'flex-1 justify-between' : className)}
+      className={cn(
+        'max-w-48 min-w-0 gap-1.5 px-2.5',
+        panel ? 'flex-1 justify-between' : className,
+      )}
       aria-label={
         c.assignee
           ? `Assigned to ${c.assignee.name}. Change assignee`
@@ -196,6 +208,8 @@ export function ConversationHeader({
   onBack,
   onToggleContact,
   onSharedFiles,
+  onToggleFilters,
+  filtersExpanded,
   contactButtonRef,
   contactExpanded,
   contactControlsId,
@@ -206,6 +220,8 @@ export function ConversationHeader({
   onToggleContact: () => void
   /** Opens the contact panel on Shared files. */
   onSharedFiles?: () => void
+  onToggleFilters: () => void
+  filtersExpanded: boolean
   contactButtonRef?: Ref<HTMLButtonElement>
   contactExpanded: boolean
   contactControlsId: string
@@ -217,7 +233,7 @@ export function ConversationHeader({
   const closed = c.status === 'RESOLVED' || c.status === 'SNOOZED'
 
   return (
-    <div className="@container flex h-20 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
+    <div className="@container flex h-18 shrink-0 items-center gap-3 border-b border-border bg-surface px-3 md:px-4">
       <Button
         variant="ghost"
         size="icon"
@@ -228,33 +244,51 @@ export function ConversationHeader({
         <ArrowLeft aria-hidden="true" />
       </Button>
       <Avatar
-        appearance="varied"
+        appearance="inbox"
+        identityKey={c.contact.id}
         name={name}
         size="lg"
-        className="hidden shrink-0 @md:flex @md:size-12 @md:text-md"
+        className="hidden size-10 shrink-0 @sm:flex"
       />
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <h2 className="truncate text-lg font-semibold text-slate" title={name}>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <h2 className="truncate text-md font-semibold text-slate" title={name}>
           {name}
         </h2>
         <span className="truncate text-base text-secondary tabular-nums">
           {formatPhone(c.contact.phoneE164)}
         </span>
       </div>
-      <div className="mr-auto hidden shrink-0 @md:block">
+      <div className="hidden shrink-0 @3xl:block">
         <StatusMenu c={c} />
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <AssignControl c={c} className="hidden @2xl:inline-flex" />
+        <AssignControl c={c} className="hidden max-w-40 @xl:inline-flex" />
         {actions.can.reply ? (
           closed ? (
             <Button variant="secondary" onClick={() => actions.setStatus('OPEN')}>
               Reopen
             </Button>
           ) : (
-            <Button onClick={() => actions.setStatus('RESOLVED')}>Resolve</Button>
+            <Button
+              className="px-3"
+              loading={actions.pending}
+              onClick={() => actions.setStatus('RESOLVED')}
+            >
+              <Check aria-hidden="true" />
+              Resolve
+            </Button>
           )
         ) : null}
+        <Button
+          size="icon"
+          variant="secondary"
+          aria-label="Filter conversation messages"
+          aria-expanded={filtersExpanded}
+          onClick={onToggleFilters}
+          className="hidden @lg:inline-flex"
+        >
+          <ListFilter aria-hidden="true" />
+        </Button>
         <Dropdown>
           <DropdownTrigger asChild>
             <Button
@@ -267,6 +301,10 @@ export function ConversationHeader({
             </Button>
           </DropdownTrigger>
           <DropdownContent align="end">
+            <DropdownItem onSelect={onToggleFilters}>
+              <ListFilter aria-hidden="true" className="size-4" />
+              Filter messages
+            </DropdownItem>
             {onSharedFiles ? (
               <DropdownItem onSelect={onSharedFiles}>
                 <Paperclip aria-hidden="true" className="size-4" />
@@ -331,7 +369,11 @@ export function ConversationHeader({
           aria-haspopup={contactIsDrawer ? 'dialog' : undefined}
           onClick={onToggleContact}
         >
-          <UserRound aria-hidden="true" />
+          {contactExpanded ? (
+            <PanelRightClose aria-hidden="true" />
+          ) : (
+            <PanelRightOpen aria-hidden="true" />
+          )}
         </Button>
       </div>
     </div>

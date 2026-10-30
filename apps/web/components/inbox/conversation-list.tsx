@@ -8,7 +8,6 @@ import {
   EmptyState,
   ErrorState,
   focusRing,
-  Label,
   SearchInput,
   Select,
   SelectContent,
@@ -16,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
-  Switch,
 } from '@fenwira/ui'
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Inbox } from 'lucide-react'
@@ -27,7 +25,7 @@ import { keys } from '@/lib/api/keys'
 import { displayName, shortTime } from '@/lib/inbox'
 import { useRealtimeEvent, useRealtimeReconnect } from '@/lib/realtime'
 import { STATUS_LABEL } from './conversation-actions'
-import { type AdvancedFilter, InboxFilterMenu, INBOX_VIEWS, type InboxView } from './inbox-views'
+import { type AdvancedFilter, INBOX_VIEWS, type InboxView } from './inbox-views'
 
 export function useDebounced<T>(value: T, ms = 300): T {
   const [v, setV] = useState(value)
@@ -69,7 +67,7 @@ function ConversationRow({
         title={context}
         aria-current={selected ? 'true' : undefined}
         className={cn(
-          'flex w-full items-center gap-3 border-b border-l-3 border-b-border py-3.5 pr-4 pl-4.25 text-left transition-colors',
+          'flex min-h-20 w-full items-center gap-3 border-b border-l-3 border-b-border px-3 py-3 text-left transition-colors',
           focusRing,
           'focus-visible:-outline-offset-2',
           selected
@@ -77,7 +75,13 @@ function ConversationRow({
             : 'border-l-transparent hover:bg-neutral-soft',
         )}
       >
-        <Avatar appearance="varied" name={name} size="lg" className="shrink-0" />
+        <Avatar
+          appearance="inbox"
+          identityKey={c.contact.id}
+          name={name}
+          size="lg"
+          className="shrink-0"
+        />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-baseline gap-2">
             <span
@@ -91,13 +95,22 @@ function ConversationRow({
             <span className="shrink-0 text-xs text-muted">{shortTime(c.lastMessageAt)}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-base text-secondary">
+            <span className="line-clamp-2 min-w-0 flex-1 text-sm text-secondary">
               {c.snippet ?? c.lastMessagePreview ?? 'No messages yet'}
             </span>
             {c.unreadCount ? (
               <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary-strong px-1.5 text-xs font-semibold text-surface">
                 {c.unreadCount}
                 <span className="sr-only"> unread</span>
+              </span>
+            ) : c.assignee ? (
+              <span title={`Assigned to ${c.assignee.name}`}>
+                <Avatar
+                  appearance="inbox"
+                  identityKey={c.assignee.id}
+                  name={c.assignee.name}
+                  size="sm"
+                />
               </span>
             ) : null}
           </div>
@@ -188,24 +201,17 @@ export function ConversationList({
     <section aria-label="Conversations" className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="flex flex-col gap-3 px-4 pt-4 pb-1">
         <div className="flex h-9 items-center justify-between gap-2">
-          <h2 className="flex min-w-0 items-baseline gap-2 text-xl font-semibold text-slate">
+          <h2 className="flex min-w-0 items-baseline gap-2 text-lg font-semibold text-slate">
             <span className="truncate">
               {tab === 'all' ? 'Inbox' : INBOX_VIEWS.find((v) => v.id === tab)!.title}
             </span>
             {showCounts ? (
-              <span className="text-base font-normal text-secondary tabular-nums">
+              <span className="rounded-md bg-neutral-soft px-2 py-0.5 text-sm font-normal text-slate tabular-nums">
                 {counts.data[tab]}
                 <span className="sr-only"> conversations</span>
               </span>
             ) : null}
           </h2>
-          <InboxFilterMenu
-            view={tab}
-            onViewChange={setTab}
-            counts={showCounts ? counts.data : undefined}
-            advanced={advanced}
-            onAdvancedChange={setAdvanced}
-          />
         </div>
         <SearchInput
           label="Search conversations"
@@ -217,22 +223,59 @@ export function ConversationList({
         />
       </div>
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5">
-          <Switch id="inbox-unread-only" checked={unreadOnly} onCheckedChange={setUnreadOnly} />
-          <Label
-            htmlFor="inbox-unread-only"
-            className="shrink-0 text-sm font-normal whitespace-nowrap text-secondary"
-          >
-            Unread only
-          </Label>
+        <div
+          role="group"
+          aria-label="Inbox views"
+          className="mx-4 grid shrink-0 grid-cols-12 gap-1 border-b border-border"
+        >
+          {INBOX_VIEWS.map(({ id, label }) => (
+            <Button
+              key={id}
+              variant="ghost"
+              size="sm"
+              aria-pressed={tab === id}
+              aria-label={showCounts ? `${label} ${counts.data[id]}` : label}
+              title={showCounts ? `${label}: ${counts.data[id]} conversations` : label}
+              onClick={() => setTab(id)}
+              className={cn(
+                'h-9 w-full min-w-0 gap-1 overflow-hidden rounded-none border-b-2 px-1 text-xs focus-visible:-outline-offset-2 sm:h-8',
+                id === 'unassigned' ? 'col-span-6' : 'col-span-3',
+                tab === id
+                  ? 'border-primary-strong text-primary-strong'
+                  : 'border-transparent text-secondary hover:text-slate',
+              )}
+            >
+              <span className="shrink-0">{label}</span>
+              {showCounts ? (
+                <span
+                  className={cn(
+                    'min-w-0 truncate rounded-md px-1 text-xs tabular-nums',
+                    tab === id
+                      ? 'bg-primary-soft text-primary-strong'
+                      : 'bg-neutral-soft text-slate',
+                  )}
+                >
+                  {counts.data[id]}
+                </span>
+              ) : null}
+            </Button>
+          ))}
+        </div>
+        <div
+          role="group"
+          aria-label="Conversation filters"
+          className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-1.5"
+        >
           <Select value={status} onValueChange={(v: StatusChoice) => setStatus(v)}>
             <SelectTrigger
               aria-label="Conversation status"
-              className="ml-auto h-8 w-auto min-w-0 px-2.5 text-sm"
+              className="h-8 w-auto min-w-0 gap-1 px-1.5 text-xs sm:h-7"
             >
-              <SelectValue />
+              <span className="min-w-0 truncate">
+                <SelectValue />
+              </span>
             </SelectTrigger>
-            <SelectContent align="end">
+            <SelectContent align="start">
               {STATUS_OPTIONS.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s === 'DEFAULT' ? 'Open & waiting' : STATUS_LABEL[s]}
@@ -240,6 +283,34 @@ export function ConversationList({
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-pressed={unreadOnly}
+            onClick={() => setUnreadOnly(!unreadOnly)}
+            className={cn(
+              'h-8 px-1 text-xs sm:h-7',
+              unreadOnly && 'border-primary-strong bg-primary-soft text-primary-strong',
+            )}
+          >
+            Unread
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Agent takeover only"
+            aria-pressed={advanced === 'takeover'}
+            title="Show conversations taken over by an agent"
+            onClick={() => setAdvanced((current) => (current === 'takeover' ? 'none' : 'takeover'))}
+            className={cn(
+              'ml-auto h-8 px-1 text-xs sm:h-7',
+              advanced === 'takeover'
+                ? 'bg-primary-soft text-primary-strong'
+                : 'text-secondary hover:text-slate',
+            )}
+          >
+            Takeover
+          </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto contain-paint">
           {list.isPending ? (

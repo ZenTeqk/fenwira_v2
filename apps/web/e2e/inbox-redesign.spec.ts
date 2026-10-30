@@ -32,12 +32,13 @@ test('connected inbox layout: column sizes, compact header and strip, collapsibl
   await expect(
     messages.getByText('Interested in the 55-inch model. Confirm stock before following up.'),
   ).toBeVisible()
-  const panel = page.getByRole('complementary', { name: 'Contact details' })
+  const panel = page.getByRole('complementary', { name: 'Customer details' })
   await expect(panel).toBeVisible()
-  await expect(page.getByRole('group', { name: 'Conversation state' })).toContainText('Window open')
+  await expect(page.getByRole('group', { name: 'Conversation state' })).toContainText(
+    'Reply window',
+  )
 
-  // 1440: sidebar + list + chat + inline details, no gaps between columns. The sidebar keeps its
-  // own collapse control (224px, or 64px collapsed).
+  // 1440: original application sidebar + 320px list + flexible chat + 320px details.
   const rail = await box(page, 'aside:has(nav[aria-label="Main"])')
   const list = await box(page, 'section[aria-label="Conversations"]')
   const chat = await box(page, 'section[aria-label="Conversation"]')
@@ -46,7 +47,7 @@ test('connected inbox layout: column sizes, compact header and strip, collapsibl
   expect(list?.width).toBe(319) // 320px column less its 1px divider
   expect(list!.x).toBe(rail!.width)
   expect(chat!.x).toBe(rail!.width + 320)
-  expect(details?.width).toBe(312)
+  expect(details?.width).toBe(320)
   expect(chat!.x + chat!.width).toBe(details!.x)
   await expect(page.getByRole('button', { name: /Collapse sidebar|Expand sidebar/ })).toBeVisible()
   expect(
@@ -55,7 +56,7 @@ test('connected inbox layout: column sizes, compact header and strip, collapsibl
         (el) => el.getBoundingClientRect().height,
       ),
     ),
-  ).toEqual(expect.arrayContaining([80, 44]))
+  ).toEqual(expect.arrayContaining([72]))
   expect(await axe(page)).toEqual([])
 
   // Closing the panel widens the chat and keeps the draft; the choice is remembered.
@@ -70,20 +71,20 @@ test('connected inbox layout: column sizes, compact header and strip, collapsibl
   await expect(reply).toHaveValue('Keep this draft while the panel closes')
   await page.reload()
   await expect(messages).toBeVisible()
-  await expect(page.getByRole('complementary', { name: 'Contact details' })).toBeHidden()
+  await expect(page.getByRole('complementary', { name: 'Customer details' })).toBeHidden()
   await page.getByRole('button', { name: 'Show contact details' }).click()
-  await expect(page.getByRole('complementary', { name: 'Contact details' })).toBeVisible()
+  await expect(page.getByRole('complementary', { name: 'Customer details' })).toBeVisible()
 
-  // 1200: list + chat; details open as an overlay.
+  // 1200: list + chat; reopening details docks them beside the conversation.
   await page.setViewportSize({ width: 1200, height: 900 })
-  await expect(page.getByRole('complementary', { name: 'Contact details' })).toBeHidden()
+  await expect(page.getByRole('complementary', { name: 'Customer details' })).toBeHidden()
   expect((await box(page, 'section[aria-label="Conversations"]'))?.width).toBe(299)
   await page.getByRole('button', { name: 'Show contact details' }).click()
-  const overlay = page.getByRole('dialog', { name: 'Contact details' })
-  await expect(overlay).toBeVisible()
+  await expect(panel).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Contact details' })).toHaveCount(0)
   expect(await axe(page)).toEqual([])
-  await page.keyboard.press('Escape')
-  await expect(overlay).toBeHidden()
+  await panel.getByRole('button', { name: 'Close contact details' }).click()
+  await expect(panel).toBeHidden()
   await expect(page.getByRole('button', { name: 'Show contact details' })).toBeFocused()
 
   // 900: compact list and chat side by side, no horizontal scroll.
@@ -127,7 +128,7 @@ test('drafts survive switching conversations; closing the panel keeps draft and 
   await log.evaluate((el) => (el.scrollTop = 0))
   await expect(first).toBeInViewport()
   await page
-    .getByRole('complementary', { name: 'Contact details' })
+    .getByRole('complementary', { name: 'Customer details' })
     .getByRole('button', { name: 'Close contact details' })
     .click()
   await expect(first).toBeInViewport()
@@ -145,7 +146,7 @@ test('contact panel: add and remove a tag, add a note', async ({ page }) => {
   expect(vip.status(), await vip.text()).toBe(201)
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto(`/inbox?c=${conversation.id}`)
-  const panel = page.getByRole('complementary', { name: 'Contact details' })
+  const panel = page.getByRole('complementary', { name: 'Customer details' })
   const tags = panel.getByRole('region', { name: 'Tags' })
   await expect(tags).toContainText('Television')
   await tags.getByRole('button', { name: 'Remove tag Television' }).click()
@@ -227,6 +228,7 @@ test('review scenario renders real data at 1440 and 1200', async ({ page }) => {
   if (shots) await page.screenshot({ path: join(shots, 'inbox-1440.png') })
 
   // Chips above the timeline: Templates and Notes, each with Jump to message.
+  await page.getByRole('button', { name: 'Filter conversation messages' }).click()
   const chips = page.getByRole('group', { name: 'Show messages' })
   const chip = (label: string) => chips.getByRole('button', { name: new RegExp(`^${label} `) })
   await expect(chip('Templates')).toHaveText('Templates 2')
@@ -244,8 +246,8 @@ test('review scenario renders real data at 1440 and 1200', async ({ page }) => {
   await expect(chip('All')).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('[data-note-id]')).toBeFocused()
   await page.setViewportSize({ width: 1200, height: 900 })
-  await expect(page.getByRole('complementary', { name: 'Contact details' })).toBeHidden()
+  await expect(page.getByRole('complementary', { name: 'Customer details' })).toBeHidden()
   expect(await axe(page)).toEqual([])
   await page.getByRole('button', { name: 'Show contact details' }).click()
-  await expect(page.getByRole('dialog', { name: 'Contact details' })).toBeVisible()
+  await expect(page.getByRole('complementary', { name: 'Customer details' })).toBeVisible()
 })

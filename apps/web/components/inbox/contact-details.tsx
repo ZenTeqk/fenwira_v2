@@ -96,7 +96,12 @@ export function ContactTags({ contact }: { contact: Contact }) {
       <ul className="flex flex-wrap items-center gap-2">
         {contact.tags.map((t) => (
           <li key={t.id}>
-            <Badge tone={TAG_TONE[t.color as keyof typeof TAG_TONE] ?? 'neutral'}>
+            <Badge
+              tone={TAG_TONE[t.color as keyof typeof TAG_TONE] ?? 'neutral'}
+              className={
+                t.color === 'WARNING' ? 'bg-inbox-followup text-inbox-followup-text' : undefined
+              }
+            >
               {t.name}
               {editable ? (
                 <button
@@ -170,7 +175,12 @@ export function ContactNotes({
   return (
     <section className={sectionClass} aria-label="Contact notes">
       <div className="flex items-center justify-between gap-2">
-        <h3 className={headingClass}>Notes</h3>
+        <h3 className={headingClass}>
+          Notes
+          {notes.data ? (
+            <span className="ml-1 font-normal text-secondary">({notes.data.length})</span>
+          ) : null}
+        </h3>
         {can('contacts.write') && !adding ? (
           <Button size="sm" variant="tertiary" className="px-1" onClick={() => setAdding(true)}>
             <Plus aria-hidden="true" />
@@ -214,8 +224,11 @@ export function ContactNotes({
       ) : notes.data?.length ? (
         <ul className="flex flex-col gap-2">
           {notes.data.slice(0, 5).map((n) => (
-            <li key={n.id} className="flex gap-2 rounded-md bg-note-soft p-2 text-sm text-slate">
-              <Avatar appearance="varied" name={n.authorName} size="sm" />
+            <li
+              key={n.id}
+              className="flex gap-2 rounded-md border border-inbox-note-border bg-note-soft p-3 text-sm text-slate"
+            >
+              <Avatar appearance="inbox" name={n.authorName} size="sm" />
               <div className="min-w-0">
                 <p className="mb-1 text-xs text-secondary">
                   <span className="font-medium">{n.authorName}</span> ·{' '}
@@ -324,6 +337,7 @@ export function AutomationSection({ conversation: c }: { conversation: Conversat
             <Button
               size="sm"
               variant="secondary"
+              className="text-info-strong"
               onClick={() => actions.setAutomation('AUTOMATION_ACTIVE')}
             >
               Resume automation

@@ -18,19 +18,22 @@ import { ConversationList } from './conversation-list'
 import { ConversationStatusBar } from './conversation-status-bar'
 import { Thread } from './thread'
 
-/** From this width the contact panel sits inline; below it, it opens as an overlay. */
-const WIDE_QUERY = '(min-width: 1440px)'
-const subscribeWide = (callback: () => void) => {
-  const query = window.matchMedia(WIDE_QUERY)
-  query.addEventListener('change', callback)
-  return () => query.removeEventListener('change', callback)
-}
-const useWide = () =>
-  useSyncExternalStore(
-    subscribeWide,
-    () => window.matchMedia(WIDE_QUERY).matches,
+/** Desktop details are always docked. Smaller desktops start with them collapsed. */
+function useMediaQuery(query: string) {
+  const subscribe = useCallback(
+    (callback: () => void) => {
+      const media = window.matchMedia(query)
+      media.addEventListener('change', callback)
+      return () => media.removeEventListener('change', callback)
+    },
+    [query],
+  )
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(query).matches,
     () => false,
   )
+}
 
 /** The inline panel's open/closed choice, remembered per user on this device. */
 function usePanelPreference(userId: string) {
@@ -62,16 +65,19 @@ function usePanelPreference(userId: string) {
 function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
   const { tenantId, can, me } = useSession()
   const queryClient = useQueryClient()
-  const wide = useWide()
+  const wide = useMediaQuery('(min-width: 1280px)')
+  const desktop = useMediaQuery('(min-width: 1024px)')
   const [inlineOpen, setInlineOpen] = usePanelPreference(me.user.id)
+  const [compactOpen, setCompactOpen] = useState(false)
   const [overlayOpen, setOverlayOpen] = useState(false)
+  const [filtersExpanded, setFiltersExpanded] = useState(false)
   const [panelTab, setPanelTab] = useState<PanelTab>('details')
   const [jump, setJump] = useState<{ id: string; seq: number } | null>(null)
   const panelId = useId()
   const toggle = useRef<HTMLButtonElement>(null)
   useEffect(() => {
-    if (wide) setOverlayOpen(false)
-  }, [wide])
+    if (desktop) setOverlayOpen(false)
+  }, [desktop])
 
   const key = keys.tenant(tenantId, 'inbox', 'conversation', id)
   const conversation = useQuery({
@@ -104,26 +110,33 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
       <ErrorState title="Conversation not available" onRetry={() => void conversation.refetch()} />
     )
   const c = conversation.data
-  const panelOpen = wide ? inlineOpen : overlayOpen
+  const panelOpen = wide ? inlineOpen : desktop ? compactOpen : overlayOpen
+  const setPanelOpen = wide ? setInlineOpen : desktop ? setCompactOpen : setOverlayOpen
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
+    <div className="fw-inbox-compact-icons fw-inbox-compact-type flex min-h-0 min-w-0 flex-1">
       <section aria-label="Conversation" className="flex min-h-0 min-w-0 flex-1 flex-col">
         <ConversationHeader
           conversation={c}
+          filtersExpanded={filtersExpanded}
+          onToggleFilters={() => setFiltersExpanded((v) => !v)}
           contactButtonRef={toggle}
           onBack={onBack}
           contactExpanded={panelOpen}
           contactControlsId={panelId}
-          contactIsDrawer={!wide}
-          onToggleContact={() => (wide ? setInlineOpen(!inlineOpen) : setOverlayOpen(true))}
+          contactIsDrawer={!desktop}
+          onToggleContact={() => setPanelOpen(!panelOpen)}
           onSharedFiles={() => {
             setPanelTab('files')
-            if (wide) setInlineOpen(true)
-            else setOverlayOpen(true)
+            setPanelOpen(true)
           }}
         />
         <ConversationStatusBar conversation={c} />
-        <Thread conversationId={id} jump={jump} />
+        <Thread
+          conversationId={id}
+          jump={jump}
+          showFilters={filtersExpanded}
+          initialUnreadCount={c.unreadCount}
+        />
         {can('inbox.reply') ? (
           <Composer key={id} conversation={c} />
         ) : (
@@ -135,15 +148,15 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
       <ContactDetailsPanel
         id={panelId}
         conversation={c}
-        variant={wide ? 'inline' : 'overlay'}
+        variant={desktop ? 'inline' : 'overlay'}
         open={panelOpen}
-        onOpenChange={wide ? setInlineOpen : setOverlayOpen}
+        onOpenChange={setPanelOpen}
         returnFocus={toggle}
         tab={panelTab}
         onTabChange={setPanelTab}
         onJump={(messageId) => {
           // The overlay covers the chat, so it closes to show the message.
-          if (!wide) setOverlayOpen(false)
+          if (!desktop) setOverlayOpen(false)
           setJump((j) => ({ id: messageId, seq: (j?.seq ?? 0) + 1 }))
         }}
       />
@@ -165,7 +178,7 @@ export function InboxLayout() {
   const select = (id: string | null) => router.replace(id ? `${pathname}?c=${id}` : pathname)
   if (!can('inbox.read')) return <PermissionState what="the inbox" />
   return (
-    <div className="flex h-full min-h-0 min-w-0 bg-background">
+    <div className="fw-inbox-theme flex h-full min-h-0 min-w-0 bg-background">
       <h1 className="sr-only">Inbox</h1>
       <div
         className={cn(

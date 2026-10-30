@@ -274,13 +274,14 @@ test('Shared files lists media by type with counts, and Jump to message returns 
   const log = page.getByRole('log', { name: 'Messages' })
   await expect(log.getByText('Update 14')).toBeVisible()
   // Media chips above the timeline count the same files as Shared files.
+  await page.getByRole('button', { name: 'Filter conversation messages' }).click()
   const chips = page.getByRole('group', { name: 'Show messages' })
   await expect(chips.getByRole('button', { name: /^Images/ })).toHaveText('Images 2')
   await expect(chips.getByRole('button', { name: /^Documents/ })).toHaveText('Documents 1')
   await page.getByRole('button', { name: 'More conversation actions' }).click()
   await page.getByRole('menuitem', { name: 'Shared files' }).click()
-  const panel = page.getByRole('complementary', { name: 'Contact details' })
-  await expect(panel.getByRole('tab', { name: 'Shared files' })).toHaveAttribute(
+  const panel = page.getByRole('complementary', { name: 'Customer details' })
+  await expect(panel.getByRole('tab', { name: 'Files', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
   )

@@ -230,3 +230,15 @@ The Automations sidebar row has a separate disclosure arrow. It opens or closes 
 Reply Studio without navigating, supports Enter/Space and exposes `aria-expanded`. The module
 label still opens Workflows. The disclosure also works in the mobile navigation drawer; the
 icon-only collapsed desktop sidebar retains its module link.
+
+
+## Approved three-panel Inbox reference (2026-10-30)
+
+The user's approved inbox reference supersedes the older Inbox shell/density checkpoints:
+original application navigation, 320px conversation list and 320px customer context at 1440px;
+compact 56px global header, flexible warm thread, 80px conversation rows and one docked
+rectangular composer. The latest user correction preserves the original sidebar and topbar.
+Scope the new palette inside Inbox so navigation retains its original presentation. Customer details start collapsed below 1280px and reopen docked on desktop; below 1024px
+they use the existing drawer, while mobile
+keeps sequential list/chat/details navigation. All/Mine/Unassigned use server counts; message
+filters open on demand. See the design-system section for tokens and supported capabilities.
