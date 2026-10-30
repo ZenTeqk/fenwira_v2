@@ -20,7 +20,7 @@ describe('color tokens', () => {
       info: '#2563EB',
       'message-outbound': '#D2F2DF',
     })
-    expect(Object.keys(colorTokens)).toHaveLength(57)
+    expect(Object.keys(colorTokens)).toHaveLength(69)
   })
 
   it('uses uppercase 6-digit hex only', () => {
@@ -83,6 +83,14 @@ describe('color tokens', () => {
       [t['success-strong'], t['success-soft']],
       [t['warning-strong'], t.surface],
       [t['warning-strong'], t['warning-soft']],
+      [t['template-marketing-text'], t['template-marketing']],
+      [t['template-authentication-text'], t['template-authentication']],
+      [t['template-approved-text'], t['template-approved']],
+      [t['warning-strong'], t['template-review']],
+      [t['danger-strong'], t['template-attention']],
+      [t['template-approved-text'], t['template-preview-action']],
+      [t['primary-strong-hover'], t['template-preview-action-hover']],
+      [t.secondary, t['template-preview']],
       [t.secondary, t.surface],
       [t.secondary, t.background],
       [t.secondary, t['neutral-soft']],

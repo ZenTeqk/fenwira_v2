@@ -390,3 +390,36 @@ authorized file links and Jump to message, with compact rows and two-column medi
 Drawer density and timeline rules are scoped to the customer-panel marker; other modules keep
 their default components. Current APIs expose no contact photo, note edit/delete, flow applicability
 or detailed automation context; the panel does not invent those capabilities.
+
+### Template library polish
+
+The Templates collection uses the existing warm `background` (#F7F7F4), a compact white filter
+toolbar and a wrapper-free 3/2/1-column grid with 16–20px gaps. White cards use 12px corners,
+16px padding, `template-border` (#E3E7E4), subtle hover elevation and visible keyboard focus.
+Readable sentence-case titles (16px semibold) are derived only for display; exact identifiers
+remain underneath in muted 12px text. Category/language sit below the title and approval status
+has a consistent position. Footers align to the bottom of each row.
+
+Scoped semantic colours:
+
+| Meaning | Background token/value | Text token/value |
+| --- | --- | --- |
+| Utility | `info-soft` #EFF6FF | `info-strong` #1D4ED8 |
+| Marketing | `template-marketing` #F5F3FF | `template-marketing-text` #6D28D9 |
+| Authentication | `template-authentication` #FFF7ED | `template-authentication-text` #C2410C |
+| Approved | `template-approved` #ECFDF5 | `template-approved-text` #047857 |
+| In review | `template-review` #FFFBEB | `warning-strong` #B45309 |
+| Needs attention | `template-attention` #FEF2F2 | `danger-strong` #B91C1C |
+| Language/draft/zero counts | `neutral-soft` | `secondary` |
+
+Preview stages use `template-preview` (#EEF4F0), a 192px height, a white 12px-radius bubble,
+13px text, existing mint variable chips and a subtle bottom fade without nested scrolling.
+Media, headers, footers and buttons retain stored content; full content remains in Preview.
+The 32px eye-icon Preview button uses `template-preview-action` (#E8F5EF),
+`template-preview-action-hover` (#D5EEE2) and `template-approved-text` (#047857), with 8px corners.
+On hover, text uses existing `primary-strong-hover` (#006B54): #047857 on the requested hover
+background has only 4.48:1 contrast, below AA for small text.
+Status tabs retain their filtering semantics and show green/amber/red counts with neutral zeros;
+the active tab is emerald. Create remains the primary solid action and Sync stays secondary.
+No summary cards or unavailable overflow actions are added. The application remains light-only
+(DS1); new colours are tokenized and contrast-tested without changing other modules.

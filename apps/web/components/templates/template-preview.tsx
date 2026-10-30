@@ -19,6 +19,7 @@ export function TemplatePreview({
   className,
   compact = false,
   recipient = false,
+  library = false,
 }: {
   components: TemplateComponents
   samples: VariableSamples
@@ -26,6 +27,8 @@ export function TemplatePreview({
   className?: string
   compact?: boolean
   recipient?: boolean
+  /** Compact library-card styling; full recipient/editor previews retain their defaults. */
+  library?: boolean
 }) {
   const text = (value: string, values?: readonly (string | undefined)[]) =>
     recipient ? (
@@ -40,6 +43,7 @@ export function TemplatePreview({
       aria-label="Message preview"
       className={cn(
         'mx-auto flex w-full max-w-sm flex-col gap-1 rounded-xl bg-neutral-soft p-3',
+        library && 'max-w-none rounded-lg bg-transparent p-0',
         className,
         recipient && 'overflow-hidden rounded-lg bg-surface p-0 shadow-raised',
       )}
@@ -47,6 +51,7 @@ export function TemplatePreview({
       <div
         className={cn(
           'flex flex-col gap-2 rounded-lg border border-border bg-surface p-2 text-base text-slate shadow-raised',
+          library && 'border-0 p-3 text-sm',
           recipient && 'rounded-none border-0 p-3 shadow-none',
         )}
       >
@@ -62,6 +67,7 @@ export function TemplatePreview({
               className={cn(
                 'aspect-video w-full rounded-md object-cover',
                 compact && 'max-h-24',
+                library && 'h-16',
                 recipient && 'aspect-auto object-contain',
               )}
             />
@@ -78,10 +84,11 @@ export function TemplatePreview({
               className={cn(
                 'flex aspect-video w-full flex-col gap-2 items-center justify-center rounded-md bg-neutral-soft text-slate',
                 compact && 'max-h-24',
+                library && 'h-16 flex-row aspect-auto',
               )}
             >
-              <MediaIcon aria-hidden="true" className="size-8" />
-              <span className={recipient ? 'text-xs' : 'sr-only'}>
+              <MediaIcon aria-hidden="true" className={library ? 'size-5' : 'size-8'} />
+              <span className={recipient || library ? 'text-xs' : 'sr-only'}>
                 {header?.format.toLowerCase()} header{recipient ? ' sample' : ''}
               </span>
             </div>

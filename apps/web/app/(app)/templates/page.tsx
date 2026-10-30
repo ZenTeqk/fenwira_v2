@@ -29,7 +29,16 @@ import {
   toast,
 } from '@fenwira/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, Eye, Plus, RefreshCw } from 'lucide-react'
+import {
+  ArrowRight,
+  Eye,
+  Languages,
+  Megaphone,
+  Package,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
 import { useDebounced } from '@/components/inbox/conversation-list'
@@ -48,6 +57,18 @@ import {
 } from '@/lib/templates'
 
 const ALL = 'ALL'
+const CATEGORY_PRESENTATION = {
+  UTILITY: { icon: Package, className: 'bg-info-soft text-info-strong' },
+  MARKETING: { icon: Megaphone, className: 'bg-template-marketing text-template-marketing-text' },
+  AUTHENTICATION: {
+    icon: ShieldCheck,
+    className: 'bg-template-authentication text-template-authentication-text',
+  },
+}
+function displayTitle(name: string) {
+  const words = name.replace(/[_-]+/g, ' ').trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
 const VIEWS = [
   { id: ALL, label: 'All', statuses: [] },
   { id: 'APPROVED', label: 'Approved', statuses: ['APPROVED'] },
@@ -83,14 +104,28 @@ function Filter({
   )
 }
 function TemplateStatus({ template: t }: { template: Template }) {
+  const colors =
+    t.status === 'APPROVED'
+      ? 'bg-template-approved text-template-approved-text'
+      : t.status === 'PENDING'
+        ? 'bg-template-review text-warning-strong'
+        : ['REJECTED', 'PAUSED', 'DISABLED'].includes(t.status)
+          ? 'bg-template-attention text-danger-strong'
+          : 'bg-neutral-soft text-secondary'
   return (
-    <span className="flex flex-wrap items-center gap-1.5">
+    <span className="flex shrink-0 flex-col items-end gap-1.5">
       <StatusBadge
-        appearance="inline"
         status={t.status}
-        className={t.status === 'PENDING' ? 'text-warning-strong' : undefined}
+        className={cn('rounded-full [&_[data-tone-icon]]:text-inherit', colors)}
         label={t.status === 'PENDING' ? 'In review' : undefined}
       />
+      {t.currentVersion.lastError && !['REJECTED', 'PAUSED', 'DISABLED'].includes(t.status) ? (
+        <StatusBadge
+          status="ATTENTION"
+          label="Needs attention"
+          className="rounded-full bg-template-attention text-danger-strong [&_[data-tone-icon]]:text-inherit"
+        />
+      ) : null}
       {t.qualityScore && t.qualityScore !== 'UNKNOWN' ? (
         <StatusBadge status={t.qualityScore as 'GREEN' | 'YELLOW' | 'RED'} />
       ) : null}
@@ -166,7 +201,7 @@ export default function TemplatesPage() {
         ?.focus()
   }
   return (
-    <div className="flex items-start gap-4">
+    <div className="fw-template-library flex min-w-0 items-start gap-4 bg-background">
       <ListPage
         className="min-w-0 flex-1 gap-4 [&_[data-slot=page-header]>div>div]:max-w-full"
         header={{
@@ -188,168 +223,188 @@ export default function TemplatesPage() {
             aria-label="Template views"
             className="border-0 [&_button]:min-h-10 [&_button]:text-sm"
           >
-            {VIEWS.map((v) => (
-              <TabsTrigger key={v.id} value={v.id}>
-                {v.label}
-                {templates.data ? (
-                  <Badge tone={view === v.id ? 'primary' : 'neutral'}>
-                    {v.statuses.length
-                      ? all.filter(
-                          (t) =>
-                            v.statuses.includes(t.status) ||
-                            (v.id === 'ATTENTION' && !!t.currentVersion.lastError),
-                        ).length
-                      : all.length}
-                  </Badge>
-                ) : null}
-              </TabsTrigger>
-            ))}
+            {VIEWS.map((v) => {
+              const count = v.statuses.length
+                ? all.filter(
+                    (t) =>
+                      v.statuses.includes(t.status) ||
+                      (v.id === 'ATTENTION' && !!t.currentVersion.lastError),
+                  ).length
+                : all.length
+              return (
+                <TabsTrigger key={v.id} value={v.id}>
+                  {v.label}
+                  {templates.data ? (
+                    <Badge
+                      tone="neutral"
+                      className={cn(
+                        'min-w-6 justify-center rounded-full px-1.5 tabular-nums text-secondary',
+                        count > 0 &&
+                          v.id === 'APPROVED' &&
+                          'bg-template-approved text-template-approved-text',
+                        count > 0 && v.id === 'PENDING' && 'bg-template-review text-warning-strong',
+                        count > 0 &&
+                          v.id === 'ATTENTION' &&
+                          'bg-template-attention text-danger-strong',
+                      )}
+                    >
+                      {count}
+                    </Badge>
+                  ) : null}
+                </TabsTrigger>
+              )
+            })}
           </TabsList>
-          <div className="overflow-hidden rounded-lg border border-border bg-surface">
-            <div className="border-b border-border p-3">
-              <FilterBar
-                activeCount={
-                  (search ? 1 : 0) +
-                  (category !== ALL ? 1 : 0) +
-                  (language !== ALL ? 1 : 0) +
-                  (status !== ALL ? 1 : 0)
-                }
-                onClear={() => {
-                  setQ('')
-                  setCategory(ALL)
-                  setLanguage(ALL)
-                  setView(ALL)
-                  setStatus(ALL)
-                }}
+          <div className="rounded-lg border border-template-border bg-surface p-3">
+            <FilterBar
+              activeCount={
+                (search ? 1 : 0) +
+                (category !== ALL ? 1 : 0) +
+                (language !== ALL ? 1 : 0) +
+                (status !== ALL ? 1 : 0)
+              }
+              onClear={() => {
+                setQ('')
+                setCategory(ALL)
+                setLanguage(ALL)
+                setView(ALL)
+                setStatus(ALL)
+              }}
+            >
+              <SearchInput
+                label="Search templates"
+                placeholder="Search templates…"
+                className="w-full sm:w-64"
+                value={q}
+                onValueChange={setQ}
+              />
+              <Filter
+                label="Category"
+                value={category}
+                onChange={setCategory}
+                options={TEMPLATE_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
+              />
+              <Filter
+                label="Language"
+                value={language}
+                onChange={setLanguage}
+                options={Array.from(
+                  new Set([
+                    ...TEMPLATE_LANGUAGES.map((l) => l.code),
+                    ...all.map((t) => t.language),
+                  ]),
+                ).map((code) => ({ value: code, label: languageLabel(code) }))}
+              />
+              <Filter
+                label="Status"
+                value={status}
+                onChange={setStatus}
+                options={TEMPLATE_STATUSES.map((value) => ({
+                  value,
+                  label:
+                    value === 'PENDING'
+                      ? 'In review'
+                      : value.charAt(0) + value.slice(1).toLowerCase(),
+                }))}
+              />
+            </FilterBar>
+          </div>
+          <TabsContent value={view} className="min-w-0">
+            {templates.isPending ? (
+              <div
+                className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-5"
+                aria-label="Loading templates"
+                aria-busy="true"
               >
-                <SearchInput
-                  label="Search templates"
-                  placeholder="Search templates…"
-                  className="w-full sm:w-64"
-                  value={q}
-                  onValueChange={setQ}
-                />
-                <Filter
-                  label="Category"
-                  value={category}
-                  onChange={setCategory}
-                  options={TEMPLATE_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
-                />
-                <Filter
-                  label="Language"
-                  value={language}
-                  onChange={setLanguage}
-                  options={Array.from(
-                    new Set([
-                      ...TEMPLATE_LANGUAGES.map((l) => l.code),
-                      ...all.map((t) => t.language),
-                    ]),
-                  ).map((code) => ({ value: code, label: languageLabel(code) }))}
-                />
-                <Filter
-                  label="Status"
-                  value={status}
-                  onChange={setStatus}
-                  options={TEMPLATE_STATUSES.map((value) => ({
-                    value,
-                    label:
-                      value === 'PENDING'
-                        ? 'In review'
-                        : value.charAt(0) + value.slice(1).toLowerCase(),
-                  }))}
-                />
-              </FilterBar>
-            </div>
-            <TabsContent value={view} className="p-3">
-              {templates.isPending ? (
-                <div
-                  className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
-                  aria-label="Loading templates"
-                  aria-busy="true"
-                >
-                  {[0, 1, 2].map((n) => (
-                    <Skeleton key={n} className="h-60" />
-                  ))}
-                </div>
-              ) : templates.isError ? (
-                <ErrorState
-                  title="Templates couldn’t be loaded"
-                  description={
-                    templates.error instanceof ApiError ? templates.error.message : undefined
-                  }
-                  onRetry={() => void templates.refetch()}
-                />
-              ) : !visible.length ? (
-                <EmptyState
-                  title={filtered ? 'No matching templates' : 'Your message library starts here'}
-                  description={
-                    filtered
-                      ? 'Try another name, view, category or language.'
-                      : 'Create a message for Meta to review, or sync templates from WhatsApp Manager.'
-                  }
-                  action={
-                    filtered ? (
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          setQ('')
-                          setCategory(ALL)
-                          setLanguage(ALL)
-                          setView(ALL)
-                          setStatus(ALL)
-                        }}
-                      >
-                        Clear filters
-                      </Button>
-                    ) : (
-                      create
-                    )
-                  }
-                />
-              ) : (
-                <ul
-                  aria-label="Template library"
-                  className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
-                >
-                  {visible.map((t) => (
+                {[0, 1, 2].map((n) => (
+                  <Skeleton key={n} className="h-60" />
+                ))}
+              </div>
+            ) : templates.isError ? (
+              <ErrorState
+                title="Templates couldn’t be loaded"
+                description={
+                  templates.error instanceof ApiError ? templates.error.message : undefined
+                }
+                onRetry={() => void templates.refetch()}
+              />
+            ) : !visible.length ? (
+              <EmptyState
+                title={filtered ? 'No matching templates' : 'Your message library starts here'}
+                description={
+                  filtered
+                    ? 'Try another name, view, category or language.'
+                    : 'Create a message for Meta to review, or sync templates from WhatsApp Manager.'
+                }
+                action={
+                  filtered ? (
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setQ('')
+                        setCategory(ALL)
+                        setLanguage(ALL)
+                        setView(ALL)
+                        setStatus(ALL)
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  ) : (
+                    create
+                  )
+                }
+              />
+            ) : (
+              <ul
+                aria-label="Template library"
+                className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-5"
+              >
+                {visible.map((t) => {
+                  const presentation = CATEGORY_PRESENTATION[t.category]
+                  const CategoryIcon = presentation.icon
+                  const title = displayTitle(t.name)
+                  return (
                     <li key={t.id} className="min-w-0">
                       <Card
                         className={cn(
-                          'h-full shadow-none',
-                          selectedId === t.id && 'border-primary bg-primary-soft/40',
+                          'h-full border-template-border bg-surface shadow-none transition-shadow hover:border-primary-strong/30 hover:shadow-raised focus-within:border-primary-strong focus-within:shadow-raised motion-reduce:transition-none',
+                          selectedId === t.id && 'border-primary-strong',
                         )}
                         data-template-card={t.id}
                       >
-                        <CardContent className="flex h-full flex-col gap-2 p-3">
-                          <div className="flex flex-col gap-2">
-                            <Link
-                              href={`/templates/${t.id}`}
-                              className={cn(
-                                'break-words text-sm font-semibold text-slate underline-offset-4 hover:underline',
-                                focusRing,
-                              )}
-                            >
-                              {t.name}
-                            </Link>
+                        <CardContent className="flex h-full flex-col gap-3 p-4">
+                          <div className="flex min-w-0 flex-col gap-3">
+                            <div className="flex min-w-0 items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <h2>
+                                  <Link
+                                    href={`/templates/${t.id}`}
+                                    className={cn(
+                                      'line-clamp-2 break-words rounded-sm text-md font-semibold text-slate underline-offset-4 hover:underline',
+                                      focusRing,
+                                    )}
+                                    title={title}
+                                  >
+                                    {title}
+                                  </Link>
+                                </h2>
+                                <p className="mt-1 break-all text-xs text-muted">{t.name}</p>
+                              </div>
+                              <TemplateStatus template={t} />
+                            </div>
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <Badge
-                                tone={
-                                  t.category === 'MARKETING'
-                                    ? 'primary'
-                                    : t.category === 'UTILITY'
-                                      ? 'info'
-                                      : 'neutral'
-                                }
-                              >
+                              <Badge className={cn('rounded-full', presentation.className)}>
+                                <CategoryIcon aria-hidden="true" />
                                 {CATEGORY_LABEL[t.category]}
                               </Badge>
                               <Badge
                                 tone="neutral"
-                                className="rounded-sm font-normal text-secondary"
+                                className="rounded-full font-normal text-secondary"
                               >
+                                <Languages aria-hidden="true" />
                                 {languageLabel(t.language)}
                               </Badge>
-                              <TemplateStatus template={t} />
                             </div>
                           </div>
                           <TemplateMessage version={t.currentVersion} compact library />
@@ -373,7 +428,7 @@ export default function TemplatesPage() {
                               aria-label={`Preview ${t.name}`}
                               aria-current={selectedId === t.id ? 'true' : undefined}
                               data-template-preview={t.id}
-                              className="min-h-10 px-2 text-xs sm:min-h-8"
+                              className="h-8 rounded-md bg-template-preview-action px-2.5 text-sm text-template-approved-text hover:bg-template-preview-action-hover hover:text-primary-strong-hover"
                               onClick={(event) => {
                                 trigger.current = event.currentTarget
                                 setSelectedId(t.id)
@@ -386,11 +441,11 @@ export default function TemplatesPage() {
                         </CardContent>
                       </Card>
                     </li>
-                  ))}
-                </ul>
-              )}
-            </TabsContent>
-          </div>
+                  )
+                })}
+              </ul>
+            )}
+          </TabsContent>
         </Tabs>
       </ListPage>
       <TemplateContext

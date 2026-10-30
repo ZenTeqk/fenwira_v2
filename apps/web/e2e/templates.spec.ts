@@ -22,7 +22,7 @@ test('build → validate → submit → approved → sent from the inbox picker'
   await page.goto('/templates')
   await expect(page.getByRole('heading', { name: 'Templates', level: 1 })).toBeVisible()
   // Connecting the number imported Meta's hello_world.
-  await expect(page.getByRole('link', { name: 'hello_world' })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('link', { name: 'Hello world' })).toBeVisible({ timeout: 15_000 })
   await axe(page)
 
   await page.getByRole('link', { name: 'Create template' }).click()
