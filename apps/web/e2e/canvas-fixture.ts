@@ -32,7 +32,7 @@ export async function mockCanvas(page: Page, graph: DraftGraph = structuredClone
     executions: { total: 0, running: 0 },
     createdAt: new Date().toISOString(),
   }
-  const state = { graph, saves: 0, publishes: 0, failSave: false }
+  const state = { graph, saves: 0, publishes: 0, failSave: false, saveDelayMs: 150 }
   await page.route('**/api/v1/flows**', async (route) => {
     const path = new URL(route.request().url()).pathname.replace('/api/v1', '')
     const method = route.request().method()
@@ -46,7 +46,7 @@ export async function mockCanvas(page: Page, graph: DraftGraph = structuredClone
       }
       state.graph = route.request().postDataJSON().graph
       state.saves++
-      await new Promise((resolve) => setTimeout(resolve, 150))
+      await new Promise((resolve) => setTimeout(resolve, state.saveDelayMs))
     }
     if (path.endsWith('/publish')) {
       state.publishes++
@@ -54,7 +54,16 @@ export async function mockCanvas(page: Page, graph: DraftGraph = structuredClone
     }
     if (method === 'PATCH') Object.assign(flow, route.request().postDataJSON())
     const data = path.endsWith('/draft')
-      ? { graph: state.graph, etag: `"draft-${state.saves}"`, validation: null }
+      ? {
+          id: 'canvas-version',
+          version: 1,
+          state: 'DRAFT',
+          publishedAt: null,
+          updatedAt: new Date().toISOString(),
+          graph: state.graph,
+          etag: `"draft-${state.saves}"`,
+          validation: null,
+        }
       : path === '/flows'
         ? [flow]
         : flow

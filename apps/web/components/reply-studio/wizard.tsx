@@ -34,6 +34,7 @@ import { Choose } from './choose'
 import { ReplyNodeFields } from './node-fields'
 import { ReplyTestPhone } from './test-phone'
 import { ReplyPhonePreview } from './phone-preview'
+import { CollectedAnswersPreview } from './collected-answers-preview'
 import { MiniChat } from './starter-cards'
 const STEPS = [
   'Starter flow',
@@ -514,6 +515,7 @@ export function ReplyWizard() {
             ) : null}
             {step === 6 ? (
               <>
+                {kind === 'BOT_FLOW' ? <CollectedAnswersPreview graph={graph} /> : null}
                 <p className="text-sm text-secondary">
                   {tested
                     ? 'The complete sample conversation passed. You can publish this flow.'

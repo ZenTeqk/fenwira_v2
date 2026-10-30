@@ -161,7 +161,7 @@ test('light automation studio preserves draft editing, responsive settings and r
         'aria-selected',
         'true',
       )
-      await page.getByRole('button', { name: /^Step 3: Send message/ }).click()
+      await page.getByRole('button', { name: /^Step 3: Message/ }).click()
     }
     if (width < 1280)
       await expect(

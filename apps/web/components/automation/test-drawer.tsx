@@ -1,11 +1,6 @@
 'use client'
 
-import {
-  type Contact,
-  type NodeType,
-  type FlowTestRequest,
-  type FlowTestResult,
-} from '@fenwira/contracts'
+import { type Contact, type FlowTestRequest, type FlowTestResult } from '@fenwira/contracts'
 import {
   Alert,
   Button,
@@ -18,15 +13,15 @@ import {
   RadioGroup,
   RadioGroupItem,
   SearchInput,
-  StatusBadge,
   Textarea,
 } from '@fenwira/ui'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { CheckCircle2, FlaskConical } from 'lucide-react'
+import { FlaskConical } from 'lucide-react'
 import { useId, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError, post } from '@/lib/api/client'
-import { automationKey, type DraftNode, NODE_LABEL } from '@/lib/automation'
+import { automationKey, type DraftNode } from '@/lib/automation'
+import { TestTranscript } from './test-transcript'
 import { useTags } from '@/lib/contacts'
 
 type Props = {
@@ -40,6 +35,7 @@ type Props = {
   onResult: (result: FlowTestResult | null) => void
   /** Why the flow can't be tested yet (validation problems), if any. */
   blocked?: string
+  onSelect?: (id: string) => void
 }
 
 /** A body with the phone at the trigger's path: `customer.phone` → {customer: {phone: …}}. */
@@ -69,6 +65,7 @@ export function TestDrawer({
   result,
   onResult,
   blocked,
+  onSelect,
 }: Props) {
   const { tenantId } = useSession()
   const ids = useId()
@@ -257,48 +254,9 @@ export function TestDrawer({
             </Button>
           </div>
 
-          {result ? <TestResult result={result} /> : null}
+          {result ? <TestTranscript result={result} onSelect={onSelect} /> : null}
         </div>
       </DrawerContent>
     </Drawer>
-  )
-}
-
-function TestResult({ result }: { result: FlowTestResult }) {
-  if (!result.matched)
-    return (
-      <Alert tone="warning" title="This sample wouldn’t start the automation">
-        {result.reason}
-      </Alert>
-    )
-  return (
-    <section aria-labelledby="test-result-title" className="flex flex-col gap-3">
-      <h3 id="test-result-title" className="text-sm font-semibold text-slate">
-        What would happen
-      </h3>
-      <p className="inline-flex items-center gap-2 text-sm text-secondary">
-        <CheckCircle2 className="size-4 text-success-strong" aria-hidden="true" />
-        Dry run: no message was sent, no tag or contact changed, no webhook or AI was called.
-      </p>
-      <ol aria-label="Test steps" className="flex flex-col gap-2">
-        {result.steps.map((s, i) => (
-          <li
-            key={`${s.nodeId}-${i}`}
-            className="flex flex-col gap-1 rounded-md border border-border bg-surface p-3"
-          >
-            <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate">
-              {i + 1}. {NODE_LABEL[s.nodeType as NodeType] ?? s.nodeType}
-              {s.status === 'FAILED' ? <StatusBadge status="FAILED" /> : null}
-            </span>
-            <span className="text-sm whitespace-pre-wrap text-secondary">{s.summary}</span>
-          </li>
-        ))}
-      </ol>
-      {result.truncated ? (
-        <p className="text-sm text-secondary">
-          The test stopped after {result.steps.length} steps. Check the flow for a loop.
-        </p>
-      ) : null}
-    </section>
   )
 }

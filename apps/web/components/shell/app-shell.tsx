@@ -63,6 +63,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   // One shell for every module (sidebar, logo, top bar, spacing). Pages that render their own
   // sub-navigation inside the page keep the shell's module tabs hidden to avoid two rows.
   const pageOwnsTabs =
+    pathname.startsWith('/automations') ||
     pathname === '/contacts' ||
     pathname === '/integrations' ||
     pathname === '/analytics' ||

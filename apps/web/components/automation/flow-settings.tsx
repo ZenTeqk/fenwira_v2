@@ -103,94 +103,101 @@ export function FlowSettings({
           <Field label="Name" error={errors.name} required>
             <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
           </Field>
-          <Field label="Priority" hint={PRIORITY_HINT} error={errors.priority}>
-            <Input
-              type="number"
-              min={0}
-              value={priority}
-              onChange={(e) => setPriority(e.target.value)}
-              className="w-32"
-            />
-          </Field>
-          {sessionSettings ? (
-            <section className="flex flex-col gap-4">
-              <h3 className="text-md font-semibold text-slate">Reply Studio session settings</h3>
-              <Alert tone="info" title="Publish these changes">
-                Running conversations keep the settings from their original published version.
-              </Alert>
-              <Field label="Restart words" hint="Separate phrases with commas.">
-                <Input
-                  value={sessionSettings.restartWords.join(', ')}
-                  onChange={(e) =>
-                    setSessionSettings({
-                      ...sessionSettings,
-                      restartWords: e.target.value.split(',').map((s) => s.trim()),
-                    })
-                  }
-                />
-              </Field>
-              <Field
-                label="Inactivity expiry (minutes)"
-                hint="Up to 1440 minutes, capped by the WhatsApp reply window."
-              >
+          <details>
+            <summary className="text-sm font-semibold text-slate">Advanced settings</summary>
+            <div className="mt-4 flex flex-col gap-4">
+              <Field label="Priority" hint={PRIORITY_HINT} error={errors.priority}>
                 <Input
                   type="number"
-                  min={1}
-                  max={1440}
-                  value={sessionSettings.expiryMinutes}
-                  onChange={(e) =>
-                    setSessionSettings({
-                      ...sessionSettings,
-                      expiryMinutes: Number(e.target.value),
-                    })
-                  }
+                  min={0}
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                  className="w-32"
                 />
               </Field>
-              <Field label="Fallback message">
-                <Textarea
-                  value={sessionSettings.fallbackMessage}
-                  onChange={(e) =>
-                    setSessionSettings({ ...sessionSettings, fallbackMessage: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Optional closing message">
-                <Textarea
-                  value={sessionSettings.closingMessage}
-                  onChange={(e) =>
-                    setSessionSettings({ ...sessionSettings, closingMessage: e.target.value })
-                  }
-                />
-              </Field>
-            </section>
-          ) : null}
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-medium text-slate">
-              Can it start again for the same person?
-            </legend>
-            <RadioGroup
-              value={reentry}
-              onValueChange={(v) => setReentry(v as Flow['reentryPolicy'])}
-              className="flex flex-col gap-3"
-            >
-              {REENTRY_OPTIONS.map((o) => (
-                <div key={o.value} className="flex items-start gap-2">
-                  <RadioGroupItem
-                    id={`${ids}-${o.value}`}
-                    value={o.value}
-                    className="mt-0.5"
-                    aria-describedby={`${ids}-${o.value}-hint`}
-                  />
-                  <span className="flex flex-col">
-                    <Label htmlFor={`${ids}-${o.value}`}>{o.label}</Label>
-                    <span id={`${ids}-${o.value}-hint`} className="text-sm text-secondary">
-                      {o.hint}
-                    </span>
-                  </span>
-                </div>
-              ))}
-            </RadioGroup>
-          </fieldset>
+              {sessionSettings ? (
+                <section className="flex flex-col gap-4">
+                  <h3 className="text-md font-semibold text-slate">
+                    Reply Studio session settings
+                  </h3>
+                  <Alert tone="info" title="Publish these changes">
+                    Running conversations keep the settings from their original published version.
+                  </Alert>
+                  <Field label="Restart words" hint="Separate phrases with commas.">
+                    <Input
+                      value={sessionSettings.restartWords.join(', ')}
+                      onChange={(e) =>
+                        setSessionSettings({
+                          ...sessionSettings,
+                          restartWords: e.target.value.split(',').map((s) => s.trim()),
+                        })
+                      }
+                    />
+                  </Field>
+                  <Field
+                    label="Inactivity expiry (minutes)"
+                    hint="Up to 1440 minutes, capped by the WhatsApp reply window."
+                  >
+                    <Input
+                      type="number"
+                      min={1}
+                      max={1440}
+                      value={sessionSettings.expiryMinutes}
+                      onChange={(e) =>
+                        setSessionSettings({
+                          ...sessionSettings,
+                          expiryMinutes: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </Field>
+                  <Field label="Fallback message">
+                    <Textarea
+                      value={sessionSettings.fallbackMessage}
+                      onChange={(e) =>
+                        setSessionSettings({ ...sessionSettings, fallbackMessage: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Optional closing message">
+                    <Textarea
+                      value={sessionSettings.closingMessage}
+                      onChange={(e) =>
+                        setSessionSettings({ ...sessionSettings, closingMessage: e.target.value })
+                      }
+                    />
+                  </Field>
+                </section>
+              ) : null}
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 text-sm font-medium text-slate">
+                  Can it start again for the same person?
+                </legend>
+                <RadioGroup
+                  value={reentry}
+                  onValueChange={(v) => setReentry(v as Flow['reentryPolicy'])}
+                  className="flex flex-col gap-3"
+                >
+                  {REENTRY_OPTIONS.map((o) => (
+                    <div key={o.value} className="flex items-start gap-2">
+                      <RadioGroupItem
+                        id={`${ids}-${o.value}`}
+                        value={o.value}
+                        className="mt-0.5"
+                        aria-describedby={`${ids}-${o.value}-hint`}
+                      />
+                      <span className="flex flex-col">
+                        <Label htmlFor={`${ids}-${o.value}`}>{o.label}</Label>
+                        <span id={`${ids}-${o.value}-hint`} className="text-sm text-secondary">
+                          {o.hint}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </fieldset>
+            </div>
+          </details>
         </form>
       </ModalContent>
     </Modal>

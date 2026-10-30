@@ -533,3 +533,22 @@ sample answers) for schedule tests and complete phone-preview conversations. It 
 the existing rollback behavior: no customer sends, assignments, notes or persisted answers.
 `INTERACTIVE` send content supports validated buttons, lists and HTTPS CTAs through the
 same MessagingService → outbound worker path as other sends.
+
+### Reply Studio experience additions
+
+`POST /flows/:id/test` accepts optional `sampleEligibility` (window, consent, contact status,
+new-conversation flag) for a made-up contact. Existing-contact tests read actual contact
+and conversation eligibility. Both response and steps include optional `explanations`
+(`code`, `text`), built with shared matching helpers and the existing eligibility policy.
+A simulated delay can close the sample window. The transaction still rolls back; only
+the existing `automation.tested` audit entry survives.
+
+`GET /flows?archived=true` lists only archived items; default listing is unchanged.
+`POST /flows/:id/restore` requires automations.write and restores as PAUSED if published,
+otherwise DRAFT. Webhook secrets erased on archive are not restored; rotate them again.
+`DELETE /flows/:id/draft` requires automations.write and the current If-Match, and returns
+the published FlowVersion/ETag. It archives and detaches the current draft, preserving
+published versions and running executions. No published version or no draft returns 409.
+Reports add per-flow kind, sent messages and blocked/sendFailed attempt counts and flowId/code on
+failure rows. Existing execution counts retain their definitions. All reads/writes use
+existing tenant RLS. No migration is required.

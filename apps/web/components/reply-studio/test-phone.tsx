@@ -1,19 +1,24 @@
 'use client'
 import { type DraftGraph, type FlowTestResult } from '@fenwira/contracts'
-import { Alert, Button, Field, Input, PhoneFrame } from '@fenwira/ui'
+import { Alert, Button, Field, Input, PhoneFrame, Checkbox } from '@fenwira/ui'
 import { useState } from 'react'
 import { errorText, post } from '@/lib/api/client'
+import { TestTranscript } from '@/components/automation/test-transcript'
 import { type DraftNode } from '@/lib/automation'
 export function ReplyTestPhone({
   graph,
   save,
   onTested,
   onResult,
+  onSelect,
+  compact = false,
 }: {
   graph: DraftGraph
   save: () => Promise<string>
   onTested?: () => void
   onResult?: (r: FlowTestResult) => void
+  onSelect?: (id: string) => void
+  compact?: boolean
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>({}),
     [result, setResult] = useState<FlowTestResult | null>(null),
@@ -29,7 +34,14 @@ export function ReplyTestPhone({
           answers[String(n.config.field)] === undefined,
       )
     : undefined
-  const trigger = graph.nodes.find((n) => n.type.startsWith('trigger.'))
+  const [sampleMessage, setSampleMessage] = useState(
+    () =>
+      (
+        graph.nodes.find((n) => n.type === 'trigger.keyword')?.config.keywords as
+          string[] | undefined
+      )?.[0] ?? 'Hello',
+  )
+  const [windowOpen, setWindowOpen] = useState(true)
   async function run(next: Record<string, string>) {
     setBusy(true)
     setError('')
@@ -37,7 +49,14 @@ export function ReplyTestPhone({
       const id = await save()
       const r = (
         await post<{ data: FlowTestResult }>(`/flows/${id}/test`, {
-          message: (trigger?.config.keywords as string[])?.[0] ?? 'Hello',
+          message: sampleMessage,
+          sampleEligibility: {
+            window: windowOpen ? 'OPEN' : 'CLOSED',
+            marketingConsent: 'NONE',
+            utilityConsent: 'NONE',
+            contactStatus: 'ACTIVE',
+            newConversation: true,
+          },
           contact: { name: 'Asha' },
           answers: next,
         })
@@ -73,28 +92,38 @@ export function ReplyTestPhone({
       <p className="text-sm text-secondary">
         Test the saved draft with sample answers. No customer messages are sent.
       </p>
+      <Field label="Sample incoming message">
+        <Input value={sampleMessage} onChange={(e) => setSampleMessage(e.target.value)} />
+      </Field>
+      <label className="flex items-center gap-2 text-sm text-secondary">
+        <Checkbox checked={windowOpen} onCheckedChange={(v) => setWindowOpen(v === true)} />
+        Sample service window is open
+      </label>
       {error ? (
         <Alert tone="danger" title="Test flow needs attention">
           {error}
         </Alert>
       ) : null}
-      <PhoneFrame contactName="Your business" messageCount={result?.steps.length ?? 0}>
-        <div className="flex flex-col gap-3 p-3" aria-live="polite">
-          {result?.steps.map((s, i) => (
-            <div
-              key={`${s.nodeId}-${i}`}
-              className="whitespace-pre-wrap rounded-lg border border-border bg-surface p-3 text-sm text-slate"
-            >
-              {s.summary}
-            </div>
-          ))}
-          {!result ? (
-            <p className="rounded-lg bg-surface p-3 text-sm text-secondary">
-              Start the test to try your flow as a customer.
-            </p>
-          ) : null}
-        </div>
-      </PhoneFrame>
+      {result ? <TestTranscript result={result} onSelect={onSelect} /> : null}
+      {compact ? null : (
+        <PhoneFrame contactName="Your business" messageCount={result?.steps.length ?? 0}>
+          <div className="flex flex-col gap-3 p-3" aria-live="polite">
+            {result?.steps.map((s, i) => (
+              <div
+                key={`${s.nodeId}-${i}`}
+                className="whitespace-pre-wrap rounded-lg border border-border bg-surface p-3 text-sm text-slate"
+              >
+                {s.summary}
+              </div>
+            ))}
+            {!result ? (
+              <p className="rounded-lg bg-surface p-3 text-sm text-secondary">
+                Start the test to try your flow as a customer.
+              </p>
+            ) : null}
+          </div>
+        </PhoneFrame>
+      )}
       {waiting?.type === 'action.options' ? (
         <div className="flex flex-wrap justify-center gap-2">
           {((waiting.config.options as Array<{ label: string; value: string }>) ?? []).map((o) => (

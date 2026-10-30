@@ -1,7 +1,9 @@
 'use client'
 
-import { cn, focusRing, Tooltip } from '@fenwira/ui'
+import { Button, cn, focusRing, Tooltip } from '@fenwira/ui'
 import Link from 'next/link'
+import { ChevronDown, GitBranch, MessageCircle } from 'lucide-react'
+import { useId, useState } from 'react'
 import { activeModule, moduleHref, type NavItem, SECONDARY_MODULES } from '@/lib/navigation'
 
 type SidebarNavProps = {
@@ -32,8 +34,8 @@ const active = cn(
 )
 
 /**
- * Modules only (UX_PATTERNS → Application shell). A module's sub-pages are the ModuleTabs under
- * the top bar, not sidebar children. Operational modules first, then workspace administration.
+ * Module navigation, with the reference-approved Workflows / Reply Studio children when
+ * Automations is open. Other modules retain their own module tabs.
  */
 export function SidebarNav({
   items,
@@ -43,6 +45,9 @@ export function SidebarNav({
   badges = {},
 }: SidebarNavProps) {
   const current = activeModule(pathname, items)?.id
+  const [automationsExpanded, setAutomationsExpanded] = useState<boolean | null>(null)
+  const automationChildrenId = useId()
+  const showAutomationChildren = !collapsed && (automationsExpanded ?? current === 'automations')
   const primary = items.filter((i) => !SECONDARY_MODULES.includes(i.id))
   const secondary = items.filter((i) => SECONDARY_MODULES.includes(i.id))
 
@@ -53,12 +58,18 @@ export function SidebarNav({
     const link = (
       <Link
         href={moduleHref(item)}
-        onClick={onNavigate}
-        aria-current={isActive ? 'page' : undefined}
+        onClick={() => {
+          if (item.id === 'automations') setAutomationsExpanded(true)
+          onNavigate?.()
+        }}
+        aria-current={
+          isActive && (item.id !== 'automations' || !showAutomationChildren) ? 'page' : undefined
+        }
         className={cn(
           itemBase,
           isActive ? active : collapsed ? inactiveCollapsed : inactive,
           collapsed && 'justify-center px-0',
+          !collapsed && item.id === 'automations' && 'pr-10',
         )}
       >
         <Icon aria-hidden="true" />
@@ -82,13 +93,76 @@ export function SidebarNav({
     )
     return (
       <li key={item.id}>
-        {collapsed ? (
-          <Tooltip content={item.label} side="right">
-            {link}
-          </Tooltip>
-        ) : (
-          link
-        )}
+        <div className="relative">
+          {collapsed ? (
+            <Tooltip content={item.label} side="right">
+              {link}
+            </Tooltip>
+          ) : (
+            link
+          )}
+          {!collapsed && item.id === 'automations' ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute top-0.5 right-0.5 size-8 p-0 text-secondary"
+              aria-label={showAutomationChildren ? 'Collapse Automations' : 'Expand Automations'}
+              aria-expanded={showAutomationChildren}
+              aria-controls={automationChildrenId}
+              onClick={() => setAutomationsExpanded(!showAutomationChildren)}
+            >
+              <ChevronDown
+                aria-hidden="true"
+                className={cn(
+                  'transition-transform motion-reduce:transition-none',
+                  !showAutomationChildren && '-rotate-90',
+                )}
+              />
+            </Button>
+          ) : null}
+        </div>
+        {!collapsed && item.id === 'automations' ? (
+          <ul
+            id={automationChildrenId}
+            hidden={!showAutomationChildren}
+            aria-label="Automation sections"
+            className={cn(
+              'ml-5 mt-1 flex flex-col gap-1 border-l border-border pl-2',
+              !showAutomationChildren && 'hidden',
+            )}
+          >
+            {[
+              {
+                label: 'Workflows',
+                href: '/automations/workflows',
+                icon: GitBranch,
+                selected: isActive && !pathname.includes('/reply-studio'),
+              },
+              {
+                label: 'Reply Studio',
+                href: '/automations/reply-studio/auto-replies',
+                icon: MessageCircle,
+                selected: isActive && pathname.includes('/reply-studio'),
+              },
+            ].map((child) => (
+              <li key={child.label}>
+                <Link
+                  href={child.href}
+                  onClick={onNavigate}
+                  aria-current={child.selected ? 'page' : undefined}
+                  className={cn(
+                    itemBase,
+                    child.selected ? 'bg-primary-soft font-medium text-primary-strong' : inactive,
+                  )}
+                >
+                  <child.icon aria-hidden="true" />
+                  {child.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </li>
     )
   }

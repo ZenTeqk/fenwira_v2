@@ -98,19 +98,12 @@ test('polished lists, existing actions, starter wizard and responsive accessibil
   )
   await page.reload()
   await expect(banner).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Use Welcome reply' })).toBeVisible()
-  await page.getByRole('button', { name: 'Create', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'What would you like to create?' })
-  await expect(dialog.getByRole('link', { name: 'Create Auto Reply' })).toBeVisible()
-  await expect(dialog.getByRole('link', { name: 'Create Bot Flow' })).toBeVisible()
-  expect(
-    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze())
-      .violations,
-  ).toEqual([])
-  await page.keyboard.press('Escape')
-  await page.getByRole('tab', { name: 'Bot Flows', exact: true }).click()
-  await expect(page.getByRole('link', { name: 'Use FAQ menu' })).toBeVisible()
-  await page.getByRole('link', { name: 'Use Product Enquiry' }).click()
+  await expect(page.getByRole('link', { name: 'Use starter: Welcome reply' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Create auto reply', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Bot Flows', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Create bot flow', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Use starter: FAQ menu' })).toBeVisible()
+  await page.getByRole('link', { name: 'Use starter: Product Enquiry' }).click()
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Product Enquiry')
   await quality(page, 'create-flow')
   await page.getByRole('button', { name: 'Preview', exact: true }).click()
@@ -127,14 +120,15 @@ test('polished lists, existing actions, starter wizard and responsive accessibil
   const published = await flow(page, owner, 'Location reply', true, true)
   await flow(page, owner, 'Draft with a message', true)
   const empty = await flow(page, owner, 'Untitled automation', false)
+  await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/automations')
   await expect(
     page
-      .getByRole('navigation', { name: 'Automation tools' })
+      .getByRole('list', { name: 'Automation sections' })
       .getByRole('link', { name: 'Reply Studio' }),
   ).toBeVisible()
   const row = page.getByRole('article', { name: 'Location reply', exact: true })
-  await expect(row.getByText('Live', { exact: true })).toBeVisible()
+  await expect(row.getByText('Published', { exact: true })).toBeVisible()
   await row.getByRole('switch', { name: 'Pause Location reply' }).click()
   await expect(row.getByRole('switch', { name: 'Resume Location reply' })).not.toBeChecked()
   expect(
@@ -145,7 +139,7 @@ test('polished lists, existing actions, starter wizard and responsive accessibil
     ).data.status,
   ).toBe('PAUSED')
   await row.getByRole('switch', { name: 'Resume Location reply' }).click()
-  await expect(row.getByText('Live', { exact: true })).toBeVisible()
+  await expect(row.getByText('Published', { exact: true })).toBeVisible()
   await page
     .getByRole('button', { name: /Drafts/ })
     .first()
@@ -163,9 +157,9 @@ test('polished lists, existing actions, starter wizard and responsive accessibil
   await expect(
     page.getByRole('article', { name: 'Draft with a message', exact: true }),
   ).toBeVisible()
-  await page.getByRole('searchbox', { name: 'Search automations' }).fill('no match')
-  await expect(page.getByText('No matching automations')).toBeVisible()
-  await page.getByRole('searchbox', { name: 'Search automations' }).fill('')
+  await page.getByRole('searchbox', { name: 'Search workflows' }).fill('no match')
+  await expect(page.getByText('No results match your filters')).toBeVisible()
+  await page.getByRole('searchbox', { name: 'Search workflows' }).fill('')
   await expect(page.getByText('Empty drafts cleared.', { exact: true })).not.toBeVisible()
   await quality(page, 'automations')
   await page.goto('/automations/reply-studio')

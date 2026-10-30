@@ -15,8 +15,8 @@ const STARTERS = [
     href: '/automations/reply-studio/new?kind=BOT_FLOW',
   },
   {
-    title: 'From a template',
-    description: 'Make a ready-made automation your own.',
+    title: 'Starter workflows',
+    description: 'Make a ready-made workflow your own.',
     icon: LayoutTemplate,
     href: '/automations/new',
   },

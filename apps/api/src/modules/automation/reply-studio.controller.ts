@@ -67,6 +67,10 @@ export class ReplyStudioController {
           flowId = q.flowId ?? null
         const flows = await tx.$queryRaw<ReplyReport['flows']>`
         SELECT f.id AS "flowId", f.name,
+          (SELECT v.graph->'replyStudio'->>'kind' FROM flow_versions v WHERE v.id = coalesce(f.draft_version_id,f.active_version_id)) AS kind,
+          (SELECT count(DISTINCT m.id)::int FROM automation_executions x JOIN automation_execution_steps s ON s.execution_id=x.id JOIN messages m ON m.id::text=s.output->>'messageId' WHERE x.flow_id=f.id AND x.started_at >= ${from} AND x.started_at < ${to} AND m.status IN ('SENT','DELIVERED','READ')) AS sent,
+          (SELECT count(DISTINCT coalesce(m.id,s.id))::int FROM automation_executions x JOIN automation_execution_steps s ON s.execution_id=x.id LEFT JOIN messages m ON m.id::text=s.output->>'messageId' WHERE x.flow_id=f.id AND x.started_at >= ${from} AND x.started_at < ${to} AND s.node_type IN ('action.send_message','action.send_template','action.question','action.options') AND (m.status='FAILED' OR s.status='FAILED') AND coalesce(m.error_code,s.error_code) IN ('CONTACT_BLOCKED','CONSENT_REQUIRED','CONVERSATION_WINDOW_CLOSED','AUTOMATION_BLOCKED_BY_TAKEOVER')) AS blocked,
+          (SELECT count(DISTINCT coalesce(m.id,s.id))::int FROM automation_executions x JOIN automation_execution_steps s ON s.execution_id=x.id LEFT JOIN messages m ON m.id::text=s.output->>'messageId' WHERE x.flow_id=f.id AND x.started_at >= ${from} AND x.started_at < ${to} AND s.node_type IN ('action.send_message','action.send_template','action.question','action.options') AND (m.status='FAILED' OR s.status='FAILED') AND coalesce(m.error_code,s.error_code,'') NOT IN ('CONTACT_BLOCKED','CONSENT_REQUIRED','CONVERSATION_WINDOW_CLOSED','AUTOMATION_BLOCKED_BY_TAKEOVER')) AS "sendFailed",
           count(e.id)::int AS starts,
           count(e.id) FILTER (WHERE e.status = 'COMPLETED' AND e.error_code IS DISTINCT FROM 'SESSION_EXPIRED')::int AS completions,
           count(e.id) FILTER (WHERE EXISTS (SELECT 1 FROM automation_execution_steps s WHERE s.execution_id = e.id AND s.output->>'fallback' = 'true'))::int AS fallbacks,
@@ -81,7 +85,7 @@ export class ReplyStudioController {
         const failures = await tx.$queryRaw<
           Array<Omit<ReplyReport['failures'][number], 'at'> & { at: Date }>
         >`
-        SELECT e.id AS "executionId", e.conversation_id AS "conversationId", coalesce(s.node_id, e.current_node_id, 'Start') AS step,
+        SELECT e.id AS "executionId", e.flow_id AS "flowId", coalesce(m.error_code,s.error_code,e.error_code,'SEND_FAILED') AS code, e.conversation_id AS "conversationId", coalesce(s.node_id, e.current_node_id, 'Start') AS step,
           coalesce(m.error_detail, s.error_detail, e.error_detail, m.error_code, s.error_code, e.error_code, 'Send failed') AS reason,
           coalesce(s.started_at, e.started_at) AS at
         FROM automation_executions e JOIN flows f ON f.id = e.flow_id
@@ -94,6 +98,9 @@ export class ReplyStudioController {
         const totals = {
           flowId: '',
           name: 'All flows',
+          sent: 0,
+          blocked: 0,
+          sendFailed: 0,
           starts: 0,
           completions: 0,
           fallbacks: 0,
@@ -103,6 +110,9 @@ export class ReplyStudioController {
         }
         for (const row of flows)
           for (const k of [
+            'sent',
+            'blocked',
+            'sendFailed',
             'starts',
             'completions',
             'fallbacks',
@@ -110,7 +120,7 @@ export class ReplyStudioController {
             'expired',
             'failures',
           ] as const)
-            totals[k] += row[k]
+            totals[k] += row[k] ?? 0
         return { totals, flows, failures: failures.map((f) => ({ ...f, at: f.at.toISOString() })) }
       }),
     }

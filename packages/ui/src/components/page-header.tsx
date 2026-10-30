@@ -5,6 +5,8 @@ import { Breadcrumb, type BreadcrumbItem, type LinkComponent } from './breadcrum
 export type PageHeaderProps = {
   title: string
   description?: ReactNode
+  /** Keep a long purpose line below the title/action row. */
+  descriptionFullWidth?: boolean
   breadcrumbs?: BreadcrumbItem[]
   linkAs?: LinkComponent
   actions?: ReactNode
@@ -14,6 +16,7 @@ export type PageHeaderProps = {
 export function PageHeader({
   title,
   description,
+  descriptionFullWidth = false,
   breadcrumbs,
   linkAs,
   actions,
@@ -27,12 +30,17 @@ export function PageHeader({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
           <h1 className="text-2xl font-semibold text-slate">{title}</h1>
-          {description ? <p className="max-w-2xl text-base text-muted">{description}</p> : null}
+          {description && !descriptionFullWidth ? (
+            <p className="max-w-2xl text-base text-muted">{description}</p>
+          ) : null}
         </div>
         {actions ? (
           <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>
         ) : null}
       </div>
+      {description && descriptionFullWidth ? (
+        <p className="-mt-2 text-base text-muted">{description}</p>
+      ) : null}
     </header>
   )
 }

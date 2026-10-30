@@ -24,7 +24,7 @@ How Fenwira screens are put together. Visual tokens are in [FENWIRA_DESIGN_SYSTE
 └──────────┴──────────────────────────────────────────────────────────────┘
 ```
 
-- **Sidebar** 232px expanded, 64px collapsed (remembered per browser), a drawer below 1024px. It lists **modules only**: Home (route `/dashboard`), Inbox, Contacts, Campaigns, Templates, Automations, Analytics, then Integrations, Billing, Settings. A module appears once its phase has shipped (Analytics and Billing arrive in Phase 11) and only if the member may see it.
+- **Sidebar** 232px expanded, 64px collapsed (remembered per browser), a drawer below 1024px. It lists **modules only** (except the approved Automations Workflows / Reply Studio children while that module is open): Home (route `/dashboard`), Inbox, Contacts, Campaigns, Templates, Automations, Analytics, then Integrations, Billing, Settings. A module appears once its phase has shipped (Analytics and Billing arrive in Phase 11) and only if the member may see it.
 - **Module tabs** (`ModuleTabs`) under the top bar carry a module's sub-pages (Contacts → All contacts · Segments · Tags · Imports). They are links with `aria-current="page"`, not ARIA tabs.
 - **Status footer**: the WhatsApp connection (`ConnectionState`, compact) and, when billing is enforced and the member can read billing, the available wallet balance. Both link to their settings; both turn into warnings (disconnected, low balance) without shouting.
 - **Top bar**: workspace switcher, breadcrumb (section pages only; record pages such as a contact carry their own, more specific breadcrumb in the page header, so there is never a second trail), command/search (`⌘K` / `Ctrl K`), help menu (keyboard shortcuts; the component gallery in development), notifications, account menu.
@@ -215,3 +215,18 @@ The native application grid contains the four requested providers with real conf
 ## Billing wallet reconstruction checkpoint
 
 The next checkpoint follows reference 10 using a compact available-balance and ledger column, read-only current subscription context and configured manual-funding support. `/billing/wallet` owns its Billing heading and contextual page links under the approved 224px shell. Effective features come from the entitlement response; ledger promotional identity does not imply independently available fund buckets. Unsupported forecasts, sample prices and tax/payment controls stay absent. The Usage alias reaches the existing customer-charge analytics view. [Mapping and validation](EXPERIENCE_V2_BILLING_RECONSTRUCTION.md). Stop for visual review before Settings.
+
+
+## Automation dashboard reference refinement
+
+The user-supplied Workflows and Reply Studio dashboard images authorize nested Workflows /
+Reply Studio links within the active Automations sidebar. Workflows owns its library tabs;
+Reply Studio owns Auto Replies / Bot Flows links and Reports in the header. This exception is
+scoped to Automations. Cards, dense reply rows, real graph snippets and the compact summaries
+follow the existing design tokens. See FENWIRA_DESIGN_SYSTEM.md → Automation dashboard image
+references. The existing builder, reporting routes, permissions and send eligibility are retained.
+
+The Automations sidebar row has a separate disclosure arrow. It opens or closes Workflows and
+Reply Studio without navigating, supports Enter/Space and exposes `aria-expanded`. The module
+label still opens Workflows. The disclosure also works in the mobile navigation drawer; the
+icon-only collapsed desktop sidebar retains its module link.

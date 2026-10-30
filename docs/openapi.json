@@ -8321,6 +8321,18 @@
         ],
         "parameters": [
           {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
             "$ref": "#/components/parameters/TenantId"
           }
         ],
@@ -8511,6 +8523,51 @@
       }
     },
     "/api/v1/flows/{id}/draft": {
+      "delete": {
+        "operationId": "Flows_discard",
+        "tags": [
+          "Flows"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "automations.write"
+      },
       "get": {
         "operationId": "Flows_draft",
         "tags": [
@@ -9003,6 +9060,53 @@
         "x-idempotent": true
       }
     },
+    "/api/v1/flows/{id}/restore": {
+      "post": {
+        "operationId": "Flows_restore",
+        "tags": [
+          "Flows"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "automations.write"
+      }
+    },
     "/api/v1/flows/{id}/resume": {
       "post": {
         "operationId": "Flows_resume",
@@ -9116,6 +9220,49 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         }
+                      }
+                    }
+                  },
+                  "sampleEligibility": {
+                    "type": "object",
+                    "properties": {
+                      "window": {
+                        "default": "OPEN",
+                        "type": "string",
+                        "enum": [
+                          "OPEN",
+                          "CLOSED"
+                        ]
+                      },
+                      "marketingConsent": {
+                        "default": "NONE",
+                        "type": "string",
+                        "enum": [
+                          "NONE",
+                          "GRANTED",
+                          "REVOKED"
+                        ]
+                      },
+                      "utilityConsent": {
+                        "default": "NONE",
+                        "type": "string",
+                        "enum": [
+                          "NONE",
+                          "GRANTED",
+                          "REVOKED"
+                        ]
+                      },
+                      "contactStatus": {
+                        "default": "ACTIVE",
+                        "type": "string",
+                        "enum": [
+                          "ACTIVE",
+                          "BLOCKED"
+                        ]
+                      },
+                      "newConversation": {
+                        "default": true,
+                        "type": "boolean"
                       }
                     }
                   },

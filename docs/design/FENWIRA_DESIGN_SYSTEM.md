@@ -181,7 +181,7 @@ These screens reuse the existing palette, type scale, 12px card radius, 16px she
 and `shadow-raised` hover elevation. No tokens are added. Layout follows an 8px grid:
 8px inline gaps, 16px card padding, 24px page sections. Segmented route navigation uses
 links with `aria-current`; in-page Auto Replies/Bot Flows use keyboard-accessible tabs.
-Flow rows share the same hierarchy, labelled status badges and permission-aware switches.
+Flow cards and rows share labelled status badges and permission-aware switches.
 Starter snippets are illustrative conversation recipes, not Meta message templates.
 
 The wizard has a stepper, form and fixed-height `PhoneFrame`; the stepper moves above
@@ -190,6 +190,53 @@ The trial reminder uses a slim warning surface with `warning-strong` text. Dismi
 scoped to the user and workspace until the next Asia/Kolkata calendar day; expired or
 sending-blocked reminders cannot be dismissed. Existing billing destinations are retained.
 Stats and previous-period comparisons use the existing reports endpoint. Response previews
-read existing draft versions only for displayed Reply Studio rows; no list/API fields or
+read existing draft versions for displayed flow cards and Reply Studio rows; no list/API fields or
 execution behavior change. Empty-draft cleanup archives only drafts verified to have zero
 nodes, after confirmation; drafts containing steps are retained.
+
+## Reply Studio compact overview
+
+The image-reference refinement gives Automations two nested sidebar destinations: Workflows
+and Reply Studio. Reply Studio owns the Auto Replies / Bot Flows route tabs and a Reports
+header action. Other modules retain their existing navigation. The old `/automations` and `/automations/reply-studio` entry URLs redirect to
+`/automations/workflows` and `/automations/reply-studio/auto-replies`.
+The live count and three report metrics share one compact summary surface; the live hours indicator belongs
+to the header action. Starter conversations retain their token-drawn previews within 128px.
+No new tokens are introduced.
+
+Reply Studio empty tabs show relevant starters immediately, with no search/status controls.
+Populated tabs show every saved item, including drafts, before an optionally expanded starter
+section. Its preference is stored per user/workspace/kind. Starter cards share preview, title,
+purpose, metadata and aligned Use starter actions. Five starters do not need a gallery.
+
+## Reply Studio editors and diagnostics
+
+Single-rule Auto Replies use a left configuration column with a shared fixed-height phone
+on the right; mobile opens that preview in a drawer. The view reuses the canvas save,
+validation and publish handlers. Draft changes and Published version have separate labelled
+status badges, version metadata and an optimistic discard action. Bot Flow nodes retain
+actual snippets and saved field names; branches use node-aware labels without changing
+persisted handles. Session/ordering controls remain under Advanced settings.
+
+A dry-run transcript explains matching, conditions and eligibility with shared reason codes.
+Sample eligibility is labelled, and reports distinguish execution outcomes from sends.
+Recent activity reuses the last-20 executions endpoint. Failure links open the canvas at the
+reported node; publishing previews illustrative saved fields, customer review and the existing
+private handover note. Existing tokens and PhoneFrame are reused throughout.
+
+## Automation dashboard image references (2026-10-29)
+
+The supplied Workflows and Reply Studio screenshots guide hierarchy and density, using existing
+Fenwira tokens and shared page components. Workflows uses an inline seven-day summary,
+Your workflows / Starter workflows tabs, search/status/trigger filters and three-column cards.
+Step previews follow at most three connected `next` edges and stop at branches; they read actual
+saved draft graphs. Last-run times use executions, and failure/success figures use the existing
+analytics endpoint with explicit unavailable/processing states. History chooses an existing flow.
+
+Reply Studio uses compact bordered rows with response/number context, keyword or trigger chips,
+seven-day starts, status and existing lifecycle actions. The WhatsApp filter uses connected numbers;
+rules applying to every number remain included. Compact starter tiles expand into the retained
+conversation previews. Both dashboards use two-column metric grids on phones, and existing
+permission gates, confirmations, archive/restore and node-linked activity remain available.
+Screenshot counts, workspace identity and example conversations are not product data. Populated
+visual evidence uses isolated browser fixtures; no runtime, schema or messaging behavior changes.

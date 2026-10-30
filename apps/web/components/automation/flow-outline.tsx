@@ -22,8 +22,8 @@ import {
 import { AlertCircle, Trash2 } from 'lucide-react'
 import {
   addNode,
+  branchLabel,
   connect,
-  HANDLE_LABEL,
   issuesFor,
   NODE_LABEL,
   outgoing,
@@ -143,7 +143,7 @@ export function FlowOutline({ graph, issues, selectedId, onSelect, onChange, rea
                   return (
                     <div key={h} className="flex flex-col gap-1.5">
                       <Label htmlFor={id}>
-                        {HANDLE_LABEL[h]} ({name(n.id)})
+                        {branchLabel(n, h)} ({name(n.id)})
                       </Label>
                       <Select
                         value={current}

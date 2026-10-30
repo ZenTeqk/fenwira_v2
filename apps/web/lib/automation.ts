@@ -34,11 +34,14 @@ export type DraftNode = DraftGraph['nodes'][number]
 export type DraftEdge = DraftGraph['edges'][number]
 export type ExecutionDetail = Execution & { steps: ExecutionStep[] }
 
-export function useFlows() {
+export function useFlows(archived = false) {
   const { tenantId } = useSession()
   return useQuery({
-    queryKey: automationKey(tenantId, 'flows'),
-    queryFn: () => get<{ data: Flow[] }>('/flows').then((r) => r.data),
+    queryKey: archived
+      ? automationKey(tenantId, 'flows', 'archived')
+      : automationKey(tenantId, 'flows'),
+    queryFn: () =>
+      get<{ data: Flow[] }>(archived ? '/flows?archived=true' : '/flows').then((r) => r.data),
   })
 }
 
@@ -157,6 +160,20 @@ export const HANDLE_LABEL: Record<EdgeHandle, string> = {
   needs_human: 'Needs a human',
 }
 
+/** Labels describe the node's actual outputs; persisted handle IDs remain unchanged. */
+export function branchLabel(node: DraftNode, handle: EdgeHandle): string {
+  if (node.type === 'condition.business_hours')
+    return handle === 'yes' ? 'Open' : handle === 'no' ? 'Closed' : HANDLE_LABEL[handle]
+  if (node.type === 'action.question' || node.type === 'action.options') {
+    if (handle === 'error') return 'Invalid / fallback'
+    if (handle === 'next')
+      return node.type === 'action.options'
+        ? `Valid: ${((node.config.options as Array<{ label: string }>) ?? []).map((o) => o.label).join(' / ')}`
+        : 'Valid answer'
+  }
+  return HANDLE_LABEL[handle]
+}
+
 /** Palette order. Triggers only while the flow has none (exactly one per flow). */
 export const PALETTE: Array<{ category: Category; title: string; types: NodeType[] }> = [
   {
@@ -212,7 +229,7 @@ export const PALETTE: Array<{ category: Category; title: string; types: NodeType
 export type NodeKind = 'trigger' | 'message' | 'condition' | 'action' | 'ai'
 export const kindOf = (t: NodeType): NodeKind => (t === 'action.ai_reply' ? 'ai' : categoryOf(t))
 export const KIND_LABEL: Record<NodeKind, string> = {
-  trigger: 'Trigger',
+  trigger: 'Start',
   message: 'Message',
   condition: 'Condition',
   action: 'Action',

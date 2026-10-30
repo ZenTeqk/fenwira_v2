@@ -305,3 +305,20 @@ explicitly. One execution counts once in each metric even if multiple steps fail
 Failures include failed step outcomes and asynchronous outbound failures through the
 step's message id. The latest 100 failure rows include the conversation, step and reason.
 No reporting projection or session table is added. RLS scopes all queries.
+
+### Explainable tests and lifecycle
+
+Test explanations reuse the shared keyword matcher and the existing eligibility policy;
+conditions describe the chosen branch. Sample eligibility is explicit. Testing performs
+no sends or external actions; temporary writes roll back and only the existing test audit
+entry survives. Welcome cooldowns read existing execution history for a chosen contact.
+A sample New conversation represents its first message; a chosen existing conversation
+does not implicitly become new. Dry-run clock advances can close the reply window.
+Discard archives only the unpublished draft, with If-Match concurrency protection. Restore
+never activates sending: a published archive returns paused, otherwise draft. Existing
+published session pinning is unchanged.
+
+Auto Reply reports distinguish sent/delivered/read messages, policy-blocked send attempts (including attempts refused before creating a message) and
+other send failures. Bot Flow Completed means reaching End or Handover successfully;
+expiry is excluded. Execution completion is separate from asynchronous delivery. Failure
+rows expose time, conversation, flow/node and technical code. No reporting table is added.

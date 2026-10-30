@@ -76,10 +76,10 @@ export class FlowsService {
 
   // ------------------------------------------------------------------------------ flows
 
-  list(): Promise<Flow[]> {
+  list(archived = false): Promise<Flow[]> {
     return this.tenantDb.run(async (tx) => {
       const rows = await tx.flow.findMany({
-        where: { deletedAt: null },
+        where: archived ? { status: 'ARCHIVED' } : { deletedAt: null },
         orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
         take: 500,
       })
@@ -177,6 +177,59 @@ export class FlowsService {
         targetId: id,
         changes: {},
       })
+    })
+  }
+
+  /** Restore as paused (or draft), never silently start sending again. */
+  restore(id: string): Promise<Flow> {
+    return this.tenantDb.run(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM flows WHERE id = ${id}::uuid FOR UPDATE`
+      const flow = await this.find(tx, id, true)
+      if (flow.status !== 'ARCHIVED')
+        throw invalidState('Only archived flows can be restored.', flow.status)
+      const updated = await tx.flow.update({
+        where: { id },
+        data: { deletedAt: null, status: flow.activeVersionId ? 'PAUSED' : 'DRAFT' },
+      })
+      await this.audit.write(tx, {
+        action: 'automation.restored',
+        targetType: 'flow',
+        targetId: id,
+        changes: { status: updated.status },
+      })
+      return (await this.dtos(tx, [updated]))[0]!
+    })
+  }
+
+  /** Detach only the current draft; published/running versions are immutable. */
+  discardDraft(id: string, ifMatch: string | undefined): Promise<FlowVersion> {
+    return this.tenantDb.run(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM flows WHERE id = ${id}::uuid FOR UPDATE`
+      const flow = await this.find(tx, id)
+      if (!flow.activeVersionId || !flow.draftVersionId)
+        throw invalidState(
+          'There are no draft changes to discard from a published flow.',
+          flow.status,
+        )
+      const draft = await tx.flowVersion.findFirstOrThrow({ where: { id: flow.draftVersionId } })
+      if (!ifMatch || ifMatch.trim() !== versionEtag(draft))
+        throw new AppError(
+          'VERSION_CONFLICT',
+          409,
+          'The draft changed. Reload before discarding.',
+          { etag: versionEtag(draft) },
+        )
+      await tx.flow.update({ where: { id }, data: { draftVersionId: null } })
+      await tx.flowVersion.update({ where: { id: draft.id }, data: { state: 'ARCHIVED' } })
+      await this.audit.write(tx, {
+        action: 'automation.draft.discarded',
+        targetType: 'flow',
+        targetId: id,
+        changes: { version: draft.version },
+      })
+      return toFlowVersion(
+        await tx.flowVersion.findFirstOrThrow({ where: { id: flow.activeVersionId } }),
+      )
     })
   }
 

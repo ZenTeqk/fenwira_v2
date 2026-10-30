@@ -16,6 +16,8 @@ import { useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { errorText, get } from '@/lib/api/client'
 import { automationKey, useFlows } from '@/lib/automation'
+import { FailureList } from '@/components/automation/flow-activity'
+import { AutomationNavigation } from '@/components/automation-list/navigation'
 import { Choose } from '@/components/reply-studio/choose'
 const METRICS = ['starts', 'completions', 'fallbacks', 'handovers', 'expired', 'failures'] as const
 export default function ReportsPage() {
@@ -55,15 +57,20 @@ export default function ReportsPage() {
         </Link>
       ),
     },
-    ...METRICS.map((k) => ({
+    ...[...METRICS, 'sent', 'blocked', 'sendFailed'].map((k) => ({
       accessorKey: k,
-      header: k === 'expired' ? 'Expired sessions' : k.charAt(0).toUpperCase() + k.slice(1),
+      header:
+        k === 'expired'
+          ? 'Expired sessions'
+          : k === 'sendFailed'
+            ? 'Send failed'
+            : k.charAt(0).toUpperCase() + k.slice(1),
     })),
   ]
   return (
     <ListPage
       header={{
-        title: 'Reply Studio reports',
+        title: 'Reports',
         description:
           'Starts are grouped by their start date. Counts come from execution history; failures include messages rejected while sending.',
         breadcrumbs: [
@@ -74,6 +81,23 @@ export default function ReportsPage() {
         linkAs: Link,
       }}
     >
+      <AutomationNavigation active="reports" />
+      <p className="text-sm text-secondary">
+        Auto Replies: Sent counts messages accepted as sent, delivered or read; Blocked counts
+        policy-denied messages; Send failed counts other delivery failures. Bot Flows: Completed,
+        Fallback, Expired, Handed over and Failed count executions.
+      </p>
+      <details className="text-sm text-secondary">
+        <summary>What counts as Completed?</summary>
+        <p className="mt-2">
+          A Bot Flow reached End or Handover successfully. Expired sessions do not count. A
+          completed execution does not guarantee message delivery; send outcomes are recorded
+          separately.
+        </p>
+      </details>
+      {report.data?.totals.starts === 0 ? (
+        <p className="text-sm text-muted">No activity yet</p>
+      ) : null}
       <div className="flex flex-wrap items-end gap-4">
         <Field label="From (India time)">
           <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -137,28 +161,7 @@ export default function ReportsPage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-slate">Failures</h2>
         <p className="text-sm text-secondary">The latest 100 failures in this range.</p>
-        {!report.data?.failures.length ? (
-          <p className="text-sm text-secondary">No failures recorded.</p>
-        ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-            {report.data.failures.map((f, i) => (
-              <li
-                key={`${f.executionId}-${i}`}
-                className="flex flex-wrap items-center justify-between gap-3 p-4"
-              >
-                <div>
-                  <p className="font-medium text-slate">{f.step}</p>
-                  <p className="text-sm text-secondary">{f.reason}</p>
-                </div>
-                {f.conversationId ? (
-                  <Button asChild variant="secondary">
-                    <Link href={`/inbox?c=${f.conversationId}`}>Open conversation</Link>
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
+        <FailureList failures={report.data?.failures ?? []} />
       </section>
     </ListPage>
   )

@@ -39,9 +39,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NodeSymbol } from './node-presentation'
 import {
   autoLayout,
+  branchLabel,
   connect,
   type DraftNode,
-  HANDLE_LABEL,
   issuesFor,
   KIND_LABEL,
   kindOf,
@@ -128,6 +128,11 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
       <div className="px-3 py-2.5">
         <p className="text-sm font-semibold">{NODE_LABEL[node.type]}</p>
         <p className="mt-0.5 line-clamp-2 text-xs text-secondary">{summarize(node)}</p>
+        {node.type === 'action.question' ? (
+          <p className="mt-2 text-xs font-medium text-secondary">
+            Save to: {String(node.config.contactProperty ?? node.config.field ?? 'Choose a field')}
+          </p>
+        ) : null}
         {stats ? (
           <p
             className="mt-2 flex flex-wrap gap-x-3 text-xs text-secondary"
@@ -154,7 +159,7 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
                 HANDLE_TONE[h] ?? 'bg-neutral-soft text-secondary',
               )}
             >
-              {HANDLE_LABEL[h]}
+              {branchLabel(node, h)}
             </span>
           ))}
         </div>
@@ -177,7 +182,7 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
                 type="button"
                 className="nodrag nopan absolute top-full mt-4 flex size-7 -translate-x-1/2 items-center justify-center rounded-full border border-border-strong bg-surface text-secondary shadow-raised hover:border-primary hover:text-primary-strong focus-visible:outline-2 focus-visible:outline-primary-strong"
                 style={{ left: handleLeft(i, outputs.length) }}
-                aria-label={`Add a step after ${NODE_LABEL[node.type]}${labelled ? ` (${HANDLE_LABEL[h]})` : ''}`}
+                aria-label={`Add a step after ${NODE_LABEL[node.type]}${labelled ? ` (${branchLabel(node, h)})` : ''}`}
                 onClick={(e) => {
                   e.stopPropagation()
                   onAddAfter(node.id, h)
@@ -375,7 +380,16 @@ function Canvas({
         },
         className: hot ? 'fw-edge-active' : undefined,
         data: {
-          label: e.sourceHandle === 'next' ? undefined : HANDLE_LABEL[e.sourceHandle],
+          label:
+            e.sourceHandle === 'next' &&
+            !['action.question', 'action.options'].includes(
+              graph.nodes.find((n) => n.id === e.source)?.type ?? '',
+            )
+              ? undefined
+              : branchLabel(
+                  graph.nodes.find((n) => n.id === e.source)!,
+                  e.sourceHandle,
+                ),
           hot: !!hot,
           ...(adding
             ? {
