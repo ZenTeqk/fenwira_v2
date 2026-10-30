@@ -98,7 +98,9 @@ const REQUIREMENT_LABEL = {
  * what it needs. "Start from scratch" is always the first card. Choosing a card creates the flow
  * with the template's graph (auto-laid-out) and opens the builder's setup checklist.
  */
-export function TemplateGallery() {
+export function TemplateGallery({
+  initialCategory = 'POPULAR',
+}: { initialCategory?: FlowTemplateCategory } = {}) {
   const router = useRouter()
   const ai = useAiOverview()
   const aiOn = ai.data?.enabled === true
@@ -107,7 +109,7 @@ export function TemplateGallery() {
     : isNotEnabled(ai.error) || ai.data?.enabled === false
       ? 'AI Assistant isn’t enabled for this workspace. Ask us to add it to your plan.'
       : 'AI Assistant could not be checked. Try again later.'
-  const [tab, setTab] = useState<FlowTemplateCategory>('POPULAR')
+  const [tab, setTab] = useState<FlowTemplateCategory>(initialCategory)
   const [search, setSearch] = useState('')
   const create = useMutation({
     mutationFn: async (t: FlowTemplate | null) => {

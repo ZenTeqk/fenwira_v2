@@ -74,8 +74,20 @@ function friendlyFailure(code: string | undefined, detail: string) {
     ? detail
     : 'This step could not finish. Open its settings and conversation to check what needs attention.'
 }
-export function FlowActivity({ flowId }: { flowId: string }) {
-  const [open, setOpen] = useState(false)
+export function FlowActivity({
+  flowId,
+  open: controlledOpen,
+  onOpenChange,
+  hiddenTrigger = false,
+}: {
+  flowId: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  hiddenTrigger?: boolean
+}) {
+  const [localOpen, setLocalOpen] = useState(false)
+  const open = controlledOpen ?? localOpen
+  const setOpen = onOpenChange ?? setLocalOpen
   const { tenantId } = useSession()
   const runs = useQuery({
     queryKey: automationKey(tenantId, 'recent-activity', flowId),
@@ -93,9 +105,11 @@ export function FlowActivity({ flowId }: { flowId: string }) {
   })
   return (
     <>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        Did this run?
-      </Button>
+      {!hiddenTrigger ? (
+        <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+          Did this run?
+        </Button>
+      ) : null}
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerContent
           title="Recent activity"

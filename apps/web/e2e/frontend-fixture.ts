@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 
 /** Isolated browser UI fixtures: no backend, sends, or persistent tenant data. */
-export async function mockFrontend(page: Page) {
+export async function mockFrontend(page: Page, extraPermissions: string[] = []) {
   await page.route('**/api/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname.replace('/api/v1', '')
     let data: unknown = []
@@ -25,6 +25,7 @@ export async function mockFrontend(page: Page) {
               'automations.write',
               'automations.publish',
               'templates.read',
+              ...extraPermissions,
             ],
             require2fa: false,
           },

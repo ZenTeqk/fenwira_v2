@@ -152,14 +152,21 @@ export const NAVIGATION: NavItem[] = [
     children: [
       {
         id: 'automations-flows',
-        label: 'Flows',
-        href: '/automations',
+        label: 'Workflows',
+        href: '/automations/workflows',
+        phase: 10,
+        permission: 'automations.read',
+      },
+      {
+        id: 'automations-replies',
+        label: 'Reply Studio',
+        href: '/automations/reply-studio/auto-replies',
         phase: 10,
         permission: 'automations.read',
       },
       {
         id: 'automations-builder',
-        label: 'New automation',
+        label: 'Create workflow',
         href: '/automations/new',
         phase: 10,
         permission: 'automations.write',

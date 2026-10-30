@@ -2,6 +2,7 @@
 
 import { cn, focusRing, Tooltip } from '@fenwira/ui'
 import Link from 'next/link'
+import { GitBranch, MessageCircle } from 'lucide-react'
 import { activeModule, moduleHref, type NavItem, SECONDARY_MODULES } from '@/lib/navigation'
 
 type SidebarNavProps = {
@@ -32,8 +33,8 @@ const active = cn(
 )
 
 /**
- * Modules only (UX_PATTERNS → Application shell). A module's sub-pages are the ModuleTabs under
- * the top bar, not sidebar children. Operational modules first, then workspace administration.
+ * Module navigation, with the reference-approved Workflows / Reply Studio children when
+ * Automations is open. Other modules retain their own module tabs.
  */
 export function SidebarNav({
   items,
@@ -54,7 +55,7 @@ export function SidebarNav({
       <Link
         href={moduleHref(item)}
         onClick={onNavigate}
-        aria-current={isActive ? 'page' : undefined}
+        aria-current={isActive && (collapsed || item.id !== 'automations') ? 'page' : undefined}
         className={cn(
           itemBase,
           isActive ? active : collapsed ? inactiveCollapsed : inactive,
@@ -89,6 +90,42 @@ export function SidebarNav({
         ) : (
           link
         )}
+        {!collapsed && isActive && item.id === 'automations' ? (
+          <ul
+            aria-label="Automation sections"
+            className="ml-5 mt-1 flex flex-col gap-1 border-l border-border pl-2"
+          >
+            {[
+              {
+                label: 'Workflows',
+                href: '/automations/workflows',
+                icon: GitBranch,
+                selected: !pathname.includes('/reply-studio'),
+              },
+              {
+                label: 'Reply Studio',
+                href: '/automations/reply-studio/auto-replies',
+                icon: MessageCircle,
+                selected: pathname.includes('/reply-studio'),
+              },
+            ].map((child) => (
+              <li key={child.label}>
+                <Link
+                  href={child.href}
+                  onClick={onNavigate}
+                  aria-current={child.selected ? 'page' : undefined}
+                  className={cn(
+                    itemBase,
+                    child.selected ? 'bg-primary-soft font-medium text-primary-strong' : inactive,
+                  )}
+                >
+                  <child.icon aria-hidden="true" />
+                  {child.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </li>
     )
   }

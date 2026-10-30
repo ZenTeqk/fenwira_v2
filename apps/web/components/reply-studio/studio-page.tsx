@@ -1,6 +1,7 @@
 'use client'
-import { Breadcrumb, Button, ListPage, PermissionState } from '@fenwira/ui'
+import { Button, ListPage, PermissionState } from '@fenwira/ui'
 import Link from 'next/link'
+import { BarChart3, Plus, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { AutomationNavigation } from '@/components/automation-list/navigation'
 import { FlowCollection } from '@/components/automation-list/flow-collection'
@@ -16,29 +17,29 @@ export function ReplyStudioPage({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
   const managed = (flows.data ?? []).filter(
     (f) => f.managedBy === 'REPLY_STUDIO' && f.replyStudioKind === kind,
   )
-  const title = kind === 'AUTO_REPLY' ? 'Auto Replies' : 'Bot Flows'
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <Breadcrumb
-        className="md:hidden"
-        items={[
-          { label: 'Automations', href: '/automations/workflows' },
-          { label: 'Reply Studio' },
-          { label: title },
-        ]}
-        linkAs={Link}
-      />
       <ListPage
         header={{
           title: 'Reply Studio',
+          descriptionFullWidth: true,
+          breadcrumbs: [{ label: 'Automations' }, { label: 'Reply Studio' }],
+          linkAs: Link,
           description:
             'Answer common questions, guide customer enquiries, and connect customers with your team.',
           actions: (
             <div className="flex flex-wrap items-center gap-4">
               <BusinessHoursAction />
+              <Button asChild variant="secondary">
+                <Link href="/automations/reply-studio/reports">
+                  <BarChart3 aria-hidden="true" />
+                  Reports
+                </Link>
+              </Button>
               {can('automations.write') ? (
                 <Button asChild>
                   <Link href={`/automations/reply-studio/new?kind=${kind}`}>
+                    <Plus aria-hidden="true" />
                     {kind === 'AUTO_REPLY' ? 'Create auto reply' : 'Create bot flow'}
                   </Link>
                 </Button>
@@ -46,14 +47,25 @@ export function ReplyStudioPage({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
             </div>
           ),
         }}
+        className="gap-4"
       >
-        <AutomationNavigation active={kind} />
         {!flows.isPending && !flows.isError && !managed.length ? (
           <p className="text-sm text-muted">Activity will appear after your first reply runs.</p>
         ) : (
-          <ReplyOverview />
+          <ReplyOverview liveCount={managed.filter((f) => f.status === 'ACTIVE').length} />
         )}
-        <div className="flex justify-end">
+        <div className="flex min-w-0 items-end justify-between gap-2">
+          <AutomationNavigation
+            active={kind}
+            counts={{
+              AUTO_REPLY: (flows.data ?? []).filter(
+                (f) => f.managedBy === 'REPLY_STUDIO' && f.replyStudioKind === 'AUTO_REPLY',
+              ).length,
+              BOT_FLOW: (flows.data ?? []).filter(
+                (f) => f.managedBy === 'REPLY_STUDIO' && f.replyStudioKind === 'BOT_FLOW',
+              ).length,
+            }}
+          />
           <Button
             variant="ghost"
             size="sm"
@@ -80,6 +92,10 @@ export function ReplyStudioPage({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
         {!archived && managed.length > 0 && can('automations.write') ? (
           <ReplyStarterCards kind={kind} populated />
         ) : null}
+        <p className="flex items-center gap-2 border-t border-border pt-3 text-xs text-muted">
+          <ShieldCheck aria-hidden="true" className="size-4" />
+          Replies pause when a teammate takes over.
+        </p>
       </ListPage>
     </div>
   )

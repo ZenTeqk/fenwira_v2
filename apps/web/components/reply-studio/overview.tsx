@@ -2,7 +2,7 @@
 import { type BusinessHours, type ReplyReport } from '@fenwira/contracts'
 import { Button, Skeleton, StatusBadge } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCheck, Handshake, MessageCircle, TriangleAlert } from 'lucide-react'
+import { Clock3, Handshake, MessageCircle, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
@@ -11,7 +11,6 @@ import { automationKey } from '@/lib/automation'
 import { businessHoursLabel, metricChange } from '@/lib/reply-studio-presentation'
 const METRICS = [
   { key: 'starts', label: 'Starts', icon: MessageCircle },
-  { key: 'completions', label: 'Completed', icon: CheckCheck },
   { key: 'handovers', label: 'Handed over', icon: Handshake },
   { key: 'failures', label: 'Failed', icon: TriangleAlert },
 ] as const
@@ -32,8 +31,11 @@ export function BusinessHoursAction() {
   )
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button asChild variant="ghost" size="sm">
-        <Link href="/automations/reply-studio/business-hours">Business hours</Link>
+      <Button asChild variant="secondary" size="sm">
+        <Link href="/automations/reply-studio/business-hours">
+          <Clock3 aria-hidden="true" />
+          Business hours
+        </Link>
       </Button>
       {hours.isPending ? (
         <Skeleton className="h-6 w-40" />
@@ -51,7 +53,7 @@ export function BusinessHoursAction() {
     </div>
   )
 }
-export function ReplyOverview() {
+export function ReplyOverview({ liveCount = 0 }: { liveCount?: number }) {
   const { tenantId } = useSession()
   const period = useMemo(() => {
     const end = new Date()
@@ -80,7 +82,10 @@ export function ReplyOverview() {
       aria-label="Reply Studio overview"
       className="overflow-hidden rounded-lg border border-border bg-surface"
     >
-      <div className="flex divide-x divide-border overflow-x-auto">
+      <div className="grid grid-cols-2 gap-y-4 divide-x divide-border py-3 lg:grid-cols-4">
+        <div className="flex min-w-0 items-center px-4">
+          <StatusBadge status="ACTIVE" label={`${liveCount} replies live`} />
+        </div>
         {METRICS.map((m) => {
           const value = totals.data?.current[m.key],
             previous = totals.data?.previous[m.key]
@@ -89,17 +94,24 @@ export function ReplyOverview() {
               key={m.key}
               href="/automations/reply-studio/reports"
               aria-label={`${m.label}: ${value ?? 'loading'}. View reports`}
-              className="flex min-w-44 flex-1 items-center gap-4 px-4 py-2 focus-visible:outline-2 focus-visible:outline-primary-strong"
+              className="flex min-w-0 items-center gap-3 px-4 focus-visible:outline-2 focus-visible:outline-primary-strong"
             >
               <m.icon className="size-4 shrink-0 text-muted" aria-hidden="true" />
-              <div>
-                <p className="text-xs text-secondary">
+              <div
+                className="flex flex-wrap items-center gap-x-2"
+                title={
+                  value !== undefined && previous !== undefined
+                    ? metricChange(value, previous)
+                    : undefined
+                }
+              >
+                <p className="order-2 text-sm text-secondary">
                   {m.label} <span className="text-muted">· 7 days</span>
                 </p>
-                <p className="text-lg font-semibold text-slate">
+                <p className="text-sm font-semibold text-slate">
                   {totals.isPending ? '…' : totals.isError ? '—' : value?.toLocaleString('en-IN')}
                 </p>
-                <p className="text-xs text-muted">
+                <p className="sr-only">
                   {value !== undefined && previous !== undefined
                     ? metricChange(value, previous)
                     : totals.isError

@@ -91,34 +91,80 @@ export function ReplyStarterCards({
   const show = !populated || expanded
   return (
     <section aria-label="Starter flows" className="flex flex-col gap-4">
-      {populated ? (
-        <Button
-          variant="ghost"
-          className="justify-start self-start"
-          aria-expanded={expanded}
-          aria-controls={region}
-          onClick={() => {
-            setExpanded(!expanded)
-            try {
-              localStorage.setItem(key, !expanded ? 'open' : 'closed')
-            } catch {
-              /* Optional preference. */
-            }
-          }}
-        >
-          {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
-          Starter conversations
-        </Button>
-      ) : (
-        <div>
-          <h2 className="text-lg font-semibold text-slate">
-            {kind === 'AUTO_REPLY' ? 'Create your first auto reply' : 'Create your first bot flow'}
-          </h2>
-          <p className="mt-2 text-sm text-secondary">
-            Start with an editable conversation recipe. Nothing runs until you publish.
-          </p>
+      <div className={populated ? 'flex flex-wrap items-center justify-between gap-2' : undefined}>
+        {populated ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-md font-semibold text-slate">
+                {kind === 'AUTO_REPLY'
+                  ? 'Start with a ready-made reply'
+                  : 'Start with a guided conversation'}
+              </h2>
+              <p className="mt-1 text-xs text-muted">
+                Editable starters. Customise, test, then publish.
+              </p>
+            </div>
+          </div>
+        ) : null}
+        {populated ? (
+          <Button
+            variant="ghost"
+            className="justify-start self-start"
+            aria-expanded={expanded}
+            aria-controls={region}
+            onClick={() => {
+              setExpanded(!expanded)
+              try {
+                localStorage.setItem(key, !expanded ? 'open' : 'closed')
+              } catch {
+                /* Optional preference. */
+              }
+            }}
+          >
+            {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+            Starter conversations
+          </Button>
+        ) : (
+          <div>
+            <h2 className="text-lg font-semibold text-slate">
+              {kind === 'AUTO_REPLY'
+                ? 'Create your first auto reply'
+                : 'Create your first bot flow'}
+            </h2>
+            <p className="mt-2 text-sm text-secondary">
+              Start with an editable conversation recipe. Nothing runs until you publish.
+            </p>
+          </div>
+        )}
+      </div>
+      {populated && !expanded ? (
+        <div className="grid gap-3 md:grid-cols-3">
+          {REPLY_PRESETS.filter((p) => p.kind === kind).map((p) => {
+            const Icon = PRESET_ICON[p.id]
+            return (
+              <article
+                key={p.id}
+                className="flex items-start gap-3 rounded-lg border border-border bg-surface p-4"
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong">
+                  <Icon aria-hidden="true" className="size-5" />
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <h3 className="text-sm font-semibold text-slate">{p.title}</h3>
+                  <p className="text-xs text-muted">{p.help}</p>
+                  <Link
+                    href={`/automations/reply-studio/new?kind=${kind}&preset=${p.id}`}
+                    aria-label={`Use starter: ${p.title}`}
+                    className="inline-flex min-h-6 items-center rounded-sm text-xs font-semibold text-primary-strong focus-visible:outline-2 focus-visible:outline-primary-strong"
+                  >
+                    Use starter →
+                  </Link>
+                </div>
+              </article>
+            )
+          })}
         </div>
-      )}
+      ) : null}
       <div
         id={region}
         hidden={!show}

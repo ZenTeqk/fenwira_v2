@@ -26,7 +26,7 @@ describe('navigation', () => {
       'Billing',
       'Settings',
     ])
-    expect(flattenLeaves(NAVIGATION)).toHaveLength(33)
+    expect(flattenLeaves(NAVIGATION)).toHaveLength(34)
     const hrefs = flattenLeaves(NAVIGATION).map((l) => l.href)
     expect(new Set(hrefs).size).toBe(hrefs.length)
   })
@@ -67,8 +67,9 @@ describe('navigation', () => {
       'Wallet',
     ])
     expect(visible.find((i) => i.id === 'automations')!.children!.map((c) => c.label)).toEqual([
-      'Flows',
-      'New automation',
+      'Workflows',
+      'Reply Studio',
+      'Create workflow',
     ])
     expect(visible.find((i) => i.id === 'templates')!.children!.map((c) => c.label)).toEqual([
       'Templates',
@@ -89,7 +90,7 @@ describe('navigation', () => {
   })
 
   it('reveals everything in preview mode', () => {
-    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(33)
+    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(34)
   })
 
   it('keeps partially shipped groups with only their shipped children', () => {
@@ -135,7 +136,7 @@ describe('navigation', () => {
       ['Campaigns', false],
       ['Analytics', true],
     ])
-    // A single-page module (Templates, Automations) has no tabs; create pages aren't tabs.
+    // A single-page module (Templates) has no tabs; create pages aren't tabs.
     expect(moduleTabs('/templates/new', visible).tabs).toEqual([])
     expect(activeModule('/contacts/0192/anything', visible)?.id).toBe('contacts')
     expect(activeModule('/automations/abc/history', visible)?.id).toBe('automations')
