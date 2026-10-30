@@ -2,7 +2,7 @@
 
 import { type Conversation } from '@fenwira/contracts'
 import { Button, Drawer, DrawerContent } from '@fenwira/ui'
-import { X } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { type RefObject } from 'react'
 import { ContactPane, type PanelTab } from './contact-pane'
 import { SharedFiles } from './shared-files'
@@ -22,7 +22,7 @@ type PanelProps = {
   onJump: (messageId: string) => void
 }
 
-/** Contact details beside the chat (docs/INBOX.md → Layout): inline ≥1440px, overlay below. */
+/** Contact details beside the chat (docs/INBOX.md → Layout): docked on desktop; a separate details view below 1024px. */
 export function ContactDetailsPanel({
   id,
   conversation: c,
@@ -52,7 +52,7 @@ export function ContactDetailsPanel({
           side="right"
           width="sm"
           // One view at a time on phones: the details take the whole screen.
-          className="max-w-full md:max-w-xs"
+          className="fw-inbox-theme fw-inbox-compact-icons fw-inbox-compact-type max-w-full md:max-w-xs"
           onCloseAutoFocus={(event) => {
             event.preventDefault()
             returnFocus.current?.focus()
@@ -68,11 +68,11 @@ export function ContactDetailsPanel({
     <aside
       id={id}
       aria-labelledby={`${id}-title`}
-      className="flex min-h-0 w-78 shrink-0 flex-col border-l border-border bg-surface"
+      className="flex min-h-0 w-80 shrink-0 flex-col border-l border-border bg-surface"
     >
-      <div className="flex h-16 shrink-0 items-center justify-between gap-2 px-5 pt-2">
+      <div className="flex h-16 shrink-0 items-center justify-between gap-2 px-4">
         <h2 id={`${id}-title`} className="text-lg font-semibold text-slate">
-          Contact details
+          Customer details
         </h2>
         <Button
           variant="ghost"
@@ -84,7 +84,7 @@ export function ContactDetailsPanel({
             returnFocus.current?.focus()
           }}
         >
-          <X aria-hidden="true" />
+          <ChevronRight aria-hidden="true" />
         </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>

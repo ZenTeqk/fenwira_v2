@@ -10,7 +10,9 @@ export type AvatarProps = {
   src?: string
   size?: keyof typeof sizes
   /** Opt-in human identity palette; other surfaces keep their established default. */
-  appearance?: 'default' | 'varied'
+  appearance?: 'default' | 'varied' | 'inbox'
+  /** Stable contact ID when names change or are shared by several contacts. */
+  identityKey?: string
   className?: string
 }
 
@@ -29,15 +31,31 @@ const identityTones = [
   'bg-success-soft text-success-strong',
 ] as const
 
+const inboxTones = [
+  'bg-avatar-pink text-avatar-pink-text',
+  'bg-avatar-lavender text-avatar-lavender-text',
+  'bg-avatar-peach text-avatar-peach-text',
+  'bg-avatar-mint text-avatar-mint-text',
+  'bg-avatar-blue text-avatar-blue-text',
+] as const
+
 /** Stable across renders/server hydration. Color is decorative identity, never a status. */
-export function avatarTone(name: string): string {
+export function avatarTone(name: string, appearance: 'varied' | 'inbox' = 'varied'): string {
   let hash = 0
   for (const char of name.trim().toLocaleLowerCase('en'))
     hash = (Math.imul(hash, 31) + char.codePointAt(0)!) >>> 0
-  return identityTones[hash % identityTones.length]!
+  const tones = appearance === 'inbox' ? inboxTones : identityTones
+  return tones[hash % tones.length]!
 }
 
-export function Avatar({ name, src, size = 'md', appearance = 'default', className }: AvatarProps) {
+export function Avatar({
+  name,
+  src,
+  size = 'md',
+  appearance = 'default',
+  identityKey,
+  className,
+}: AvatarProps) {
   return (
     <AvatarPrimitive.Root
       data-slot="avatar"
@@ -53,7 +71,9 @@ export function Avatar({ name, src, size = 'md', appearance = 'default', classNa
       <AvatarPrimitive.Fallback
         className={cn(
           'flex size-full items-center justify-center font-medium',
-          appearance === 'varied' ? avatarTone(name) : 'bg-primary-soft text-slate',
+          appearance !== 'default'
+            ? avatarTone(identityKey ?? name, appearance)
+            : 'bg-primary-soft text-slate',
         )}
         aria-label={name}
       >

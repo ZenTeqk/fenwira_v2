@@ -43,6 +43,28 @@
   --color-thread-soft: #f3f2ed;
   --color-message-outbound: #d2f2df;
   --color-note-soft: #fff8eb;
+  --color-inbox-primary: #047857;
+  --color-inbox-primary-hover: #065f46;
+  --color-inbox-selected: #ecfdf5;
+  --color-inbox-outbound: #e8f7f0;
+  --color-inbox-text: #172b25;
+  --color-inbox-secondary: #66756f;
+  --color-inbox-border: #e5eae7;
+  --color-inbox-note: #fff7e6;
+  --color-inbox-note-border: #fde3b0;
+  --color-inbox-note-text: #92400e;
+  --color-inbox-followup: #fff1de;
+  --color-inbox-followup-text: #9a4d0b;
+  --color-avatar-pink: #fce0ec;
+  --color-avatar-pink-text: #9d2455;
+  --color-avatar-lavender: #ebddfb;
+  --color-avatar-lavender-text: #66379b;
+  --color-avatar-peach: #ffe1c7;
+  --color-avatar-peach-text: #974613;
+  --color-avatar-mint: #cff3e8;
+  --color-avatar-mint-text: #065f46;
+  --color-avatar-blue: #dae7ff;
+  --color-avatar-blue-text: #274b97;
 
   --font-*: initial;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -160,4 +182,103 @@
 .fw-phone-frame.fw-phone-frame-fit {
   flex: 1 1 620px;
   max-height: 620px;
+}
+
+/* The inbox uses its approved palette without changing other application screens. Apply this
+   class to portalled inbox surfaces too, because they are outside the application shell. */
+.fw-inbox-theme {
+  color: var(--color-inbox-text);
+  --color-primary: var(--color-inbox-primary);
+  --color-primary-hover: var(--color-inbox-primary-hover);
+  --color-primary-strong: var(--color-inbox-primary);
+  --color-primary-strong-hover: var(--color-inbox-primary-hover);
+  --color-primary-soft: var(--color-inbox-selected);
+  --color-message-outbound: var(--color-inbox-outbound);
+  --color-slate: var(--color-inbox-text);
+  --color-secondary: var(--color-inbox-secondary);
+  --color-muted: var(--color-inbox-secondary);
+  --color-border: var(--color-inbox-border);
+  --color-note-soft: var(--color-inbox-note);
+}
+.fw-inbox-bubble {
+  max-width: min(70%, 520px);
+  overflow-wrap: anywhere;
+}
+.fw-inbox-composer {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+@media (max-width: 767px) {
+  .fw-inbox-bubble {
+    max-width: 90%;
+  }
+}
+
+/* The virtualized inbox restores an explicit message anchor after prepending a page. */
+.fw-inbox-timeline {
+  overflow-anchor: none;
+}
+
+/* Template labels, footers and unavailable-media copy share the outgoing bubble's AA text
+   pairing. The approved secondary grey remains unchanged on white panels and other modules. */
+.fw-inbox-theme .fw-inbox-bubble.bg-message-outbound {
+  --color-secondary: var(--color-inbox-text);
+  --color-muted: var(--color-inbox-text);
+}
+
+/* Inbox filters keep native trackpad/touch scrolling. Separate arrow controls replace the
+   platform scrollbar, so no scrollbar or navigation affordance sits over a filter label. */
+.fw-inbox-filter-scroll {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.fw-inbox-filter-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Opt-in inbox panel density: action glyphs 14px, small metadata 12px, document icons
+   18–20px and media play marks 24px. The application navigation keeps its original scale. */
+.fw-inbox-compact-icons .lucide {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+}
+.fw-inbox-compact-icons .lucide[class~='size-3'],
+.fw-inbox-compact-icons .lucide[class~='size-3.5'] {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.fw-inbox-compact-icons .lucide[class~='size-5'] {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.fw-inbox-compact-icons .lucide[class~='size-6'] {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.fw-inbox-compact-icons .lucide[class~='size-8'] {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+@media (min-width: 768px) {
+  .fw-inbox-compact-icons [data-slot='button'][class~='size-9'] {
+    width: 2rem;
+    height: 2rem;
+  }
+}
+
+/* Compact reading scale for the conversation and customer panels, including mobile details.
+   Keep 12px metadata legible and preserve the original navigation/conversation-list type. */
+.fw-inbox-compact-type {
+  --text-sm: 0.75rem;
+  --text-sm--line-height: 1rem;
+  --text-base: 0.8125rem;
+  --text-base--line-height: 1.125rem;
+  --text-message: 0.8125rem;
+  --text-message--line-height: 1.5;
+  --text-md: 0.875rem;
+  --text-md--line-height: 1.25rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5rem;
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
 }

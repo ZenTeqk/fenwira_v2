@@ -34,7 +34,12 @@ export function windowLeft(expiresAt: string | null, now: number): string | null
   return h ? `${h}h ${m}m left` : `${m}m left`
 }
 
-const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+// Inbox clocks always show AM/PM, while keeping the browser's time zone.
+const time = new Intl.DateTimeFormat('en-US', {
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+})
 const day = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' })
 export function shortTime(iso: string | null): string {
   if (!iso) return ''

@@ -25,14 +25,14 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import Image from 'next/image'
 import { followsSameSender } from '@/lib/message-grouping'
-import { Lock, Paperclip } from 'lucide-react'
-import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { ArrowDown, Download, FileText, Lock, Paperclip } from 'lucide-react'
+import { type ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 import { clockTime } from '@/lib/inbox'
 import { useRealtimeEvent } from '@/lib/realtime'
-import { useFileUrl } from './media'
+import { fileSize, fileType, useFileUrl } from './media'
 import { mediaCountsKey, MediaResults, type ThreadFilter, ThreadFilterChips } from './media-filter'
 import { usePresence } from './conversation-actions'
 import { TemplateMessage } from './template-message'
@@ -92,7 +92,8 @@ function MessageBody({ m, labelId, bodyId }: { m: Message; labelId: string; body
         <MediaBody
           kind={c.type}
           fileId={c.fileId}
-          label={c.filename ?? c.type.toLowerCase()}
+          label={m.media?.filename ?? c.filename ?? c.type.toLowerCase()}
+          media={m.media}
           caption={c.caption}
         />
       )
@@ -106,11 +107,13 @@ function MediaBody({
   fileId,
   label,
   caption,
+  media,
 }: {
   kind: 'IMAGE' | 'DOCUMENT' | 'AUDIO' | 'VIDEO' | 'STICKER'
   fileId?: string
   label: string
   caption?: string
+  media?: Message['media']
 }) {
   const link = useFileUrl(fileId)
   return (
@@ -125,7 +128,51 @@ function MediaBody({
           className="h-auto max-w-full rounded-md"
         />
       ) : null}
-      {link.data ? (
+      {link.data && kind === 'AUDIO' ? (
+        <audio controls src={link.data} className="max-w-full" aria-label={label} />
+      ) : null}
+      {link.data && kind === 'VIDEO' ? (
+        <video
+          controls
+          src={link.data}
+          className="max-h-72 max-w-full rounded-md"
+          aria-label={label}
+        >
+          <track kind="captions" />
+        </video>
+      ) : null}
+      {kind === 'DOCUMENT' ? (
+        <div className="flex min-w-0 items-center gap-3 rounded-md border border-border bg-surface p-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-danger-soft text-danger-strong">
+            <FileText aria-hidden="true" className="size-6" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-base font-semibold">{label}</p>
+            <p className="text-xs text-secondary">
+              {fileType(label, media?.mimeType ?? null)}
+              {media?.sizeBytes != null ? ` · ${fileSize(media.sizeBytes)}` : ''}
+            </p>
+          </div>
+          {link.data ? (
+            <a
+              href={link.data}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`Download ${label}`}
+              className={cn(
+                'flex size-9 shrink-0 items-center justify-center rounded-md border border-border text-secondary hover:bg-neutral-soft sm:size-8',
+                focusRing,
+              )}
+            >
+              <Download aria-hidden="true" className="size-4" />
+            </a>
+          ) : (
+            <span className="text-xs text-secondary">
+              {link.isError ? 'Unavailable' : 'Loading…'}
+            </span>
+          )}
+        </div>
+      ) : link.data ? (
         <a
           href={link.data}
           target="_blank"
@@ -159,10 +206,10 @@ function Row({
   const ids = useId()
   if (item.kind === 'note')
     return (
-      <div className="mx-auto w-full max-w-5/6 rounded-md border-l-4 border-warning bg-note-soft px-3 py-2 text-slate">
-        <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-warning-strong">
+      <div className="fw-inbox-bubble ml-auto w-fit rounded-lg border border-inbox-note-border bg-note-soft px-3 py-2.5 text-slate">
+        <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-inbox-note-text">
           <Lock className="size-3.5" aria-hidden="true" />
-          Private note · {item.note.authorName}
+          Internal note · {item.note.authorName}
         </p>
         <p className="whitespace-pre-wrap break-words">{item.note.body}</p>
         <p className="text-xs text-secondary">{clockTime(item.note.createdAt)}</p>
@@ -172,7 +219,7 @@ function Row({
   if (m.direction === 'SYSTEM') {
     const c = m.content as { event?: string; data?: Record<string, unknown> }
     return (
-      <p className="mx-auto w-fit max-w-5/6 text-center text-xs text-muted">
+      <p className="mx-auto w-fit max-w-5/6 rounded-full border border-border bg-surface/80 px-3 py-1.5 text-center text-xs text-secondary">
         {(c.event && EVENT_TEXT[c.event]?.(c.data ?? {})) ?? c.event} · {clockTime(m.createdAt)}
       </p>
     )
@@ -186,7 +233,9 @@ function Row({
         ? 'Campaign'
         : m.sentByUserId && m.sentByUserId !== me.user.id
           ? (names.get(m.sentByUserId) ?? 'Workspace reply')
-          : null
+          : m.sentByUserId === me.user.id
+            ? me.user.name
+            : null
   const template = m.content.type === 'TEMPLATE'
   const labelId = `${ids}-label`
   const bodyId = `${ids}-body`
@@ -201,15 +250,15 @@ function Row({
             }
           : {})}
         className={cn(
-          'flex min-w-0 max-w-7/10 flex-col gap-1 rounded-xl px-3.5 py-2.5 text-message text-slate',
+          'fw-inbox-bubble flex min-w-0 flex-col gap-1 rounded-lg border px-3.5 py-2.5 text-base leading-normal text-slate',
           outbound
-            ? 'bg-message-outbound'
+            ? 'border-border bg-message-outbound'
             : 'border border-border bg-surface contrast-more:border-border-strong',
         )}
       >
         {/* Only other senders are named, at the start of their group (never "You"). */}
         {!grouped && outbound && sender ? (
-          <span className="text-xs font-medium text-secondary">{sender}</span>
+          <span className="text-xs font-medium text-slate">{sender}</span>
         ) : null}
         <MessageBody m={m} labelId={labelId} bodyId={bodyId} />
         <span
@@ -217,7 +266,7 @@ function Row({
             'flex items-center justify-end gap-1 text-xs',
             // Muted fails AA as text on the outbound tint, so outbound metadata uses secondary.
             // The ticks are non-text icons (3:1) and keep their own colours (MessageTicks).
-            outbound ? 'text-secondary' : 'text-muted',
+            outbound ? 'text-slate' : 'text-muted',
           )}
         >
           {clockTime(m.createdAt)}
@@ -236,8 +285,12 @@ function Row({
 export function Thread({
   conversationId,
   jump,
+  showFilters = false,
+  initialUnreadCount = 0,
 }: {
   conversationId: string
+  showFilters?: boolean
+  initialUnreadCount?: number
   /** "Jump to message" from Shared files; a new `seq` repeats a jump to the same message. */
   jump?: { id: string; seq: number } | null
 }) {
@@ -253,6 +306,9 @@ export function Thread({
     initialPageParam: '',
     getNextPageParam: (last) => last.page.nextCursor ?? undefined,
   })
+  // Snapshot the opening unread count before the existing mark-read request clears it.
+  const [openingUnread] = useState(initialUnreadCount)
+  const unreadAnchor = useRef<string | null>(null)
   const [jumpTo, setJumpTo] = useState<string | null>(null)
   // The chips above the timeline (All / Images / … / Notes); the thread remounts per conversation.
   const [filter, setFilter] = useState<ThreadFilter | null>(null)
@@ -326,10 +382,19 @@ export function Thread({
   const items = useMemo<Item[]>(() => {
     const ms = (messages.data?.pages ?? [])
       .flatMap((p) => p.data)
+      .reverse()
       .map((m): Item => ({ kind: 'message', at: m.createdAt, message: m }))
     const ns = (notes.data ?? []).map((n): Item => ({ kind: 'note', at: n.createdAt, note: n }))
     return [...ms, ...ns].sort((a, b) => a.at.localeCompare(b.at))
   }, [messages.data, notes.data])
+
+  const inboundMessages = items.filter(
+    (item) => item.kind === 'message' && item.message.direction === 'INBOUND',
+  )
+  if (!unreadAnchor.current && openingUnread > 0 && inboundMessages.length >= openingUnread) {
+    const firstUnread = inboundMessages.at(-openingUnread)
+    if (firstUnread?.kind === 'message') unreadAnchor.current = firstUnread.message.id
+  }
 
   const members = usePresence()
   const names = useMemo(
@@ -339,16 +404,83 @@ export function Thread({
   const scroller = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: items.length,
+    getItemKey: (index) => {
+      const item = items[index]!
+      return item.kind === 'message' ? item.message.id : `note-${item.note.id}`
+    },
     getScrollElement: () => scroller.current,
     estimateSize: () => 64,
     overscan: 8,
   })
+  // Keep the visible row anchored when a page is prepended to the virtualized timeline.
+  const anchor = useRef<{ key: string; top: number } | null>(null)
+  const loadEarlier = () => {
+    const el = scroller.current
+    if (el) {
+      const top = el.getBoundingClientRect().top
+      const first = [...el.querySelectorAll<HTMLElement>('[data-message-id], [data-note-id]')].find(
+        (row) => row.getBoundingClientRect().bottom > top,
+      )
+      if (first)
+        anchor.current = {
+          key: first.dataset.messageId ?? `note-${first.dataset.noteId}`,
+          top: first.getBoundingClientRect().top - top,
+        }
+    }
+    nearBottom.current = false
+    void messages.fetchNextPage()
+  }
+  useLayoutEffect(() => {
+    if (!anchor.current || messages.isFetchingNextPage) return
+    const saved = anchor.current
+    const index = items.findIndex(
+      (item) => (item.kind === 'message' ? item.message.id : `note-${item.note.id}`) === saved.key,
+    )
+    if (index < 0) return
+    virtualizer.scrollToIndex(index, { align: 'start' })
+    let attempts = 0
+    let stable = 0
+    let frame: number
+    // Newly mounted rows are measured asynchronously. Correct against the actual message,
+    // including the removed paging control and date divider, until those measurements settle.
+    const restore = () => {
+      const el = scroller.current
+      const target =
+        el &&
+        [...el.querySelectorAll<HTMLElement>('[data-message-id], [data-note-id]')].find(
+          (row) => (row.dataset.messageId ?? `note-${row.dataset.noteId}`) === saved.key,
+        )
+      if (el && target) {
+        const delta =
+          target.getBoundingClientRect().top - el.getBoundingClientRect().top - saved.top
+        if (Math.abs(delta) > 0.5) {
+          virtualizer.scrollToOffset(el.scrollTop + delta)
+          stable = 0
+        } else stable++
+      }
+      if (++attempts < 12 && stable < 3) frame = requestAnimationFrame(restore)
+      else anchor.current = null
+    }
+    frame = requestAnimationFrame(restore)
+    return () => cancelAnimationFrame(frame)
+  }, [items, messages.isFetchingNextPage, virtualizer])
+  const [hasNewMessages, setHasNewMessages] = useState(false)
+  const lastNewest = useRef<string | null>(null)
+  const timelineHeight = virtualizer.getTotalSize()
   const newest = items.at(-1)
   const nearBottom = useRef(true)
   useEffect(() => {
+    const newestKey = newest
+      ? newest.kind === 'message'
+        ? newest.message.id
+        : newest.note.id
+      : null
+    if (lastNewest.current && newestKey !== lastNewest.current && !nearBottom.current)
+      setHasNewMessages(true)
+    lastNewest.current = newestKey
     if (items.length && nearBottom.current && !jumpTo)
       virtualizer.scrollToIndex(items.length - 1, { align: 'end' })
-  }, [newest?.at, items.length, virtualizer, jumpTo])
+  }, [newest, items.length, timelineHeight, virtualizer, jumpTo])
 
   // "Jump to message" from a media view: load earlier pages until it is in the thread, then scroll
   // to it and move focus there.
@@ -380,13 +512,13 @@ export function Thread({
         (r) => r.data,
       ),
   })
-  const chips = (
+  const chips = showFilters ? (
     <ThreadFilterChips
       value={filter}
       onChange={setFilter}
       counts={counts.data ? { ...counts.data, notes: notes.data?.length ?? 0 } : undefined}
     />
-  )
+  ) : null
   const jumpFromFilter = (id: string) => {
     setFilter(null)
     setJumpTo(id)
@@ -444,7 +576,7 @@ export function Thread({
           ref={scroller}
           tabIndex={0}
           className={cn(
-            'relative h-full min-h-0 overflow-y-auto px-6 py-4',
+            'fw-inbox-timeline relative h-full min-h-0 overflow-y-auto px-6 py-4',
             focusRing,
             'focus-visible:-outline-offset-2',
           )}
@@ -454,6 +586,7 @@ export function Thread({
           onScroll={(e) => {
             const el = e.currentTarget
             nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+            if (nearBottom.current) setHasNewMessages(false)
           }}
         >
           {notes.isError ? (
@@ -468,7 +601,7 @@ export function Thread({
                 size="sm"
                 variant="ghost"
                 loading={messages.isFetchingNextPage}
-                onClick={() => void messages.fetchNextPage()}
+                onClick={loadEarlier}
               >
                 Load earlier messages
               </Button>
@@ -481,6 +614,7 @@ export function Thread({
               const grouped =
                 item.kind === 'message' &&
                 previous?.kind === 'message' &&
+                item.message.type === previous.message.type &&
                 followsSameSender(item.message, previous.message)
               const date = new Date(item.at).toLocaleDateString(undefined, {
                 day: 'numeric',
@@ -495,13 +629,24 @@ export function Thread({
                   key={item.kind === 'note' ? `n-${item.note.id}` : item.message.id}
                   data-index={v.index}
                   ref={virtualizer.measureElement}
-                  className={cn('absolute left-0 top-0 w-full pb-1', grouped ? 'pt-0.5' : 'pt-2')}
+                  className={cn('absolute left-0 top-0 w-full pb-1', grouped ? 'pt-0.5' : 'pt-4')}
                   style={{ transform: `translateY(${v.start}px)` }}
                 >
                   {newDay ? (
-                    <p className="mx-auto mb-3 mt-1 w-fit rounded-md bg-neutral-soft px-2.5 py-1 text-xs font-medium text-muted">
+                    <p className="mx-auto mb-4 mt-1 w-fit rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-secondary">
                       {date}
                     </p>
+                  ) : null}
+                  {item.kind === 'message' && item.message.id === unreadAnchor.current ? (
+                    <div
+                      role="separator"
+                      aria-label={`${openingUnread} unread messages`}
+                      className="mb-4 flex items-center gap-3 text-xs text-secondary"
+                    >
+                      <span className="h-px flex-1 bg-border-strong" />
+                      {openingUnread} unread messages
+                      <span className="h-px flex-1 bg-border-strong" />
+                    </div>
                   ) : null}
                   <div
                     {...(item.kind === 'message'
@@ -516,6 +661,20 @@ export function Thread({
             })}
           </div>
         </div>
+        {hasNewMessages ? (
+          <Button
+            size="sm"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 shadow-raised"
+            onClick={() => {
+              nearBottom.current = true
+              virtualizer.scrollToIndex(items.length - 1, { align: 'end' })
+              setHasNewMessages(false)
+            }}
+          >
+            <ArrowDown aria-hidden="true" />
+            New messages
+          </Button>
+        ) : null}
       </div>
     </div>
   )

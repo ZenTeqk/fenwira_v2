@@ -20,7 +20,7 @@ describe('color tokens', () => {
       info: '#2563EB',
       'message-outbound': '#D2F2DF',
     })
-    expect(Object.keys(colorTokens)).toHaveLength(35)
+    expect(Object.keys(colorTokens)).toHaveLength(57)
   })
 
   it('uses uppercase 6-digit hex only', () => {
@@ -61,6 +61,19 @@ describe('color tokens', () => {
       [t['primary-strong'], t.sidebar],
       [t['slate-400'], t.slate],
       [t['slate-800'], t['neutral-soft']],
+      [t.surface, t['inbox-primary']],
+      [t.surface, t['inbox-primary-hover']],
+      [t['inbox-primary'], t['inbox-selected']],
+      [t['inbox-text'], t['inbox-outbound']],
+      [t['inbox-secondary'], t.surface],
+      // The supplied secondary color is used on white; bubble metadata uses main text.
+      [t['inbox-text'], t['inbox-outbound']],
+      [t['inbox-note-text'], t['inbox-note']],
+      [t['inbox-followup-text'], t['inbox-followup']],
+      ...(['pink', 'lavender', 'peach', 'mint', 'blue'] as const).map((tone): [string, string] => [
+        t[`avatar-${tone}-text`],
+        t[`avatar-${tone}`],
+      ]),
       // Design System v1 additions
       [t.surface, t['danger-strong-hover']],
       [t.surface, t.danger],
