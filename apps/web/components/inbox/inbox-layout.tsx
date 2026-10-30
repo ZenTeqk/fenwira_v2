@@ -5,7 +5,15 @@ import { cn, EmptyState, ErrorState, PermissionState, Skeleton } from '@fenwira/
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessagesSquare } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { useSession } from '@/components/session/session-provider'
 import { get, post } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
@@ -73,6 +81,23 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
   const [jump, setJump] = useState<{ id: string; seq: number } | null>(null)
   const panelId = useId()
   const toggle = useRef<HTMLButtonElement>(null)
+  const collapse = useRef<HTMLButtonElement>(null)
+  const focusOnOpen = useRef(false)
+  const focusOnClose = useRef(false)
+  const panelOpen = wide ? inlineOpen : overlayOpen
+  const setPanelOpen = wide ? setInlineOpen : setOverlayOpen
+  // The header trigger unmounts while details are open. Move focus only after the
+  // replacement control mounts, without stealing focus on initial page load.
+  useLayoutEffect(() => {
+    if (!panelOpen && focusOnClose.current) {
+      focusOnClose.current = false
+      toggle.current?.focus()
+    }
+    if (panelOpen && wide && focusOnOpen.current) {
+      focusOnOpen.current = false
+      collapse.current?.focus()
+    }
+  }, [panelOpen, wide])
   useEffect(() => {
     if (wide) setOverlayOpen(false)
   }, [wide])
@@ -108,8 +133,6 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
       <ErrorState title="Conversation not available" onRetry={() => void conversation.refetch()} />
     )
   const c = conversation.data
-  const panelOpen = wide ? inlineOpen : overlayOpen
-  const setPanelOpen = wide ? setInlineOpen : setOverlayOpen
   return (
     <div className="fw-inbox-compact-icons fw-inbox-compact-type flex min-h-0 min-w-0 flex-1">
       <section aria-label="Conversation" className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -122,7 +145,10 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
           contactExpanded={panelOpen}
           contactControlsId={panelId}
           contactIsDrawer={!wide}
-          onToggleContact={() => setPanelOpen(!panelOpen)}
+          onToggleContact={() => {
+            focusOnOpen.current = wide
+            setPanelOpen(true)
+          }}
           onSharedFiles={() => {
             setPanelTab('files')
             setPanelOpen(true)
@@ -148,7 +174,11 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
         conversation={c}
         variant={wide ? 'inline' : 'overlay'}
         open={panelOpen}
-        onOpenChange={setPanelOpen}
+        onOpenChange={(open) => {
+          focusOnClose.current = !open
+          setPanelOpen(open)
+        }}
+        collapseButtonRef={collapse}
         returnFocus={toggle}
         tab={panelTab}
         onTabChange={setPanelTab}

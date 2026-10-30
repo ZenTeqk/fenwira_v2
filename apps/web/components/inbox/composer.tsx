@@ -17,6 +17,7 @@ import {
   focusRing,
   toast,
   Textarea,
+  Tooltip,
 } from '@fenwira/ui'
 import { type InfiniteData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Clock, FileText, Lock, MessageSquareText, Paperclip, Send } from 'lucide-react'
@@ -96,14 +97,15 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   }
   const setText = (value: string) => setDraft(mode, value)
   const writing = useRef<HTMLTextAreaElement>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
   // Presentation only: resize after typing, canned insertion, mode change and send/clear.
-  // CSS supplies the 80px resting / 180px maximum; no messaging state changes here.
+  // CSS supplies the 44px resting / 160px maximum; no messaging state changes here.
   useLayoutEffect(() => {
     const element = writing.current
     if (!element) return
     const resize = () => {
       element.style.height = 'auto'
-      element.style.height = `${element.scrollHeight + 2}px`
+      element.style.height = `${element.scrollHeight}px`
     }
     resize()
     // Observe available width, not the textarea's height (which this callback changes).
@@ -354,6 +356,10 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   const disabled = mode === 'reply' && lockedByOther
   const freeformRestricted = mode === 'reply' && state.kind === 'reply-restricted'
   const replyUnavailable = mode === 'reply' && state.kind !== 'reply'
+  const actionHint =
+    mode === 'note'
+      ? 'Enter to add note · Shift+Enter for a new line'
+      : 'Enter to send · Shift+Enter for a new line'
   const previousWindow = useRef(replyWindow.window.kind)
   const [windowAnnouncement, setWindowAnnouncement] = useState('')
   useEffect(() => {
@@ -372,14 +378,14 @@ export function Composer({ conversation }: { conversation: Conversation }) {
   return (
     <div
       className={cn(
-        'fw-inbox-composer relative z-10 mx-3 mb-3 flex min-w-0 shrink-0 flex-col rounded-lg border px-3 pt-3 md:mx-4',
+        'fw-inbox-composer relative z-10 mx-3 mb-3 flex min-w-0 shrink-0 flex-col rounded-lg border px-2 pt-2 md:mx-4',
         mode === 'note' ? 'border-inbox-note-border bg-note-soft' : 'border-border bg-surface',
       )}
     >
       <span role="status" aria-live="polite" className="sr-only">
         {windowAnnouncement}
       </span>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <div
           role="tablist"
           aria-label="Compose"
@@ -410,7 +416,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
               tabIndex={mode === value ? 0 : -1}
               onClick={() => setMode(value)}
               className={cn(
-                'inline-flex h-9 items-center gap-1.5 border-b-2 px-2 text-base font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:h-8',
+                'inline-flex h-8 items-center gap-1 border-b-2 px-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:h-7',
                 focusRing,
                 mode === value
                   ? value === 'note'
@@ -544,7 +550,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 placeholder={mode === 'note' ? 'Only your team sees notes' : 'Type a reply…'}
                 title="Enter to send; Shift+Enter for a new line; / for canned replies"
                 className={cn(
-                  'min-h-20 max-h-45 w-full min-w-0 resize-none overflow-y-auto rounded-md border-0 bg-transparent px-1 py-2 text-base text-slate',
+                  'min-h-11 max-h-40 w-full min-w-0 resize-none overflow-y-auto rounded-md border-0 bg-transparent px-1 py-1 text-base text-slate',
                   'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-strong',
                   disabled && 'cursor-not-allowed opacity-60',
                 )}
@@ -555,36 +561,68 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 onKeyDown={onKeyDown}
                 onBlur={() => !text.trim() && release()}
               />
-              <div className="flex w-full flex-wrap items-center gap-1 border-t border-border pt-1">
+              <div
+                role="group"
+                aria-label="Message actions"
+                className="flex w-full flex-wrap items-center gap-1"
+              >
+                {mode === 'reply' ? (
+                  <>
+                    <input
+                      ref={fileInput}
+                      type="file"
+                      aria-label="File attachment"
+                      className="hidden"
+                      disabled={disabled || busy || replyUnavailable}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        const f = e.target.files?.[0]
+                        if (f) attach.mutate(f)
+                        e.target.value = ''
+                      }}
+                    />
+                    <Tooltip content="Attach a file">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-9 text-secondary sm:size-8"
+                        aria-label="Attach a file"
+                        disabled={disabled || busy || replyUnavailable}
+                        onClick={() => fileInput.current?.click()}
+                      >
+                        <Paperclip aria-hidden="true" />
+                      </Button>
+                    </Tooltip>
+                  </>
+                ) : null}
                 {mode === 'reply' && can('templates.read') ? (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-10 px-2 text-secondary sm:h-8"
+                    className="h-9 gap-1 px-1.5 text-secondary sm:h-8"
                     aria-label="Send a template"
                     title="Send a template"
                     disabled={disabled || busy || !templatesAvailable}
                     onClick={() => setPicking(true)}
                   >
                     <FileText aria-hidden="true" />
-                    <span className="hidden sm:inline">Templates</span>
+                    Templates
                   </Button>
                 ) : null}
                 {mode === 'reply' && canned.length ? (
                   <Dropdown>
-                    <DropdownTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-10 px-2 text-secondary sm:h-8"
-                        aria-label="Canned replies"
-                        title="Canned replies"
-                        disabled={disabled || busy}
-                      >
-                        <MessageSquareText aria-hidden="true" />
-                        <span className="hidden sm:inline">Saved replies</span>
-                      </Button>
-                    </DropdownTrigger>
+                    <Tooltip content="Saved replies">
+                      <DropdownTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 text-secondary sm:size-8"
+                          aria-label="Canned replies"
+                          disabled={disabled || busy}
+                        >
+                          <MessageSquareText aria-hidden="true" />
+                        </Button>
+                      </DropdownTrigger>
+                    </Tooltip>
                     <DropdownContent className="max-h-72 w-72 overflow-y-auto">
                       {canned.map((r) => (
                         <DropdownItem key={r.id} onSelect={() => insert(r.body)}>
@@ -594,48 +632,26 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                     </DropdownContent>
                   </Dropdown>
                 ) : null}
-                {mode === 'reply' ? (
-                  <label
-                    title="Attach a file"
-                    className={cn(
-                      'inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 text-secondary hover:bg-neutral-soft sm:h-8',
-                      (disabled || replyUnavailable || busy) && 'pointer-events-none opacity-60',
-                      'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong',
-                    )}
-                  >
-                    <Paperclip aria-hidden="true" className="size-4" />
-                    <span className="hidden text-sm sm:inline">Attach a file</span>
-                    <span className="sr-only sm:hidden">Attach a file</span>
-                    <input
-                      type="file"
-                      className="sr-only"
-                      disabled={disabled || busy || replyUnavailable}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        const f = e.target.files?.[0]
-                        if (f) attach.mutate(f)
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                ) : null}
-                <Button
-                  className={cn(
-                    'ml-auto h-10 px-3 sm:h-8',
-                    mode === 'note' && 'bg-inbox-note-text hover:bg-inbox-note-text',
-                  )}
-                  aria-label={mode === 'note' ? 'Save note' : 'Send'}
-                  loading={busy}
-                  disabled={disabled || replyUnavailable || !text.trim()}
-                  onClick={submit}
-                >
-                  {mode === 'note' ? <Lock aria-hidden="true" /> : <Send aria-hidden="true" />}
-                  {mode === 'note' ? 'Save note' : 'Send'}
-                </Button>
+                <Tooltip content={actionHint} disableHoverableContent>
+                  <span className="ml-auto inline-flex">
+                    <Button
+                      className={cn(
+                        'h-9 px-2.5 sm:h-8',
+                        mode === 'note' && 'bg-inbox-note-text hover:bg-inbox-note-text',
+                      )}
+                      aria-label={mode === 'note' ? 'Add note' : 'Send'}
+                      title={actionHint}
+                      loading={busy}
+                      disabled={disabled || replyUnavailable || !text.trim()}
+                      onClick={submit}
+                    >
+                      {mode === 'note' ? <Lock aria-hidden="true" /> : <Send aria-hidden="true" />}
+                      {mode === 'note' ? 'Add note' : 'Send'}
+                    </Button>
+                  </span>
+                </Tooltip>
               </div>
             </div>
-            <p className="hidden self-end text-xs text-secondary sm:block">
-              Enter to send · Shift+Enter for a new line
-            </p>
           </div>
         )}
       </div>

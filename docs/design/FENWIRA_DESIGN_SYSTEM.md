@@ -264,7 +264,7 @@ lavender (#EBDDFB/#66379B), peach (#FFE1C7/#974613), mint (#CFF3E8/#065F46) or b
 (#DAE7FF/#274B97). These are identity colors and convey no presence or status.
 
 The docked rectangular composer retains the existing send, template, immediate file-upload,
-internal-note, draft and collision-control paths. Its input grows to 180px and respects IME entry.
+internal-note, draft and collision-control paths. Its input grows to 160px and respects IME entry.
 Message-type filters remain accessible from the header and its overflow menu. Overview,
 Activity (existing conversation history) and Files use real permission-gated data. Team,
 pinning, emoji and new-conversation controls are omitted because the inbox has no such
@@ -337,9 +337,16 @@ preserves the draft, refreshes eligibility and offers only permitted template ac
 notice says “Choose an approved template to message this customer.” It uses 12px padding and
 the existing subtle amber treatment and responsive action layout.
 
-The unified composer has 12px padding, an 80px resting input, 180px input maximum, one toolbar
-and 12px keyboard hint; its normal desktop height is approximately 196px. Text scaling can grow
-the container. Note mode retains its amber surface/lock. The header strip is now automation-only,
+The unified composer has 8px padding, a 44px resting input and 160px input maximum followed by
+internal scrolling. Its empty height is approximately 122px on desktop and 130px on phones.
+Compact Reply/Internal note tabs sit above one toolbar with an attachment icon/tooltip, labelled
+Templates, a saved-reply icon menu and compact Send. Keyboard guidance lives in the Send tooltip;
+there is no permanent shortcut footer or extra full-width separator. Note mode retains its amber
+surface/lock and labels its action Add note. Notices, text scaling and upload state can grow the
+container. The chat header's customer-panel button is absent while details are open, leaving no
+reserved gap. The panel's collapse control restores the header button and focus after it mounts;
+keyboard opening focuses the inline collapse control or the existing accessible drawer.
+The header strip is now automation-only,
 neutral and approximately 36px on desktop. Explicit takeover shows Automation paused; explicit
 pause shows Automation paused manually; active policy retains Take over. Existing permissions,
 mutation pending/error behavior and automation endpoint remain authoritative. The API exposes

@@ -406,6 +406,89 @@ const axe = async (page: Page) =>
   ).violations
 const shots = process.env.INBOX_SHOTS_DIR
 
+test('compact composer grows internally, keeps one toolbar and restores the conditional details trigger', async ({
+  page,
+}) => {
+  const fixture = await inboxFixture(page)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/inbox?c=review')
+  const chat = page.getByRole('region', { name: 'Conversation', exact: true })
+  const composer = chat.locator('.fw-inbox-composer')
+  const input = chat.getByRole('textbox', { name: 'Reply', exact: true })
+  const panel = page.getByRole('complementary', { name: 'Customer details' })
+  const trigger = page.getByRole('button', { name: 'Show contact details', exact: true })
+  const close = panel.getByRole('button', { name: 'Close contact details', exact: true })
+  await expect(panel).toBeVisible()
+  await expect(input).toBeEnabled()
+  await expect(composer.getByRole('button', { name: /left\. Free-form/ })).toBeVisible()
+  expect((await input.boundingBox())!.height).toBeGreaterThanOrEqual(40)
+  expect((await input.boundingBox())!.height).toBeLessThanOrEqual(48)
+  expect((await composer.boundingBox())!.height).toBeGreaterThanOrEqual(112)
+  expect((await composer.boundingBox())!.height).toBeLessThanOrEqual(136)
+  await expect(chat.getByRole('button', { name: /(?:Show|Hide) contact details/ })).toHaveCount(0)
+  const actions = composer.getByRole('group', { name: 'Message actions' })
+  await expect(actions).toHaveCount(1)
+  await expect(actions.getByRole('button', { name: 'Send a template' })).toContainText('Templates')
+  await expect(
+    composer.getByText('Enter to send · Shift+Enter for a new line', { exact: true }),
+  ).toHaveCount(0)
+  // The shortcut is available on hover even while the empty Send button is disabled.
+  await actions.getByRole('button', { name: 'Send', exact: true }).locator('..').hover()
+  await expect(page.getByRole('tooltip')).toContainText('Enter to send')
+  const attachment = actions.getByRole('button', { name: 'Attach a file', exact: true })
+  await expect(attachment).toBeEnabled()
+  await attachment.hover()
+  await expect(page.getByRole('tooltip')).toContainText('Attach a file')
+  const choosing = page.waitForEvent('filechooser')
+  await attachment.click()
+  await (await choosing).setFiles([])
+  await actions.getByRole('button', { name: 'Canned replies', exact: true }).press('Enter')
+  await page.getByRole('menuitem', { name: /\/delivery.*Delivery/ }).click()
+  await expect(input).toHaveValue('We will confirm delivery shortly.')
+  expect(fixture.sent).toHaveLength(0)
+  await input.fill('Long reply line\n'.repeat(30))
+  await expect.poll(async () => (await input.boundingBox())!.height).toBe(160)
+  expect(await input.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+  await input.fill('Keep this compact reply')
+  await expect.poll(async () => (await input.boundingBox())!.height).toBeLessThanOrEqual(48)
+  await close.click()
+  await expect(trigger).toBeFocused()
+  await trigger.press('Enter')
+  await expect(close).toBeFocused()
+  await expect(trigger).toHaveCount(0)
+  await expect(input).toHaveValue('Keep this compact reply')
+  await composer.getByRole('tab', { name: 'Reply', exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(composer.getByRole('tab', { name: 'Internal note', exact: true })).toBeFocused()
+  const note = chat.getByRole('textbox', { name: 'Internal note', exact: true })
+  await note.fill('Keep this private draft')
+  await expect(composer.getByRole('button', { name: 'Add note', exact: true })).toBeEnabled()
+  await expect(composer.getByRole('button', { name: 'Save note', exact: true })).toHaveCount(0)
+  expect(await axe(page)).toEqual([])
+  if (shots) await page.screenshot({ path: join(shots, 'compact-composer-note-1440.png') })
+  await composer.getByRole('tab', { name: 'Reply', exact: true }).click()
+  await expect(input).toHaveValue('Keep this compact reply')
+  for (const width of [1440, 1024, 768, 375]) {
+    await page.setViewportSize({ width, height: 800 })
+    await expect(input).toBeInViewport()
+    await expect(actions.getByRole('button', { name: 'Send a template' })).toBeInViewport()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+  await trigger.press('Enter')
+  await expect(page.getByRole('dialog', { name: 'Customer details' })).toBeVisible()
+  await expect(trigger).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(trigger).toBeFocused()
+  await expect(input).toHaveValue('Keep this compact reply')
+  expect(await axe(page)).toEqual([])
+  if (shots) await page.screenshot({ path: join(shots, 'compact-composer-375.png') })
+  await input.fill('')
+  expect((await composer.boundingBox())!.height).toBeLessThanOrEqual(136)
+  await page.addStyleTag({ content: 'html { font-size: 20px; }' })
+  await expect(actions.getByRole('button', { name: 'Send', exact: true })).toBeInViewport()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
 test('approved inbox: desktop proportions, real actions, IME, details, responsive layout and accessibility', async ({
   page,
 }) => {
@@ -431,7 +514,7 @@ test('approved inbox: desktop proportions, real actions, IME, details, responsiv
   await expect(panel).toContainText('Prefers evening delivery.')
   const reply = page.getByLabel('Reply', { exact: true })
   await reply.fill('A growing multiline reply\n'.repeat(20))
-  expect((await reply.boundingBox())!.height).toBeLessThanOrEqual(180)
+  expect((await reply.boundingBox())!.height).toBeLessThanOrEqual(160)
   await reply.fill('Keep my draft')
   await reply.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true })
   expect(fixture.sent).toHaveLength(0)
@@ -454,7 +537,9 @@ test('approved inbox: desktop proportions, real actions, IME, details, responsiv
   await page.getByRole('tab', { name: 'Internal note', exact: true }).click()
   const note = page.getByLabel('Internal note', { exact: true })
   await note.fill('A private team note')
-  await expect(page.getByRole('button', { name: 'Save note', exact: true })).toBeEnabled()
+  await expect(
+    page.locator('.fw-inbox-composer').getByRole('button', { name: 'Add note', exact: true }),
+  ).toBeEnabled()
   expect(await axe(page)).toEqual([])
   if (shots) await page.screenshot({ path: join(shots, 'inbox-note-1440.png') })
   await page.getByRole('tab', { name: 'Reply', exact: true }).click()
@@ -831,7 +916,6 @@ test('inbox panel icons use a consistent smaller scale and the duplicate view me
   for (const name of [
     'More conversation actions',
     'Filter conversation messages',
-    'Hide contact details',
     'Close contact details',
     'Add note',
   ]) {
@@ -1224,9 +1308,9 @@ test('centre composer uses one controlled countdown, exact thresholds, safe expi
   await expect(indicator()).toContainText('1h left')
   await expect(strip).not.toContainText(/window|left/i)
   expect((await strip.boundingBox())!.height).toBeLessThanOrEqual(36)
-  expect((await input.boundingBox())!.height).toBeGreaterThanOrEqual(80)
-  expect((await input.boundingBox())!.height).toBeLessThanOrEqual(96)
-  expect((await composer.boundingBox())!.height).toBeLessThanOrEqual(202)
+  expect((await input.boundingBox())!.height).toBeGreaterThanOrEqual(40)
+  expect((await input.boundingBox())!.height).toBeLessThanOrEqual(48)
+  expect((await composer.boundingBox())!.height).toBeLessThanOrEqual(136)
   await indicator().focus()
   await expect(page.getByRole('tooltip')).toContainText('Free-form replies available until')
   await expect(indicator()).toHaveAttribute('aria-label', /[AP]M/)
@@ -1253,7 +1337,7 @@ test('centre composer uses one controlled countdown, exact thresholds, safe expi
   await expect(chat.getByText(/Reply window closes soon/)).toHaveCount(0)
   const note = chat.getByRole('textbox', { name: 'Internal note', exact: true })
   await note.fill('Private draft')
-  await expect(chat.getByRole('button', { name: 'Save note' })).toBeEnabled()
+  await expect(chat.getByRole('button', { name: 'Add note' })).toBeEnabled()
   expect(await axe(page)).toEqual([])
   if (shots) await page.screenshot({ path: join(shots, 'centre-note-1440.png') })
   await chat.getByRole('tab', { name: 'Reply', exact: true }).click()
@@ -1313,7 +1397,7 @@ test('centre eligibility checking, restrictions and send rejection preserve draf
   await chat.getByRole('tab', { name: 'Internal note', exact: true }).click()
   await expect(chat.getByText('Checking eligibility…')).toHaveCount(0)
   await chat.getByRole('textbox', { name: 'Internal note', exact: true }).fill('Notes are separate')
-  await expect(chat.getByRole('button', { name: 'Save note', exact: true })).toBeEnabled()
+  await expect(chat.getByRole('button', { name: 'Add note', exact: true })).toBeEnabled()
   await chat.getByRole('tab', { name: 'Reply', exact: true }).click()
   release()
   await expect(chat.getByRole('button', { name: 'Send', exact: true })).toBeEnabled()

@@ -3,7 +3,7 @@
 import { type Conversation } from '@fenwira/contracts'
 import { Button, Drawer, DrawerContent } from '@fenwira/ui'
 import { ChevronRight } from 'lucide-react'
-import { type RefObject } from 'react'
+import { type Ref, type RefObject } from 'react'
 import { ContactPane, type PanelTab } from './contact-pane'
 import { SharedFiles } from './shared-files'
 
@@ -16,6 +16,7 @@ type PanelProps = {
   onOpenChange: (open: boolean) => void
   /** Focus returns here when the panel closes. */
   returnFocus: RefObject<HTMLButtonElement | null>
+  collapseButtonRef: Ref<HTMLButtonElement>
   tab: PanelTab
   onTabChange: (tab: PanelTab) => void
   /** "Jump to message" from Shared files. */
@@ -30,6 +31,7 @@ export function ContactDetailsPanel({
   open,
   onOpenChange,
   returnFocus,
+  collapseButtonRef,
   tab,
   onTabChange,
   onJump,
@@ -75,6 +77,7 @@ export function ContactDetailsPanel({
           Customer details
         </h2>
         <Button
+          ref={collapseButtonRef}
           variant="ghost"
           size="icon"
           className="size-8"
@@ -82,7 +85,6 @@ export function ContactDetailsPanel({
           title="Close contact details"
           onClick={() => {
             onOpenChange(false)
-            returnFocus.current?.focus()
           }}
         >
           <ChevronRight aria-hidden="true" />
