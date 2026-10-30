@@ -172,7 +172,7 @@ function Chips({
               'rounded-full border px-2.5 py-1 text-sm transition-colors',
               on
                 ? 'border-primary-strong bg-primary-soft text-slate'
-                : 'border-border bg-surface text-muted hover:bg-neutral-soft',
+                : 'border-border bg-surface text-muted hover:bg-surface-hover',
             )}
           >
             {o.label}

@@ -2,13 +2,22 @@
 // Design-system enforcement (docs/DESIGN_SYSTEM.md → Enforcement). Fails when:
 //   - apps/web or packages/ui components use a raw color (#hex, rgb(), hsl(), oklch())
 //   - apps/web uses an arbitrary Tailwind value like `w-[13px]` or `text-[#00A884]`
-// Raw colors are allowed only in packages/ui/src/tokens.ts and packages/ui/src/styles/theme.css.
+//   - a class uses a retired color token (Tailwind would silently generate nothing for it)
+// Raw colors are allowed only in packages/ui/src/tokens.ts (the source of truth), the generated
+// packages/ui/src/styles/tokens.css and packages/ui/src/styles/theme.css.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const ROOT = new URL('..', import.meta.url).pathname
 const SCAN = ['apps/web', 'packages/ui/src']
-const ALLOW_COLORS = new Set(['packages/ui/src/tokens.ts', 'packages/ui/src/styles/theme.css'])
+const ALLOW_COLORS = new Set([
+  'packages/ui/src/tokens.ts',
+  'packages/ui/src/styles/tokens.css',
+  'packages/ui/src/styles/theme.css',
+])
+// Component palettes folded into semantic tokens (FENWIRA_DESIGN_SYSTEM.md → Color tokens).
+const RETIRED =
+  /\b(?:bg|text|border|ring|ring-offset|outline|fill|stroke|divide)-(?:inbox-[\w-]+|template-[\w-]+|thread-soft|message-outbound|note-soft|muted-decorative|avatar-(?:pink|lavender|peach|mint|blue)(?:-text)?)(?![\w-])/g
 const SKIP_DIRS = new Set([
   'node_modules',
   '.next',
@@ -44,6 +53,9 @@ for (const base of SCAN) {
           for (const m of line.matchAll(COLOR))
             problems.push(`${rel}:${i + 1}  raw color "${m[0]}" — use a design token`)
         }
+        if (!isTest)
+          for (const m of line.matchAll(RETIRED))
+            problems.push(`${rel}:${i + 1}  retired color token "${m[0]}" — use a semantic token`)
         if (rel.startsWith('apps/web/') && !isTest) {
           for (const m of line.matchAll(ARBITRARY))
             problems.push(`${rel}:${i + 1}  arbitrary value "${m[0]}" — use the token scale`)

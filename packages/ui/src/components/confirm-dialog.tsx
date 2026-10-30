@@ -37,21 +37,21 @@ export function ConfirmDialog({
   return (
     <AlertPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <AlertPrimitive.Portal>
-        <AlertPrimitive.Overlay className="fixed inset-0 z-50 bg-slate/50" />
+        <AlertPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim/50" />
         <AlertPrimitive.Content
           data-slot="confirm-dialog"
           className={cn(
             'fixed top-1/2 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4',
-            'rounded-xl border border-border bg-surface p-5 shadow-overlay',
+            'rounded-xl border border-border-subtle bg-surface p-5 shadow-overlay',
           )}
           {...(description ? {} : { 'aria-describedby': undefined })}
         >
           <div className="flex flex-col gap-1">
-            <AlertPrimitive.Title className="text-lg font-semibold text-slate">
+            <AlertPrimitive.Title className="text-lg font-semibold text-fg">
               {title}
             </AlertPrimitive.Title>
             {description ? (
-              <AlertPrimitive.Description className="text-base text-secondary">
+              <AlertPrimitive.Description className="text-base text-fg-secondary">
                 {description}
               </AlertPrimitive.Description>
             ) : null}
@@ -59,13 +59,13 @@ export function ConfirmDialog({
           {impact?.length ? (
             <ul
               aria-label="What will happen"
-              className="flex flex-col gap-1.5 rounded-md border border-border bg-background p-3 text-base text-slate"
+              className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-canvas p-3 text-base text-fg"
             >
               {impact.map((line, i) => (
                 <li key={i} className="flex gap-2">
                   <span
                     aria-hidden="true"
-                    className="mt-2 size-1.5 shrink-0 rounded-full bg-slate-400"
+                    className="mt-2 size-1.5 shrink-0 rounded-full bg-fg-subtle"
                   />
                   <span>{line}</span>
                 </li>

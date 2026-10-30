@@ -47,7 +47,7 @@ function StatusMenu({ c }: { c: Conversation }) {
     <Dropdown>
       <DropdownTrigger
         className={cn(
-          'inline-flex h-8 items-center gap-1 rounded-md border border-border-strong bg-surface px-2.5 hover:bg-neutral-soft',
+          'inline-flex h-8 items-center gap-1 rounded-md border border-border-strong bg-surface px-2.5 hover:bg-surface-hover',
           focusRing,
         )}
         aria-label={`Conversation status: ${STATUS_LABEL[c.status]}. Change status`}

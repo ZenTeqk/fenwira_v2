@@ -156,12 +156,12 @@ export type StatusBadgeProps = {
 }
 
 const inlineTones: Record<BadgeTone, string> = {
-  neutral: 'text-secondary',
-  primary: 'text-primary-strong',
-  success: 'text-success-strong',
-  warning: 'text-warning-strong',
-  danger: 'text-danger-strong',
-  info: 'text-info-strong',
+  neutral: 'text-fg-secondary',
+  primary: 'text-action-primary',
+  success: 'text-status-success-fg',
+  warning: 'text-status-warning-fg',
+  danger: 'text-status-error-fg',
+  info: 'text-status-info-fg',
 }
 
 export function StatusBadge({

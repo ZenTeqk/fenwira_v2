@@ -171,9 +171,9 @@ export function DataTable<Row>({
         <div
           role="region"
           aria-label="Bulk actions"
-          className="flex flex-wrap items-center gap-2 rounded-md border border-primary bg-primary-soft px-3 py-2"
+          className="flex flex-wrap items-center gap-2 rounded-md border border-action-primary bg-action-primary-subtle px-3 py-2"
         >
-          <span className="text-base font-medium text-slate" aria-live="polite">
+          <span className="text-base font-medium text-fg" aria-live="polite">
             {selectedIds.length} selected
           </span>
           <div className="flex flex-wrap items-center gap-2">
@@ -220,7 +220,7 @@ export function DataTable<Row>({
                         type="button"
                         onClick={header.column.getToggleSortingHandler()}
                         className={cn(
-                          '-ml-1 inline-flex items-center gap-1 rounded-sm px-1 hover:text-slate',
+                          '-ml-1 inline-flex items-center gap-1 rounded-sm px-1 hover:text-fg',
                           focusRing,
                         )}
                       >
@@ -230,7 +230,7 @@ export function DataTable<Row>({
                         ) : sorted === 'desc' ? (
                           <ArrowDown className="size-3.5" aria-hidden="true" />
                         ) : (
-                          <ChevronsUpDown className="size-3.5 text-slate-400" aria-hidden="true" />
+                          <ChevronsUpDown className="size-3.5 text-fg-subtle" aria-hidden="true" />
                         )}
                       </button>
                     ) : (

@@ -158,7 +158,7 @@ export function ThreadFilterChips({
                   focusRing,
                   active
                     ? 'border-primary-strong bg-primary-soft text-primary-strong'
-                    : 'border-border-strong bg-surface text-secondary hover:bg-neutral-soft hover:text-slate',
+                    : 'border-border-strong bg-surface text-secondary hover:bg-surface-hover hover:text-slate',
                 )}
               >
                 {chip.label}

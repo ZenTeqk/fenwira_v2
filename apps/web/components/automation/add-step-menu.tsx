@@ -88,7 +88,7 @@ export function AddStepMenu({
                     <button
                       type="button"
                       data-add-item
-                      className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-neutral-soft focus-visible:bg-neutral-soft focus-visible:outline-2 focus-visible:outline-primary-strong"
+                      className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-surface-hover focus-visible:bg-neutral-soft focus-visible:outline-2 focus-visible:outline-focus-ring"
                       onClick={() => {
                         onPick(t)
                         setSearch('')

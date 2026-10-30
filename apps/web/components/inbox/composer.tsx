@@ -367,7 +367,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     <div
       className={cn(
         'fw-inbox-composer relative z-10 mx-3 mb-3 flex min-w-0 shrink-0 flex-col rounded-lg border px-2 pt-2 md:mx-4',
-        mode === 'note' ? 'border-inbox-note-border bg-note-soft' : 'border-border bg-surface',
+        mode === 'note' ? 'border-chat-note-border bg-chat-note' : 'border-border bg-surface',
       )}
     >
       <span role="status" aria-live="polite" className="sr-only">
@@ -408,9 +408,9 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 focusRing,
                 mode === value
                   ? value === 'note'
-                    ? 'border-inbox-note-text text-inbox-note-text'
+                    ? 'border-chat-note-fg text-chat-note-fg'
                     : 'border-primary-strong text-primary-strong'
-                  : 'border-transparent text-secondary hover:bg-neutral-soft hover:text-slate',
+                  : 'border-transparent text-secondary hover:bg-surface-hover hover:text-slate',
               )}
             >
               <Icon aria-hidden="true" className="size-4" />
@@ -506,7 +506,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                     aria-selected={i === active}
                     className={cn(
                       'flex cursor-pointer flex-col px-3 py-2 text-left',
-                      i === active ? 'bg-primary-soft' : 'hover:bg-neutral-soft',
+                      i === active ? 'bg-primary-soft' : 'hover:bg-surface-hover',
                     )}
                     onMouseDown={(e) => {
                       e.preventDefault()
@@ -526,7 +526,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
               data-slot="composer-field"
               className={cn(
                 'relative flex min-w-0 flex-1 flex-col',
-                mode === 'note' ? 'bg-note-soft' : 'bg-surface',
+                mode === 'note' ? 'bg-chat-note' : 'bg-surface',
               )}
             >
               <Textarea
@@ -539,7 +539,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 title="Enter to send; Shift+Enter for a new line; / for canned replies"
                 className={cn(
                   'min-h-11 max-h-40 w-full min-w-0 resize-none overflow-y-auto rounded-md border-0 bg-transparent px-2 py-2 text-base text-slate',
-                  'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-strong',
+                  'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-ring',
                   disabled && 'cursor-not-allowed opacity-60',
                 )}
                 rows={1}
@@ -601,7 +601,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                     <Button
                       className={cn(
                         'h-9 px-2.5 sm:h-8',
-                        mode === 'note' && 'bg-inbox-note-text hover:bg-inbox-note-text',
+                        mode === 'note' && 'bg-chat-note-fg hover:bg-chat-note-fg',
                       )}
                       aria-label={mode === 'note' ? 'Add note' : 'Send'}
                       title={actionHint}
@@ -654,12 +654,12 @@ function ComposerStrip({
     <div
       role="status"
       aria-live={live ? 'polite' : 'off'}
-      className="fw-inbox-composer-notice flex flex-col items-start gap-2 rounded-md border border-inbox-note-border bg-note-soft p-3"
+      className="fw-inbox-composer-notice flex flex-col items-start gap-2 rounded-md border border-chat-note-border bg-chat-note p-3"
     >
       <div className="flex min-w-0 flex-1 items-start gap-2">
-        <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-inbox-note-text" />
+        <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-chat-note-fg" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="text-base font-semibold text-inbox-note-text">{title}</p>
+          <p className="text-base font-semibold text-chat-note-fg">{title}</p>
           <p className="text-sm text-slate">{message}</p>
         </div>
       </div>

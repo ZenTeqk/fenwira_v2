@@ -31,7 +31,7 @@ export function Tooltip({
           side={side}
           sideOffset={6}
           className={cn(
-            'z-50 max-w-xs rounded-sm bg-slate px-2 py-1 text-xs text-surface shadow-overlay',
+            'z-50 max-w-xs rounded-sm bg-inverse px-2 py-1 text-xs text-inverse-fg shadow-overlay',
             className,
           )}
         >

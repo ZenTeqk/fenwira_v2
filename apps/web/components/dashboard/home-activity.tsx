@@ -56,7 +56,7 @@ export function RecentConversations() {
               <li key={c.id}>
                 <Link
                   href={`/inbox?c=${c.id}`}
-                  className={`flex min-w-0 items-center gap-3 rounded-md py-2.5 hover:bg-neutral-soft ${focusRing}`}
+                  className={`flex min-w-0 items-center gap-3 rounded-md py-2.5 hover:bg-surface-hover ${focusRing}`}
                 >
                   <Avatar name={displayName(c)} size="md" appearance="varied" />
                   <span className="flex min-w-0 flex-1 flex-col">

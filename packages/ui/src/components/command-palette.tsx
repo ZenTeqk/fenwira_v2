@@ -56,34 +56,34 @@ export function CommandPalette({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate/50" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim/50" />
         <DialogPrimitive.Content
           data-slot="command-palette"
           aria-describedby={undefined}
-          className="fixed top-[15vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-surface shadow-overlay"
+          className="fixed top-[15vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-overlay"
         >
           <VisuallyHidden.Root>
             <DialogPrimitive.Title>Command palette</DialogPrimitive.Title>
           </VisuallyHidden.Root>
           <Command label="Command palette" loop className="flex flex-col">
-            <div className="flex items-center gap-2 border-b border-border px-3">
-              <Search className="size-4 text-muted" aria-hidden="true" />
+            <div className="flex items-center gap-2 border-b border-border-subtle px-3">
+              <Search className="size-4 text-fg-muted" aria-hidden="true" />
               <Command.Input
                 placeholder={placeholder}
                 value={search}
                 onValueChange={onSearchChange}
-                className="h-11 w-full bg-transparent text-base text-slate outline-none placeholder:text-slate-400"
+                className="h-11 w-full bg-transparent text-base text-fg outline-none placeholder:text-fg-subtle"
               />
             </div>
             <Command.List className="max-h-96 overflow-y-auto p-1">
               {loading ? (
                 <Command.Loading>
-                  <p role="status" className="px-3 py-2 text-sm text-muted">
+                  <p role="status" className="px-3 py-2 text-sm text-fg-muted">
                     Searching…
                   </p>
                 </Command.Loading>
               ) : null}
-              <Command.Empty className="px-3 py-6 text-center text-base text-muted">
+              <Command.Empty className="px-3 py-6 text-center text-base text-fg-muted">
                 No results.
               </Command.Empty>
               {groups.map((group) =>
@@ -91,7 +91,7 @@ export function CommandPalette({
                   <Command.Group
                     key={group.heading}
                     heading={group.heading}
-                    className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted"
+                    className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-muted"
                   >
                     {group.items.map((item) => (
                       <Command.Item
@@ -103,14 +103,14 @@ export function CommandPalette({
                           item.onSelect()
                         }}
                         className={cn(
-                          'flex cursor-default items-center gap-2 rounded-sm px-2 py-2 text-base text-slate select-none',
-                          'data-[selected=true]:bg-primary-soft [&_svg]:size-4 [&_svg]:text-muted',
+                          'flex cursor-default items-center gap-2 rounded-sm px-2 py-2 text-base text-fg select-none',
+                          'data-[selected=true]:bg-action-primary-subtle [&_svg]:size-4 [&_svg]:text-fg-muted',
                         )}
                       >
                         {item.icon}
                         <span className="flex-1">{item.label}</span>
                         {item.shortcut ? (
-                          <kbd className="font-mono text-xs text-muted">{item.shortcut}</kbd>
+                          <kbd className="font-mono text-xs text-fg-muted">{item.shortcut}</kbd>
                         ) : null}
                       </Command.Item>
                     ))}

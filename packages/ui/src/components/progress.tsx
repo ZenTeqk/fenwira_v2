@@ -20,7 +20,7 @@ export function Progress({
       value={current}
       max={bound}
       className={cn(
-        'h-1.5 w-full overflow-hidden rounded-full bg-neutral-soft accent-primary-strong [&::-moz-progress-bar]:bg-primary-strong [&::-webkit-progress-bar]:bg-neutral-soft [&::-webkit-progress-value]:bg-primary-strong',
+        'h-1.5 w-full overflow-hidden rounded-full bg-surface-muted accent-action-primary [&::-moz-progress-bar]:bg-action-primary [&::-webkit-progress-bar]:bg-surface-muted [&::-webkit-progress-value]:bg-action-primary',
         className,
       )}
     />

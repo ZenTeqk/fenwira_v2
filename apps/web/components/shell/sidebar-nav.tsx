@@ -22,15 +22,15 @@ const itemBase = cn(
 )
 // Idle icons are slate-400 beside their label; with more contrast requested they take the label color.
 const inactive = cn(
-  'text-secondary hover:bg-neutral-soft hover:text-slate',
+  'text-secondary hover:bg-surface-hover hover:text-slate',
   '[&_svg]:text-slate-400 contrast-more:[&_svg]:text-secondary',
 )
 // Collapsed, the icon is the only visible identifier, so it needs 3:1 (WCAG 1.4.11): label color.
-const inactiveCollapsed = 'text-secondary hover:bg-neutral-soft hover:text-slate'
-// Active: subtle emerald fill, strong emerald icon and label, 3px primary bar on the leading edge.
+const inactiveCollapsed = 'text-secondary hover:bg-surface-hover hover:text-slate'
+// Active: subtle emerald fill, action-emerald icon and label, 3px brand bar on the leading edge.
 const active = cn(
   'bg-primary-soft font-medium text-primary-strong',
-  'before:absolute before:inset-y-1.5 before:left-0 before:w-0.75 before:rounded-full before:bg-primary',
+  'before:absolute before:inset-y-1.5 before:left-0 before:w-0.75 before:rounded-full before:bg-brand',
 )
 
 /**

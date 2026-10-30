@@ -11,14 +11,14 @@ export function Toaster() {
       toastOptions={{
         classNames: {
           toast:
-            'rounded-md border border-border bg-surface text-slate shadow-overlay font-sans text-base',
-          description: 'text-muted text-sm',
-          actionButton: 'bg-primary-strong text-surface',
-          cancelButton: 'bg-neutral-soft text-slate',
-          success: '[&_[data-icon]]:text-primary-strong',
-          error: '[&_[data-icon]]:text-danger-strong',
-          warning: '[&_[data-icon]]:text-warning',
-          info: '[&_[data-icon]]:text-info-strong',
+            'rounded-md border border-border-subtle bg-surface text-fg shadow-overlay font-sans text-base',
+          description: 'text-fg-muted text-sm',
+          actionButton: 'bg-action-primary text-action-primary-fg',
+          cancelButton: 'bg-surface-muted text-fg',
+          success: '[&_[data-icon]]:text-action-primary',
+          error: '[&_[data-icon]]:text-status-error-fg',
+          warning: '[&_[data-icon]]:text-status-warning',
+          info: '[&_[data-icon]]:text-status-info-fg',
         },
       }}
     />

@@ -403,7 +403,7 @@ export function ContactPreview({
               close()
             }
           }}
-          className="sticky top-4 max-h-screen w-72 shrink-0 overflow-y-auto rounded-lg border border-border bg-surface outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-strong"
+          className="sticky top-4 max-h-screen w-72 shrink-0 overflow-y-auto rounded-lg border border-border bg-surface outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
         >
           {content}
         </aside>

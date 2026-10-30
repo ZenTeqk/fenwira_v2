@@ -63,7 +63,7 @@ export function SetupPanel({
             <li key={`${item.nodeId}-${i}`} className="flex flex-col gap-1">
               <button
                 type="button"
-                className="flex items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-neutral-soft focus-visible:outline-2 focus-visible:outline-primary-strong"
+                className="flex items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-focus-ring"
                 onClick={() => onFocus(item.nodeId)}
               >
                 {item.done ? (

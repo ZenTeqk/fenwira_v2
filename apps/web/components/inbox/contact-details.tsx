@@ -217,7 +217,7 @@ export function ContactTags({ contact }: { contact: Contact }) {
               tone={TAG_TONE[tag.color as keyof typeof TAG_TONE] ?? 'neutral'}
               className={cn(
                 'min-h-6 max-w-full gap-1 py-0 text-xs',
-                tag.color === 'WARNING' && 'bg-inbox-followup text-inbox-followup-text',
+                tag.color === 'WARNING' && 'bg-status-warning-bg text-status-warning-fg',
               )}
             >
               <span className="min-w-0 break-words whitespace-normal">{tag.name}</span>
@@ -300,7 +300,7 @@ function NoteCard({ note }: { note: ContactNote }) {
     return () => observer.disconnect()
   }, [expanded, note.body])
   return (
-    <li className="flex min-w-0 flex-col gap-1.5 rounded-md border border-inbox-note-border bg-note-soft p-2 text-base text-slate">
+    <li className="flex min-w-0 flex-col gap-1.5 rounded-md border border-chat-note-border bg-chat-note p-2 text-base text-slate">
       <p
         id={id}
         ref={content}
@@ -315,14 +315,14 @@ function NoteCard({ note }: { note: ContactNote }) {
           aria-label={`${expanded ? 'Collapse' : 'Expand'} note by ${note.authorName}`}
           aria-expanded={expanded}
           aria-controls={id}
-          className="h-7 self-start px-0 text-xs text-inbox-note-text"
+          className="h-7 self-start px-0 text-xs text-chat-note-fg"
           onClick={() => setExpanded((value) => !value)}
         >
           {expanded ? 'Show less' : 'Show more'}
         </Button>
       ) : null}
       <p className="flex min-w-0 items-start gap-1 text-xs text-secondary">
-        <StickyNote aria-hidden="true" className="mt-0.5 size-3 shrink-0 text-inbox-note-text" />
+        <StickyNote aria-hidden="true" className="mt-0.5 size-3 shrink-0 text-chat-note-fg" />
         <span className="min-w-0 break-words">
           {note.authorName} ·{' '}
           <time dateTime={note.createdAt} title={formatDateTime(note.createdAt)}>

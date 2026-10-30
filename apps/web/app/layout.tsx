@@ -45,7 +45,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: colorTokens.slate,
+  themeColor: colorTokens.fg,
   // The on-screen keyboard shrinks the layout, so fixed-height screens (the inbox composer) stay
   // visible above it.
   interactiveWidget: 'resizes-content',

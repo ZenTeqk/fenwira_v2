@@ -6,7 +6,7 @@ export function Card({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       data-slot="card"
-      className={cn('rounded-lg border border-border bg-surface', className)}
+      className={cn('rounded-lg border border-border-subtle bg-surface', className)}
       {...props}
     />
   )
@@ -22,11 +22,11 @@ export function CardTitle({
   as: Heading = 'h3',
   ...props
 }: ComponentProps<'h3'> & { as?: 'h2' | 'h3' | 'h4' }) {
-  return <Heading className={cn('text-md font-semibold text-slate', className)} {...props} />
+  return <Heading className={cn('text-md font-semibold text-fg', className)} {...props} />
 }
 
 export function CardDescription({ className, ...props }: ComponentProps<'p'>) {
-  return <p className={cn('text-sm text-muted', className)} {...props} />
+  return <p className={cn('text-sm text-fg-muted', className)} {...props} />
 }
 
 export function CardContent({ className, ...props }: ComponentProps<'div'>) {
@@ -36,7 +36,7 @@ export function CardContent({ className, ...props }: ComponentProps<'div'>) {
 export function CardFooter({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
-      className={cn('flex items-center gap-2 border-t border-border px-5 py-3', className)}
+      className={cn('flex items-center gap-2 border-t border-border-subtle px-5 py-3', className)}
       {...props}
     />
   )

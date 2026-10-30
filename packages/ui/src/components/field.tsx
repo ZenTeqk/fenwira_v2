@@ -9,7 +9,7 @@ export function Label({ className, ...props }: ComponentProps<typeof LabelPrimit
   return (
     <LabelPrimitive.Root
       data-slot="label"
-      className={cn('text-sm font-medium text-slate peer-disabled:opacity-50', className)}
+      className={cn('text-sm font-medium text-fg peer-disabled:opacity-50', className)}
       {...props}
     />
   )
@@ -45,7 +45,7 @@ export function Field({ label, hint, error, required, className, children }: Fie
       <Label htmlFor={id}>
         {label}
         {required ? (
-          <span className="ml-0.5 text-danger-strong" aria-hidden="true">
+          <span className="ml-0.5 text-status-error-fg" aria-hidden="true">
             *
           </span>
         ) : null}
@@ -57,7 +57,7 @@ export function Field({ label, hint, error, required, className, children }: Fie
         'aria-required': required ? true : undefined,
       })}
       {hint ? (
-        <p id={hintId} className="text-sm text-muted">
+        <p id={hintId} className="text-sm text-fg-muted">
           {hint}
         </p>
       ) : null}
@@ -65,7 +65,7 @@ export function Field({ label, hint, error, required, className, children }: Fie
         <p
           id={errorId}
           role="alert"
-          className="flex items-start gap-1.5 text-sm text-danger-strong"
+          className="flex items-start gap-1.5 text-sm text-status-error-fg"
         >
           <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           {error}

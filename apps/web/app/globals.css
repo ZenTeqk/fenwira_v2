@@ -1,19 +1,20 @@
 @import 'tailwindcss';
 @import '@fenwira/ui/theme.css';
 
-/* React Flow (automation builder) themed with design tokens: idle edges slate-400, active primary. */
+/* React Flow (automation builder) themed with semantic tokens: idle edges fg-subtle, active
+   action-primary. */
 .fw-flow .react-flow {
-  --xy-edge-stroke-default: var(--color-slate-400);
+  --xy-edge-stroke-default: var(--color-fg-subtle);
   --xy-edge-stroke-width-default: 2;
-  --xy-edge-stroke-selected-default: var(--color-primary-strong);
-  --xy-connectionline-stroke-default: var(--color-primary);
+  --xy-edge-stroke-selected-default: var(--color-action-primary);
+  --xy-connectionline-stroke-default: var(--color-action-primary);
   --xy-minimap-background-color-default: var(--color-surface);
-  --xy-background-color-default: var(--color-background);
-  --xy-background-pattern-color-default: var(--color-border);
+  --xy-background-color-default: var(--color-canvas);
+  --xy-background-pattern-color-default: var(--color-border-subtle);
   --xy-controls-button-background-color-default: var(--color-surface);
-  --xy-controls-button-color-default: var(--color-slate);
+  --xy-controls-button-color-default: var(--color-fg);
   --xy-edge-label-background-color-default: var(--color-surface);
-  --xy-edge-label-color-default: var(--color-slate);
+  --xy-edge-label-color-default: var(--color-fg);
 }
 .fw-flow .react-flow__node-card {
   padding: 0;
@@ -21,7 +22,7 @@
   background: transparent;
 }
 .fw-flow .fw-edge-active .react-flow__edge-path {
-  stroke: var(--color-primary);
+  stroke: var(--color-action-primary);
   stroke-width: 3;
   stroke-dasharray: 8 4;
   animation: fw-edge-dash 0.9s linear infinite;

@@ -31,7 +31,7 @@ export function AccountMenu({
       <DropdownTrigger
         className={cn(
           footer
-            ? 'flex w-full items-center gap-3 rounded-md border-t border-sidebar-border px-2 py-3 text-left hover:bg-neutral-soft'
+            ? 'flex w-full items-center gap-3 rounded-md border-t border-border-subtle px-2 py-3 text-left hover:bg-surface-hover'
             : 'rounded-full',
           collapsed && 'justify-center px-0',
           focusRing,

@@ -15,7 +15,7 @@ export function Table({
       aria-label={containerLabel}
       tabIndex={containerLabel ? 0 : undefined}
       className={cn(
-        'relative w-full overflow-x-auto rounded-lg border border-border bg-surface',
+        'relative w-full overflow-x-auto rounded-lg border border-border-subtle bg-surface',
         containerLabel && focusRing,
       )}
     >
@@ -29,7 +29,7 @@ export function Table({
 }
 
 export function TableHeader({ className, ...props }: ComponentProps<'thead'>) {
-  return <thead className={cn('bg-neutral-soft', className)} {...props} />
+  return <thead className={cn('bg-surface-muted', className)} {...props} />
 }
 
 export function TableBody({ className, ...props }: ComponentProps<'tbody'>) {
@@ -40,7 +40,7 @@ export function TableRow({ className, ...props }: ComponentProps<'tr'>) {
   return (
     <tr
       className={cn(
-        'border-b border-border transition-colors hover:bg-background data-[state=selected]:bg-primary-soft',
+        'border-b border-border-subtle transition-colors hover:bg-canvas data-[state=selected]:bg-action-primary-subtle',
         className,
       )}
       {...props}
@@ -52,7 +52,7 @@ export function TableHead({ className, ...props }: ComponentProps<'th'>) {
   return (
     <th
       className={cn(
-        'h-10 px-3 text-left align-middle text-sm font-medium whitespace-nowrap text-slate-800',
+        'h-10 px-3 text-left align-middle text-sm font-medium whitespace-nowrap text-fg',
         className,
       )}
       {...props}
@@ -61,9 +61,9 @@ export function TableHead({ className, ...props }: ComponentProps<'th'>) {
 }
 
 export function TableCell({ className, ...props }: ComponentProps<'td'>) {
-  return <td className={cn('px-3 py-2.5 align-middle text-slate', className)} {...props} />
+  return <td className={cn('px-3 py-2.5 align-middle text-fg', className)} {...props} />
 }
 
 export function TableCaption({ className, ...props }: ComponentProps<'caption'>) {
-  return <caption className={cn('mt-3 text-sm text-muted', className)} {...props} />
+  return <caption className={cn('mt-3 text-sm text-fg-muted', className)} {...props} />
 }

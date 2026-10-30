@@ -20,14 +20,14 @@ export function SelectTrigger({
       data-slot="select-trigger"
       className={cn(
         controlBase,
-        'flex h-9 items-center justify-between gap-2 data-[placeholder]:text-muted',
+        'flex h-9 items-center justify-between gap-2 data-[placeholder]:text-fg-muted',
         className,
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDown className="size-4 text-muted" aria-hidden="true" />
+        <ChevronDown className="size-4 text-fg-muted" aria-hidden="true" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )
@@ -46,7 +46,7 @@ export function SelectContent({
         position={position}
         sideOffset={4}
         className={cn(
-          'z-50 max-h-72 min-w-(--radix-select-trigger-width) overflow-hidden rounded-md border border-border bg-surface shadow-overlay',
+          'z-50 max-h-72 min-w-(--radix-select-trigger-width) overflow-hidden rounded-md border border-border-subtle bg-surface shadow-overlay',
           className,
         )}
         {...props}
@@ -66,15 +66,15 @@ export function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        'relative flex cursor-default items-center rounded-sm py-1.5 pr-8 pl-2 text-base text-slate outline-none select-none',
-        'data-[highlighted]:bg-neutral-soft data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        'relative flex cursor-default items-center rounded-sm py-1.5 pr-8 pl-2 text-base text-fg outline-none select-none',
+        'data-[highlighted]:bg-surface-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         className,
       )}
       {...props}
     >
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator className="absolute right-2 inline-flex">
-        <Check className="size-4 text-primary-strong" aria-hidden="true" />
+        <Check className="size-4 text-action-primary" aria-hidden="true" />
       </SelectPrimitive.ItemIndicator>
     </SelectPrimitive.Item>
   )
@@ -83,7 +83,7 @@ export function SelectItem({
 export function SelectLabel({ className, ...props }: ComponentProps<typeof SelectPrimitive.Label>) {
   return (
     <SelectPrimitive.Label
-      className={cn('px-2 py-1.5 text-xs font-medium text-muted', className)}
+      className={cn('px-2 py-1.5 text-xs font-medium text-fg-muted', className)}
       {...props}
     />
   )

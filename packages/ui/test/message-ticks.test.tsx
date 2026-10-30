@@ -23,10 +23,10 @@ describe('MessageTicks', () => {
   })
 
   it.each([
-    ['QUEUED', 'Sending', 'text-muted'],
-    ['SENT', 'Sent', 'text-muted'],
-    ['DELIVERED', 'Delivered', 'text-muted'],
-    ['READ', 'Read', 'text-info'],
+    ['QUEUED', 'Sending', 'text-chat-meta'],
+    ['SENT', 'Sent', 'text-chat-meta'],
+    ['DELIVERED', 'Delivered', 'text-chat-meta'],
+    ['READ', 'Read', 'text-chat-read'],
   ])('%s is an icon named "%s" with a title, no visible text', (status, label, tone) => {
     const { container } = render(<MessageTicks status={status} />)
     const tick = screen.getByRole('img', { name: label })
@@ -38,7 +38,7 @@ describe('MessageTicks', () => {
   })
 
   it('blue is only ever the read double tick', () => {
-    const blue = Object.entries(MESSAGE_TICKS).filter(([, t]) => t.className === 'text-info')
+    const blue = Object.entries(MESSAGE_TICKS).filter(([, t]) => t.className === 'text-chat-read')
     expect(blue.map(([state]) => state)).toEqual(['read'])
     // Read differs from delivered by stroke weight too, not only colour.
     const { container, rerender } = render(<MessageTicks status="DELIVERED" />)
@@ -58,7 +58,7 @@ describe('MessageTicks', () => {
     )
     const button = screen.getByRole('button', { name: 'Failed to send' })
     expect(button).toHaveAttribute('title', 'Failed to send')
-    expect(button.querySelector('svg')).toHaveClass('text-danger')
+    expect(button.querySelector('svg')).toHaveClass('text-status-error')
     expect(screen.queryByRole('tooltip')).toBeNull()
     act(() => button.focus())
     const tip = screen.getByRole('tooltip')

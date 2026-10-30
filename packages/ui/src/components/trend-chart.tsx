@@ -10,28 +10,28 @@ import { cn } from '../lib/cn'
  */
 export type ChartTone = 'primary' | 'info' | 'success' | 'danger' | 'warning' | 'neutral'
 const FILL: Record<ChartTone, string> = {
-  primary: 'fill-primary-strong',
-  info: 'fill-info',
-  success: 'fill-success-strong',
-  danger: 'fill-danger',
-  warning: 'fill-warning-strong',
-  neutral: 'fill-secondary',
+  primary: 'fill-chart-1',
+  info: 'fill-chart-2',
+  success: 'fill-chart-3',
+  danger: 'fill-chart-4',
+  warning: 'fill-chart-5',
+  neutral: 'fill-chart-6',
 }
 const STROKE: Record<ChartTone, string> = {
-  primary: 'stroke-primary-strong',
-  info: 'stroke-info',
-  success: 'stroke-success-strong',
-  danger: 'stroke-danger',
-  warning: 'stroke-warning-strong',
-  neutral: 'stroke-secondary',
+  primary: 'stroke-chart-1',
+  info: 'stroke-chart-2',
+  success: 'stroke-chart-3',
+  danger: 'stroke-chart-4',
+  warning: 'stroke-chart-5',
+  neutral: 'stroke-chart-6',
 }
 const SWATCH: Record<ChartTone, string> = {
-  primary: 'bg-primary-strong',
-  info: 'bg-info',
-  success: 'bg-success-strong',
-  danger: 'bg-danger',
-  warning: 'bg-warning-strong',
-  neutral: 'bg-secondary',
+  primary: 'bg-chart-1',
+  info: 'bg-chart-2',
+  success: 'bg-chart-3',
+  danger: 'bg-chart-4',
+  warning: 'bg-chart-5',
+  neutral: 'bg-chart-6',
 }
 
 export type ChartSeries = { key: string; label: string; tone: ChartTone }
@@ -130,7 +130,7 @@ export function TrendChart({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ul className="flex flex-wrap gap-x-4 gap-y-1" aria-label="Legend">
           {series.map((s) => (
-            <li key={s.key} className="flex items-center gap-1.5 text-sm text-secondary">
+            <li key={s.key} className="flex items-center gap-1.5 text-sm text-fg-secondary">
               <span aria-hidden="true" className={cn('size-2.5 rounded-sm', SWATCH[s.tone])} />
               {s.label}
             </li>
@@ -138,7 +138,7 @@ export function TrendChart({
         </ul>
         <button
           type="button"
-          className="text-sm font-medium text-primary-strong underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-strong"
+          className="text-sm font-medium text-action-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
           aria-expanded={table}
           aria-controls={`${id}-table`}
           onClick={() => setTable((t) => !t)}
@@ -147,10 +147,13 @@ export function TrendChart({
         </button>
       </div>
       {table ? (
-        <div id={`${id}-table`} className="max-h-80 overflow-auto rounded-md border border-border">
+        <div
+          id={`${id}-table`}
+          className="max-h-80 overflow-auto rounded-md border border-border-subtle"
+        >
           <table className="w-full text-sm">
             <caption className="sr-only">{label}</caption>
-            <thead className="sticky top-0 bg-neutral-soft text-left text-secondary">
+            <thead className="sticky top-0 bg-surface-muted text-left text-fg-secondary">
               <tr>
                 <th scope="col" className="px-3 py-2 font-medium">
                   {pointHeader}
@@ -164,12 +167,12 @@ export function TrendChart({
             </thead>
             <tbody>
               {data.map((p, i) => (
-                <tr key={i} className="border-t border-border">
-                  <th scope="row" className="px-3 py-1.5 text-left font-normal text-slate">
+                <tr key={i} className="border-t border-border-subtle">
+                  <th scope="row" className="px-3 py-1.5 text-left font-normal text-fg">
                     {p.label}
                   </th>
                   {series.map((s) => (
-                    <td key={s.key} className="px-3 py-1.5 text-right tabular-nums text-slate">
+                    <td key={s.key} className="px-3 py-1.5 text-right tabular-nums text-fg">
                       {formatValue(p.values[s.key] ?? 0)}
                     </td>
                   ))}
@@ -193,7 +196,7 @@ export function TrendChart({
                   x2={W - PAD.right}
                   y1={y(max * f)}
                   y2={y(max * f)}
-                  className="stroke-border"
+                  className="stroke-border-subtle"
                   strokeWidth={1}
                 />
                 <text
@@ -201,7 +204,7 @@ export function TrendChart({
                   y={y(max * f)}
                   textAnchor="end"
                   dominantBaseline="middle"
-                  className="fill-muted text-xs"
+                  className="fill-fg-muted text-xs"
                 >
                   {formatValue(max * f)}
                 </text>
@@ -214,7 +217,7 @@ export function TrendChart({
                   x={variant === 'line' ? x(i) : bx(i) + band / 2}
                   y={H - 8}
                   textAnchor="middle"
-                  className="fill-muted text-xs"
+                  className="fill-fg-muted text-xs"
                 >
                   {p.label}
                 </text>
@@ -285,7 +288,7 @@ export function TrendChart({
                 x2={variant === 'line' ? x(active) : bx(active) + band / 2}
                 y1={PAD.top}
                 y2={PAD.top + plotH}
-                className="stroke-border-strong"
+                className="stroke-border-control"
                 strokeDasharray="3 3"
               />
             ) : null}
@@ -306,11 +309,11 @@ export function TrendChart({
           {active !== null && data[active] ? (
             <div
               role="status"
-              className="pointer-events-none absolute top-0 right-0 rounded-md border border-border bg-surface px-3 py-2 text-sm shadow-raised"
+              className="pointer-events-none absolute top-0 right-0 rounded-md border border-border-subtle bg-surface px-3 py-2 text-sm shadow-raised"
             >
-              <p className="font-medium text-slate">{data[active].label}</p>
+              <p className="font-medium text-fg">{data[active].label}</p>
               {series.map((s) => (
-                <p key={s.key} className="flex items-center gap-1.5 text-secondary">
+                <p key={s.key} className="flex items-center gap-1.5 text-fg-secondary">
                   <span aria-hidden="true" className={cn('size-2 rounded-sm', SWATCH[s.tone])} />
                   {s.label}: {formatValue(data[active]!.values[s.key] ?? 0)}
                 </p>

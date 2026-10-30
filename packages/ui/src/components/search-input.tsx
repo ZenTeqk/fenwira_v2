@@ -25,7 +25,7 @@ export function SearchInput({
   return (
     <div data-slot="search-input" className={cn('relative w-full sm:w-72', className)}>
       <Search
-        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
+        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-fg-muted"
         aria-hidden="true"
       />
       <Input
@@ -49,7 +49,7 @@ export function SearchInput({
           aria-label="Clear search"
           onClick={() => onValueChange('')}
           className={cn(
-            'absolute top-1/2 right-1.5 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted hover:bg-neutral-soft hover:text-slate',
+            'absolute top-1/2 right-1.5 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm text-fg-muted hover:bg-surface-hover hover:text-fg',
             focusRing,
           )}
         >

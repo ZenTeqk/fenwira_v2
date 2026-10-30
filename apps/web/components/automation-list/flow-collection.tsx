@@ -183,7 +183,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
       onClick={(e) => {
         if (flow.status === 'ARCHIVED') e.preventDefault()
       }}
-      className="min-h-6 line-clamp-2 rounded-sm text-sm font-semibold text-slate hover:underline focus-visible:outline-2 focus-visible:outline-primary-strong"
+      className="min-h-6 line-clamp-2 rounded-sm text-sm font-semibold text-slate hover:underline focus-visible:outline-2 focus-visible:outline-focus-ring"
     >
       {flow.name || 'Untitled workflow'}
     </Link>
@@ -312,7 +312,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
         <Link
           href={`/automations/${flow.id}/history`}
           aria-label={`${flow.executions.last7d} starts in 7 days for ${flow.name}`}
-          className="text-sm font-medium text-slate tabular-nums focus-visible:outline-2 focus-visible:outline-primary-strong md:col-span-2"
+          className="text-sm font-medium text-slate tabular-nums focus-visible:outline-2 focus-visible:outline-focus-ring md:col-span-2"
         >
           {flow.executions.last7d.toLocaleString('en-IN')}
           <span className="ml-2 text-xs font-normal text-muted md:hidden">starts · 7 days</span>
@@ -381,7 +381,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
         {flowMetrics?.failed ? (
           <Link
             href={`/automations/${flow.id}/history`}
-            className="inline-flex min-h-8 items-center gap-2 rounded-sm text-xs font-medium text-warning-strong focus-visible:outline-2 focus-visible:outline-primary-strong"
+            className="inline-flex min-h-8 items-center gap-2 rounded-sm text-xs font-medium text-warning-strong focus-visible:outline-2 focus-visible:outline-focus-ring"
           >
             {flowMetrics.failed} failed · View runs
             <ArrowRight className="size-4" aria-hidden="true" />
@@ -389,7 +389,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
         ) : flow.status !== 'ARCHIVED' ? (
           <Link
             href={`/automations/${flow.id}/edit`}
-            className="inline-flex min-h-6 items-center gap-2 rounded-sm text-xs font-semibold text-primary-strong focus-visible:outline-2 focus-visible:outline-primary-strong"
+            className="inline-flex min-h-6 items-center gap-2 rounded-sm text-xs font-semibold text-primary-strong focus-visible:outline-2 focus-visible:outline-focus-ring"
           >
             {flow.status === 'DRAFT' ? 'Continue editing' : 'Edit workflow'}
             <ArrowRight className="size-4" aria-hidden="true" />

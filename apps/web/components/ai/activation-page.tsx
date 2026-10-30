@@ -300,7 +300,7 @@ export function ActivationPage() {
         <div className="divide-y divide-border rounded-lg border border-border bg-surface">
           {FAQ.map((item) => (
             <details key={item.q} className="group">
-              <summary className="fw-summary flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-base font-medium text-slate focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-strong">
+              <summary className="fw-summary flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-base font-medium text-slate focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-ring">
                 {item.q}
                 <ChevronDown
                   aria-hidden="true"
@@ -435,7 +435,7 @@ function TestPreview() {
             <Sparkles className="size-4" />
           </span>
           <div className="flex min-w-0 flex-col gap-2">
-            <p className="rounded-lg bg-message-outbound px-3 py-2 text-base text-slate">
+            <p className="rounded-lg bg-chat-outgoing px-3 py-2 text-base text-slate">
               Yes, we’re open on Saturday from 10am to 2pm.
             </p>
             <div className="flex flex-col gap-1 rounded-md border border-border p-3">

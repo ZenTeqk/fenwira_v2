@@ -121,7 +121,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          'sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 border-r border-sidebar-border bg-sidebar p-3 transition-all lg:flex',
+          'sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 border-r border-border-subtle bg-sidebar p-3 transition-all lg:flex',
           collapsed ? 'w-16' : 'w-56',
         )}
       >
@@ -147,7 +147,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           aria-pressed={collapsed}
           className={cn(
-            'flex h-9 items-center gap-3 rounded-sm px-3 text-base text-secondary hover:bg-neutral-soft hover:text-slate',
+            'flex h-9 items-center gap-3 rounded-sm px-3 text-base text-secondary hover:bg-surface-hover hover:text-slate',
             collapsed && 'justify-center px-0',
             focusRing,
           )}

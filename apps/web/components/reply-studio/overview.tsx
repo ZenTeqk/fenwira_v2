@@ -94,7 +94,7 @@ export function ReplyOverview({ liveCount = 0 }: { liveCount?: number }) {
               key={m.key}
               href="/automations/reply-studio/reports"
               aria-label={`${m.label}: ${value ?? 'loading'}. View reports`}
-              className="flex min-w-0 items-center gap-3 px-4 focus-visible:outline-2 focus-visible:outline-primary-strong"
+              className="flex min-w-0 items-center gap-3 px-4 focus-visible:outline-2 focus-visible:outline-focus-ring"
             >
               <m.icon className="size-4 shrink-0 text-muted" aria-hidden="true" />
               <div

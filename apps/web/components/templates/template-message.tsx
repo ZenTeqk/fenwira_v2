@@ -35,7 +35,7 @@ export function TemplateMessage({
         <div
           className={
             library
-              ? 'fw-template-library-preview relative h-48 min-w-0 overflow-hidden rounded-lg bg-template-preview p-3'
+              ? 'fw-template-library-preview relative h-48 min-w-0 overflow-hidden rounded-lg bg-chat-canvas p-3'
               : undefined
           }
         >

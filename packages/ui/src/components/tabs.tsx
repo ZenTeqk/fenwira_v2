@@ -19,7 +19,7 @@ export function TabsList({ className, ...props }: ComponentProps<typeof TabsPrim
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
-      className={cn('flex w-full gap-1 overflow-x-auto border-b border-border', className)}
+      className={cn('flex w-full gap-1 overflow-x-auto border-b border-border-subtle', className)}
       {...props}
     />
   )
@@ -30,8 +30,8 @@ export function TabsTrigger({ className, ...props }: ComponentProps<typeof TabsP
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        '-mb-px inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-base font-medium whitespace-nowrap text-muted',
-        'hover:text-slate data-[state=active]:border-primary data-[state=active]:text-slate',
+        '-mb-px inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-base font-medium whitespace-nowrap text-fg-muted',
+        'hover:text-fg data-[state=active]:border-action-primary data-[state=active]:text-fg',
         'disabled:pointer-events-none disabled:opacity-50',
         focusRing,
         className,

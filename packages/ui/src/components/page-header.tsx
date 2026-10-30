@@ -29,9 +29,9 @@ export function PageHeader({
       ) : null}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-2xl font-semibold text-slate">{title}</h1>
+          <h1 className="text-2xl font-semibold text-fg">{title}</h1>
           {description && !descriptionFullWidth ? (
-            <p className="max-w-2xl text-base text-muted">{description}</p>
+            <p className="max-w-2xl text-base text-fg-muted">{description}</p>
           ) : null}
         </div>
         {actions ? (
@@ -39,7 +39,7 @@ export function PageHeader({
         ) : null}
       </div>
       {description && descriptionFullWidth ? (
-        <p className="-mt-2 text-base text-muted">{description}</p>
+        <p className="-mt-2 text-base text-fg-muted">{description}</p>
       ) : null}
     </header>
   )

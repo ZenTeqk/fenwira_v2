@@ -10,7 +10,7 @@ export const Modal = DialogPrimitive.Root
 export const ModalTrigger = DialogPrimitive.Trigger
 export const ModalClose = DialogPrimitive.Close
 
-const overlay = 'fixed inset-0 z-50 bg-slate/50'
+const overlay = 'fixed inset-0 z-50 bg-scrim/50'
 
 export type ModalContentProps = ComponentProps<typeof DialogPrimitive.Content> & {
   /** Required: every modal has an accessible name. */
@@ -37,7 +37,7 @@ export function ModalContent({
         data-slot="modal"
         className={cn(
           'fixed top-1/2 left-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col',
-          'rounded-xl border border-border bg-surface shadow-overlay',
+          'rounded-xl border border-border-subtle bg-surface shadow-overlay',
           className,
         )}
         {...(description ? {} : { 'aria-describedby': undefined })}
@@ -45,11 +45,11 @@ export function ModalContent({
       >
         <div className="flex items-start justify-between gap-4 p-5 pb-3">
           <div className="flex flex-col gap-1">
-            <DialogPrimitive.Title className="text-lg font-semibold text-slate">
+            <DialogPrimitive.Title className="text-lg font-semibold text-fg">
               {title}
             </DialogPrimitive.Title>
             {description ? (
-              <DialogPrimitive.Description className="text-sm text-muted">
+              <DialogPrimitive.Description className="text-sm text-fg-muted">
                 {description}
               </DialogPrimitive.Description>
             ) : null}
@@ -57,7 +57,7 @@ export function ModalContent({
           {hideClose ? null : (
             <DialogPrimitive.Close
               className={cn(
-                'rounded-sm p-1 text-muted hover:bg-neutral-soft hover:text-slate',
+                'rounded-sm p-1 text-fg-muted hover:bg-surface-hover hover:text-fg',
                 focusRing,
               )}
               aria-label="Close"
@@ -68,7 +68,9 @@ export function ModalContent({
         </div>
         <div className="overflow-y-auto px-5 pb-5">{children}</div>
         {footer ? (
-          <div className="flex justify-end gap-2 border-t border-border px-5 py-3">{footer}</div>
+          <div className="flex justify-end gap-2 border-t border-border-subtle px-5 py-3">
+            {footer}
+          </div>
         ) : null}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
@@ -83,7 +85,7 @@ export type DrawerContentProps = ModalContentProps & {
   side?: 'left' | 'right'
   /** `half` takes half the viewport from 768px up and the full width below. */
   width?: 'sm' | 'md' | 'lg' | 'half'
-  /** `dark` matches the slate navigation (mobile sidebar). */
+  /** `dark` is the inverse surface (opposite lightness to the page). */
   tone?: 'light' | 'dark'
 }
 
@@ -114,7 +116,7 @@ export function DrawerContent({
         data-slot="drawer"
         className={cn(
           'fixed inset-y-0 z-50 flex w-full flex-col shadow-overlay',
-          tone === 'dark' ? 'border-slate bg-slate' : 'border-border bg-surface',
+          tone === 'dark' ? 'border-inverse bg-inverse' : 'border-border-subtle bg-surface',
           side === 'right' ? 'right-0 border-l' : 'left-0 border-r',
           drawerWidths[width],
           className,
@@ -126,21 +128,24 @@ export function DrawerContent({
           data-slot="drawer-header"
           className={cn(
             'flex items-start justify-between gap-4 border-b p-4',
-            tone === 'dark' ? 'border-slate-800' : 'border-border',
+            tone === 'dark' ? 'border-inverse-border' : 'border-border-subtle',
           )}
         >
           <div className="flex flex-col gap-1">
             <DialogPrimitive.Title
               className={cn(
                 'text-lg font-semibold',
-                tone === 'dark' ? 'text-surface' : 'text-slate',
+                tone === 'dark' ? 'text-inverse-fg' : 'text-fg',
               )}
             >
               {title}
             </DialogPrimitive.Title>
             {description ? (
               <DialogPrimitive.Description
-                className={cn('text-sm', tone === 'dark' ? 'text-slate-400' : 'text-muted')}
+                className={cn(
+                  'text-sm',
+                  tone === 'dark' ? 'text-inverse-fg-muted' : 'text-fg-muted',
+                )}
               >
                 {description}
               </DialogPrimitive.Description>
@@ -151,8 +156,8 @@ export function DrawerContent({
               className={cn(
                 'rounded-sm p-1',
                 tone === 'dark'
-                  ? 'text-slate-400 hover:bg-slate-800 hover:text-surface'
-                  : 'text-muted hover:bg-neutral-soft hover:text-slate',
+                  ? 'text-inverse-fg-muted hover:bg-inverse-hover hover:text-inverse-fg'
+                  : 'text-fg-muted hover:bg-surface-hover hover:text-fg',
                 focusRing,
               )}
               aria-label="Close"
@@ -165,7 +170,7 @@ export function DrawerContent({
           {children}
         </div>
         {footer ? (
-          <div className="flex justify-end gap-2 border-t border-border p-4">{footer}</div>
+          <div className="flex justify-end gap-2 border-t border-border-subtle p-4">{footer}</div>
         ) : null}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

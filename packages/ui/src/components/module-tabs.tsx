@@ -36,7 +36,7 @@ export function ModuleTabs({
     <nav
       data-slot="module-tabs"
       aria-label={label}
-      className={cn('border-b border-border bg-surface', className)}
+      className={cn('border-b border-border-subtle bg-surface', className)}
     >
       <ul className="mx-auto flex w-full max-w-7xl gap-1 overflow-x-auto px-4 md:px-6">
         {items.map((t) => (
@@ -47,8 +47,8 @@ export function ModuleTabs({
               className={cn(
                 'relative flex h-11 items-center px-3 text-base font-medium whitespace-nowrap',
                 t.active
-                  ? 'text-slate after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary'
-                  : 'text-secondary hover:text-slate',
+                  ? 'text-fg after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-action-primary'
+                  : 'text-fg-secondary hover:text-fg',
                 focusRing,
                 'focus-visible:-outline-offset-2',
               )}

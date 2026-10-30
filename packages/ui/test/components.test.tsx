@@ -71,8 +71,8 @@ describe('Button', () => {
         <Button variant="danger">Delete</Button>
       </>,
     )
-    expect(screen.getByRole('button', { name: 'Save' }).className).toContain('bg-primary-strong')
-    expect(screen.getByRole('button', { name: 'Delete' }).className).toContain('bg-danger-strong')
+    expect(screen.getByRole('button', { name: 'Save' }).className).toContain('bg-action-primary')
+    expect(screen.getByRole('button', { name: 'Delete' }).className).toContain('bg-action-danger')
   })
 
   it('is busy and disabled while loading', async () => {
@@ -95,7 +95,7 @@ describe('Button', () => {
         <a href="/x">Go</a>
       </Button>,
     )
-    expect(screen.getByRole('link', { name: 'Go' }).className).toContain('bg-primary-strong')
+    expect(screen.getByRole('link', { name: 'Go' }).className).toContain('bg-action-primary')
   })
 })
 
@@ -173,7 +173,7 @@ describe('status and identity', () => {
     render(<StatusBadge status="DELIVERED" label="Delivered 2m ago" />)
     const badge = screen.getByText('Delivered 2m ago').closest('[data-slot="badge"]')!
     expect(badge).toHaveAttribute('data-status', 'DELIVERED')
-    expect(badge.className).toContain('bg-success-soft')
+    expect(badge.className).toContain('bg-status-success-bg')
   })
 
   it('Badge hides its decorative icon from assistive tech', () => {
@@ -193,7 +193,7 @@ describe('status and identity', () => {
     rerender(<Avatar name="ABC Electronics" appearance="varied" />)
     expect(screen.getByLabelText('ABC Electronics').className).not.toBe(first)
     rerender(<Avatar name="ABC Electronics" />)
-    expect(screen.getByLabelText('ABC Electronics').className).toContain('bg-primary-soft')
+    expect(screen.getByLabelText('ABC Electronics').className).toContain('bg-action-primary-subtle')
     expect(screen.getByLabelText('ABC Electronics')).toHaveTextContent('AE')
   })
 
@@ -473,7 +473,7 @@ describe('Table and DataTable', () => {
     const area = screen.getByRole('region', { name: 'Wallet transactions scroll area' })
     await userEvent.tab()
     expect(area).toHaveFocus()
-    expect(area.className).toContain('focus-visible:outline-primary')
+    expect(area.className).toContain('focus-visible:outline-focus-ring')
   })
 
   it('sorts by a column and exposes aria-sort', async () => {

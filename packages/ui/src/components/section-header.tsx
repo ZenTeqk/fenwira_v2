@@ -28,11 +28,11 @@ export function SectionHeader({
       <div className="flex min-w-0 flex-col gap-0.5">
         <Heading
           id={id}
-          className={cn('font-semibold text-slate', Heading === 'h2' ? 'text-lg' : 'text-md')}
+          className={cn('font-semibold text-fg', Heading === 'h2' ? 'text-lg' : 'text-md')}
         >
           {title}
         </Heading>
-        {description ? <p className="text-sm text-secondary">{description}</p> : null}
+        {description ? <p className="text-sm text-fg-secondary">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>

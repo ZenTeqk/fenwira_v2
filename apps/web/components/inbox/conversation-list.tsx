@@ -144,7 +144,7 @@ function ConversationRow({
             'group/row relative flex min-h-19 w-full min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-3 text-left transition-colors motion-reduce:transition-none',
             focusRing,
             'focus-visible:-outline-offset-2',
-            selected ? 'bg-primary-soft' : 'bg-surface hover:bg-neutral-soft',
+            selected ? 'bg-primary-soft' : 'bg-surface hover:bg-surface-hover',
           )}
         >
           {selected ? (

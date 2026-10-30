@@ -6,12 +6,12 @@ export type ConnectionStatus =
   'CONNECTED' | 'FLAGGED' | 'RESTRICTED' | 'DISCONNECTED' | 'ERROR' | 'NONE'
 
 const DOT: Record<ConnectionStatus, string> = {
-  CONNECTED: 'bg-success',
-  FLAGGED: 'bg-warning',
-  RESTRICTED: 'bg-danger',
-  DISCONNECTED: 'bg-danger',
-  ERROR: 'bg-danger',
-  NONE: 'bg-slate-400',
+  CONNECTED: 'bg-status-success',
+  FLAGGED: 'bg-status-warning',
+  RESTRICTED: 'bg-status-error',
+  DISCONNECTED: 'bg-status-error',
+  ERROR: 'bg-status-error',
+  NONE: 'bg-status-neutral',
 }
 const LABEL: Record<ConnectionStatus, string> = {
   CONNECTED: 'Connected',
@@ -61,8 +61,8 @@ export function ConnectionState({
       className={cn('flex flex-wrap items-center justify-between gap-3', className)}
     >
       <div className="flex min-w-0 flex-col gap-1">
-        {name ? <p className="truncate font-medium text-slate">{name}</p> : null}
-        <div className="flex flex-wrap items-center gap-2 text-sm text-secondary">
+        {name ? <p className="truncate font-medium text-fg">{name}</p> : null}
+        <div className="flex flex-wrap items-center gap-2 text-sm text-fg-secondary">
           {status === 'NONE' ? (
             <span>{LABEL.NONE}</span>
           ) : (

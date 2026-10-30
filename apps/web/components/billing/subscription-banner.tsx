@@ -88,7 +88,7 @@ export function SubscriptionBanner() {
         </div>
         <Link
           href={managed ? '/billing/invoices' : '/billing/subscription'}
-          className="rounded-sm font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-strong"
+          className="rounded-sm font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
         >
           Request a plan
         </Link>

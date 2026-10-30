@@ -1333,7 +1333,7 @@ test('centre composer uses one controlled countdown, exact thresholds, safe expi
   await expect(
     chat.getByText('Reply window closes soon. Templates remain available afterward.'),
   ).toBeVisible()
-  await expect(indicator().locator('[data-slot="badge"]')).toHaveClass(/bg-warning-soft/)
+  await expect(indicator().locator('[data-slot="badge"]')).toHaveClass(/bg-status-warning-bg/)
   await expect(chat.getByText(/The 24-hour window closes in/)).toHaveCount(0)
   expect(await axe(page)).toEqual([])
   if (shots) await page.screenshot({ path: join(shots, 'centre-imminent-1440.png') })

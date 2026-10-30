@@ -1,83 +1,14 @@
 /*
- * Fenwira design tokens as a Tailwind v4 theme (contract: docs/design/FENWIRA_DESIGN_SYSTEM.md).
- * Together with ../tokens.ts this is the ONLY place raw color values may appear.
- * Tailwind's default palette, type scale and radii are reset, so feature code can only
- * use semantic utilities: bg-primary-strong, text-muted, border-border, rounded-md, …
+ * Fenwira theme for Tailwind v4 (contract: docs/design/FENWIRA_DESIGN_SYSTEM.md).
+ * Colors are generated into ./tokens.css from ../tokens.ts, the single source of color values:
+ * no hex belongs in this file. Tailwind's default palette, type scale, radii and shadows are
+ * reset, so feature code can only use semantic utilities: bg-surface, text-fg-secondary, …
+ * The light theme is the default; `data-theme="dark"` on an element switches its subtree.
  */
+@import './tokens.css';
 @source "..";
 
 @theme {
-  --color-*: initial;
-  --color-primary: #00a884;
-  --color-primary-hover: #008f70;
-  --color-primary-soft: #eaf7f2;
-  --color-primary-strong: #007f64;
-  --color-primary-strong-hover: #006b54;
-  --color-whatsapp: #25d366;
-  --color-success: #16a34a;
-  --color-success-soft: #d1fae5;
-  --color-success-strong: #166534;
-  --color-warning: #f59e0b;
-  --color-warning-soft: #fef3c7;
-  --color-warning-strong: #b45309;
-  --color-danger: #dc2626;
-  --color-danger-soft: #fee2e2;
-  --color-danger-strong: #b91c1c;
-  --color-danger-strong-hover: #991b1b;
-  --color-info: #2563eb;
-  --color-info-soft: #eff6ff;
-  --color-info-strong: #1d4ed8;
-  --color-slate: #18201d;
-  --color-slate-800: #1e293b;
-  --color-slate-400: #94a3b8;
-  --color-secondary: #4b5550;
-  --color-muted: #66716b;
-  --color-background: #f7f7f4;
-  --color-surface: #ffffff;
-  --color-sidebar: #fafaf8;
-  --color-sidebar-border: #e7e7e2;
-  --color-muted-decorative: #737c77;
-  --color-border: #e5e7e3;
-  --color-border-strong: #d6d9d4;
-  --color-neutral-soft: #f5f5f1;
-  --color-thread-soft: #f3f2ed;
-  --color-message-outbound: #d2f2df;
-  --color-note-soft: #fff8eb;
-  --color-template-border: #e3e7e4;
-  --color-template-preview: #eef4f0;
-  --color-template-marketing: #f5f3ff;
-  --color-template-marketing-text: #6d28d9;
-  --color-template-authentication: #fff7ed;
-  --color-template-authentication-text: #c2410c;
-  --color-template-approved: #ecfdf5;
-  --color-template-approved-text: #047857;
-  --color-template-review: #fffbeb;
-  --color-template-attention: #fef2f2;
-  --color-template-preview-action: #e8f5ef;
-  --color-template-preview-action-hover: #d5eee2;
-  --color-inbox-primary: #047857;
-  --color-inbox-primary-hover: #065f46;
-  --color-inbox-selected: #ecfdf5;
-  --color-inbox-outbound: #e8f7f0;
-  --color-inbox-text: #172b25;
-  --color-inbox-secondary: #66756f;
-  --color-inbox-border: #e5eae7;
-  --color-inbox-note: #fff7e6;
-  --color-inbox-note-border: #fde3b0;
-  --color-inbox-note-text: #92400e;
-  --color-inbox-followup: #fff1de;
-  --color-inbox-followup-text: #9a4d0b;
-  --color-avatar-pink: #fce0ec;
-  --color-avatar-pink-text: #9d2455;
-  --color-avatar-lavender: #ebddfb;
-  --color-avatar-lavender-text: #66379b;
-  --color-avatar-peach: #ffe1c7;
-  --color-avatar-peach-text: #974613;
-  --color-avatar-mint: #cff3e8;
-  --color-avatar-mint-text: #065f46;
-  --color-avatar-blue: #dae7ff;
-  --color-avatar-blue-text: #274b97;
-
   --font-*: initial;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -116,12 +47,14 @@
   /* Elevation: surfaces use borders. `raised` is for small floating affordances (canvas nodes,
      segmented thumbs); `overlay` for menus, dialogs, drawers and toasts. */
   --shadow-*: initial;
-  --shadow-raised: 0 1px 2px 0 rgb(15 23 42 / 0.06);
-  --shadow-overlay: 0 12px 32px -8px rgb(15 23 42 / 0.18), 0 2px 6px -2px rgb(15 23 42 / 0.08);
+  --shadow-raised: 0 1px 2px 0 color-mix(in srgb, var(--color-shadow) 6%, transparent);
+  --shadow-overlay:
+    0 12px 32px -8px color-mix(in srgb, var(--color-shadow) 18%, transparent),
+    0 2px 6px -2px color-mix(in srgb, var(--color-shadow) 8%, transparent);
 }
 
 /* Inbox wallpaper: an original line-art tile (../assets/chat-doodle.svg) applied as a mask, so its
-   color comes from a token utility on the same element (bg-slate-400) and the asset has none. */
+   color comes from a token utility on the same element (bg-chat-pattern) and the asset has none. */
 @utility chat-doodle {
   -webkit-mask-image: url('../assets/chat-doodle.svg');
   mask-image: url('../assets/chat-doodle.svg');
@@ -135,7 +68,7 @@
   *,
   ::before,
   ::after {
-    border-color: var(--color-border);
+    border-color: var(--color-border-subtle);
   }
   html {
     color-scheme: light;
@@ -143,8 +76,8 @@
     scroll-padding-top: 4.5rem;
   }
   body {
-    background-color: var(--color-background);
-    color: var(--color-slate);
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
     font-family: var(--font-sans);
     font-size: var(--text-base);
     line-height: var(--text-base--line-height);
@@ -177,7 +110,7 @@
 }
 .fw-phone-chat {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-color: var(--color-border-control) transparent;
   overflow-wrap: anywhere;
 }
 @media (max-width: 767px) {
@@ -196,21 +129,11 @@
   max-height: 620px;
 }
 
-/* The inbox uses its approved palette without changing other application screens. Apply this
-   class to portalled inbox surfaces too, because they are outside the application shell. */
+/* Inbox: a neutral shell around a WhatsApp-inspired thread. Its colors are the shared semantic
+   tokens (action-primary, chat-*); the class remains the scope for inbox density rules and is
+   also applied to portalled inbox surfaces, which sit outside the application shell. */
 .fw-inbox-theme {
-  color: var(--color-inbox-text);
-  --color-primary: var(--color-inbox-primary);
-  --color-primary-hover: var(--color-inbox-primary-hover);
-  --color-primary-strong: var(--color-inbox-primary);
-  --color-primary-strong-hover: var(--color-inbox-primary-hover);
-  --color-primary-soft: var(--color-inbox-selected);
-  --color-message-outbound: var(--color-inbox-outbound);
-  --color-slate: var(--color-inbox-text);
-  --color-secondary: var(--color-inbox-secondary);
-  --color-muted: var(--color-inbox-secondary);
-  --color-border: var(--color-inbox-border);
-  --color-note-soft: var(--color-inbox-note);
+  color: var(--color-fg);
 }
 .fw-inbox-bubble {
   max-width: min(70%, 520px);
@@ -231,11 +154,13 @@
   overflow-anchor: none;
 }
 
-/* Template labels, footers and unavailable-media copy share the outgoing bubble's AA text
-   pairing. The approved secondary grey remains unchanged on white panels and other modules. */
-.fw-inbox-theme .fw-inbox-bubble.bg-message-outbound {
-  --color-secondary: var(--color-inbox-text);
-  --color-muted: var(--color-inbox-text);
+/* Secondary and muted copy inside a bubble (template labels, footers, unavailable media) uses
+   the chat metadata role, which is contrast-tested on both bubble colors in both themes. */
+.fw-inbox-bubble {
+  --color-fg-secondary: var(--color-chat-meta);
+  --color-fg-muted: var(--color-chat-meta);
+  --color-secondary: var(--color-chat-meta);
+  --color-muted: var(--color-chat-meta);
 }
 
 /* Inbox filters keep native trackpad/touch scrolling. Separate arrow controls replace the
@@ -316,7 +241,7 @@
   height: 0.875rem;
 }
 .fw-inbox-customer-panel [data-slot='tabs-trigger'][data-state='active'] {
-  color: var(--color-primary-strong);
+  color: var(--color-action-primary);
 }
 .fw-inbox-customer-panel > [data-slot='drawer-header'] {
   min-height: 3rem;
@@ -350,8 +275,8 @@
 
 /* Template library only: preserve shared tab and preview defaults in other modules. */
 .fw-template-library [data-slot='tabs-trigger'][data-state='active'] {
-  border-color: var(--color-primary-strong);
-  color: var(--color-primary-strong);
+  border-color: var(--color-action-primary);
+  color: var(--color-action-primary);
 }
 .fw-template-library-preview::after {
   content: '';
@@ -361,5 +286,5 @@
   left: 0;
   height: 2rem;
   pointer-events: none;
-  background: linear-gradient(transparent, var(--color-template-preview));
+  background: linear-gradient(transparent, var(--color-chat-canvas));
 }

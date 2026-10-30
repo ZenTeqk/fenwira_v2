@@ -1041,7 +1041,7 @@ export function CampaignWizard({
               </dl>
             ) : null}
             <details className="border-t border-border pt-2">
-              <summary className="cursor-pointer rounded-md text-sm font-medium text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+              <summary className="cursor-pointer rounded-md text-sm font-medium text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring">
                 Campaign details
               </summary>
               <dl className="mt-2 flex flex-col gap-2 text-sm">

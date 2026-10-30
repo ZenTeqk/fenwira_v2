@@ -41,7 +41,7 @@ function IconTile({ icon }: { icon: ReactNode }) {
   return (
     <span
       aria-hidden="true"
-      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary-strong [&_svg]:size-4"
+      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-action-primary-subtle text-action-primary [&_svg]:size-4"
     >
       {icon}
     </span>
@@ -68,21 +68,21 @@ export function MetricCard({
       >
         {icon ? <IconTile icon={icon} /> : null}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="text-sm font-medium text-secondary">{label}</p>
+          <p className="text-sm font-medium text-fg-secondary">{label}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {loading ? (
               <Skeleton className="h-8 w-24" />
             ) : (
-              <p className="text-xl font-semibold text-slate tabular-nums">{value}</p>
+              <p className="text-xl font-semibold text-fg tabular-nums">{value}</p>
             )}
             {delta && !loading ? (
               <StatusBadge status={trendStatus(delta)} label={delta.value} />
             ) : null}
           </div>
           {delta?.label && !loading ? (
-            <p className="text-xs text-secondary">{delta.label}</p>
+            <p className="text-xs text-fg-secondary">{delta.label}</p>
           ) : null}
-          {hint ? <div className="text-xs text-secondary">{hint}</div> : null}
+          {hint ? <div className="text-xs text-fg-secondary">{hint}</div> : null}
         </div>
       </Card>
     )
@@ -92,24 +92,24 @@ export function MetricCard({
       className={cn('flex flex-col gap-3 p-5', compact && 'gap-1 border-0 p-3', className)}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-secondary">{label}</p>
+        <p className="text-sm font-medium text-fg-secondary">{label}</p>
         {icon ? <IconTile icon={icon} /> : null}
       </div>
       {loading ? (
         <Skeleton className="h-8 w-24" />
       ) : (
-        <p className={cn('text-2xl font-semibold text-slate tabular-nums', compact && 'text-xl')}>
+        <p className={cn('text-2xl font-semibold text-fg tabular-nums', compact && 'text-xl')}>
           {value}
         </p>
       )}
       {delta && !loading ? (
-        <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted">
+        <p className="flex flex-wrap items-center gap-1.5 text-sm text-fg-muted">
           <StatusBadge status={trendStatus(delta)} label={delta.value} />
           {delta.label ? <span>{delta.label}</span> : null}
         </p>
       ) : null}
       {/* The hint stays under a delta: it explains the figure (for example a rate's denominator). */}
-      {hint ? <div className="text-sm text-secondary">{hint}</div> : null}
+      {hint ? <div className="text-sm text-fg-secondary">{hint}</div> : null}
     </Card>
   )
 }

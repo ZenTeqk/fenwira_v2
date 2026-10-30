@@ -4,72 +4,100 @@
 
 Fenwira is a WhatsApp operations workspace that people keep open all day. The interface is **calm, dense, fast and trustworthy**: restrained surfaces, strong hierarchy, obvious system status, and no decoration that competes with the work. No gradients, glassmorphism, oversized cards, heavy shadows or marketing-sized headings inside the app.
 
-This is a contract. Tokens live in `packages/ui` and are the only source of color, type, radius and elevation. Feature code uses semantic utilities (`bg-primary-strong`, `text-secondary`, `border-border`) and shared components. No dark mode in v2 (decision DS1); because everything is tokenized, a second token set can add it later.
+This is a contract. Tokens live in `packages/ui` and are the only source of color, type, radius and elevation. Feature code uses semantic utilities (`bg-action-primary`, `text-fg-secondary`, `border-border-subtle`) and shared components. Light is the default theme. Dark values exist for every role and are contrast-tested (§1), but no theme switcher is exposed yet (DS1 still holds for the product).
 
 ## 1. Color
 
-### Brand and neutrals
+**Theme token refactor (2026-10-31).** Approved direction: neutral surfaces, colorful feature accents, semantic statuses and emerald primary actions; the Inbox is a neutral shell around a WhatsApp-inspired chat area. Light is the default theme. Dark values are defined and contrast-tested but not exposed: `data-theme="dark"` on an element switches its subtree, and there is no switcher yet.
 
-| Token                       | Hex                   | Role                                                                                                     |
-| --------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
-| `primary`                   | `#00A884`             | Fenwira action accent: active-nav indicator, focus ring, selection, checkbox/switch fill. **Non-text.**  |
-| `primary-hover`             | `#008F70`             | Hover of `primary` fills                                                                                 |
-| `primary-soft`              | `#EAF7F2`             | Selected rows, variable chips                                                                            |
-| `primary-strong` / `-hover` | `#007F64` / `#006B54` | **Filled primary buttons** (white text) and primary-colored text/links                                   |
-| `whatsapp`                  | `#25D366`             | WhatsApp channel identity only (the WhatsApp preview frame, "on WhatsApp" marks). Never an action color. |
-| `slate`                     | `#18201D`             | Primary text (compatibility token name)                                                                  |
-| `slate-800`                 | `#1E293B`             | Dark surface compatibility; text on `neutral-soft` table headers                                         |
-| `secondary`                 | `#4B5550`             | Secondary text: descriptions, labels in dense rows, metadata that must stay readable                     |
-| `muted`                     | `#66716B`             | De-emphasized text: timestamps, hints, placeholders. AA-safe on all warm neutrals.                       |
-| `slate-400`                 | `#94A3B8`             | Idle icons, disabled glyphs, sidebar text on `slate`, idle flow edges                                    |
-| `background`                | `#F7F7F4`             | Application canvas                                                                                       |
-| `surface`                   | `#FFFFFF`             | Cards, panels, tables, dialogs                                                                           |
-| `border`                    | `#E5E7E3`             | Dividers, card and table borders                                                                         |
-| `border-strong`             | `#D6D9D4`             | Form-control borders, emphasized dividers                                                                |
-| `neutral-soft`              | `#F5F5F1`             | Table headers, neutral badges, system events                                                             |
+### Source of truth
 
-**Fenwira primary ≠ WhatsApp green.** `#00A884` means "Fenwira action or selection". `#25D366` means "this is WhatsApp"; healthy states use the separate `success` token. They are different tokens so the two meanings can never be confused in code.
+`packages/ui/src/tokens.ts` is the only place color values live. It has three layers:
+
+| Layer | Export | Naming | Use |
+| --- | --- | --- | --- |
+| Primitive palette | `palette` | hue + lightness: `neutral.600`, `emerald.700`, `chat.leaf` | Raw hex. Never referenced by feature code; becomes `--fw-<hue>-<step>` with no Tailwind utility |
+| Semantic roles | `semanticTokens` | role: `canvas`, `fg-secondary`, `status-error-bg`, `chat-outgoing` | Each role is a `{ light, dark }` pair of palette references. Feature code uses these utilities (`bg-surface-muted`, `text-fg-secondary`) |
+| Component tokens | `componentTokens` | `phone-bezel`, `category-*`, `avatar-*`, `chart-1…6` | Only where no semantic role fits: data-driven identities, chart series, the phone preview bezel |
+
+`packages/ui/src/styles/tokens.css` is **generated** from `tokens.ts` by `renderThemeCss()` (`src/theme-css.ts`) and pinned by a file snapshot in `tokens.test.ts`, so the CSS cannot drift from the TypeScript. After changing a token, run `pnpm --filter @fenwira/ui test -u`. The generated file declares primitives on `:root`, every role as `--color-*` in `@theme static` (Tailwind utilities, always emitted), and the dark values under `[data-theme='dark']`. `theme.css` imports it and holds no color values. `colorTokens` (resolved light values) remains for the web manifest and browser `theme-color`.
+
+### Semantic roles
+
+| Group | Tokens | Light | Dark |
+| --- | --- | --- | --- |
+| Surfaces | `canvas` · `sidebar` · `surface` · `surface-elevated` · `surface-muted` | #F5F5F4 · #EFEFED · #FFFFFF · #FFFFFF · #F0F0ED | #121311 · #171816 · #1D1E1C · #272826 · #232422 |
+| Interaction surfaces | `surface-hover` · `surface-selected` · `surface-disabled` | #EAEAE7 · #E7E7E4 · #F0F0ED | #2E2F2C · #3B3B37 · #232422 |
+| Inverse | `inverse` · `inverse-fg` · `inverse-fg-muted` · `inverse-border` · `inverse-hover` · `scrim` | #242622 · #FFFFFF · #B3B5AD · #4A4C46 · #2E2F2C · #242622 | #ECECE9 · #1D1E1C · #62665E · #CFCFC8 · #E7E7E4 · #000000 |
+| Text | `fg` · `fg-secondary` · `fg-muted` · `fg-disabled` · `fg-subtle` (non-text icons) | #242622 · #62665E · #62665E · #B3B5AD · #80837B | #ECECE9 · #B3B5AD · #A8AAA2 · #4A4C46 · #7A7D75 |
+| Borders and focus | `border-subtle` · `border-control` · `border-control-strong` · `focus-ring` | #DEDED8 · #CFCFC8 · #80837B · #047857 | #2E2F2C · #4A4C46 · #7A7D75 · #34D399 |
+| Primary action | `action-primary` · `-hover` · `-fg` · `-subtle` · `-subtle-hover` | #047857 · #065F46 · #FFFFFF · #ECFDF5 · #D1FAE5 | #34D399 · #6EE7B7 · #022C22 · #143024 · #1A3D2E |
+| Destructive action | `action-danger` · `-hover` · `-fg` | #B91C1C · #991B1B · #FFFFFF | #F87171 · #FCA5A5 · #2B0A0A |
+| Brand and channel | `brand` · `whatsapp` | #00A884 · #25D366 | #10B981 · #25D366 |
+| Conversation accent (blue) | `accent-conversation` · `-fg` · `-bg` · `-border` | #2563EB · #1D4ED8 · #EFF6FF · #BFDBFE | #60A5FA · #93C5FD · #17233A · #1E3A8A |
+| Automation / AI accent (violet) | `accent-automation` · `-fg` · `-bg` · `-border` | #7C3AED · #6D28D9 · #F5F3FF · #DDD6FE | #A78BFA · #C4B5FD · #251C3B · #5B21B6 |
+| Chat | `chat-canvas` · `chat-incoming` · `chat-incoming-border` · `chat-outgoing` · `chat-meta` · `chat-read` · `chat-pattern` | #F3F0EA · #FFFFFF · #DEDED8 · #DDEED5 · #62665E · #2563EB · #80837B | #151614 · #2A2B28 · #3B3B37 · #1E3A2B · #B3B5AD · #60A5FA · #7A7D75 |
+| Internal notes | `chat-note` · `chat-note-border` · `chat-note-fg` | #FFF7E6 · #FDE3B0 · #92400E | #2E2410 · #5C4413 · #FCD34D |
+
+**Four greens, four meanings.** `action-primary` is "Fenwira action or selection"; `brand` (#00A884) is the logo's emerald for brand marks and the active-navigation bar, never text or an action; `status-success` (#16A34A) means healthy/approved; `chat-outgoing` is a message the business sent; `whatsapp` (#25D366) means "this is WhatsApp". `tokens.test.ts` fails if any two collapse to the same value. The Inbox's former private action greens (`inbox-primary` and friends) are now the shared action tokens.
+
+Dark surfaces are neutral charcoal: the test rejects any blue or green cast (channel spread above 4) on canvas, sidebar, surfaces and the chat canvas/incoming bubble.
 
 ### Status
 
-| Category | Meaning (examples)                                                          | Tokens                                        | Text shade                                  |
-| -------- | --------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------- |
-| Success  | active, connected, approved, delivered, read, healthy, granted, window open | `success` `#16A34A`, `success-soft` `#D1FAE5` | `success-strong` `#166534`                  |
-| Warning  | paused, attention required, low balance, opted out, window closed           | `warning` `#F59E0B`, `warning-soft` `#FEF3C7` | `warning-strong` `#B45309`                  |
-| Danger   | failed, rejected, disconnected, destructive                                 | `danger` `#DC2626`, `danger-soft` `#FEE2E2`   | `danger-strong` `#B91C1C` (hover `#991B1B`) |
-| Info     | scheduled, processing, syncing, sent, running, open, human takeover         | `info` `#2563EB`, `info-soft` `#EFF6FF`       | `info-strong` `#1D4ED8`                     |
-| Neutral  | draft, archived, inactive, cancelled, skipped                               | `neutral-soft`                                | `secondary`                                 |
+Every status has four tokens: the solid (dots, bars, icons beside a label), `-fg` (text), `-bg` (tint) and `-border`.
 
-### Contrast (verified by `packages/ui/test/tokens.test.ts`)
+| Category | Meaning (examples) | Light solid · fg · bg · border | Dark solid · fg · bg · border |
+| --- | --- | --- | --- |
+| `status-success` | active, connected, approved, delivered, read, healthy, granted, window open | #16A34A · #166534 · #DCFCE7 · #BBF7D0 | #4ADE80 · #86EFAC · #14281B · #14532D |
+| `status-warning` | paused, attention required, low balance, opted out, window closed | #D97706 · #9A4D0B · #FEF3C7 · #FDE3B0 | #FBBF24 · #FCD34D · #2E2410 · #5C4413 |
+| `status-error` | failed, rejected, disconnected, destructive | #DC2626 · #B91C1C · #FEE2E2 · #FECACA | #F87171 · #FCA5A5 · #331A1A · #7F1D1D |
+| `status-info` | scheduled, processing, syncing, sent, running, open, human takeover | #2563EB · #1D4ED8 · #EFF6FF · #BFDBFE | #60A5FA · #93C5FD · #17233A · #1E3A8A |
+| `status-neutral` | draft, archived, inactive, cancelled, skipped | #80837B · #62665E · #F0F0ED · #DEDED8 | #7A7D75 · #B3B5AD · #2E2F2C · #4A4C46 |
 
-Every text pairing below clears WCAG AA 4.5:1; the test fails if a token change breaks one.
+The light warning solid moved from #F59E0B to #D97706 and warning text from #B45309 to #9A4D0B: the old values failed 3:1 as a bar on white and 4.5:1 as text on the grey sidebar/muted surfaces.
 
-| Pair                                                    | Requirement |
-| ------------------------------------------------------- | ----------- |
-| White on primary/danger/info strong fills               | ≥ 4.5       |
-| Strong status text on its soft tint                     | ≥ 4.5       |
-| Primary/secondary/muted text on white and warm neutrals | ≥ 4.5       |
-| Primary-strong focus outline on warm canvas             | ≥ 3         |
+### Component tokens
 
-`tokens.test.ts` verifies the current actual values. New sidebar tokens: `sidebar` #FAFAF8, `sidebar-border` #E7E7E2. Muted text #66716B clears AA; screenshot decorative muted #737C77 does not.
+`phone-bezel` (WhatsApp preview frame), template categories (`category-marketing-fg/-bg` violet, `category-authentication-fg/-bg` orange; Utility uses `status-info`), inbox avatar identities (`avatar-{pink,lavender,peach,mint,periwinkle}-fg/-bg`, deterministic and decorative, never a status) and chart series `chart-1` … `chart-6` (emerald, blue, green, red, amber, neutral).
 
-Rules that follow from the numbers:
+### Contrast (verified by `packages/ui/test/tokens.test.ts`, both themes)
 
-1. `primary`, `success` and `warning` are **never text colors** (each fails 4.5:1 on white). Use them for indicators, icons beside text, dots, borders and fills behind dark text. Colored text uses the `-strong` shade.
-2. Filled buttons use `primary-strong` or `danger-strong` with white text.
-3. `muted` is AA-safe on warm neutrals. Screenshot muted `#737C77` is `muted-decorative` only (4.30:1 on white); do not use it for small text.
-4. Focus rings use `primary-strong` to meet 3:1 against warm surfaces.
-5. Form controls use `border-strong`. Their boundary alone is below 3:1 (1.48), so every control also has a visible label; the focus state is the 3:1 indicator (WCAG 1.4.11 exception for components identified by their label).
+The test resolves both themes and checks actual pairs. Text pairs need 4.5:1 (WCAG 1.4.3); non-text pairs need 3:1 (1.4.11).
+
+| Pair | Requirement |
+| --- | --- |
+| `fg`, `fg-secondary`, `fg-muted` on canvas, sidebar, every surface (incl. hover/selected), action subtle tints, chat canvas/bubbles/notes, every status and accent tint | ≥ 4.5 |
+| `action-primary` text on canvas, sidebar, surfaces, subtle tints and incoming bubbles (not on the neutral `surface-selected`, where it is 4.43:1 in light) | ≥ 4.5 |
+| Action `-fg` (and legacy `text-surface`) on their fills and hover fills; inverse text on inverse | ≥ 4.5 |
+| Status and accent `-fg` on their tint, surface, canvas, sidebar and muted surface | ≥ 4.5 |
+| `chat-meta` on both bubbles and the chat canvas; info/success/error/action text on outgoing bubbles; note text on notes | ≥ 4.5 |
+| Category and avatar `-fg` on their `-bg` | ≥ 4.5 |
+| `focus-ring` on canvas, sidebar, surfaces, selected, subtle tint and chat canvas | ≥ 3 |
+| `fg-subtle`, `border-control-strong`, status/accent solids, action fills, chart series on surfaces | ≥ 3 |
+| Delivery ticks (`chat-meta`, `chat-read`, `status-error`) on both bubbles | ≥ 3 |
+
+Rules that follow:
+
+1. Status solids are never text; colored text uses the `-fg` token.
+2. Filled buttons use `action-primary`/`action-danger` with their `-fg` token (white in light, near-black on the lighter dark-mode fills).
+3. In light, `fg-muted` equals `fg-secondary`: no lighter grey clears AA on `surface-selected`. Hierarchy comes from `fg` versus secondary and from weight/size.
+4. Text-field outlines use `border-control` (below 3:1; every field has a visible label and a 3:1 focus state, the WCAG 1.4.11 exception). Checkbox, radio and switch boundaries use `border-control-strong` (≥ 3:1).
+5. `fg-disabled` is exempt from contrast (WCAG 1.4.3 incidental text) and always pairs with disabled semantics.
+
+### Deprecated aliases
+
+Design System v1 names (`primary`, `primary-strong`, `primary-soft`, `success`/`-soft`/`-strong`, `warning…`, `danger…`, `info…`, `slate`, `slate-800`, `slate-400`, `secondary`, `muted`, `background`, `border`, `border-strong`, `sidebar-border`, `neutral-soft`) still generate utilities. Each is a CSS variable pointing at its semantic token (`tokens.ts → tokenAliases`), so it follows the theme. Shared components in `packages/ui` no longer use them; new code must not. Remove an alias once nothing references it. The component palettes `inbox-*`, `template-*`, `thread-soft`, `message-outbound`, `note-soft`, `muted-decorative` and the old `avatar-*` names are retired, and `pnpm lint:design` rejects them.
 
 ### Status is never color alone
 
 A status always shows a **label**, and usually an icon. `StatusBadge` is the only way to render a domain status: feature code passes the status key (`status="FAILED"`) and never picks a tone. `STATUS_PRESETS` in `packages/ui/src/components/status-badge.tsx` is the single mapping from status to category, label and icon. User-chosen colors (tags) use `Badge` with the tag's tone; they are labels, not statuses.
 
-**Exception: inbox bubble ticks.** Outbound message bubbles in the inbox show delivery status as WhatsApp-style ticks with no visible label (`MessageTicks` in `packages/ui`, the single mapping for tick icons and colours): clock for sending, single grey tick for sent, double grey for delivered, double `info` (and heavier) for read, `danger` exclamation in a circle for failed. Each tick has an accessible label ("Sending", "Sent", "Delivered", "Read", "Failed to send") and a title, and its SVG is hidden from assistive technology. Failed is a button: focus or click shows Meta's reason and code. The tick colours meet the 3:1 non-text threshold on `message-outbound` (tokens test). This exception covers inbox bubble ticks only; campaigns, tables and every other list keep `StatusBadge`.
+**Exception: inbox bubble ticks.** Outbound message bubbles in the inbox show delivery status as WhatsApp-style ticks with no visible label (`MessageTicks` in `packages/ui`, the single mapping for tick icons and colours): clock for sending, single `chat-meta` tick for sent, double for delivered, double `chat-read` (and heavier) for read, `status-error` exclamation in a circle for failed. Each tick has an accessible label ("Sending", "Sent", "Delivered", "Read", "Failed to send") and a title, and its SVG is hidden from assistive technology. Failed is a button: focus or click shows Meta's reason and code. The tick colours meet 3:1 on both bubbles in both themes. This exception covers inbox bubble ticks only; campaigns, tables and every other list keep `StatusBadge`.
 
 ### Charts
 
-`TrendChart` (Phase 11) is the only chart component. Series use `primary-strong`, `info`, `success-strong`, `danger`, `warning-strong` and `secondary`, which all meet 3:1 non-text contrast on the surface (WCAG 1.4.11). Values never depend on color alone: every series has a text legend, the chart's accessible name states the totals, and "Show as table" renders the same numbers as a table. No other chart library is used.
+`TrendChart` (Phase 11) is the only chart component. Series use `chart-1` … `chart-6`, which meet 3:1 non-text contrast on the surface in both themes (WCAG 1.4.11). Values never depend on color alone: every series has a text legend, the chart's accessible name states the totals, and "Show as table" renders the same numbers as a table. No other chart library is used.
 
 ### Brand assets
 
@@ -139,27 +167,33 @@ Every component: built on Radix primitives via `@fenwira/ui` (feature code may n
 
 ## 8. Module color usage
 
-| Context                            | Treatment                                                                                                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Sidebar                            | `sidebar` background, `sidebar-border` divider, `secondary` labels with `slate-400` icons; active `primary-soft` fill, `primary-strong` icon and text, 3px `primary` bar |
-| Inbox outbound / inbound bubble    | `message-outbound` **#D2F2DF** / `surface` + `border`                                                                                                  |
-| Inbox selected conversation        | `primary-soft` + 3px `primary` left border                                                                                                             |
-| Inbox system event / internal note | `neutral-soft` pill / `warning-soft` with an "Internal" label                                                                                          |
-| Human takeover                     | `info` badge and banner                                                                                                                                |
-| Template variables `{{n}}`         | `primary-soft` chip, `primary-strong` text                                                                                                             |
-| WhatsApp preview frame             | `neutral-soft` chat background, `surface` bubble, `whatsapp` channel mark                                                                              |
-| Flow nodes                         | trigger `slate`, message `surface`, condition `warning-soft`, action `info-soft`; selected `primary` ring; edges idle `slate-400`, traversed `primary` |
+| Context | Treatment |
+| --- | --- |
+| Sidebar | `sidebar` background, `border-subtle` divider, `fg-secondary` labels with `fg-subtle` icons, `surface-hover` hover; active `action-primary-subtle` fill, `action-primary` icon and text, 3px `brand` bar |
+| Inbox shell | Neutral: `canvas`, `surface` panels, `border-subtle`; selected conversation `action-primary-subtle` + 3px `action-primary` inset |
+| Inbox thread | `chat-canvas`; incoming `chat-incoming` + `chat-incoming-border`; outgoing `chat-outgoing`; metadata and sent/delivered ticks `chat-meta`; read ticks `chat-read` |
+| Internal notes | `chat-note` + `chat-note-border`, `chat-note-fg` "Internal" label |
+| Inbox system event | `surface-muted` / `surface` pill with `fg-secondary` text |
+| Human takeover | `status-info` badge and banner |
+| AI handling, AI flow steps | `accent-automation` (violet) |
+| Template variables `{{n}}` | `action-primary-subtle` chip, `action-primary` text |
+| Template categories | Utility `status-info`, Marketing `category-marketing-*`, Authentication `category-authentication-*` |
+| WhatsApp preview frame | `phone-bezel` frame, `chat-canvas` background, `whatsapp` channel mark |
+| Flow nodes | trigger `inverse`, message `action-primary-subtle`, condition `status-warning-bg`, action `status-info-bg`, AI `accent-automation-bg`; selected `action-primary` ring; edges idle `fg-subtle`, traversed `action-primary` |
 
 ## 9. Enforcement
 
+- `packages/ui/src/tokens.ts` is the only source of color values; `styles/tokens.css` is generated from it and pinned by a file snapshot (`tokens.test.ts`).
 - `packages/ui/src/styles/theme.css` resets Tailwind's palette, type scale, radii and shadows; only tokens generate classes.
-- `pnpm lint:design` rejects raw colors in `apps/web` and `packages/ui/src` (except `tokens.ts` and `theme.css`) and arbitrary Tailwind values in `apps/web`.
+- `pnpm lint:design` rejects raw colors in `apps/web` and `packages/ui/src` (except `tokens.ts`, the generated `tokens.css` and `theme.css`), retired color token names, and arbitrary Tailwind values in `apps/web`.
 - ESLint rejects direct imports of the underlying primitive libraries in `apps/web`.
-- `packages/ui/test/tokens.test.ts` pins the palette and every contrast pairing above.
+- `packages/ui/test/tokens.test.ts` checks every contrast pairing above in both themes, the separation of the four greens and neutral dark surfaces.
 - axe e2e (WCAG 2.2 A/AA) runs on every major page; see UX_PATTERNS.md → Quality gate.
-- **Changing a token** means updating this document, `tokens.ts`, `theme.css` and the contrast test in the same change.
+- **Changing a token** means updating this document, `tokens.ts` and, where needed, the contrast pairs in the same change, then regenerating `tokens.css` with `pnpm --filter @fenwira/ui test -u`. Never weaken a contrast threshold to make a color pass.
 
 ## Experience V2 communication polish (2026-10-07)
+
+> Token names in this and later dated sections are historical; see §1 for current roles.
 
 The approved visual correction adds controlled color to the existing calm foundation, without changing page structure or domain meaning. New semantic surfaces: `thread-soft` **#F3F2ED** (warm focused conversation canvas), `message-outbound` **#D2F2DF** (perceptible emerald outbound bubble), `note-soft` **#FFF8EB** (private team notes). Incoming messages remain white. Outbound metadata uses secondary/strong status text rather than muted text: muted on the stronger emerald tint fails AA. Executable contrast tests cover all actual new foreground/background pairings. The accessible muted token remains #66716B.
 
@@ -243,6 +277,8 @@ visual evidence uses isolated browser fixtures; no runtime, schema or messaging 
 
 
 ## Approved three-panel inbox (2026-10-30)
+
+> **Superseded tokens (2026-10-31):** the `inbox-*` palette below was folded into the shared semantic tokens (§1): actions → `action-primary*`, selection → `action-primary-subtle`, text/border → `fg`/`fg-secondary`/`border-subtle`, outbound → `chat-outgoing`, notes → `chat-note*`, follow-up → `status-warning-*`, avatars → `avatar-*-fg/-bg`. Geometry and behavior below still apply.
 
 The supplied WhatsApp team inbox reference supersedes prior Inbox geometry checkpoints.
 This presentation is scoped with `fw-inbox-theme` inside the Inbox workspace. The application
@@ -392,6 +428,8 @@ their default components. Current APIs expose no contact photo, note edit/delete
 or detailed automation context; the panel does not invent those capabilities.
 
 ### Template library polish
+
+> **Superseded tokens (2026-10-31):** the `template-*` palette below now maps to semantic tokens (§1): border → `border-subtle`, preview stage → `chat-canvas`, approved/review/attention → `status-success`/`-warning`/`-error`, preview action → `action-primary-subtle(-hover)`, categories → `category-*`. Layout below still applies.
 
 The Templates collection uses the existing warm `background` (#F7F7F4), a compact white filter
 toolbar and a wrapper-free 3/2/1-column grid with 16–20px gaps. White cards use 12px corners,
