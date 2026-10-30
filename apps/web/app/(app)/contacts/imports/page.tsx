@@ -289,7 +289,7 @@ function ImportWizard({
           Upload a CSV (up to 100,000 rows, 50 MB) with a header row. Phone numbers without a
           country code use the workspace country.
         </p>
-        <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-border p-8 text-center text-slate hover:bg-neutral-soft">
+        <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-border p-8 text-center text-slate hover:bg-surface-hover">
           <Upload aria-hidden="true" className="size-6 text-muted" />
           <span>{upload.isPending ? 'Uploading…' : 'Choose a CSV file'}</span>
           <input

@@ -7,16 +7,16 @@ import { cn } from '../lib/cn'
  * Tone color never carries the meaning alone: the label always does (FENWIRA_DESIGN_SYSTEM → Status).
  */
 export const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium text-slate [&_svg]:size-3.5',
+  'inline-flex w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium text-fg [&_svg]:size-3.5',
   {
     variants: {
       tone: {
-        neutral: 'bg-neutral-soft [&_[data-tone-icon]]:text-muted',
-        primary: 'bg-primary-soft [&_[data-tone-icon]]:text-primary-strong',
-        success: 'bg-success-soft [&_[data-tone-icon]]:text-success-strong',
-        warning: 'bg-warning-soft [&_[data-tone-icon]]:text-warning-strong',
-        danger: 'bg-danger-soft [&_[data-tone-icon]]:text-danger-strong',
-        info: 'bg-info-soft [&_[data-tone-icon]]:text-info-strong',
+        neutral: 'bg-surface-muted [&_[data-tone-icon]]:text-fg-muted',
+        primary: 'bg-action-primary-subtle [&_[data-tone-icon]]:text-action-primary',
+        success: 'bg-status-success-bg [&_[data-tone-icon]]:text-status-success-fg',
+        warning: 'bg-status-warning-bg [&_[data-tone-icon]]:text-status-warning-fg',
+        danger: 'bg-status-error-bg [&_[data-tone-icon]]:text-status-error-fg',
+        info: 'bg-status-info-bg [&_[data-tone-icon]]:text-status-info-fg',
       },
     },
     defaultVariants: { tone: 'neutral' },

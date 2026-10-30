@@ -20,12 +20,12 @@ export function EmptyState({ title, description, icon, action, className }: Empt
         className,
       )}
     >
-      <div className="flex size-12 items-center justify-center rounded-full bg-neutral-soft text-slate-400 [&_svg]:size-6">
+      <div className="flex size-12 items-center justify-center rounded-full bg-surface-muted text-fg-subtle [&_svg]:size-6">
         {icon ?? <Inbox aria-hidden="true" />}
       </div>
       <div className="flex max-w-sm flex-col gap-1">
-        <p className="text-md font-semibold text-slate">{title}</p>
-        {description ? <p className="text-base text-muted">{description}</p> : null}
+        <p className="text-md font-semibold text-fg">{title}</p>
+        {description ? <p className="text-base text-fg-muted">{description}</p> : null}
       </div>
       {action ? <div className="mt-1">{action}</div> : null}
     </div>
@@ -57,14 +57,14 @@ export function ErrorState({
         className,
       )}
     >
-      <div className="flex size-12 items-center justify-center rounded-full bg-danger-soft text-danger-strong [&_svg]:size-6">
+      <div className="flex size-12 items-center justify-center rounded-full bg-status-error-bg text-status-error-fg [&_svg]:size-6">
         <AlertOctagon aria-hidden="true" />
       </div>
       <div className="flex max-w-sm flex-col gap-1">
-        <p className="text-md font-semibold text-slate">{title}</p>
-        <p className="text-base text-muted">{description}</p>
+        <p className="text-md font-semibold text-fg">{title}</p>
+        <p className="text-base text-fg-muted">{description}</p>
         {correlationId ? (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-fg-muted">
             Reference: <span className="font-mono">{correlationId}</span>
           </p>
         ) : null}

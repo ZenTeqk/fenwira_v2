@@ -103,7 +103,7 @@ export function PlaygroundTab({
               ) : (
                 <>
                   {t.result.answer ? (
-                    <div className="flex max-w-7/10 flex-col gap-1 rounded-xl bg-message-outbound px-3.5 py-2.5 text-message text-slate">
+                    <div className="flex max-w-7/10 flex-col gap-1 rounded-xl bg-chat-outgoing px-3.5 py-2.5 text-message text-slate">
                       <span className="text-xs font-medium text-secondary">AI</span>
                       <p className="whitespace-pre-wrap">{t.result.answer}</p>
                     </div>

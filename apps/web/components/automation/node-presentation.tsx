@@ -85,11 +85,11 @@ export function NodeSymbol({
         tone === 'brand'
           ? 'bg-primary-soft text-primary-strong'
           : {
-              trigger: 'bg-slate text-surface',
+              trigger: 'bg-inverse text-inverse-fg',
               message: 'bg-primary-soft text-primary-strong',
               condition: 'bg-warning-soft text-warning-strong',
               action: 'bg-info-soft text-info-strong',
-              ai: 'bg-info-soft text-info-strong',
+              ai: 'bg-accent-automation-bg text-accent-automation-fg',
             }[kind],
       )}
     >

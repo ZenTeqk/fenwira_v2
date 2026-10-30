@@ -15,11 +15,11 @@ export type TimelineItem = {
 }
 
 const activityTones = {
-  success: 'bg-primary-soft text-primary-strong',
-  info: 'bg-info-soft text-info-strong',
-  warning: 'bg-warning-soft text-warning-strong',
-  danger: 'bg-danger-soft text-danger-strong',
-  neutral: 'bg-neutral-soft text-secondary',
+  success: 'bg-action-primary-subtle text-action-primary',
+  info: 'bg-status-info-bg text-status-info-fg',
+  warning: 'bg-status-warning-bg text-status-warning-fg',
+  danger: 'bg-status-error-bg text-status-error-fg',
+  neutral: 'bg-surface-muted text-fg-secondary',
 } as const
 const activityTone = (status?: StatusKey) =>
   activityTones[status ? STATUS_PRESETS[status].tone : 'neutral']
@@ -39,7 +39,7 @@ export function Timeline({
   /** Opt-in richer communication activity treatment; audit/other timelines retain defaults. */
   appearance?: 'default' | 'activity'
 }) {
-  if (!items.length) return <p className="text-sm text-muted">{empty ?? 'Nothing yet.'}</p>
+  if (!items.length) return <p className="text-sm text-fg-muted">{empty ?? 'Nothing yet.'}</p>
   return (
     <ol data-slot="timeline" aria-label={label} className={cn('flex flex-col', className)}>
       {items.map((item, i) => (
@@ -48,7 +48,7 @@ export function Timeline({
             <span
               aria-hidden="true"
               className={cn(
-                'absolute bottom-0 w-px bg-border',
+                'absolute bottom-0 w-px bg-border-subtle',
                 appearance === 'activity' ? 'top-9 left-4.5' : 'top-7 left-3.5',
               )}
             />
@@ -59,30 +59,30 @@ export function Timeline({
               'relative flex shrink-0 items-center justify-center rounded-full [&_svg]:size-4',
               appearance === 'activity'
                 ? cn('size-9', activityTone(item.status))
-                : 'size-7 border border-border bg-surface text-secondary',
+                : 'size-7 border border-border-subtle bg-surface text-fg-secondary',
             )}
           >
             {item.icon ?? (
               <span
                 className={cn(
                   'size-2 rounded-full',
-                  appearance === 'activity' ? 'bg-current' : 'bg-slate-400',
+                  appearance === 'activity' ? 'bg-current' : 'bg-fg-subtle',
                 )}
               />
             )}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-medium text-slate">{item.title}</p>
+              <p className="font-medium text-fg">{item.title}</p>
               {item.status ? <StatusBadge status={item.status} /> : null}
-              {item.time ? <span className="text-xs text-muted">{item.time}</span> : null}
+              {item.time ? <span className="text-xs text-fg-muted">{item.time}</span> : null}
             </div>
             {item.description ? (
-              <div className="text-sm text-secondary">{item.description}</div>
+              <div className="text-sm text-fg-secondary">{item.description}</div>
             ) : null}
             {item.details ? (
               <details className="text-sm">
-                <summary className="cursor-pointer text-secondary">Details</summary>
+                <summary className="cursor-pointer text-fg-secondary">Details</summary>
                 <div className="mt-2">{item.details}</div>
               </details>
             ) : null}

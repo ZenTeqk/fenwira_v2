@@ -23,12 +23,12 @@ export const MESSAGE_TICKS: Record<
   MessageTickState,
   { icon: ComponentType<LucideProps>; className: string; label: string }
 > = {
-  pending: { icon: Clock, className: 'text-muted', label: 'Sending' },
-  sent: { icon: Check, className: 'text-muted', label: 'Sent' },
-  delivered: { icon: CheckCheck, className: 'text-muted', label: 'Delivered' },
+  pending: { icon: Clock, className: 'text-chat-meta', label: 'Sending' },
+  sent: { icon: Check, className: 'text-chat-meta', label: 'Sent' },
+  delivered: { icon: CheckCheck, className: 'text-chat-meta', label: 'Delivered' },
   // There is no blue single tick: blue is only ever the read double tick.
-  read: { icon: ReadTicks, className: 'text-info', label: 'Read' },
-  failed: { icon: CircleAlert, className: 'text-danger', label: 'Failed to send' },
+  read: { icon: ReadTicks, className: 'text-chat-read', label: 'Read' },
+  failed: { icon: CircleAlert, className: 'text-status-error', label: 'Failed to send' },
 }
 
 /** Message status → tick state; null for statuses that never show ticks (inbound RECEIVED). */
@@ -128,7 +128,7 @@ function FailedTick({
           sideOffset={6}
           onOpenAutoFocus={(e) => e.preventDefault()}
           onCloseAutoFocus={(e) => e.preventDefault()}
-          className="z-50 max-w-xs rounded-sm bg-slate px-3 py-2 text-xs text-surface shadow-overlay"
+          className="z-50 max-w-xs rounded-sm bg-inverse px-3 py-2 text-xs text-inverse-fg shadow-overlay"
         >
           <p className="font-medium">Not sent</p>
           <p>{errorDetail ?? 'WhatsApp did not accept this message.'}</p>
@@ -156,7 +156,7 @@ export function MessageFailure({
   return (
     <p
       data-tick="failed"
-      className={cn('flex items-center gap-1.5 text-xs text-danger-strong', className)}
+      className={cn('flex items-center gap-1.5 text-xs text-status-error-fg', className)}
     >
       <CircleAlert aria-hidden="true" className="size-4 shrink-0" />
       <span>Failed</span>
@@ -174,16 +174,16 @@ export function MessageFailure({
             side="top"
             align="end"
             sideOffset={6}
-            className="z-50 flex max-w-xs flex-col gap-1 rounded-md border border-border bg-surface p-3 text-sm text-slate shadow-overlay"
+            className="z-50 flex max-w-xs flex-col gap-1 rounded-md border border-border-subtle bg-surface p-3 text-sm text-fg shadow-overlay"
           >
             <p id={`${id}-title`} className="font-semibold">
               Message not sent
             </p>
-            <p className="text-secondary">
+            <p className="text-fg-secondary">
               {errorDetail ?? 'WhatsApp did not accept this message.'}
             </p>
             {errorCode ? (
-              <p className="text-xs text-secondary">Meta error code {metaCode(errorCode)}</p>
+              <p className="text-xs text-fg-secondary">Meta error code {metaCode(errorCode)}</p>
             ) : null}
           </PopoverPrimitive.Content>
         </PopoverPrimitive.Portal>

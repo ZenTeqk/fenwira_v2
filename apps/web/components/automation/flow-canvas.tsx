@@ -65,11 +65,11 @@ type CardData = {
 
 /** Header band per node kind (design system → Flow nodes). */
 const HEADER: Record<NodeKind, string> = {
-  trigger: 'bg-slate text-surface',
+  trigger: 'bg-inverse text-inverse-fg',
   message: 'border-b border-border bg-surface text-primary-strong',
   condition: 'bg-warning-soft text-warning-strong',
   action: 'bg-info-soft text-info-strong',
-  ai: 'bg-info-soft text-info-strong',
+  ai: 'bg-accent-automation-bg text-accent-automation-fg',
 }
 const HANDLE_TONE: Partial<Record<EdgeHandle, string>> = {
   yes: 'bg-success-soft text-success-strong',
@@ -180,7 +180,7 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
               <button
                 key={`add-${h}`}
                 type="button"
-                className="nodrag nopan absolute top-full mt-4 flex size-7 -translate-x-1/2 items-center justify-center rounded-full border border-border-strong bg-surface text-secondary shadow-raised hover:border-primary hover:text-primary-strong focus-visible:outline-2 focus-visible:outline-primary-strong"
+                className="nodrag nopan absolute top-full mt-4 flex size-7 -translate-x-1/2 items-center justify-center rounded-full border border-border-strong bg-surface text-secondary shadow-raised hover:border-primary hover:text-primary-strong focus-visible:outline-2 focus-visible:outline-focus-ring"
                 style={{ left: handleLeft(i, outputs.length) }}
                 aria-label={`Add a step after ${NODE_LABEL[node.type]}${labelled ? ` (${branchLabel(node, h)})` : ''}`}
                 onClick={(e) => {
@@ -229,7 +229,7 @@ function PlusEdge(props: EdgeProps<Edge<EdgeData>>) {
             {d.onInsert ? (
               <button
                 type="button"
-                className="flex size-6 items-center justify-center rounded-full border border-border-strong bg-surface text-secondary shadow-raised hover:border-primary hover:text-primary-strong focus-visible:outline-2 focus-visible:outline-primary-strong"
+                className="flex size-6 items-center justify-center rounded-full border border-border-strong bg-surface text-secondary shadow-raised hover:border-primary hover:text-primary-strong focus-visible:outline-2 focus-visible:outline-focus-ring"
                 aria-label={d.insertLabel}
                 onClick={(e) => {
                   e.stopPropagation()

@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'WhatsApp operations platform by ZenteqK',
     start_url: '/dashboard',
     display: 'standalone',
-    background_color: colorTokens.background,
-    theme_color: colorTokens.slate,
+    background_color: colorTokens.canvas,
+    theme_color: colorTokens.fg,
     icons: [
       { src: '/brand/app-icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/brand/app-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

@@ -15,14 +15,14 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // -strong fills keep white text at WCAG AA (docs/DESIGN_SYSTEM.md).
-        primary: 'bg-primary-strong text-surface hover:bg-primary-strong-hover',
-        secondary: 'border border-border-strong bg-surface text-slate hover:bg-neutral-soft',
+        // Action fills pair with their -fg token at WCAG AA in both themes (tokens.test.ts).
+        primary: 'bg-action-primary text-action-primary-fg hover:bg-action-primary-hover',
+        secondary: 'border border-border-control bg-surface text-fg hover:bg-surface-hover',
         // Low-emphasis action: green text, no fill (hover underlines rather than tints).
-        tertiary: 'text-primary-strong underline-offset-4 hover:underline',
-        ghost: 'text-slate hover:bg-neutral-soft',
-        danger: 'bg-danger-strong text-surface hover:bg-danger-strong-hover',
-        link: 'h-auto px-0 text-primary-strong underline-offset-4 hover:underline',
+        tertiary: 'text-action-primary underline-offset-4 hover:underline',
+        ghost: 'text-fg hover:bg-surface-hover',
+        danger: 'bg-action-danger text-action-danger-fg hover:bg-action-danger-hover',
+        link: 'h-auto px-0 text-action-primary underline-offset-4 hover:underline',
       },
       size: {
         sm: 'h-8 px-3 text-sm',

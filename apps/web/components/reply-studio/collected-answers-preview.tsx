@@ -79,7 +79,7 @@ export function CollectedAnswersPreview({ graph }: { graph: DraftGraph }) {
         </div>
       ) : null}
       {handover ? (
-        <div className="rounded-lg border border-border bg-note-soft p-4">
+        <div className="rounded-lg border border-border bg-chat-note p-4">
           <h4 className="text-sm font-semibold text-slate">Private note · salesperson sees</h4>
           <p className="mt-2 whitespace-pre-wrap text-sm text-secondary">
             {fill(String(handover.config.note ?? ''))}

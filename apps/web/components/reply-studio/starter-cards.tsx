@@ -155,7 +155,7 @@ export function ReplyStarterCards({
                   <Link
                     href={`/automations/reply-studio/new?kind=${kind}&preset=${p.id}`}
                     aria-label={`Use starter: ${p.title}`}
-                    className="inline-flex min-h-6 items-center rounded-sm text-xs font-semibold text-primary-strong focus-visible:outline-2 focus-visible:outline-primary-strong"
+                    className="inline-flex min-h-6 items-center rounded-sm text-xs font-semibold text-primary-strong focus-visible:outline-2 focus-visible:outline-focus-ring"
                   >
                     Use starter →
                   </Link>

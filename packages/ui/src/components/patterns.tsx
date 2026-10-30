@@ -51,7 +51,7 @@ export function DetailPage({
       <PageHeader {...header} />
       {banner}
       {summary ? (
-        <dl className="grid grid-cols-2 gap-4 rounded-lg border border-border bg-surface p-4 md:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-4 rounded-lg border border-border-subtle bg-surface p-4 md:grid-cols-4">
           {summary}
         </dl>
       ) : null}
@@ -64,8 +64,8 @@ export function DetailPage({
 export function SummaryItem({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <dt className="text-sm text-secondary">{label}</dt>
-      <dd className="min-w-0 font-medium text-slate">{children}</dd>
+      <dt className="text-sm text-fg-secondary">{label}</dt>
+      <dd className="min-w-0 font-medium text-fg">{children}</dd>
     </div>
   )
 }
@@ -97,7 +97,7 @@ export function BuilderPage({
     return (
       <main
         data-pattern="builder-page"
-        className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-slate"
+        className="flex h-dvh min-h-0 flex-col overflow-hidden bg-canvas text-fg"
       >
         {topbar}
         {banner}
@@ -105,7 +105,7 @@ export function BuilderPage({
           {palette ? (
             <aside
               aria-label="Node library"
-              className="hidden w-56 shrink-0 overflow-y-auto border-r border-border bg-surface p-3 md:block"
+              className="hidden w-56 shrink-0 overflow-y-auto border-r border-border-subtle bg-surface p-3 md:block"
             >
               {palette}
             </aside>
@@ -117,7 +117,7 @@ export function BuilderPage({
           {inspector ? (
             <aside
               aria-label="Step settings and preview"
-              className="flex min-h-0 w-96 shrink-0 flex-col overflow-y-auto border-l border-border bg-surface p-3"
+              className="flex min-h-0 w-96 shrink-0 flex-col overflow-y-auto border-l border-border-subtle bg-surface p-3"
             >
               {inspector}
             </aside>
@@ -133,7 +133,7 @@ export function BuilderPage({
         className={cn(
           'flex min-w-0 flex-col lg:flex-row lg:items-start',
           appearance === 'studio'
-            ? 'overflow-hidden rounded-lg border border-border bg-surface gap-0'
+            ? 'overflow-hidden rounded-lg border border-border-subtle bg-surface gap-0'
             : 'gap-4',
         )}
       >
@@ -142,7 +142,7 @@ export function BuilderPage({
             className={cn(
               'shrink-0 lg:w-52',
               appearance === 'studio' &&
-                'hidden lg:block border-b border-border p-3 lg:max-h-192 lg:overflow-y-auto lg:border-b-0 lg:border-r',
+                'hidden lg:block border-b border-border-subtle p-3 lg:max-h-192 lg:overflow-y-auto lg:border-b-0 lg:border-r',
             )}
           >
             {palette}
@@ -151,7 +151,7 @@ export function BuilderPage({
         <div
           className={cn(
             'flex min-w-0 flex-1 flex-col gap-4',
-            appearance === 'studio' && 'bg-background',
+            appearance === 'studio' && 'bg-canvas',
           )}
         >
           {children}
@@ -162,8 +162,8 @@ export function BuilderPage({
             className={cn(
               'shrink-0 bg-surface p-4 lg:w-80',
               appearance === 'studio'
-                ? 'border-t border-border xl:max-h-192 xl:overflow-y-auto lg:border-t-0 lg:border-l'
-                : 'rounded-lg border border-border lg:sticky lg:top-20',
+                ? 'border-t border-border-subtle xl:max-h-192 xl:overflow-y-auto lg:border-t-0 lg:border-l'
+                : 'rounded-lg border border-border-subtle lg:sticky lg:top-20',
             )}
           >
             {inspector}
@@ -252,13 +252,13 @@ export function DashboardLayout({
           {metrics ? (
             <section
               aria-label="Workspace summary"
-              className="rounded-lg border border-border bg-surface px-3 py-3"
+              className="rounded-lg border border-border-subtle bg-surface px-3 py-3"
             >
               <div className="flex flex-wrap items-center justify-between gap-2 px-2">
-                <h2 className="text-md font-semibold text-slate">Workspace summary</h2>
+                <h2 className="text-md font-semibold text-fg">Workspace summary</h2>
                 {summaryNote}
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-y-3 divide-x divide-border md:grid-cols-4">
+              <div className="mt-2 grid grid-cols-2 gap-y-3 divide-x divide-border-subtle md:grid-cols-4">
                 {metrics}
               </div>
             </section>

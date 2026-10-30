@@ -59,10 +59,10 @@ import {
 const ALL = 'ALL'
 const CATEGORY_PRESENTATION = {
   UTILITY: { icon: Package, className: 'bg-info-soft text-info-strong' },
-  MARKETING: { icon: Megaphone, className: 'bg-template-marketing text-template-marketing-text' },
+  MARKETING: { icon: Megaphone, className: 'bg-category-marketing-bg text-category-marketing-fg' },
   AUTHENTICATION: {
     icon: ShieldCheck,
-    className: 'bg-template-authentication text-template-authentication-text',
+    className: 'bg-category-authentication-bg text-category-authentication-fg',
   },
 }
 function displayTitle(name: string) {
@@ -106,11 +106,11 @@ function Filter({
 function TemplateStatus({ template: t }: { template: Template }) {
   const colors =
     t.status === 'APPROVED'
-      ? 'bg-template-approved text-template-approved-text'
+      ? 'bg-status-success-bg text-status-success-fg'
       : t.status === 'PENDING'
-        ? 'bg-template-review text-warning-strong'
+        ? 'bg-status-warning-bg text-warning-strong'
         : ['REJECTED', 'PAUSED', 'DISABLED'].includes(t.status)
-          ? 'bg-template-attention text-danger-strong'
+          ? 'bg-status-error-bg text-danger-strong'
           : 'bg-neutral-soft text-secondary'
   return (
     <span className="flex shrink-0 flex-col items-end gap-1.5">
@@ -123,7 +123,7 @@ function TemplateStatus({ template: t }: { template: Template }) {
         <StatusBadge
           status="ATTENTION"
           label="Needs attention"
-          className="rounded-full bg-template-attention text-danger-strong [&_[data-tone-icon]]:text-inherit"
+          className="rounded-full bg-status-error-bg text-danger-strong [&_[data-tone-icon]]:text-inherit"
         />
       ) : null}
       {t.qualityScore && t.qualityScore !== 'UNKNOWN' ? (
@@ -241,11 +241,13 @@ export default function TemplatesPage() {
                         'min-w-6 justify-center rounded-full px-1.5 tabular-nums text-secondary',
                         count > 0 &&
                           v.id === 'APPROVED' &&
-                          'bg-template-approved text-template-approved-text',
-                        count > 0 && v.id === 'PENDING' && 'bg-template-review text-warning-strong',
+                          'bg-status-success-bg text-status-success-fg',
+                        count > 0 &&
+                          v.id === 'PENDING' &&
+                          'bg-status-warning-bg text-warning-strong',
                         count > 0 &&
                           v.id === 'ATTENTION' &&
-                          'bg-template-attention text-danger-strong',
+                          'bg-status-error-bg text-danger-strong',
                       )}
                     >
                       {count}
@@ -255,7 +257,7 @@ export default function TemplatesPage() {
               )
             })}
           </TabsList>
-          <div className="rounded-lg border border-template-border bg-surface p-3">
+          <div className="rounded-lg border border-border-subtle bg-surface p-3">
             <FilterBar
               activeCount={
                 (search ? 1 : 0) +
@@ -368,7 +370,7 @@ export default function TemplatesPage() {
                     <li key={t.id} className="min-w-0">
                       <Card
                         className={cn(
-                          'h-full border-template-border bg-surface shadow-none transition-shadow hover:border-primary-strong/30 hover:shadow-raised focus-within:border-primary-strong focus-within:shadow-raised motion-reduce:transition-none',
+                          'h-full border-border-subtle bg-surface shadow-none transition-shadow hover:border-primary-strong/30 hover:shadow-raised focus-within:border-primary-strong focus-within:shadow-raised motion-reduce:transition-none',
                           selectedId === t.id && 'border-primary-strong',
                         )}
                         data-template-card={t.id}
@@ -428,7 +430,7 @@ export default function TemplatesPage() {
                               aria-label={`Preview ${t.name}`}
                               aria-current={selectedId === t.id ? 'true' : undefined}
                               data-template-preview={t.id}
-                              className="h-8 rounded-md bg-template-preview-action px-2.5 text-sm text-template-approved-text hover:bg-template-preview-action-hover hover:text-primary-strong-hover"
+                              className="h-8 rounded-md bg-action-primary-subtle px-2.5 text-sm text-status-success-fg hover:bg-action-primary-subtle-hover hover:text-primary-strong-hover"
                               onClick={(event) => {
                                 trigger.current = event.currentTarget
                                 setSelectedId(t.id)

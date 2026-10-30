@@ -12,7 +12,7 @@ import {
 } from '@/lib/workspace-status'
 
 const row = cn(
-  'flex h-9 w-full items-center gap-2 rounded-sm px-3 text-sm text-secondary hover:bg-neutral-soft hover:text-slate',
+  'flex h-9 w-full items-center gap-2 rounded-sm px-3 text-sm text-secondary hover:bg-surface-hover hover:text-slate',
   focusRing,
   'focus-visible:outline-offset-0',
 )
@@ -85,7 +85,7 @@ export function SidebarStatus({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <ul
       aria-label="Workspace status"
-      className="flex flex-col gap-0.5 border-t border-sidebar-border pt-3"
+      className="flex flex-col gap-0.5 border-t border-border-subtle pt-3"
     >
       {items.map((i) => (
         <li key={i.key}>

@@ -1,7 +1,7 @@
 import { type ClassValue, clsx } from 'clsx'
 import { extendTailwindMerge } from 'tailwind-merge'
 
-// Teach tailwind-merge our custom type scale so `text-md` and `text-muted` don't collide.
+// Teach tailwind-merge our custom type scale so `text-md` and `text-fg-muted` don't collide.
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {

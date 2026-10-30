@@ -35,8 +35,8 @@ export function TenantSwitcher({
         className={cn(
           'flex items-center gap-2 rounded-md text-left',
           variant === 'topbar'
-            ? 'h-9 max-w-56 px-2 text-slate hover:bg-neutral-soft'
-            : 'h-11 w-full px-2 text-slate hover:bg-neutral-soft',
+            ? 'h-9 max-w-56 px-2 text-slate hover:bg-surface-hover'
+            : 'h-11 w-full px-2 text-slate hover:bg-surface-hover',
           collapsed && 'justify-center px-0',
           focusRing,
         )}

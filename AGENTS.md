@@ -69,28 +69,29 @@ docs/             Specs, ADRs, prompts
 The contract is **Design System v1 evolved by the approved [Experience V2](docs/design/FENWIRA_EXPERIENCE_V2.md)**: [docs/design/FENWIRA_DESIGN_SYSTEM.md](docs/design/FENWIRA_DESIGN_SYSTEM.md) (tokens, contrast, type, spacing, shape), [docs/design/UX_PATTERNS.md](docs/design/UX_PATTERNS.md) (shell, page patterns, states, confirmation, module UX, quality gate) and [docs/design/UI_AUDIT.md](docs/design/UI_AUDIT.md).
 
 ```text
-Primary action (non-text)      #00A884   --color-primary          text/filled buttons: primary-strong #007F64
-WhatsApp channel identity      #25D366   --color-whatsapp         (success is separately #16A34A)
-Primary text         #18201D   --color-slate
-Secondary text                 #4B5550   --color-secondary
-Muted text                     #66716B   --color-muted
-Canvas                         #F7F7F4   --color-background
-Surface                        #FFFFFF   --color-surface
-Border / strong border         #E5E7E3 / #D6D9D4   --color-border / --color-border-strong
-Warning                        #F59E0B   --color-warning          text: warning-strong #B45309
-Danger                         #DC2626   --color-danger           filled/text: danger-strong #B91C1C
-Info (scheduled, takeover)     #2563EB   --color-info             text: info-strong #1D4ED8
+Source of truth   packages/ui/src/tokens.ts  →  generated packages/ui/src/styles/tokens.css
+Layers            palette (primitives) → semantic roles (light + dark) → component tokens
+Canvas / sidebar / surface     #F5F5F4 / #EFEFED / #FFFFFF   canvas · sidebar · surface
+Muted / selected surface       #F0F0ED / #E7E7E4             surface-muted · surface-selected
+Text primary / secondary       #242622 / #62665E             fg · fg-secondary
+Border                         #DEDED8                       border-subtle (controls: border-control)
+Primary action                 #047857 (hover #065F46)       action-primary · -hover · -fg · -subtle
+Brand emerald (marks only)     #00A884                       brand
+WhatsApp channel identity      #25D366                       whatsapp
+Status (success/warning/error/info/neutral): status-<s> (solid) · -fg (text) · -bg · -border
+Accents: conversation/info blue accent-conversation-*, automation/AI violet accent-automation-*
+Chat: chat-canvas #F3F0EA · chat-incoming #FFFFFF · chat-outgoing #DDEED5 · chat-read #2563EB
 ```
 
-Customer navigation is light (`sidebar` #FAFAF8), with a warm canvas and white communication surfaces. Home remains at `/dashboard`. Never revert to dark customer navigation, introduce fake screenshot capabilities, or expose `/platform` through tenant navigation. Follow the Experience V2 plan and stop at its visual checkpoints.
+Customer navigation is light (`sidebar`), with neutral surfaces and a WhatsApp-inspired chat area in the Inbox. Light is the default theme; dark values exist and are tested, but no theme switcher is exposed. Home remains at `/dashboard`. Never revert to dark customer navigation, introduce fake screenshot capabilities, or expose `/platform` through tenant navigation. Follow the Experience V2 plan and stop at its visual checkpoints.
 
 Rules:
 
-1. `#00A884` is reserved for actions, active navigation, focus and selection, never text. Filled primary buttons and green text use `primary-strong`.
-2. Fenwira primary and WhatsApp green are different tokens with different meanings.
+1. Primary actions, green text, focus and selection use `action-primary` (filled buttons pair with `action-primary-fg`). `brand` (#00A884) is for brand marks and the active-navigation bar only, never text.
+2. Brand emerald, `action-primary`, `status-success`, `chat-outgoing` and WhatsApp green are different tokens with different meanings.
 3. Statuses are rendered with `StatusBadge` only (five categories: success, warning, danger, info, neutral). Never by color alone. The one exception is inbox bubble delivery ticks (`MessageTicks`: icon only, with an accessible label; FENWIRA_DESIGN_SYSTEM.md → Status).
-4. Do not introduce colors without updating `docs/design/FENWIRA_DESIGN_SYSTEM.md`, `packages/ui` tokens and the contrast test first.
-5. Components use semantic tokens (`bg-primary-strong`, `text-secondary`, …). No hex values or arbitrary values in `apps/web` (`pnpm lint:design`).
+4. Do not introduce colors without updating `docs/design/FENWIRA_DESIGN_SYSTEM.md`, `packages/ui/src/tokens.ts` (light and dark) and the contrast pairs first; regenerate `tokens.css` with `pnpm --filter @fenwira/ui test -u`.
+5. Components use semantic tokens (`bg-action-primary`, `text-fg-secondary`, …). The v1 names (`primary-strong`, `text-slate`, …) are deprecated aliases: don't add new uses. No hex values or arbitrary values in `apps/web` (`pnpm lint:design`).
 6. Pages use the shared patterns (`ListPage`, `DetailPage`, `BuilderPage`, `SettingsPage`, `DashboardLayout`).
 7. A UI feature is done only when the **UI quality gate** in UX_PATTERNS.md §13 holds.
 

@@ -152,7 +152,7 @@ export function TemplateGallery({
           }}
           className={cn(
             'flex h-full w-full flex-col gap-3 rounded-lg border bg-surface p-4 text-left shadow-raised transition-colors',
-            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-strong',
+            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
             locked
               ? 'cursor-not-allowed border-border bg-neutral-soft'
               : 'border-border hover:border-primary',

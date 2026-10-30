@@ -25,7 +25,7 @@ export function AutomationNavigation({
             counts ? `${counts[t.id as keyof typeof counts]} saved items` : undefined
           }
           className={cn(
-            'shrink-0 border-b-2 px-2 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary-strong',
+            'shrink-0 border-b-2 px-2 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-focus-ring',
             active === t.id
               ? 'border-primary text-slate'
               : 'border-transparent text-secondary hover:text-slate',

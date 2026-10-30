@@ -17,9 +17,9 @@ export function Checkbox({ className, ...props }: ComponentProps<typeof Checkbox
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        'peer inline-flex size-4 shrink-0 items-center justify-center rounded-sm border border-slate-400 bg-surface text-surface',
-        'data-[state=checked]:border-primary data-[state=checked]:bg-primary',
-        'data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary',
+        'peer inline-flex size-4 shrink-0 items-center justify-center rounded-sm border border-border-control-strong bg-surface text-action-primary-fg',
+        'data-[state=checked]:border-action-primary data-[state=checked]:bg-action-primary',
+        'data-[state=indeterminate]:border-action-primary data-[state=indeterminate]:bg-action-primary',
         'disabled:cursor-not-allowed disabled:opacity-50',
         focusRing,
         className,
@@ -55,14 +55,14 @@ export function RadioGroupItem({
     <RadioPrimitive.Item
       data-slot="radio"
       className={cn(
-        'peer inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-slate-400 bg-surface',
-        'data-[state=checked]:border-primary disabled:cursor-not-allowed disabled:opacity-50',
+        'peer inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border-control-strong bg-surface',
+        'data-[state=checked]:border-action-primary disabled:cursor-not-allowed disabled:opacity-50',
         focusRing,
         className,
       )}
       {...props}
     >
-      <RadioPrimitive.Indicator className="size-2 rounded-full bg-primary" />
+      <RadioPrimitive.Indicator className="size-2 rounded-full bg-action-primary" />
     </RadioPrimitive.Item>
   )
 }
@@ -73,7 +73,7 @@ export function Switch({ className, ...props }: ComponentProps<typeof SwitchPrim
       data-slot="switch"
       className={cn(
         'peer inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent transition-colors',
-        'bg-slate-400 data-[state=checked]:bg-primary disabled:cursor-not-allowed disabled:opacity-50',
+        'bg-border-control-strong data-[state=checked]:bg-action-primary disabled:cursor-not-allowed disabled:opacity-50',
         focusRing,
         className,
       )}

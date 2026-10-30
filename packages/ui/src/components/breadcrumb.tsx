@@ -17,15 +17,15 @@ export type BreadcrumbProps = {
 export function Breadcrumb({ items, linkAs: LinkAs, className }: BreadcrumbProps) {
   return (
     <nav aria-label="Breadcrumb" className={className}>
-      <ol className="flex flex-wrap items-center gap-1 text-sm text-muted">
+      <ol className="flex flex-wrap items-center gap-1 text-sm text-fg-muted">
         {items.map((item, index) => {
           const last = index === items.length - 1
-          const linkClass = cn('rounded-sm hover:text-slate hover:underline', focusRing)
+          const linkClass = cn('rounded-sm hover:text-fg hover:underline', focusRing)
           return (
             <li key={`${item.label}-${index}`} className="inline-flex items-center gap-1">
               {last || !item.href ? (
                 <span
-                  className={cn(last && 'font-medium text-slate')}
+                  className={cn(last && 'font-medium text-fg')}
                   aria-current={last ? 'page' : undefined}
                 >
                   {item.label}
@@ -40,7 +40,7 @@ export function Breadcrumb({ items, linkAs: LinkAs, className }: BreadcrumbProps
                 </a>
               )}
               {last ? null : (
-                <ChevronRight className="size-3.5 text-slate-400" aria-hidden="true" />
+                <ChevronRight className="size-3.5 text-fg-subtle" aria-hidden="true" />
               )}
             </li>
           )

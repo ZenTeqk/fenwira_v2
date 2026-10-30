@@ -173,7 +173,7 @@ function MediaBody({
               aria-label={`Download ${label}`}
               title={`Download ${label}`}
               className={cn(
-                'flex size-9 shrink-0 items-center justify-center rounded-md border border-border text-secondary hover:bg-neutral-soft sm:size-8',
+                'flex size-9 shrink-0 items-center justify-center rounded-md border border-border text-secondary hover:bg-surface-hover sm:size-8',
                 focusRing,
               )}
             >
@@ -219,8 +219,8 @@ function Row({
   const ids = useId()
   if (item.kind === 'note')
     return (
-      <div className="fw-inbox-bubble ml-auto w-fit rounded-lg border border-inbox-note-border bg-note-soft px-3 py-2.5 text-slate">
-        <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-inbox-note-text">
+      <div className="fw-inbox-bubble ml-auto w-fit rounded-lg border border-chat-note-border bg-chat-note px-3 py-2.5 text-slate">
+        <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-chat-note-fg">
           <Lock className="size-3.5" aria-hidden="true" />
           Internal note · {item.note.authorName}
         </p>
@@ -276,8 +276,8 @@ function Row({
         className={cn(
           'fw-inbox-bubble flex min-w-0 flex-col gap-1 rounded-lg border px-3 py-2.5 text-base leading-normal text-slate',
           outbound
-            ? 'border-border bg-message-outbound'
-            : 'border border-border bg-surface contrast-more:border-border-strong',
+            ? 'border-border bg-chat-outgoing'
+            : 'border border-chat-incoming-border bg-chat-incoming contrast-more:border-border-control',
         )}
       >
         {/* Only other senders are named, at the start of their group (never "You"). */}
@@ -550,7 +550,7 @@ export function Thread({
   if (filter) {
     const loaded = (messages.data?.pages ?? []).flatMap((p) => p.data)
     return (
-      <div className="flex min-h-0 flex-1 flex-col bg-background">
+      <div className="flex min-h-0 flex-1 flex-col bg-chat-canvas">
         {chips}
         {filter === 'notes' ? (
           <FilteredItems
@@ -595,7 +595,7 @@ export function Thread({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {chips}
-      <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-chat-canvas">
         <div
           ref={scroller}
           tabIndex={0}

@@ -27,7 +27,7 @@ export function Pagination({
       aria-label="Pagination"
       className={cn('flex items-center justify-between gap-3', className)}
     >
-      <p className="text-sm text-muted" aria-live="polite">
+      <p className="text-sm text-fg-muted" aria-live="polite">
         {summary}
       </p>
       <div className="flex gap-2">

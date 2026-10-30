@@ -212,7 +212,9 @@ test('a template shows its full content, and ticks change live as Meta reports s
     await mock('status', { wamid, status: 'sent' }) // stale: never goes back
     await mock('status', { wamid, status: 'read' })
     await expect(bubble.getByRole('img', { name: 'Read' })).toBeVisible()
-    await expect(bubble.getByRole('img', { name: 'Read' }).locator('svg')).toHaveClass(/text-info/)
+    await expect(bubble.getByRole('img', { name: 'Read' }).locator('svg')).toHaveClass(
+      /text-chat-read/,
+    )
     const listRow = page
       .getByRole('list', { name: 'Conversation list' })
       .getByRole('button')

@@ -26,19 +26,19 @@ export function initials(name: string): string {
 }
 
 const identityTones = [
-  'bg-primary-soft text-primary-strong',
-  'bg-info-soft text-info-strong',
-  'bg-warning-soft text-warning-strong',
-  'bg-danger-soft text-danger-strong',
-  'bg-success-soft text-success-strong',
+  'bg-action-primary-subtle text-action-primary',
+  'bg-status-info-bg text-status-info-fg',
+  'bg-status-warning-bg text-status-warning-fg',
+  'bg-status-error-bg text-status-error-fg',
+  'bg-status-success-bg text-status-success-fg',
 ] as const
 
 const inboxTones = [
-  'bg-avatar-pink text-avatar-pink-text',
-  'bg-avatar-lavender text-avatar-lavender-text',
-  'bg-avatar-peach text-avatar-peach-text',
-  'bg-avatar-mint text-avatar-mint-text',
-  'bg-avatar-blue text-avatar-blue-text',
+  'bg-avatar-pink-bg text-avatar-pink-fg',
+  'bg-avatar-lavender-bg text-avatar-lavender-fg',
+  'bg-avatar-peach-bg text-avatar-peach-fg',
+  'bg-avatar-mint-bg text-avatar-mint-fg',
+  'bg-avatar-periwinkle-bg text-avatar-periwinkle-fg',
 ] as const
 
 /** Stable across renders/server hydration. Color is decorative identity, never a status. */
@@ -76,7 +76,7 @@ export function Avatar({
           'flex size-full items-center justify-center font-medium',
           appearance !== 'default'
             ? avatarTone(identityKey ?? name, appearance)
-            : 'bg-primary-soft text-slate',
+            : 'bg-action-primary-subtle text-fg',
         )}
         aria-label={name}
       >

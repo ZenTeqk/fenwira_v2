@@ -22,7 +22,7 @@ export function DropdownContent({
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          'z-50 min-w-44 rounded-md border border-border bg-surface p-1 shadow-overlay',
+          'z-50 min-w-44 rounded-md border border-border-subtle bg-surface p-1 shadow-overlay',
           className,
         )}
         {...props}
@@ -41,8 +41,8 @@ export function DropdownItem({
       data-slot="dropdown-item"
       className={cn(
         'relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-base outline-none select-none [&_svg]:size-4',
-        'data-[highlighted]:bg-neutral-soft data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-        destructive ? 'text-danger-strong' : 'text-slate [&_svg]:text-muted',
+        'data-[highlighted]:bg-surface-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        destructive ? 'text-status-error-fg' : 'text-fg [&_svg]:text-fg-muted',
         className,
       )}
       {...props}
@@ -53,7 +53,7 @@ export function DropdownItem({
 export function DropdownLabel({ className, ...props }: ComponentProps<typeof MenuPrimitive.Label>) {
   return (
     <MenuPrimitive.Label
-      className={cn('px-2 py-1.5 text-xs font-medium text-muted', className)}
+      className={cn('px-2 py-1.5 text-xs font-medium text-fg-muted', className)}
       {...props}
     />
   )
@@ -64,7 +64,10 @@ export function DropdownSeparator({
   ...props
 }: ComponentProps<typeof MenuPrimitive.Separator>) {
   return (
-    <MenuPrimitive.Separator className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />
+    <MenuPrimitive.Separator
+      className={cn('-mx-1 my-1 h-px bg-border-subtle', className)}
+      {...props}
+    />
   )
 }
 
@@ -77,15 +80,15 @@ export function DropdownCheckboxItem({
     <MenuPrimitive.CheckboxItem
       data-slot="dropdown-checkbox-item"
       className={cn(
-        'relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-base text-slate outline-none select-none',
-        'data-[highlighted]:bg-neutral-soft data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        'relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-base text-fg outline-none select-none',
+        'data-[highlighted]:bg-surface-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         className,
       )}
       {...props}
     >
       <span className="absolute left-2 flex size-4 items-center justify-center">
         <MenuPrimitive.ItemIndicator>
-          <Check className="size-4 text-primary-strong" aria-hidden="true" />
+          <Check className="size-4 text-action-primary" aria-hidden="true" />
         </MenuPrimitive.ItemIndicator>
       </span>
       {children}

@@ -173,7 +173,7 @@ export function BehaviourTab() {
           <p className="max-w-9/10 self-start rounded-xl border border-border bg-surface px-3.5 py-2.5 text-message text-slate">
             When are you open?
           </p>
-          <div className="flex max-w-9/10 flex-col gap-1 self-end rounded-xl bg-message-outbound px-3.5 py-2.5 text-message text-slate">
+          <div className="flex max-w-9/10 flex-col gap-1 self-end rounded-xl bg-chat-outgoing px-3.5 py-2.5 text-message text-slate">
             <span className="text-xs font-medium text-secondary">AI</span>
             <p>{EXAMPLE[form.tone](name)}</p>
           </div>

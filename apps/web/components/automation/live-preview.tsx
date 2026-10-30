@@ -189,7 +189,7 @@ export function LivePreview({
                   'rounded-lg',
                   selected === step.nodeId &&
                     !terminal &&
-                    'ring-2 ring-primary-strong ring-offset-2 ring-offset-thread-soft',
+                    'ring-2 ring-primary-strong ring-offset-2 ring-offset-chat-canvas',
                   system ? 'self-center w-full' : step.kind === 'incoming' ? 'mr-4' : 'ml-4',
                 )}
               >
@@ -204,7 +204,7 @@ export function LivePreview({
                       ? 'bg-surface text-center text-secondary'
                       : step.kind === 'incoming'
                         ? 'bg-surface'
-                        : 'bg-message-outbound',
+                        : 'bg-chat-outgoing',
                   )}
                 >
                   {step.kind === 'template' ? (
