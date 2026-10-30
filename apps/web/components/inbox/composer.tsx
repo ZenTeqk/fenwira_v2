@@ -6,19 +6,7 @@ import {
   type Message,
   type SendableContent,
 } from '@fenwira/contracts'
-import {
-  Alert,
-  Button,
-  cn,
-  Dropdown,
-  DropdownContent,
-  DropdownItem,
-  DropdownTrigger,
-  focusRing,
-  toast,
-  Textarea,
-  Tooltip,
-} from '@fenwira/ui'
+import { Alert, Button, cn, focusRing, toast, Textarea, Tooltip } from '@fenwira/ui'
 import { type InfiniteData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Clock, FileText, Lock, MessageSquareText, Paperclip, Send } from 'lucide-react'
 import {
@@ -438,7 +426,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         role="tabpanel"
         id={panelId}
         aria-label={mode === 'note' ? 'Internal note composer' : 'Reply composer'}
-        className="flex min-w-0 flex-col gap-1"
+        className="flex min-w-0 flex-col gap-1 pt-1"
       >
         {mode === 'reply' && state.kind === 'checking' && eligibility.isError ? (
           <p className="flex flex-wrap items-center gap-1 text-xs text-secondary">
@@ -550,7 +538,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 placeholder={mode === 'note' ? 'Only your team sees notes' : 'Type a reply…'}
                 title="Enter to send; Shift+Enter for a new line; / for canned replies"
                 className={cn(
-                  'min-h-11 max-h-40 w-full min-w-0 resize-none overflow-y-auto rounded-md border-0 bg-transparent px-1 py-1 text-base text-slate',
+                  'min-h-11 max-h-40 w-full min-w-0 resize-none overflow-y-auto rounded-md border-0 bg-transparent px-2 py-2 text-base text-slate',
                   'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-strong',
                   disabled && 'cursor-not-allowed opacity-60',
                 )}
@@ -564,7 +552,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
               <div
                 role="group"
                 aria-label="Message actions"
-                className="flex w-full flex-wrap items-center gap-1"
+                className="flex w-full flex-wrap items-center justify-end gap-1"
               >
                 {mode === 'reply' ? (
                   <>
@@ -595,45 +583,21 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                   </>
                 ) : null}
                 {mode === 'reply' && can('templates.read') ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 gap-1 px-1.5 text-secondary sm:h-8"
-                    aria-label="Send a template"
-                    title="Send a template"
-                    disabled={disabled || busy || !templatesAvailable}
-                    onClick={() => setPicking(true)}
-                  >
-                    <FileText aria-hidden="true" />
-                    Templates
-                  </Button>
-                ) : null}
-                {mode === 'reply' && canned.length ? (
-                  <Dropdown>
-                    <Tooltip content="Saved replies">
-                      <DropdownTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-9 text-secondary sm:size-8"
-                          aria-label="Canned replies"
-                          disabled={disabled || busy}
-                        >
-                          <MessageSquareText aria-hidden="true" />
-                        </Button>
-                      </DropdownTrigger>
-                    </Tooltip>
-                    <DropdownContent className="max-h-72 w-72 overflow-y-auto">
-                      {canned.map((r) => (
-                        <DropdownItem key={r.id} onSelect={() => insert(r.body)}>
-                          <span className="font-mono text-sm">{r.shortcut}</span> {r.title}
-                        </DropdownItem>
-                      ))}
-                    </DropdownContent>
-                  </Dropdown>
+                  <Tooltip content="Send a template">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-9 text-secondary sm:size-8"
+                      aria-label="Send a template"
+                      disabled={disabled || busy || !templatesAvailable}
+                      onClick={() => setPicking(true)}
+                    >
+                      <FileText aria-hidden="true" />
+                    </Button>
+                  </Tooltip>
                 ) : null}
                 <Tooltip content={actionHint} disableHoverableContent>
-                  <span className="ml-auto inline-flex">
+                  <span className="inline-flex">
                     <Button
                       className={cn(
                         'h-9 px-2.5 sm:h-8',
