@@ -225,3 +225,8 @@ Reply Studio owns Auto Replies / Bot Flows links and Reports in the header. This
 scoped to Automations. Cards, dense reply rows, real graph snippets and the compact summaries
 follow the existing design tokens. See FENWIRA_DESIGN_SYSTEM.md → Automation dashboard image
 references. The existing builder, reporting routes, permissions and send eligibility are retained.
+
+The Automations sidebar row has a separate disclosure arrow. It opens or closes Workflows and
+Reply Studio without navigating, supports Enter/Space and exposes `aria-expanded`. The module
+label still opens Workflows. The disclosure also works in the mobile navigation drawer; the
+icon-only collapsed desktop sidebar retains its module link.

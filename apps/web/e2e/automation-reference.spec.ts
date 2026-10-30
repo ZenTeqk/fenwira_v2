@@ -160,6 +160,17 @@ test('reference dashboards preserve real graph previews, filters, starters and n
   await expect(page.getByRole('article', { name: 'Enquiry routing', exact: true })).toContainText(
     'Add tag',
   )
+  const automationSections = page.getByRole('list', { name: 'Automation sections', exact: true })
+  await page.getByRole('button', { name: 'Collapse Automations', exact: true }).click()
+  await expect(automationSections).toBeHidden()
+  const expandAutomations = page.getByRole('button', { name: 'Expand Automations', exact: true })
+  await expect(expandAutomations).toHaveAttribute('aria-expanded', 'false')
+  await expandAutomations.focus()
+  await page.keyboard.press('Enter')
+  await expect(automationSections).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Collapse Automations', exact: true }),
+  ).toHaveAttribute('aria-expanded', 'true')
   await quality(page, 'workflows')
   await page.getByRole('combobox', { name: 'Trigger', exact: true }).click()
   await page.getByRole('option', { name: 'Contact created', exact: true }).click()
@@ -183,6 +194,18 @@ test('reference dashboards preserve real graph previews, filters, starters and n
     page.getByRole('article', { name: 'Outside business hours', exact: true }),
   ).toContainText('Outside business hours')
   await quality(page, 'reply-studio')
+  await page.setViewportSize({ width: 375, height: 1000 })
+  await page.getByRole('button', { name: 'Open navigation', exact: true }).click()
+  const navigation = page.getByRole('dialog', { name: 'Navigation', exact: true })
+  await navigation.getByRole('button', { name: 'Collapse Automations', exact: true }).click()
+  await expect(
+    navigation.getByRole('list', { name: 'Automation sections', exact: true }),
+  ).toBeHidden()
+  await navigation.getByRole('button', { name: 'Expand Automations', exact: true }).click()
+  await expect(navigation.getByRole('link', { name: 'Workflows', exact: true })).toBeVisible()
+  await expect(navigation.getByRole('link', { name: 'Reply Studio', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.setViewportSize({ width: 1440, height: 1000 })
   await page.getByRole('combobox', { name: 'WhatsApp number', exact: true }).click()
   await page.getByRole('option', { name: /Second store/ }).click()
   await expect(page.getByRole('article', { name: 'Welcome message', exact: true })).toHaveCount(0)
