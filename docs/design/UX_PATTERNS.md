@@ -269,8 +269,8 @@ their explanations and drafts. Recheck on focus, reconnect, inbound updates and 
 announcing every minute. The expiry tooltip follows the workspace timezone.
 
 Use one compact composer surface (approximately 112–136px empty), a 44–160px input and one
-bottom toolbar. Keep attachment and saved-reply icons accessible through labels/tooltips,
-Templates visibly labelled, and Send compact. Put shortcut guidance in the Send tooltip instead
+bottom toolbar. Keep only attachment and template icons beside compact Send, with accessible
+labels/tooltips. Saved replies use the `/` picker. Put shortcut guidance in the Send tooltip instead
 of a footer. Notes keep the amber surface and Add note action. Notices and text scaling can grow
 the composer. While customer details are open, remove the header's open-panel control and its
 space. The details collapse control restores the header trigger and focus after it mounts;

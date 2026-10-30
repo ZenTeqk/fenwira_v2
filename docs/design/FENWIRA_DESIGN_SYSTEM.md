@@ -338,9 +338,12 @@ notice says “Choose an approved template to message this customer.” It uses 
 the existing subtle amber treatment and responsive action layout.
 
 The unified composer has 8px padding, a 44px resting input and 160px input maximum followed by
-internal scrolling. Its empty height is approximately 122px on desktop and 130px on phones.
-Compact Reply/Internal note tabs sit above one toolbar with an attachment icon/tooltip, labelled
-Templates, a saved-reply icon menu and compact Send. Keyboard guidance lives in the Send tooltip;
+internal scrolling. Its empty height is approximately 126px on desktop and 134px on phones.
+Compact Reply/Internal note tabs sit above one toolbar with only attachment and template icons
+beside compact Send, grouped together at the right. Both icons have accessible labels/tooltips;
+saved replies remain available through the `/` picker. A small gap
+below the tabs and 8px input padding keep the writing area clear of the top edge.
+Keyboard guidance lives in the Send tooltip;
 there is no permanent shortcut footer or extra full-width separator. Note mode retains its amber
 surface/lock and labels its action Add note. Notices, text scaling and upload state can grow the
 container. The chat header's customer-panel button is absent while details are open, leaving no
