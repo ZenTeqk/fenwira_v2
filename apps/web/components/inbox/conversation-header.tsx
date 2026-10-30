@@ -23,7 +23,6 @@ import {
   Ellipsis,
   ListFilter,
   Paperclip,
-  PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
@@ -363,23 +362,21 @@ export function ConversationHeader({
             ) : null}
           </DropdownContent>
         </Dropdown>
-        <Button
-          variant="ghost"
-          size="icon"
-          ref={contactButtonRef}
-          aria-label={contactExpanded ? 'Hide contact details' : 'Show contact details'}
-          title={contactExpanded ? 'Hide contact details' : 'Show contact details'}
-          aria-expanded={contactExpanded}
-          aria-controls={contactControlsId}
-          aria-haspopup={contactIsDrawer ? 'dialog' : undefined}
-          onClick={onToggleContact}
-        >
-          {contactExpanded ? (
-            <PanelRightClose aria-hidden="true" />
-          ) : (
+        {!contactExpanded ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            ref={contactButtonRef}
+            aria-label="Show contact details"
+            title="Show contact details"
+            aria-expanded={false}
+            aria-controls={contactControlsId}
+            aria-haspopup={contactIsDrawer ? 'dialog' : undefined}
+            onClick={onToggleContact}
+          >
             <PanelRightOpen aria-hidden="true" />
-          )}
-        </Button>
+          </Button>
+        ) : null}
       </div>
     </div>
   )

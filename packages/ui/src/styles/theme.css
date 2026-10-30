@@ -206,7 +206,7 @@
 }
 .fw-inbox-composer {
   container-type: inline-size;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 @media (max-width: 767px) {
   .fw-inbox-bubble {

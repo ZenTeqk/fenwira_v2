@@ -268,7 +268,13 @@ Unknown eligibility disables customer sends; actual server restrictions and reje
 their explanations and drafts. Recheck on focus, reconnect, inbound updates and expiry without
 announcing every minute. The expiry tooltip follows the workspace timezone.
 
-Use one compact composer surface, 80–180px input, one toolbar and a quiet keyboard hint.
+Use one compact composer surface (approximately 112–136px empty), a 44–160px input and one
+bottom toolbar. Keep attachment and saved-reply icons accessible through labels/tooltips,
+Templates visibly labelled, and Send compact. Put shortcut guidance in the Send tooltip instead
+of a footer. Notes keep the amber surface and Add note action. Notices and text scaling can grow
+the composer. While customer details are open, remove the header's open-panel control and its
+space. The details collapse control restores the header trigger and focus after it mounts;
+keyboard opening moves focus into the panel without stealing focus on initial page load.
 System events have small contextual icons and no outlined pills; attachment cards reduce padding
 without changing file permissions, receipts or history grouping. The original application shell,
 conversation list and customer-panel presentation retain the preceding refinements.

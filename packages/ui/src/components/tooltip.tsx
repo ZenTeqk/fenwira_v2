@@ -11,12 +11,20 @@ export type TooltipProps = {
   children: ReactNode
   side?: 'top' | 'right' | 'bottom' | 'left'
   className?: string
+  /** Text-only hints can close immediately when leaving their trigger. */
+  disableHoverableContent?: boolean
 }
 
 /** Supplementary text only: never put the sole label of a control in a tooltip. */
-export function Tooltip({ content, children, side = 'top', className }: TooltipProps) {
+export function Tooltip({
+  content,
+  children,
+  side = 'top',
+  className,
+  disableHoverableContent,
+}: TooltipProps) {
   return (
-    <TooltipPrimitive.Root delayDuration={300}>
+    <TooltipPrimitive.Root delayDuration={300} disableHoverableContent={disableHoverableContent}>
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content
