@@ -1,6 +1,6 @@
 'use client'
 
-import { Alert, Button, Field, Input } from '@fenwira/ui'
+import { Alert, Button, Field, Input, textLink } from '@fenwira/ui'
 import { useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
 import { type FormEvent, useState } from 'react'
@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
       title="Reset your password"
       description="Enter your email and we'll send you a link to choose a new password."
       footer={
-        <Link href="/login" className="font-medium text-primary-strong hover:underline">
+        <Link href="/login" className={`font-medium ${textLink}`}>
           Back to sign in
         </Link>
       }

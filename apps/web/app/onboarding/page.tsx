@@ -55,7 +55,7 @@ export default function OnboardingPage() {
   })
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background px-4 py-10">
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-canvas px-4 py-10">
       <p>
         <BrandMark variant="lockup" size="lg" />
       </p>
@@ -86,7 +86,7 @@ export default function OnboardingPage() {
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="onboarding-country" className="text-sm font-medium text-slate">
+                <label htmlFor="onboarding-country" className="text-sm font-medium text-fg">
                   Country
                 </label>
                 <Select value={country} onValueChange={setCountry}>
@@ -103,7 +103,7 @@ export default function OnboardingPage() {
                 </Select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="onboarding-timezone" className="text-sm font-medium text-slate">
+                <label htmlFor="onboarding-timezone" className="text-sm font-medium text-fg">
                   Timezone
                 </label>
                 <Input id="onboarding-timezone" readOnly value={INDIA_TIMEZONE_LABEL} />

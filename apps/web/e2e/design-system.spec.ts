@@ -38,12 +38,15 @@ test('shell: modules in the sidebar, sub-pages as module tabs, status footer and
   await expect(page.getByRole('heading', { level: 1, name: 'Segments' })).toBeVisible()
   await expect(main.getByRole('link', { name: 'Contacts' })).toHaveAttribute('aria-current', 'page')
 
-  // Workspace status: WhatsApp appears once a number is connected.
-  const status = page.getByRole('list', { name: 'Workspace status' })
-  await expect(status).toContainText('WhatsApp · Not connected')
+  // Sidebar WhatsApp status (#114): a labelled link that changes once a number is connected.
+  await expect(
+    page.getByRole('link', { name: 'WhatsApp: Not connected. View connections', exact: true }),
+  ).toBeVisible()
   await customerWritesIn(page, owner, 'Hello')
   await page.reload()
-  await expect(status).toContainText('WhatsApp · Connected')
+  await expect(
+    page.getByRole('link', { name: 'WhatsApp: Connected. View connections', exact: true }),
+  ).toBeVisible()
 
   await page.getByRole('button', { name: 'Help' }).click()
   await page.getByRole('menuitem', { name: 'Keyboard shortcuts' }).click()

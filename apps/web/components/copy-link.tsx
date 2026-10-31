@@ -31,7 +31,7 @@ export function CopyLink({
           Copy
         </Button>
       </div>
-      <p className="text-sm text-secondary">
+      <p className="text-sm text-fg-secondary">
         Works once
         {expiresAt ? `, until ${new Date(expiresAt).toLocaleString()}` : ''}. It won’t be shown
         again.

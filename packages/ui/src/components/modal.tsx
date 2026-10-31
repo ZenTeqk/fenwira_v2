@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
-import { type ComponentProps, type ReactNode } from 'react'
+import { type ComponentProps, type ReactNode, useEffect, useRef } from 'react'
 import { cn } from '../lib/cn'
 import { focusRing } from '../lib/focus'
 
@@ -11,6 +11,53 @@ export const ModalTrigger = DialogPrimitive.Trigger
 export const ModalClose = DialogPrimitive.Close
 
 const overlay = 'fixed inset-0 z-50 bg-scrim/50'
+
+/**
+ * Radix returns focus to a Dialog `Trigger` on close; dialogs opened from ordinary buttons have
+ * none, so focus fell to <body>. Return it to whatever opened the dialog, unless the consumer
+ * handles close focus itself (calls preventDefault). A field with `autoFocus` is focused before
+ * Radix records anything (it then skips the open event), so the last element focused outside any
+ * dialog is the fallback.
+ */
+function useReturnFocus(
+  onOpenAutoFocus?: (event: Event) => void,
+  onCloseAutoFocus?: (event: Event) => void,
+) {
+  const opener = useRef<HTMLElement | null>(null)
+  const lastOutside = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    const outside = (el: Element | null): el is HTMLElement =>
+      el instanceof HTMLElement &&
+      el !== document.body &&
+      !el.closest('[role="dialog"],[role="alertdialog"]')
+    if (outside(document.activeElement)) lastOutside.current = document.activeElement
+    const track = (event: FocusEvent) => {
+      if (outside(event.target as Element | null)) lastOutside.current = event.target as HTMLElement
+    }
+    document.addEventListener('focusin', track, true)
+    return () => document.removeEventListener('focusin', track, true)
+  }, [])
+  return {
+    onOpenAutoFocus: (event: Event) => {
+      const active = document.activeElement
+      const content = event.currentTarget instanceof Node ? event.currentTarget : null
+      opener.current =
+        active instanceof HTMLElement && active !== document.body && !content?.contains(active)
+          ? active
+          : lastOutside.current
+      onOpenAutoFocus?.(event)
+    },
+    onCloseAutoFocus: (event: Event) => {
+      onCloseAutoFocus?.(event)
+      // Radix skips the open event when a field autofocused first, so fall back.
+      const target = opener.current ?? lastOutside.current
+      opener.current = null
+      if (event.defaultPrevented || !target?.isConnected) return
+      event.preventDefault()
+      target.focus()
+    },
+  }
+}
 
 export type ModalContentProps = ComponentProps<typeof DialogPrimitive.Content> & {
   /** Required: every modal has an accessible name. */
@@ -28,8 +75,11 @@ export function ModalContent({
   footer,
   hideClose,
   children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: ModalContentProps) {
+  const returnFocus = useReturnFocus(onOpenAutoFocus, onCloseAutoFocus)
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className={overlay} />
@@ -42,6 +92,7 @@ export function ModalContent({
         )}
         {...(description ? {} : { 'aria-describedby': undefined })}
         {...props}
+        {...returnFocus}
       >
         <div className="flex items-start justify-between gap-4 p-5 pb-3">
           <div className="flex flex-col gap-1">
@@ -107,8 +158,11 @@ export function DrawerContent({
   width = 'md',
   tone = 'light',
   children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: DrawerContentProps) {
+  const returnFocus = useReturnFocus(onOpenAutoFocus, onCloseAutoFocus)
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className={overlay} />
@@ -123,6 +177,7 @@ export function DrawerContent({
         )}
         {...(description ? {} : { 'aria-describedby': undefined })}
         {...props}
+        {...returnFocus}
       >
         <div
           data-slot="drawer-header"

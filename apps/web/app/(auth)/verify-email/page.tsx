@@ -1,6 +1,6 @@
 'use client'
 
-import { Alert, Button } from '@fenwira/ui'
+import { Alert, Button, textLink } from '@fenwira/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { MailCheck } from 'lucide-react'
 import Link from 'next/link'
@@ -36,10 +36,7 @@ function VerifyWithToken({ token }: { token: string }) {
     <AuthCard title="Verifying your email…">
       <FormError error={verify.error} />
       {verify.isError ? (
-        <Link
-          href="/verify-email"
-          className="text-sm font-medium text-primary-strong hover:underline"
-        >
+        <Link href="/verify-email" className={`text-sm font-medium ${textLink}`}>
           Send a new link
         </Link>
       ) : null}
@@ -65,13 +62,13 @@ function PendingVerification() {
       description={
         <>
           We sent a verification link to{' '}
-          <strong className="text-slate">{me?.user.email ?? 'your email'}</strong>. Open it to
+          <strong className="text-fg">{me?.user.email ?? 'your email'}</strong>. Open it to
           continue.
         </>
       }
     >
-      <div className="flex items-center gap-3 rounded-md bg-primary-soft p-3 text-base text-slate">
-        <MailCheck className="size-5 shrink-0 text-primary-strong" aria-hidden="true" />
+      <div className="flex items-center gap-3 rounded-md bg-action-primary-subtle p-3 text-base text-fg">
+        <MailCheck className="size-5 shrink-0 text-accent-conversation-fg" aria-hidden="true" />
         The link expires in 24 hours.
       </div>
       {resend.isSuccess ? <Alert tone="success" title="A new link is on its way." /> : null}

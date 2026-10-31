@@ -25,8 +25,19 @@ if (upstream)
   test.beforeEach(async ({ context }) => {
     await context.route(/^http:\/\/localhost:(3000|4000)\//, async (route) => {
       const url = route.request().url().replace('http://localhost:3000', upstream)
-      const response = await route.fetch({ url, maxRedirects: 0 })
-      await route.fulfill({ response })
+      // A relayed request that fails (e.g. a reset realtime connection) fails like any network error.
+      const response = await route.fetch({ url, maxRedirects: 0 }).catch(() => null)
+      if (!response) return route.abort('failed')
+      // A fulfilled redirect's follow-up request isn't intercepted, so redirect from the page
+      // instead; the browser then requests the target through this relay (same final URL).
+      const location = response.headers()['location']
+      if (response.status() >= 300 && response.status() < 400 && location)
+        return route.fulfill({
+          contentType: 'text/html',
+          body: `<script>location.replace(${JSON.stringify(location.replace(upstream, 'http://localhost:3000'))})</script>`,
+        })
+      // The page may already have navigated away; a late answer is then irrelevant.
+      await route.fulfill({ response }).catch(() => undefined)
     })
   })
 const shots = process.env.REVIEW_SHOTS_DIR

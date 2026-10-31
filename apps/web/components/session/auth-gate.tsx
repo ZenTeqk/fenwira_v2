@@ -48,7 +48,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
   if (isPending || !me || redirect) {
     return (
-      <div className="flex min-h-dvh" aria-busy="true" aria-label="Loading">
+      <div className="flex min-h-dvh" role="status" aria-busy="true" aria-label="Loading">
         <div className="hidden w-62 border-r border-border-subtle bg-sidebar lg:block" />
         <div className="flex flex-1 flex-col gap-4 p-6">
           <Skeleton className="h-8 w-48" />

@@ -87,9 +87,9 @@ function Section({ id, title, children }: { id: string; title: string; children:
   return (
     <section
       aria-labelledby={id}
-      className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5"
+      className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-5"
     >
-      <h2 id={id} className="text-lg font-semibold text-slate">
+      <h2 id={id} className="text-lg font-semibold text-fg">
         {title}
       </h2>
       {children}
@@ -142,7 +142,7 @@ export function Gallery() {
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Component gallery' }]}
         linkAs={AppLink}
       />
-      <p className="text-sm text-muted" aria-live="polite">
+      <p className="text-sm text-fg-muted" aria-live="polite">
         Last action: <span data-testid="last-action">{lastAction}</span>
       </p>
 
@@ -204,7 +204,7 @@ export function Gallery() {
             <Label htmlFor="gallery-indeterminate">Some selected</Label>
           </div>
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-medium text-slate">Auto-assign</legend>
+            <legend className="mb-1 text-sm font-medium text-fg">Auto-assign</legend>
             <RadioGroup defaultValue="round-robin">
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="off" id="gallery-assign-off" />
@@ -320,7 +320,7 @@ export function Gallery() {
               <Button variant="secondary">Open drawer</Button>
             </DrawerTrigger>
             <DrawerContent title="Priya Sharma" description="Contact details">
-              <p className="text-base text-slate">Record details render here.</p>
+              <p className="text-base text-fg">Record details render here.</p>
             </DrawerContent>
           </Drawer>
 
