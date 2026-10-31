@@ -15,14 +15,14 @@ export function CampaignResults({
   const results = useCampaignStats(c.id, campaignResultsLive(c), Boolean(c.audienceSnapshotAt))
   if (!c.audienceSnapshotAt)
     return (
-      <p className="text-xs text-secondary">
+      <p className="text-xs text-fg-secondary">
         {c.status === 'DRAFT' ? 'Not launched' : 'Audience prepared at launch'}
       </p>
     )
   if (results.isPending) return <Skeleton className="h-12" aria-label="Loading campaign results" />
   if (results.isError || !results.data)
     return (
-      <div className="flex flex-wrap items-center gap-2 text-sm text-secondary">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-fg-secondary">
         Results unavailable.
         <Button variant="link" size="sm" onClick={() => void results.refetch()}>
           Retry results
@@ -34,9 +34,9 @@ export function CampaignResults({
     <div className="flex flex-col gap-2" aria-label={`${c.name} delivery results`}>
       {!compact ? (
         <>
-          <div className="flex items-center justify-between gap-2 text-sm text-secondary">
+          <div className="flex items-center justify-between gap-2 text-sm text-fg-secondary">
             <p>
-              <span className="font-semibold text-slate">{s.sent.toLocaleString('en-IN')}</span> /{' '}
+              <span className="font-semibold text-fg">{s.sent.toLocaleString('en-IN')}</span> /{' '}
               {s.eligible.toLocaleString('en-IN')} sent
             </p>
             <span className="tabular-nums">
@@ -51,14 +51,14 @@ export function CampaignResults({
             />
           ) : null}
           {s.failed || s.skipped ? (
-            <p className="text-xs text-secondary">
+            <p className="text-xs text-fg-secondary">
               {s.failed.toLocaleString('en-IN')} failed · {s.skipped.toLocaleString('en-IN')}{' '}
               skipped
             </p>
           ) : null}
         </>
       ) : null}
-      <dl className="grid grid-cols-3 gap-3 pt-2 text-sm [&>div+div]:border-l [&>div+div]:border-border [&>div+div]:pl-3">
+      <dl className="grid grid-cols-3 gap-3 pt-2 text-sm [&>div+div]:border-l [&>div+div]:border-border-subtle [&>div+div]:pl-3">
         {[
           ['Delivered', percent(s.deliveryRate)],
           ['Read', percent(s.readRate)],
@@ -73,8 +73,8 @@ export function CampaignResults({
           ],
         ].map(([label, value]) => (
           <div key={label}>
-            <dt className="text-muted">{label}</dt>
-            <dd className="text-md font-semibold text-slate">{value}</dd>
+            <dt className="text-fg-muted">{label}</dt>
+            <dd className="text-md font-semibold text-fg">{value}</dd>
           </div>
         ))}
       </dl>

@@ -85,16 +85,16 @@ function MappingStep({ job, onDone }: { job: ImportJob; onDone: () => void }) {
     <div className="flex flex-col gap-4">
       <FormError error={save.error} />
       <table className="w-full text-left" aria-label="Column mapping">
-        <thead className="text-sm text-muted">
+        <thead className="text-sm text-fg-muted">
           <tr>
             <th className="py-2 font-medium">Column in your file</th>
             <th className="py-2 font-medium">Saves to</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody className="divide-y divide-border-subtle">
           {job.headers.map((h) => (
             <tr key={h}>
-              <td className="py-2 pr-4 text-slate">{h}</td>
+              <td className="py-2 pr-4 text-fg">{h}</td>
               <td className="py-2">
                 <Select
                   value={mapping[h] ?? 'ignore'}
@@ -131,14 +131,14 @@ function MappingStep({ job, onDone }: { job: ImportJob; onDone: () => void }) {
         </tbody>
       </table>
       <fieldset className="flex flex-col gap-2">
-        <legend className="mb-1 text-sm font-medium text-slate">
+        <legend className="mb-1 text-sm font-medium text-fg">
           When a phone number already exists
         </legend>
         <RadioGroup value={policy} onValueChange={(v) => setPolicy(v as 'SKIP' | 'UPDATE')}>
-          <label className="flex items-center gap-2 text-sm text-slate">
+          <label className="flex items-center gap-2 text-sm text-fg">
             <RadioGroupItem value="SKIP" /> Skip the row
           </label>
-          <label className="flex items-center gap-2 text-sm text-slate">
+          <label className="flex items-center gap-2 text-sm text-fg">
             <RadioGroupItem value="UPDATE" /> Update the contact with the file&apos;s values
           </label>
         </RadioGroup>
@@ -183,9 +183,9 @@ function PreviewStep({
         {job.duplicatePolicy === 'SKIP' ? ' (skipped)' : ' (updated)'}
         {c.invalid ? `, ${n(c.invalid)} rows have problems and will be left out.` : '.'}
       </Alert>
-      <div className="max-h-80 overflow-auto rounded-md border border-border">
+      <div className="max-h-80 overflow-auto rounded-md border border-border-subtle">
         <table className="w-full text-left text-sm" aria-label="Preview of the first rows">
-          <thead className="sticky top-0 bg-surface text-muted">
+          <thead className="sticky top-0 bg-surface text-fg-muted">
             <tr>
               <th className="p-2 font-medium">Row</th>
               {job.headers.map((h) => (
@@ -196,16 +196,16 @@ function PreviewStep({
               <th className="p-2 font-medium">Problems</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y divide-border-subtle">
             {(job.preview ?? []).map((r) => (
-              <tr key={r.row} className={r.errors.length ? 'bg-danger-soft' : undefined}>
-                <td className="p-2 text-muted">{r.row}</td>
+              <tr key={r.row} className={r.errors.length ? 'bg-status-error-bg' : undefined}>
+                <td className="p-2 text-fg-muted">{r.row}</td>
                 {job.headers.map((h) => (
-                  <td key={h} className="p-2 text-slate">
+                  <td key={h} className="p-2 text-fg">
                     {r.values[h]}
                   </td>
                 ))}
-                <td className="p-2 text-slate">{r.errors.map((e) => e.message).join(' ')}</td>
+                <td className="p-2 text-fg">{r.errors.map((e) => e.message).join(' ')}</td>
               </tr>
             ))}
           </tbody>
@@ -285,12 +285,12 @@ function ImportWizard({
     body = (
       <div className="flex flex-col gap-3">
         <FormError error={upload.error} />
-        <p className="text-base text-slate">
+        <p className="text-base text-fg">
           Upload a CSV (up to 100,000 rows, 50 MB) with a header row. Phone numbers without a
           country code use the workspace country.
         </p>
-        <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-border p-8 text-center text-slate hover:bg-surface-hover">
-          <Upload aria-hidden="true" className="size-6 text-muted" />
+        <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle p-8 text-center text-fg hover:bg-surface-hover">
+          <Upload aria-hidden="true" className="size-6 text-fg-muted" />
           <span>{upload.isPending ? 'Uploading…' : 'Choose a CSV file'}</span>
           <input
             type="file"
@@ -306,7 +306,7 @@ function ImportWizard({
         </label>
       </div>
     )
-  else if (!j) body = <p className="text-muted">Loading…</p>
+  else if (!j) body = <p className="text-fg-muted">Loading…</p>
   else if (j.status === 'MAPPING') body = <MappingStep job={j} onDone={refresh} />
   else if (j.status === 'PREVIEW_READY')
     body = <PreviewStep job={j} importing={confirm.isPending} onImport={() => confirm.mutate()} />
@@ -315,14 +315,14 @@ function ImportWizard({
     const total = j.counts.total || progress?.total || 0
     body = (
       <div className="flex flex-col gap-3" aria-live="polite">
-        <p className="text-base text-slate">
+        <p className="text-base text-fg">
           {STATUS_TEXT[j.status]}
           {j.status === 'IMPORTING' && total ? ` — ${n(done)} of ${n(total)} rows` : '…'}
         </p>
         {j.status === 'IMPORTING' ? (
           <>
             <div
-              className="h-2 w-full overflow-hidden rounded-full bg-neutral-soft"
+              className="h-2 w-full overflow-hidden rounded-full bg-surface-muted"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={total}
@@ -330,7 +330,7 @@ function ImportWizard({
               aria-label="Import progress"
             >
               <div
-                className="h-full bg-primary-strong transition-all"
+                className="h-full bg-action-primary transition-all"
                 style={{ width: `${total ? (100 * done) / total : 0}%` }}
               />
             </div>

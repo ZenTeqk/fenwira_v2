@@ -36,7 +36,7 @@ export default function CampaignAnalyticsPage() {
       cell: ({ row }) => (
         <Link
           href={`/campaigns/${row.original.id}`}
-          className="font-medium text-slate underline-offset-4 hover:underline"
+          className="font-medium text-fg underline-offset-4 hover:underline"
         >
           {row.original.name}
         </Link>

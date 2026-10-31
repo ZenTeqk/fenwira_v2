@@ -35,10 +35,10 @@ export function TemplateContext({
         <div className="@container">
           <div className="flex flex-col gap-6">
             {preview ? (
-              // The phone stands on a tinted stage; the details follow below.
+              // The phone stands on the warm chat canvas; the details follow below.
               <section
                 aria-label="WhatsApp preview"
-                className="fw-preview-stage flex min-w-0 shrink-0 justify-center rounded-xl bg-primary-soft px-5 py-6"
+                className="fw-preview-stage flex min-w-0 shrink-0 justify-center rounded-xl bg-chat-canvas px-5 py-6"
               >
                 <div className="w-full max-w-72">{preview}</div>
               </section>

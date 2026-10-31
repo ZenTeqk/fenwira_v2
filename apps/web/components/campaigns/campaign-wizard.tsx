@@ -92,7 +92,7 @@ function Labeled({ label, children }: { label: string; children: (id: string) =>
   const id = useId()
   return (
     <div className="flex flex-col gap-1.5">
-      <span id={id} className="text-sm font-medium text-slate">
+      <span id={id} className="text-sm font-medium text-fg">
         {label}
       </span>
       {children(id)}
@@ -134,7 +134,7 @@ function VariablePicker({
         : `PROPERTY:${value.key}`
   const fallback = value && value.kind !== 'STATIC' ? (value.fallback ?? '') : ''
   return (
-    <div className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-2">
+    <div className="grid gap-3 rounded-md border border-border-subtle p-3 sm:grid-cols-2">
       <Labeled label={`${label}: value`}>
         {(id) => (
           <Select
@@ -399,7 +399,8 @@ export function CampaignWizard({
                   onClick={() => setStep(i)}
                   className={cn(
                     'h-10 px-2',
-                    i <= step && 'text-primary-strong',
+                    // Charcoal labels; the small emerald markers carry progress.
+                    i <= step ? 'text-fg' : 'text-fg-muted',
                     i === step && 'font-semibold',
                   )}
                 >
@@ -407,9 +408,11 @@ export function CampaignWizard({
                     aria-hidden="true"
                     className={cn(
                       'flex size-6 items-center justify-center rounded-full border text-sm',
-                      i <= step
-                        ? 'border-primary-strong bg-primary-strong text-surface'
-                        : 'border-border text-muted',
+                      i < step
+                        ? 'border-action-primary bg-action-primary text-action-primary-fg'
+                        : i === step
+                          ? 'border-2 border-action-primary bg-surface font-semibold text-fg'
+                          : 'border-border-control text-fg-muted',
                     )}
                   >
                     {i < step ? <Check aria-hidden="true" className="size-3" /> : i + 1}
@@ -421,7 +424,9 @@ export function CampaignWizard({
                     aria-hidden="true"
                     className={cn(
                       'h-px w-8 shrink-0 lg:w-auto lg:flex-1',
-                      i < step ? 'bg-primary' : 'border-t border-dashed border-border-strong',
+                      i < step
+                        ? 'bg-action-primary'
+                        : 'border-t border-dashed border-border-control',
                     )}
                   />
                 ) : null}
@@ -429,7 +434,7 @@ export function CampaignWizard({
             ))}
           </ol>
         </nav>
-        <p role="status" className="text-xs text-secondary">
+        <p role="status" className="text-xs text-fg-secondary">
           {save.isPending
             ? 'Saving draft…'
             : dirty
@@ -442,7 +447,7 @@ export function CampaignWizard({
       <div className="grid items-start gap-4 xl:grid-cols-5">
         <fieldset
           disabled={busy}
-          className="flex min-w-0 flex-col gap-0 overflow-hidden rounded-lg border border-border bg-surface xl:col-span-3 [&>[data-slot=card]]:rounded-none [&>[data-slot=card]]:border-0 [&>[data-slot=card]+[data-slot=card]]:border-t"
+          className="flex min-w-0 flex-col gap-0 overflow-hidden rounded-lg border border-border-subtle bg-surface xl:col-span-3 [&>[data-slot=card]]:rounded-none [&>[data-slot=card]]:border-0 [&>[data-slot=card]+[data-slot=card]]:border-t"
         >
           <legend className="sr-only">Campaign configuration</legend>
           {step > 0 ? (
@@ -450,7 +455,7 @@ export function CampaignWizard({
               <CardContent className="flex items-start gap-3 p-3">
                 <span
                   aria-hidden="true"
-                  className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-strong"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-fg-secondary"
                 >
                   <Megaphone className="size-5" />
                 </span>
@@ -458,7 +463,7 @@ export function CampaignWizard({
                   <h2 className="break-words text-md font-semibold">
                     {name.trim() || 'Your campaign'}
                   </h2>
-                  <p className="text-sm text-secondary">
+                  <p className="text-sm text-fg-secondary">
                     {template
                       ? `${CATEGORY_LABEL[template.category]} campaign`
                       : 'Choose a WhatsApp message'}
@@ -479,11 +484,8 @@ export function CampaignWizard({
                     Change template
                   </Button>
                 </div>
-                <div className="flex items-start gap-3 rounded-md border border-border p-3">
-                  <FileText
-                    aria-hidden="true"
-                    className="mt-1 size-5 shrink-0 text-primary-strong"
-                  />
+                <div className="flex items-start gap-3 rounded-md border border-border-subtle p-3">
+                  <FileText aria-hidden="true" className="mt-1 size-5 shrink-0 text-fg-secondary" />
                   <div className="min-w-0">
                     <p className="break-words text-base font-semibold">{template.name}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -530,7 +532,7 @@ export function CampaignWizard({
                 className="flex flex-col gap-2"
               >
                 {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
-                  <label key={k} className="flex items-center gap-2 text-sm text-slate">
+                  <label key={k} className="flex items-center gap-2 text-sm text-fg">
                     <RadioGroupItem value={k} />
                     {KIND_LABEL[k]}
                   </label>
@@ -538,11 +540,11 @@ export function CampaignWizard({
               </RadioGroup>
               {kind === 'TAGS' ? (
                 <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-1 text-sm font-medium text-slate">Tags</legend>
+                  <legend className="mb-1 text-sm font-medium text-fg">Tags</legend>
                   {tags.length ? (
                     <div className="flex flex-wrap gap-3">
                       {tags.map((t) => (
-                        <label key={t.id} className="flex items-center gap-2 text-sm text-slate">
+                        <label key={t.id} className="flex items-center gap-2 text-sm text-fg">
                           <Checkbox
                             checked={tagIds.includes(t.id)}
                             onCheckedChange={() => setTagIds((l) => toggle(l, t.id))}
@@ -552,7 +554,7 @@ export function CampaignWizard({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted">
+                    <p className="text-sm text-fg-muted">
                       No tags yet. Tag contacts in Contacts first.
                     </p>
                   )}
@@ -612,12 +614,12 @@ export function CampaignWizard({
               ) : null}
               {tags.length ? (
                 <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-1 text-sm font-medium text-slate">
+                  <legend className="mb-1 text-sm font-medium text-fg">
                     Leave out contacts tagged (optional)
                   </legend>
                   <div className="flex flex-wrap gap-3">
                     {tags.map((t) => (
-                      <label key={t.id} className="flex items-center gap-2 text-sm text-slate">
+                      <label key={t.id} className="flex items-center gap-2 text-sm text-fg">
                         <Checkbox
                           checked={excludeTags.includes(t.id)}
                           onCheckedChange={() => setExcludeTags((l) => toggle(l, t.id))}
@@ -628,7 +630,7 @@ export function CampaignWizard({
                   </div>
                 </fieldset>
               ) : null}
-              <p className="text-sm text-muted">
+              <p className="text-sm text-fg-muted">
                 The audience is frozen when the campaign starts: later changes to tags or segments
                 don’t change who receives it.
               </p>
@@ -727,18 +729,18 @@ export function CampaignWizard({
 
           {step === 2 ? (
             <Step title="Personalize your message">
-              <p className="text-sm text-secondary">
+              <p className="text-sm text-fg-secondary">
                 Set values for template variables. Each recipient receives their own details.
               </p>
               {template ? (
-                <div className="rounded-md border border-border bg-neutral-soft p-3 text-base">
+                <div className="rounded-md border border-border-subtle bg-surface-muted p-3 text-base">
                   <VariableText text={template.components.body.text} />
                 </div>
               ) : null}
               {!template || !need ? (
                 <Skeleton className="h-24" />
               ) : need.body + need.header + Object.keys(need.buttons).length === 0 ? (
-                <p className="text-base text-muted">This template has no variables.</p>
+                <p className="text-base text-fg-muted">This template has no variables.</p>
               ) : (
                 <>
                   {Array.from({ length: need.header }, (_, i) => (
@@ -770,7 +772,7 @@ export function CampaignWizard({
                       properties={properties}
                     />
                   ))}
-                  <p className="text-sm text-muted">
+                  <p className="text-sm text-fg-muted">
                     Contacts missing a value (with no fallback) are skipped, never sent a broken
                     message.
                   </p>
@@ -787,10 +789,10 @@ export function CampaignWizard({
                 onValueChange={(v) => setLater(v === 'later')}
                 className="flex flex-col gap-2"
               >
-                <label className="flex items-center gap-2 text-sm text-slate">
+                <label className="flex items-center gap-2 text-sm text-fg">
                   <RadioGroupItem value="now" /> Send now, after review
                 </label>
-                <label className="flex items-center gap-2 text-sm text-slate">
+                <label className="flex items-center gap-2 text-sm text-fg">
                   <RadioGroupItem value="later" /> Schedule for later
                 </label>
               </RadioGroup>
@@ -829,17 +831,17 @@ export function CampaignWizard({
                     <ArrowRight aria-hidden="true" />
                   </Button>
                 </div>
-                <p className="text-sm text-secondary">
+                <p className="text-sm text-fg-secondary">
                   Server estimate for the saved audience and personalization.
                 </p>
-                <dl className="grid grid-cols-3 gap-3 rounded-md border border-border p-3">
+                <dl className="grid grid-cols-3 gap-3 rounded-md border border-border-subtle p-3">
                   {[
                     ['Total contacts', e.total],
                     ['Eligible', e.sendable],
                     ['Excluded', e.total - e.sendable],
                   ].map(([label, value]) => (
                     <div key={label}>
-                      <dt className="text-xs text-secondary">{label}</dt>
+                      <dt className="text-xs text-fg-secondary">{label}</dt>
                       <dd className="text-md font-semibold">
                         {Number(value).toLocaleString('en-IN')}
                       </dd>
@@ -860,14 +862,14 @@ export function CampaignWizard({
                 <Skeleton className="h-40" />
               ) : (
                 <>
-                  <dl className="grid grid-cols-3 gap-3 rounded-md border border-border bg-neutral-soft p-4">
+                  <dl className="grid grid-cols-3 gap-3 rounded-md border border-border-subtle bg-surface-muted p-4">
                     {[
                       ['Audience', e.total],
                       ['Will receive it', e.sendable],
                       ['Left out', e.total - e.sendable],
                     ].map(([label, value]) => (
                       <div key={label}>
-                        <dt className="text-sm text-muted">{label}</dt>
+                        <dt className="text-sm text-fg-muted">{label}</dt>
                         <dd className="text-lg font-semibold">
                           {Number(value).toLocaleString('en-IN')}
                         </dd>
@@ -876,10 +878,8 @@ export function CampaignWizard({
                   </dl>
                   {Object.keys(e.skipped).length ? (
                     <section aria-label="Why contacts are left out" className="flex flex-col gap-1">
-                      <h3 className="text-sm font-semibold text-slate">
-                        Why contacts are left out
-                      </h3>
-                      <ul className="flex flex-col gap-1 text-sm text-slate">
+                      <h3 className="text-sm font-semibold text-fg">Why contacts are left out</h3>
+                      <ul className="flex flex-col gap-1 text-sm text-fg">
                         {Object.entries(e.skipped).map(([reason, n]) => (
                           <li key={reason}>
                             {skipLabel(reason)}: {n.toLocaleString('en-IN')}
@@ -896,7 +896,7 @@ export function CampaignWizard({
                       The campaign pauses when the wallet runs out and continues after a top-up.
                     </Alert>
                   ) : null}
-                  <p className="text-base text-slate">
+                  <p className="text-base text-fg">
                     Estimated customer charge:{' '}
                     <strong>
                       {e.estimatedCostMinor === null
@@ -917,7 +917,7 @@ export function CampaignWizard({
                     </Alert>
                   ))}
                   {later && date && time ? (
-                    <p className="text-base text-slate">
+                    <p className="text-base text-fg">
                       Sends on {formatInZone(zonedToUtc(date, time, zone), zone)} ({zone}).
                     </p>
                   ) : null}
@@ -927,9 +927,9 @@ export function CampaignWizard({
           ) : null}
         </fieldset>
         <aside aria-labelledby="campaign-summary" className="min-w-0 xl:col-span-2">
-          <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3 xl:sticky xl:top-20">
+          <div className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface p-3 xl:sticky xl:top-20">
             <div className="flex flex-col gap-2">
-              <h2 className="text-md font-semibold text-slate">Preview</h2>
+              <h2 className="text-md font-semibold text-fg">Preview</h2>
               {template ? (
                 <>
                   {previewMatchesSaved && e?.samples.length ? (
@@ -954,12 +954,13 @@ export function CampaignWizard({
                           </Labeled>
                         </div>
                       ) : (
-                        <p className="text-sm text-muted">
+                        <p className="text-sm text-fg-muted">
                           To {e.samples[0]?.contactName ?? e.samples[0]?.phoneE164}
                         </p>
                       )}
                       <TemplatePhonePreview
                         compact
+                        sticky={false}
                         components={template.components}
                         samples={
                           (e.samples[Number(sampleIndex)] ?? e.samples[0])!
@@ -968,7 +969,7 @@ export function CampaignWizard({
                         headerImageUrl={sampleUrl.data}
                         businessName={live.find((n) => n.id === phone)?.verifiedName ?? undefined}
                       />
-                      <p className="text-xs text-secondary">
+                      <p className="text-xs text-fg-secondary">
                         Recipient values from the saved server estimate. Eligibility is checked
                         again when sending.
                       </p>
@@ -977,12 +978,13 @@ export function CampaignWizard({
                     <>
                       <TemplatePhonePreview
                         compact
+                        sticky={false}
                         components={template.components}
                         samples={template.samples}
                         headerImageUrl={sampleUrl.data}
                         businessName={live.find((n) => n.id === phone)?.verifiedName ?? undefined}
                       />
-                      <p className="text-xs text-secondary">
+                      <p className="text-xs text-fg-secondary">
                         Template example values. Save your audience and personalization to preview
                         recipient values.
                       </p>
@@ -998,7 +1000,7 @@ export function CampaignWizard({
             </div>
             <h2
               id="campaign-summary"
-              className="border-t border-border pt-3 text-md font-semibold text-slate"
+              className="border-t border-border-subtle pt-3 text-md font-semibold text-fg"
             >
               Campaign summary
             </h2>
@@ -1029,19 +1031,19 @@ export function CampaignWizard({
                     <div key={String(label)} className="min-w-0">
                       <span
                         aria-hidden="true"
-                        className="mb-2 flex size-8 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                        className="mb-2 flex size-8 items-center justify-center rounded-full bg-surface-muted text-fg-secondary"
                       >
                         <Icon className="size-4" />
                       </span>
-                      <dt className="text-xs text-secondary">{String(label)}</dt>
+                      <dt className="text-xs text-fg-secondary">{String(label)}</dt>
                       <dd className="mt-1 break-words text-md font-semibold">{String(value)}</dd>
                     </div>
                   )
                 })}
               </dl>
             ) : null}
-            <details className="border-t border-border pt-2">
-              <summary className="cursor-pointer rounded-md text-sm font-medium text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring">
+            <details className="border-t border-border-subtle pt-2">
+              <summary className="cursor-pointer rounded-md text-sm font-medium text-fg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring">
                 Campaign details
               </summary>
               <dl className="mt-2 flex flex-col gap-2 text-sm">
@@ -1100,10 +1102,10 @@ export function CampaignWizard({
                 ].map(([k, v]) => (
                   <div
                     key={k}
-                    className="flex min-w-0 flex-wrap justify-between gap-1 border-b border-border py-1.5"
+                    className="flex min-w-0 flex-wrap justify-between gap-1 border-b border-border-subtle py-1.5"
                   >
-                    <dt className="text-secondary">{k}</dt>
-                    <dd className="max-w-full break-words text-slate">{v}</dd>
+                    <dt className="text-fg-secondary">{k}</dt>
+                    <dd className="max-w-full break-words text-fg">{v}</dd>
                   </div>
                 ))}
               </dl>
@@ -1113,7 +1115,7 @@ export function CampaignWizard({
       </div>
       <fieldset
         disabled={busy}
-        className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-3"
+        className="flex flex-wrap items-center gap-2 rounded-lg border border-border-subtle bg-surface p-3"
       >
         <legend className="sr-only">Campaign actions</legend>
         {step > 0 ? (
@@ -1176,7 +1178,7 @@ export function CampaignWizard({
             {later ? 'Schedule campaign' : 'Launch campaign'}
           </Button>
         ) : (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-fg-muted">
             Someone with permission to launch campaigns can send it.
           </p>
         )}

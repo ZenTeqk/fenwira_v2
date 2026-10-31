@@ -42,7 +42,7 @@ export function TemplatePreview({
     <figure
       aria-label="Message preview"
       className={cn(
-        'mx-auto flex w-full max-w-sm flex-col gap-1 rounded-xl bg-neutral-soft p-3',
+        'mx-auto flex w-full max-w-sm flex-col gap-1 rounded-xl bg-surface-muted p-3',
         library && 'max-w-none rounded-lg bg-transparent p-0',
         className,
         recipient && 'overflow-hidden rounded-lg bg-surface p-0 shadow-raised',
@@ -50,7 +50,7 @@ export function TemplatePreview({
     >
       <div
         className={cn(
-          'flex flex-col gap-2 rounded-lg border border-border bg-surface p-2 text-base text-slate shadow-raised',
+          'flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface p-2 text-base text-fg shadow-raised',
           library && 'border-0 p-3 text-sm',
           recipient && 'rounded-none border-0 p-3 shadow-none',
         )}
@@ -82,7 +82,7 @@ export function TemplatePreview({
           ) : (
             <div
               className={cn(
-                'flex aspect-video w-full flex-col gap-2 items-center justify-center rounded-md bg-neutral-soft text-slate',
+                'flex aspect-video w-full flex-col gap-2 items-center justify-center rounded-md bg-surface-muted text-fg',
                 compact && 'max-h-24',
                 library && 'h-16 flex-row aspect-auto',
               )}
@@ -98,19 +98,19 @@ export function TemplatePreview({
           {c.body.text ? (
             text(c.body.text, samples.body)
           ) : (
-            <span className="text-muted">Your message text appears here.</span>
+            <span className="text-fg-muted">Your message text appears here.</span>
           )}
         </p>
         {c.auth?.securityRecommendation ? (
           <p className="text-sm">For your security, do not share this code.</p>
         ) : null}
         {c.footer?.text || c.auth?.codeExpirationMinutes ? (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-fg-muted">
             {c.footer?.text ?? `This code expires in ${c.auth?.codeExpirationMinutes} minutes.`}
           </p>
         ) : null}
         {recipient ? (
-          <span aria-hidden="true" className="self-end text-xs text-muted">
+          <span aria-hidden="true" className="self-end text-xs text-fg-muted">
             9:41 AM
           </span>
         ) : null}
@@ -131,7 +131,7 @@ export function TemplatePreview({
               <li
                 key={i}
                 className={cn(
-                  'flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-info-strong',
+                  'flex items-center justify-center gap-2 rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm font-medium text-status-info-fg',
                   recipient && 'min-h-11 rounded-none border-x-0 border-b-0 text-base',
                 )}
               >

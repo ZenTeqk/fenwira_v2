@@ -28,7 +28,7 @@ function ResultsCell({
     campaignResultsLive(campaign),
     Boolean(campaign.audienceSnapshotAt),
   )
-  if (!campaign.audienceSnapshotAt) return <span className="text-muted">—</span>
+  if (!campaign.audienceSnapshotAt) return <span className="text-fg-muted">—</span>
   if (results.isPending) return <Skeleton className="h-4 w-12" />
   if (results.isError || !results.data)
     return (
@@ -67,11 +67,11 @@ export function CampaignHistory({
             <div className="flex min-w-0 flex-col gap-1">
               <Link
                 href={`/campaigns/${row.original.id}`}
-                className={cn('font-semibold text-slate hover:underline', focusRing)}
+                className={cn('font-semibold text-fg hover:underline', focusRing)}
               >
                 {row.original.name}
               </Link>
-              <span className="text-xs text-secondary">
+              <span className="text-xs text-fg-secondary">
                 {row.original.template?.name ??
                   (row.original.status === 'DRAFT'
                     ? 'Draft · message chosen in Studio'
@@ -85,8 +85,8 @@ export function CampaignHistory({
         id: 'audience',
         header: 'Audience',
         cell: ({ row }) => (
-          <div className="flex items-center gap-2 text-sm text-secondary">
-            <Users aria-hidden="true" className="size-5 shrink-0 text-muted" />
+          <div className="flex items-center gap-2 text-sm text-fg-secondary">
+            <Users aria-hidden="true" className="size-5 shrink-0 text-fg-muted" />
             <div>
               <p>{audienceLabel(row.original)}</p>
               {row.original.audienceSnapshotAt ? (
@@ -125,7 +125,7 @@ export function CampaignHistory({
           const c = row.original
           const at = c.status === 'SCHEDULED' ? c.scheduleAt : (c.startedAt ?? c.launchedAt)
           return (
-            <span className="whitespace-nowrap text-xs text-secondary">
+            <span className="whitespace-nowrap text-xs text-fg-secondary">
               {new Intl.DateTimeFormat('en-IN', {
                 dateStyle: 'medium',
                 timeZone: c.timezone,
@@ -149,9 +149,9 @@ export function CampaignHistory({
   return (
     <section
       aria-label="Campaign history"
-      className="overflow-hidden rounded-lg border border-border bg-surface"
+      className="overflow-hidden rounded-lg border border-border-subtle bg-surface"
     >
-      <h2 className="border-b border-border px-4 py-3 text-md font-semibold text-slate">
+      <h2 className="border-b border-border-subtle px-4 py-3 text-md font-semibold text-fg">
         {drafts ? 'Drafts' : 'Campaign history'}
       </h2>
       <div className="[&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0 [&_thead]:bg-surface [&_td]:py-2 [&_th]:py-2">
@@ -164,7 +164,7 @@ export function CampaignHistory({
         />
       </div>
       <Pagination
-        className="border-t border-border px-4 py-3"
+        className="border-t border-border-subtle px-4 py-3"
         hasPrevious={currentHistoryPage > 0}
         hasNext={historyStart + 5 < history.length}
         onPrevious={() => onPageChange(currentHistoryPage - 1)}

@@ -21,7 +21,7 @@ export function CampaignArtwork({
     <span
       aria-hidden="true"
       className={cn(
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary-soft text-primary-strong',
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-muted text-fg-secondary',
         small ? 'h-9 w-14' : 'h-14 w-20 sm:h-16 sm:w-24',
       )}
     >

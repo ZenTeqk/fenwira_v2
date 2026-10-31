@@ -48,6 +48,8 @@ import {
   Timeline,
   toast,
   useConfirm,
+  textLink,
+  cn,
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MoreHorizontal, Pencil } from 'lucide-react'
@@ -120,15 +122,25 @@ const consentColumns: Array<ColumnDef<ConsentRecord>> = [
   {
     id: 'evidence',
     header: 'Evidence',
-    cell: ({ row }) => <span className="text-sm text-secondary">{evidenceText(row.original)}</span>,
+    cell: ({ row }) => (
+      <span className="text-sm text-fg-secondary">{evidenceText(row.original)}</span>
+    ),
   },
 ]
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd className="text-base text-slate">{children || '—'}</dd>
+    <div className="flex min-w-0 flex-col gap-1">
+      <dt className="text-sm text-fg-muted">{label}</dt>
+      {/* Long values (emails, names) wrap inside the column; empty fields read as "Not set". */}
+      <dd className="min-w-0 text-base text-fg wrap-anywhere">
+        {children || (
+          <span className="text-fg-muted">
+            <span aria-hidden="true">—</span>
+            <span className="sr-only">Not set</span>
+          </span>
+        )}
+      </dd>
     </div>
   )
 }
@@ -186,7 +198,7 @@ function ConsentModal({
         >
           <FormError error={change.error} />
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-slate" id="consent-purpose">
+            <span className="text-sm font-medium text-fg" id="consent-purpose">
               Message type
             </span>
             <Select value={purpose} onValueChange={(v) => setPurpose(v as 'MARKETING' | 'UTILITY')}>
@@ -198,7 +210,7 @@ function ConsentModal({
                 <SelectItem value="UTILITY">Utility (updates, reminders)</SelectItem>
               </SelectContent>
             </Select>
-            <span className="text-sm text-muted">Currently: {CONSENT_LABEL[current]}</span>
+            <span className="text-sm text-fg-muted">Currently: {CONSENT_LABEL[current]}</span>
           </div>
           <Field label="Note" hint="How and when the contact told you.">
             <Textarea
@@ -454,23 +466,20 @@ export default function ContactPage() {
 
         <TabsContent value="conversations">
           {conversations.data?.length ? (
-            <ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
+            <ul className="flex flex-col divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface">
               {conversations.data.map((cv) => (
                 <li key={cv.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
                   <div className="flex min-w-0 flex-col">
                     {can('inbox.read') ? (
-                      <Link
-                        href={`/inbox?c=${cv.id}`}
-                        className="truncate text-primary-strong hover:underline"
-                      >
+                      <Link href={`/inbox?c=${cv.id}`} className={cn('truncate', textLink)}>
                         {cv.lastMessagePreview ?? 'Open conversation'}
                       </Link>
                     ) : (
-                      <span className="truncate text-slate">
+                      <span className="truncate text-fg">
                         {cv.lastMessagePreview ?? 'No messages yet'}
                       </span>
                     )}
-                    <span className="text-sm text-muted">
+                    <span className="text-sm text-fg-muted">
                       Via {cv.phoneNumber}
                       {cv.lastMessageAt ? ` · ${relativeTime(cv.lastMessageAt)}` : ''}
                     </span>
@@ -554,9 +563,9 @@ export default function ContactPage() {
           {notes.data?.length ? (
             <ul className="flex flex-col gap-3">
               {notes.data.map((n) => (
-                <li key={n.id} className="rounded-md border border-border bg-surface p-3">
-                  <p className="whitespace-pre-wrap text-slate">{n.body}</p>
-                  <p className="mt-1 text-sm text-muted">
+                <li key={n.id} className="rounded-md border border-border-subtle bg-surface p-3">
+                  <p className="whitespace-pre-wrap text-fg">{n.body}</p>
+                  <p className="mt-1 text-sm text-fg-muted">
                     {n.authorName} · {formatDateTime(n.createdAt)}
                   </p>
                 </li>

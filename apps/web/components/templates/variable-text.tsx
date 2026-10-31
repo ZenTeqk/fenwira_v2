@@ -27,7 +27,7 @@ export function VariableText({
           <span
             key={i}
             title={value ? `{{${m[1]}}}` : undefined}
-            className="mx-px rounded-sm bg-primary-soft px-1 font-medium text-primary-strong"
+            className="mx-px rounded-sm bg-action-primary-subtle px-1 font-medium text-action-primary"
           >
             {value || `{{${m[1]}}}`}
           </span>

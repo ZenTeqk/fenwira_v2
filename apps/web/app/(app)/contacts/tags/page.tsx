@@ -100,7 +100,7 @@ function TagModal({
             />
           </Field>
           <div className="flex flex-col gap-1.5">
-            <span id="tag-color" className="text-sm font-medium text-slate">
+            <span id="tag-color" className="text-sm font-medium text-fg">
               Color
             </span>
             <Select value={color} onValueChange={(v) => setColor(v as TagColor)}>

@@ -276,7 +276,7 @@
 /* Template library only: preserve shared tab and preview defaults in other modules. */
 .fw-template-library [data-slot='tabs-trigger'][data-state='active'] {
   border-color: var(--color-action-primary);
-  color: var(--color-action-primary);
+  color: var(--color-fg);
 }
 .fw-template-library-preview::after {
   content: '';

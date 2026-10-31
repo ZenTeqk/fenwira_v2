@@ -73,7 +73,7 @@ const toName = (v: string) =>
     .replace(/[\s-]+/g, '_')
     .replace(/[^a-z0-9_]/g, '')
 const textareaClass =
-  'min-h-28 w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-slate'
+  'min-h-28 w-full rounded-md border border-border-subtle bg-surface px-3 py-2 text-base text-fg'
 
 /** Errors and warnings for a field path (and its children). */
 const issuesAt = (issues: TemplateIssue[], path: string) =>
@@ -283,7 +283,7 @@ export function TemplateBuilder({
         <Section title="Basics">
           {!template ? (
             <div className="flex flex-col gap-1.5">
-              <span id={ids.account} className="text-sm font-medium text-slate">
+              <span id={ids.account} className="text-sm font-medium text-fg">
                 WhatsApp Business Account
               </span>
               <Select value={account} onValueChange={setWabaId}>
@@ -299,7 +299,7 @@ export function TemplateBuilder({
                 </SelectContent>
               </Select>
               {accounts.data && !accounts.data.length ? (
-                <p className="text-sm text-muted">
+                <p className="text-sm text-fg-muted">
                   Connect a WhatsApp number first (Settings → WhatsApp).
                 </p>
               ) : null}
@@ -319,7 +319,7 @@ export function TemplateBuilder({
             />
           </Field>
           <div className="flex flex-col gap-1.5">
-            <span id={ids.language} className="text-sm font-medium text-slate">
+            <span id={ids.language} className="text-sm font-medium text-fg">
               Language
             </span>
             <Select
@@ -340,7 +340,7 @@ export function TemplateBuilder({
             </Select>
           </div>
           <fieldset className="flex flex-col gap-2" disabled={submitted}>
-            <legend id={ids.category} className="mb-1 text-sm font-medium text-slate">
+            <legend id={ids.category} className="mb-1 text-sm font-medium text-fg">
               Category
             </legend>
             <RadioGroup
@@ -350,11 +350,11 @@ export function TemplateBuilder({
               className="flex flex-col gap-2"
             >
               {TEMPLATE_CATEGORIES.map((cat) => (
-                <label key={cat} className="flex items-start gap-2 text-sm text-slate">
+                <label key={cat} className="flex items-start gap-2 text-sm text-fg">
                   <RadioGroupItem value={cat} className="mt-0.5" />
                   <span>
                     <span className="font-medium">{CATEGORY_LABEL[cat]}</span>
-                    <span className="block text-muted">{CATEGORY_HINT[cat]}</span>
+                    <span className="block text-fg-muted">{CATEGORY_HINT[cat]}</span>
                   </span>
                 </label>
               ))}
@@ -364,11 +364,11 @@ export function TemplateBuilder({
 
         {draft.category === 'AUTHENTICATION' ? (
           <Section title="Code message">
-            <p className="text-sm text-muted">
+            <p className="text-sm text-fg-muted">
               Meta writes the message: “<strong>123456</strong> is your verification code.” You
               choose the extras.
             </p>
-            <label className="flex items-center gap-2 text-sm text-slate">
+            <label className="flex items-center gap-2 text-sm text-fg">
               <Checkbox
                 checked={c.auth?.securityRecommendation ?? false}
                 onCheckedChange={(v) =>
@@ -410,7 +410,7 @@ export function TemplateBuilder({
           <>
             <Section title="Header (optional)">
               <div className="flex flex-col gap-1.5">
-                <span id={ids.header} className="text-sm font-medium text-slate">
+                <span id={ids.header} className="text-sm font-medium text-fg">
                   Header type
                 </span>
                 <Select
@@ -480,7 +480,7 @@ export function TemplateBuilder({
                           ? 'video/mp4'
                           : 'application/pdf'
                     }
-                    className="text-sm text-slate file:mr-3 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-1.5 file:text-slate"
+                    className="text-sm text-fg file:mr-3 file:rounded-md file:border file:border-border-subtle file:bg-surface file:px-3 file:py-1.5 file:text-fg"
                     onChange={(e) => {
                       const f = e.target.files?.[0]
                       if (f) upload.mutate(f)
@@ -488,7 +488,7 @@ export function TemplateBuilder({
                   />
                 </Field>
               ) : null}
-              {upload.isPending ? <p className="text-sm text-muted">Uploading…</p> : null}
+              {upload.isPending ? <p className="text-sm text-fg-muted">Uploading…</p> : null}
             </Section>
 
             <Section title="Message">
@@ -530,9 +530,12 @@ export function TemplateBuilder({
 
             <Section title="Buttons (optional)">
               {(c.buttons ?? []).map((b, i) => (
-                <div key={i} className="flex flex-col gap-2 rounded-md border border-border p-3">
+                <div
+                  key={i}
+                  className="flex flex-col gap-2 rounded-md border border-border-subtle p-3"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate">{NEW_BUTTON[b.type][0]}</span>
+                    <span className="text-sm font-medium text-fg">{NEW_BUTTON[b.type][0]}</span>
                     <Button
                       type="button"
                       variant="ghost"
@@ -591,7 +594,7 @@ export function TemplateBuilder({
               ))}
               {message(errors, 'components.buttons') &&
               !issuesAt(errors, 'components.buttons').some((x) => /\.\d+\./.test(x.path)) ? (
-                <p className="text-sm text-danger-strong">
+                <p className="text-sm text-status-error-fg">
                   {message(errors, 'components.buttons')}
                 </p>
               ) : null}
@@ -624,7 +627,7 @@ export function TemplateBuilder({
 
             {need.header || need.body || Object.keys(need.buttons).length ? (
               <Section title="Sample values">
-                <p className="text-sm text-muted">
+                <p className="text-sm text-fg-muted">
                   Meta reviews the template with these examples. Use realistic values.
                 </p>
                 {Array.from({ length: need.header }, (_, i) => (
@@ -714,7 +717,7 @@ export function TemplateBuilder({
 
       <aside className="lg:col-span-2" aria-label="Preview">
         <div className={cn('flex flex-col gap-2 lg:sticky lg:top-20')}>
-          <h2 className="text-sm font-semibold text-slate">Preview</h2>
+          <h2 className="text-sm font-semibold text-fg">Preview</h2>
           <TemplatePhonePreview
             components={c}
             samples={draft.samples}

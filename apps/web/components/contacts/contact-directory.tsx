@@ -62,11 +62,11 @@ export function ContactOwner({ ownerId }: { ownerId: string | null }) {
   const resolveOwner = useContactOwners()
   const name = resolveOwner(ownerId)
   return (
-    <span className="flex min-w-0 items-center gap-1.5 text-xs text-secondary">
+    <span className="flex min-w-0 items-center gap-1.5 text-xs text-fg-secondary">
       {name ? (
         <Avatar appearance="varied" name={name} size="sm" />
       ) : (
-        <UserRound aria-hidden="true" className="size-4 shrink-0 text-muted" />
+        <UserRound aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
       )}
       <span className="truncate">{name ?? (ownerId ? 'Assigned teammate' : 'Unassigned')}</span>
     </span>
@@ -148,23 +148,24 @@ export function ContactDirectory({
           variant="ghost"
           onClick={() => onPreview(c.id)}
           data-contact-preview={c.id}
-          aria-label={mobile ? `${contactName(c)} ${c.phoneE164}` : contactName(c)}
+          aria-label={mobile ? `${contactName(c)} ${formatPhone(c.phoneE164)}` : contactName(c)}
           aria-current={preview === c.id ? 'true' : undefined}
           className={cn(
-            'h-auto min-h-6 max-w-full justify-start px-0 py-0 text-sm font-semibold',
+            // Clip long names inside the column; the full name stays in the title and label.
+            'h-auto min-h-6 w-full max-w-full justify-start overflow-hidden px-0 py-0 text-sm font-semibold',
             mobile && 'min-h-10',
           )}
           title={contactName(c)}
         >
-          <span className="flex min-w-0 flex-col items-start">
-            <span className="truncate">{contactName(c)}</span>
+          <span className="flex w-full min-w-0 flex-col items-start">
+            <span className="block w-full truncate text-left">{contactName(c)}</span>
             {mobile ? (
-              <span className="text-xs font-normal text-muted">{formatPhone(c.phoneE164)}</span>
+              <span className="text-xs font-normal text-fg-muted">{formatPhone(c.phoneE164)}</span>
             ) : null}
           </span>
         </Button>
         {!mobile ? (
-          <p className="truncate text-xs text-muted">{c.email ?? SOURCE_LABEL[c.source]}</p>
+          <p className="truncate text-xs text-fg-muted">{c.email ?? SOURCE_LABEL[c.source]}</p>
         ) : null}
       </div>
     </div>
@@ -244,9 +245,9 @@ export function ContactDirectory({
   return (
     <section
       aria-label="Contact directory"
-      className="overflow-hidden rounded-lg border border-border bg-surface"
+      className="overflow-hidden rounded-lg border border-border-subtle bg-surface"
     >
-      <div className="flex flex-wrap items-start gap-2 border-b border-border p-3">
+      <div className="flex flex-wrap items-start gap-2 border-b border-border-subtle p-3">
         <div className="min-w-0 flex-1">{toolbar(columnMenu)}</div>
       </div>
       {state ?? (
@@ -304,7 +305,7 @@ export function ContactDirectory({
                     <TableCell className="min-w-36 max-w-48 px-2 py-2">{identity(c)}</TableCell>
                     <TableCell
                       className={cn(
-                        'whitespace-nowrap px-2 py-2 text-xs text-secondary',
+                        'whitespace-nowrap px-2 py-2 text-xs text-fg-secondary',
                         columnClass('phone'),
                       )}
                     >
@@ -317,7 +318,7 @@ export function ContactDirectory({
                       <DirectoryEligibility contactId={c.id} />
                     </TableCell>
                     <TableCell
-                      className={cn('px-2 py-2 text-xs text-muted', columnClass('lastInbound'))}
+                      className={cn('px-2 py-2 text-xs text-fg-muted', columnClass('lastInbound'))}
                     >
                       {c.lastInboundAt ? (
                         <time dateTime={c.lastInboundAt}>{relativeTime(c.lastInboundAt)}</time>
@@ -336,13 +337,13 @@ export function ContactDirectory({
               </TableBody>
             </Table>
           </div>
-          <ul aria-label="Contacts" className="divide-y divide-border md:hidden">
+          <ul aria-label="Contacts" className="divide-y divide-border-subtle md:hidden">
             {data.map((c) => (
               <li
                 key={c.id}
                 className={cn(
                   'flex items-start gap-2 px-2 py-3',
-                  (selected.includes(c.id) || preview === c.id) && 'bg-primary-soft',
+                  (selected.includes(c.id) || preview === c.id) && 'bg-surface-selected',
                 )}
               >
                 {choice(c, true)}
@@ -353,7 +354,7 @@ export function ContactDirectory({
                     {visible.eligibility ? <DirectoryEligibility contactId={c.id} /> : null}
                   </div>
                   {visible.lastInbound && c.lastInboundAt ? (
-                    <p className="ml-11 mt-1 text-xs text-muted">
+                    <p className="ml-11 mt-1 text-xs text-fg-muted">
                       Last incoming {relativeTime(c.lastInboundAt)}
                     </p>
                   ) : null}
@@ -368,7 +369,7 @@ export function ContactDirectory({
         <div
           role="region"
           aria-label="Bulk actions"
-          className="flex flex-wrap items-center gap-2 border-t border-border bg-primary-soft px-3 py-2"
+          className="flex flex-wrap items-center gap-2 border-t border-border-subtle bg-surface-muted px-3 py-2"
         >
           <span aria-live="polite" className="text-sm font-medium">
             {selected.length} selected
@@ -379,7 +380,9 @@ export function ContactDirectory({
           </Button>
         </div>
       ) : null}
-      {!error ? <Pagination {...pagination} className="border-t border-border px-3 py-3" /> : null}
+      {!error ? (
+        <Pagination {...pagination} className="border-t border-border-subtle px-3 py-3" />
+      ) : null}
     </section>
   )
 }

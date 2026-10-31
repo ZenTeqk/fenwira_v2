@@ -1,7 +1,7 @@
 'use client'
 
 import type { Campaign, CampaignStats } from '@fenwira/contracts'
-import { Card, CardContent, MetricCard, Progress } from '@fenwira/ui'
+import { Card, CardContent, cn, MetricCard, Progress } from '@fenwira/ui'
 import { CheckCheck, Eye, Send, TriangleAlert } from 'lucide-react'
 import { percent } from '@/lib/campaigns'
 
@@ -17,8 +17,8 @@ export function CampaignPerformance({
     return (
       <Card>
         <CardContent className="flex flex-col gap-2 p-4">
-          <h2 className="text-md font-semibold text-slate">Delivery overview</h2>
-          <p className="text-sm text-secondary">
+          <h2 className="text-md font-semibold text-fg">Delivery overview</h2>
+          <p className="text-sm text-fg-secondary">
             Results appear after the audience is prepared. No messages have been reported yet.
           </p>
         </CardContent>
@@ -46,36 +46,46 @@ export function CampaignPerformance({
         <CardContent className="flex flex-col gap-4 p-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h2 className="text-md font-semibold text-slate">Delivery overview</h2>
-              <p className="mt-1 text-sm text-secondary">
+              <h2 className="text-md font-semibold text-fg">Delivery overview</h2>
+              <p className="mt-1 text-sm text-fg-secondary">
                 Follow your message from sending to reading.
               </p>
             </div>
-            <span className="text-sm text-secondary">
+            <span className="text-sm text-fg-secondary">
               {s.eligible.toLocaleString('en-IN')} eligible recipients
             </span>
           </div>
           <div className="flex flex-col gap-4" aria-label="Delivery funnel">
             {(
               [
-                ['Sent', s.sent, Send],
-                ['Delivered', s.delivered, CheckCheck],
-                ['Read', s.read, Eye],
+                // Sent stays emerald; delivered and read follow the inbox tick semantics.
+                ['Sent', s.sent, Send, 'primary', 'bg-surface-muted text-fg-secondary'],
+                [
+                  'Delivered',
+                  s.delivered,
+                  CheckCheck,
+                  'success',
+                  'bg-status-success-bg text-status-success-fg',
+                ],
+                ['Read', s.read, Eye, 'info', 'bg-status-info-bg text-status-info-fg'],
               ] as const
-            ).map(([label, value, Icon]) => (
+            ).map(([label, value, Icon, tone, tile]) => (
               <div key={label} className="flex items-start gap-3">
                 <span
                   aria-hidden="true"
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                  className={cn(
+                    'flex size-9 shrink-0 items-center justify-center rounded-full',
+                    tile,
+                  )}
                 >
                   <Icon className="size-4" />
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
                   <div className="flex justify-between gap-3 text-sm">
-                    <span className="font-medium text-slate">{label}</span>
-                    <span className="tabular-nums text-secondary">
+                    <span className="font-medium text-fg">{label}</span>
+                    <span className="tabular-nums text-fg-secondary">
                       {value.toLocaleString('en-IN')}{' '}
-                      <span className="text-muted">/ {s.eligible.toLocaleString('en-IN')}</span>
+                      <span className="text-fg-muted">/ {s.eligible.toLocaleString('en-IN')}</span>
                     </span>
                   </div>
                   {s.eligible > 0 ? (
@@ -83,20 +93,21 @@ export function CampaignPerformance({
                       label={`${label} reach of eligible audience`}
                       value={value}
                       max={s.eligible}
+                      tone={tone}
                       className="h-2"
                     />
                   ) : (
-                    <p className="text-xs text-muted">No eligible audience yet</p>
+                    <p className="text-xs text-fg-muted">No eligible audience yet</p>
                   )}
                 </div>
               </div>
             ))}
           </div>
-          <p className="text-xs text-secondary">
+          <p className="text-xs text-fg-secondary">
             Bars use the same eligible audience. Read messages are already included in Delivered and
             Sent.
           </p>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-4 sm:grid-cols-3">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border-subtle pt-4 sm:grid-cols-3">
             {[
               ['Total recipients', s.total.toLocaleString('en-IN')],
               ['Eligible', s.eligible.toLocaleString('en-IN')],
@@ -117,12 +128,12 @@ export function CampaignPerformance({
                 : []),
             ].map(([label, value]) => (
               <div key={label}>
-                <dt className="text-xs text-secondary">{label}</dt>
-                <dd className="mt-1 text-base font-semibold tabular-nums text-slate">{value}</dd>
+                <dt className="text-xs text-fg-secondary">{label}</dt>
+                <dd className="mt-1 text-base font-semibold tabular-nums text-fg">{value}</dd>
               </div>
             ))}
           </dl>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-fg-muted">
             Delivery rate uses attempted messages; read rate uses delivered messages. Waiting
             includes queued messages.
           </p>
