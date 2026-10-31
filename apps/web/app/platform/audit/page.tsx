@@ -1,10 +1,12 @@
 'use client'
 import {
+  Badge,
   Button,
   DetailDrawer,
   ErrorState,
   ListPage,
   Skeleton,
+  StatusBadge,
   Table,
   TableBody,
   TableCell,
@@ -18,6 +20,14 @@ import { z } from 'zod'
 import { platformAuditSchema as auditSchema } from '@fenwira/contracts'
 import { platformRequest } from '@/lib/platform'
 import { usePlatform } from '@/components/platform/platform-shell'
+/** Outcomes the API records; anything else is shown as-is in a neutral badge. */
+function Outcome({ value }: { value: string }) {
+  if (value === 'SUCCESS') return <StatusBadge status="SUCCEEDED" label="Success" />
+  if (value === 'DENIED') return <StatusBadge status="REJECTED" label="Denied" />
+  if (value === 'FAILED') return <StatusBadge status="FAILED" />
+  return <Badge tone="neutral">{value}</Badge>
+}
+
 export default function Page() {
   const me = usePlatform(),
     [selected, select] = useState<z.infer<typeof auditSchema> | null>(null)
@@ -42,11 +52,12 @@ export default function Page() {
       ) : result.isError ? (
         <ErrorState onRetry={() => void result.refetch()} />
       ) : (
-        <Table containerLabel="Commercial records">
+        <Table containerLabel="Platform audit events">
           <TableHeader>
             <TableRow>
               <TableHead>Time</TableHead>
               <TableHead>Event</TableHead>
+              <TableHead>Workspace</TableHead>
               <TableHead>Outcome</TableHead>
               <TableHead>Details</TableHead>
             </TableRow>
@@ -54,9 +65,16 @@ export default function Page() {
           <TableBody>
             {result.data.map((r) => (
               <TableRow key={r.id}>
-                <TableCell>{new Date(r.createdAt).toLocaleString()}</TableCell>
-                <TableCell>{r.action}</TableCell>
-                <TableCell>{r.outcome}</TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {new Date(r.createdAt).toLocaleString()}
+                </TableCell>
+                <TableCell className="font-mono text-sm">{r.action}</TableCell>
+                <TableCell className="font-mono text-xs text-fg-secondary">
+                  {r.workspaceId ?? 'Console'}
+                </TableCell>
+                <TableCell>
+                  <Outcome value={r.outcome} />
+                </TableCell>
                 <TableCell>
                   <Button size="sm" variant="secondary" onClick={() => select(r)}>
                     Inspect {r.action}
@@ -79,11 +97,15 @@ export default function Page() {
           {selected
             ? Object.entries(selected).map(([key, value]) => (
                 <div key={key}>
-                  <dt className="text-sm text-secondary">{key}</dt>
-                  <dd className="break-all font-mono text-sm">
-                    {typeof value === 'object' && value !== null
-                      ? JSON.stringify(value)
-                      : (value ?? '—')}
+                  <dt className="text-sm text-fg-secondary">{key}</dt>
+                  <dd className="font-mono text-sm break-all text-fg">
+                    {typeof value === 'object' && value !== null ? (
+                      <pre className="rounded-md border border-border-subtle bg-surface-muted p-3 text-xs whitespace-pre-wrap">
+                        {JSON.stringify(value, null, 2)}
+                      </pre>
+                    ) : (
+                      (value ?? '—')
+                    )}
                   </dd>
                 </div>
               ))

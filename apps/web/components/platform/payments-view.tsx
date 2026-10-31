@@ -28,6 +28,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  textLink,
   toast,
 } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -110,9 +111,10 @@ export function PaymentsView() {
               <TableRow>
                 <TableHead>Workspace</TableHead>
                 <TableHead>Invoice</TableHead>
-                <TableHead>Amount</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
                 <TableHead>UTR</TableHead>
                 <TableHead>Submitted</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -120,19 +122,24 @@ export function PaymentsView() {
               {pending.map((p) => (
                 <TableRow key={p.proofId}>
                   <TableCell>
-                    <Link href={`/platform/workspaces/${p.workspaceId}`} className="underline">
+                    <Link href={`/platform/workspaces/${p.workspaceId}`} className={textLink}>
                       {p.workspaceName}
                     </Link>
                   </TableCell>
                   <TableCell>
                     {p.invoiceNumber}
-                    <span className="block text-sm text-secondary">
+                    <span className="block text-sm text-fg-secondary">
                       {p.kind === 'PLAN_RENEWAL' ? 'Plan renewal' : 'Wallet top-up'}
                     </span>
                   </TableCell>
-                  <TableCell>{platformMoney(p.totalMinor, p.currency)}</TableCell>
+                  <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">
+                    {platformMoney(p.totalMinor, p.currency)}
+                  </TableCell>
                   <TableCell className="font-mono">{p.utr}</TableCell>
                   <TableCell>{when(p.submittedAt)}</TableCell>
+                  <TableCell>
+                    <StatusBadge status="PENDING" label="Pending verification" />
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
                       {p.hasFile ? (
@@ -175,12 +182,12 @@ export function PaymentsView() {
           </CardHeader>
           <CardContent>
             {overdue.length === 0 ? (
-              <p className="text-sm text-secondary">No overdue workspaces.</p>
+              <p className="text-sm text-fg-secondary">No overdue workspaces.</p>
             ) : (
               <ul className="flex flex-col gap-3">
                 {overdue.map((o) => (
                   <li key={o.workspaceId} className="flex flex-wrap items-center gap-2">
-                    <Link href={`/platform/workspaces/${o.workspaceId}`} className="underline">
+                    <Link href={`/platform/workspaces/${o.workspaceId}`} className={textLink}>
                       {o.workspaceName}
                     </Link>
                     {o.subscriptionStatus === 'SUSPENDED' ? (
@@ -188,7 +195,7 @@ export function PaymentsView() {
                     ) : o.subscriptionStatus === 'PAST_DUE' ? (
                       <StatusBadge status="ATTENTION" label="Past due" />
                     ) : null}
-                    <span className="text-sm text-secondary">
+                    <span className="text-sm text-fg-secondary">
                       {o.openInvoices} open · {platformMoney(o.openTotalMinor)} · due since{' '}
                       {when(o.oldestDueAt)}
                     </span>
@@ -204,7 +211,7 @@ export function PaymentsView() {
           </CardHeader>
           <CardContent>
             {revenue.length === 0 ? (
-              <p className="text-sm text-secondary">No payments approved yet.</p>
+              <p className="text-sm text-fg-secondary">No payments approved yet.</p>
             ) : (
               <Table containerLabel="Revenue by month">
                 <TableHeader>
@@ -225,7 +232,7 @@ export function PaymentsView() {
                 </TableBody>
               </Table>
             )}
-            <p className="mt-3 text-sm text-secondary">
+            <p className="mt-3 text-sm text-fg-secondary">
               Fenwira subscription and wallet payments only. Meta bills conversation charges to each
               customer directly.
             </p>
@@ -242,6 +249,36 @@ export function PaymentsView() {
         }}
       />
     </ListPage>
+  )
+}
+
+/** What is being approved or rejected, stated once and unambiguously before the decision. */
+function PaymentTarget({ p }: { p: PendingPayment }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-border-subtle bg-surface-muted p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col">
+          <span className="text-sm text-fg-secondary">Amount claimed</span>
+          <span className="text-2xl font-semibold break-all text-fg tabular-nums">
+            {platformMoney(p.totalMinor, p.currency)}
+          </span>
+        </div>
+        <StatusBadge status="PENDING" label="Pending verification" />
+      </div>
+      <dl className="grid grid-cols-3 gap-x-4 gap-y-1.5 text-sm">
+        <dt className="text-fg-secondary">Workspace</dt>
+        <dd className="col-span-2 min-w-0 font-medium break-words text-fg">{p.workspaceName}</dd>
+        <dt className="text-fg-secondary">Invoice</dt>
+        <dd className="col-span-2 min-w-0 text-fg">
+          <span className="font-mono">{p.invoiceNumber}</span> ·{' '}
+          {p.kind === 'PLAN_RENEWAL' ? 'Plan renewal' : 'Wallet top-up'}
+        </dd>
+        <dt className="text-fg-secondary">UTR</dt>
+        <dd className="col-span-2 min-w-0 font-mono break-all text-fg">{p.utr}</dd>
+        <dt className="text-fg-secondary">Submitted</dt>
+        <dd className="col-span-2 min-w-0 text-fg">{when(p.submittedAt)}</dd>
+      </dl>
+    </div>
   )
 }
 
@@ -299,13 +336,10 @@ export function ReviewDrawer({
         }
       }}
       title={approve ? 'Approve payment' : 'Reject payment'}
-      description={
-        review
-          ? `${review.p.workspaceName} · ${review.p.invoiceNumber} · ${platformMoney(review.p.totalMinor, review.p.currency)} · UTR ${review.p.utr}`
-          : undefined
-      }
+      description={review ? `${review.p.workspaceName} · ${review.p.invoiceNumber}` : undefined}
     >
       <form onSubmit={submit} className="flex flex-col gap-4">
+        {review ? <PaymentTarget p={review.p} /> : null}
         {approve ? (
           <>
             <Alert tone="info" title="Match the bank statement first">

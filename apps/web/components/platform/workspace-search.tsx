@@ -23,6 +23,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  textLink,
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -46,7 +47,7 @@ export const workspaceStatus = (w: Pick<PlatformWorkspaceRow, 'status' | 'intern
   ) : w.status && STATUS[w.status] ? (
     <StatusBadge {...STATUS[w.status]!} />
   ) : (
-    <span className="text-sm text-secondary">No subscription</span>
+    <span className="text-sm text-fg-secondary">No subscription</span>
   )
 
 export function useWorkspaceList() {
@@ -175,18 +176,18 @@ export function WorkspaceSearch() {
             {rows.map((w) => (
               <TableRow
                 key={w.id}
-                className="cursor-pointer hover:bg-background"
+                className="cursor-pointer hover:bg-surface-muted"
                 onClick={() => router.push(`/platform/workspaces/${w.id}`)}
               >
                 <TableCell>
                   <Link
                     href={`/platform/workspaces/${w.id}`}
-                    className="font-medium text-primary-strong hover:underline"
+                    className={`font-medium ${textLink}`}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {w.name}
                   </Link>
-                  <p className="text-xs text-secondary">{w.slug}</p>
+                  <p className="text-xs text-fg-secondary">{w.slug}</p>
                 </TableCell>
                 <TableCell>
                   {w.internal ? 'Business (internal)' : (w.plan?.name ?? 'Not chosen')}
@@ -199,7 +200,7 @@ export function WorkspaceSearch() {
                 <TableCell className="break-all">{w.ownerEmail ?? '—'}</TableCell>
                 <TableCell>
                   {w.whatsapp === 'NONE' ? (
-                    <span className="text-sm text-secondary">Not connected</span>
+                    <span className="text-sm text-fg-secondary">Not connected</span>
                   ) : (
                     <StatusBadge
                       status={w.whatsapp === 'HEALTHY' ? 'CONNECTED' : 'ATTENTION'}
@@ -220,7 +221,7 @@ export function WorkspaceSearch() {
       )}
       <DeletedWorkspaces />
       {list.data?.length === 500 ? (
-        <p className="text-sm text-secondary">
+        <p className="text-sm text-fg-secondary">
           Showing the newest 500 workspaces; older ones are not listed here.
         </p>
       ) : null}

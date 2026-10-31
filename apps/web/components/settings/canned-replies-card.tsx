@@ -15,6 +15,7 @@ import {
   ModalClose,
   ModalContent,
   useConfirm,
+  Textarea,
 } from '@fenwira/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useEffect, useState } from 'react'
@@ -97,13 +98,12 @@ function ReplyModal({
             />
           </Field>
           <Field label="Message" error={fieldError(save.error, 'body')}>
-            <textarea
+            <Textarea
               value={draft.body}
               onChange={(e) => set('body')(e.target.value)}
               required
               maxLength={4096}
               rows={5}
-              className="rounded-md border border-border bg-surface px-3 py-2 text-base text-slate"
             />
           </Field>
         </form>
@@ -145,15 +145,15 @@ export function CannedRepliesCard({ canManage }: { canManage: boolean }) {
       </CardHeader>
       <CardContent>
         {replies.length ? (
-          <ul className="flex flex-col divide-y divide-border" aria-label="Canned replies">
+          <ul className="flex flex-col divide-y divide-border-subtle" aria-label="Canned replies">
             {replies.map((r) => (
               <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-3">
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex items-center gap-2">
-                    <span className="font-mono text-sm text-slate">{r.shortcut}</span>
-                    <span className="font-medium text-slate">{r.title}</span>
+                    <span className="font-mono text-sm text-fg">{r.shortcut}</span>
+                    <span className="font-medium text-fg">{r.title}</span>
                   </span>
-                  <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted">{r.body}</p>
+                  <p className="line-clamp-2 whitespace-pre-wrap text-sm text-fg-muted">{r.body}</p>
                 </div>
                 {canManage ? (
                   <span className="flex gap-1">

@@ -65,7 +65,8 @@ export function SummaryItem({ label, children }: { label: string; children: Reac
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <dt className="text-sm text-fg-secondary">{label}</dt>
-      <dd className="min-w-0 font-medium text-fg">{children}</dd>
+      {/* Long unbroken values (emails, IDs) wrap instead of widening the page. */}
+      <dd className="min-w-0 font-medium wrap-anywhere text-fg">{children}</dd>
     </div>
   )
 }

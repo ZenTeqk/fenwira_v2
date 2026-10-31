@@ -88,7 +88,7 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
     <IdentityContext.Provider value={{ verify, run }}>
       <section
         aria-label="Identity verification"
-        className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface px-4 py-3"
+        className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-border-subtle bg-surface px-4 py-3"
       >
         {left > 0 ? (
           <Badge tone="success" icon={<ShieldCheck className="size-4" />}>
@@ -103,7 +103,7 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
             Identity not verified
           </Badge>
         )}
-        <p className="text-sm text-secondary">
+        <p className="text-sm text-fg-secondary">
           Connecting WhatsApp, approving payments, invoices and billing adjustments need a check
           from the last 5 minutes. You are asked automatically when an action needs it.
         </p>
@@ -153,7 +153,7 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
               />
             </Field>
             {error ? (
-              <p role="alert" className="text-sm text-danger-strong">
+              <p role="alert" className="text-sm text-status-error-fg">
                 {error}
               </p>
             ) : null}

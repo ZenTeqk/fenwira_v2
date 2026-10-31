@@ -8,14 +8,17 @@ import {
   Card,
   ErrorState,
   PermissionState,
+  Progress,
   SettingsPage,
   Skeleton,
   StatusBadge,
+  textLink,
   toast,
 } from '@fenwira/ui'
 import Link from 'next/link'
 import { useSession } from '@/components/session/session-provider'
 import { ApiError } from '@/lib/api/client'
+import { formatMoney } from '@/lib/billing'
 import {
   STATUS_BADGE,
   STATUS_LABEL,
@@ -45,8 +48,8 @@ function LimitRow({ e }: { e: EntitlementStatus }) {
   return (
     <li className="flex flex-col gap-2 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-medium text-slate">{e.label}</span>
-        <span className="flex items-center gap-2 text-sm text-secondary">
+        <span className="font-medium text-fg">{e.label}</span>
+        <span className="flex items-center gap-2 text-sm text-fg-secondary">
           {e.limit === null
             ? e.usage === null
               ? 'Unlimited'
@@ -58,22 +61,15 @@ function LimitRow({ e }: { e: EntitlementStatus }) {
         </span>
       </div>
       {e.limit !== null && e.usage !== null ? (
-        <div
-          role="progressbar"
-          aria-label={`${e.label} used`}
-          aria-valuemin={0}
-          aria-valuemax={e.limit}
-          aria-valuenow={Math.min(e.usage, e.limit)}
-          className="h-1.5 overflow-hidden rounded-full bg-neutral-soft"
-        >
-          <div
-            className={e.overLimit || pct >= 90 ? 'h-full bg-warning' : 'h-full bg-primary'}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
+        <Progress
+          label={`${e.label} used`}
+          value={e.usage}
+          max={e.limit}
+          tone={e.overLimit || pct >= 90 ? 'warning' : 'primary'}
+        />
       ) : null}
       {e.overLimit ? (
-        <p className="text-sm text-secondary">
+        <p className="text-sm text-fg-secondary">
           Nothing is removed. Adding more is paused until usage is back within the limit or the plan
           changes; incoming messages and customers are never refused.
         </p>
@@ -100,16 +96,19 @@ function PlanCard({
   return (
     <Card className="flex flex-col gap-4 p-5">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-md font-semibold text-slate">{plan.name}</h3>
+        <h3 className="text-md font-semibold text-fg">{plan.name}</h3>
         {current ? <StatusBadge status="ACTIVE" label="Current plan" /> : null}
         {requested && !current ? <StatusBadge status="PENDING" label="Requested" /> : null}
       </div>
-      <p className="text-sm text-secondary">
-        {plan.price
-          ? `${(plan.price.amountMinor / 100).toLocaleString('en-IN')} ${plan.price.currency} / month`
-          : 'Pricing: contact us'}
-      </p>
-      <ul className="flex flex-col gap-1.5 text-sm text-slate">
+      {plan.price ? (
+        <p className="text-xl font-semibold text-fg tabular-nums">
+          {formatMoney(plan.price.amountMinor, plan.price.currency)}
+          <span className="text-sm font-normal text-fg-secondary"> / month</span>
+        </p>
+      ) : (
+        <p className="text-sm text-fg-secondary">Pricing: contact us</p>
+      )}
+      <ul className="flex flex-col gap-1.5 text-sm text-fg">
         {PLAN_HIGHLIGHTS.filter((k) => k in plan.entitlements).map((k) => (
           <li key={k}>{HIGHLIGHT_LABEL[k]!(plan.entitlements[k])}</li>
         ))}
@@ -192,17 +191,17 @@ function SubscriptionPageContent() {
     >
       <Card className="flex flex-wrap items-start justify-between gap-4 p-5">
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-slate">{headline}</h2>
-          {detail ? <p className="max-w-xl text-base text-secondary">{detail}</p> : null}
+          <h2 className="text-lg font-semibold text-fg">{headline}</h2>
+          {detail ? <p className="max-w-xl text-base text-fg-secondary">{detail}</p> : null}
         </div>
         <StatusBadge status={STATUS_BADGE[s.status]} label={STATUS_LABEL[s.status]} />
       </Card>
 
       <section aria-labelledby="limits-heading" className="flex flex-col gap-1">
-        <h2 id="limits-heading" className="text-md font-semibold text-slate">
+        <h2 id="limits-heading" className="text-md font-semibold text-fg">
           Limits
         </h2>
-        <ul className="divide-y divide-border">
+        <ul className="divide-y divide-border-subtle">
           {limits.map((e) => (
             <LimitRow key={e.key} e={e} />
           ))}
@@ -210,7 +209,7 @@ function SubscriptionPageContent() {
       </section>
 
       <section aria-labelledby="features-heading" className="flex flex-col gap-3">
-        <h2 id="features-heading" className="text-md font-semibold text-slate">
+        <h2 id="features-heading" className="text-md font-semibold text-fg">
           Features
         </h2>
         <ul className="flex flex-wrap gap-2">
@@ -226,7 +225,7 @@ function SubscriptionPageContent() {
       </section>
 
       <section aria-labelledby="plans-heading" className="flex flex-col gap-3">
-        <h2 id="plans-heading" className="text-md font-semibold text-slate">
+        <h2 id="plans-heading" className="text-md font-semibold text-fg">
           Plans
         </h2>
         <div className="grid gap-4 md:grid-cols-3">
@@ -253,12 +252,9 @@ function SubscriptionPageContent() {
         </div>
       </section>
 
-      <p className="text-sm text-secondary">
+      <p className="text-sm text-fg-secondary">
         Wallet credits pay for WhatsApp messages and are separate from your plan.{' '}
-        <Link
-          href="/billing/wallet"
-          className="font-medium text-slate underline underline-offset-4"
-        >
+        <Link href="/billing/wallet" className={`font-medium ${textLink}`}>
           View wallet
         </Link>
       </p>

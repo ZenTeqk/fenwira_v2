@@ -45,10 +45,8 @@ const columns: ColumnDef<AuditLog, unknown>[] = [
     header: 'What',
     cell: ({ row }) => (
       <div className="flex flex-col">
-        <span className="text-slate">
-          {ACTION_LABELS[row.original.action] ?? row.original.action}
-        </span>
-        <span className="font-mono text-xs text-muted">{row.original.action}</span>
+        <span className="text-fg">{ACTION_LABELS[row.original.action] ?? row.original.action}</span>
+        <span className="font-mono text-xs text-fg-muted">{row.original.action}</span>
       </div>
     ),
   },

@@ -121,14 +121,14 @@ export function TwoFactorCard() {
                 alt="QR code for your authenticator app"
                 width={180}
                 height={180}
-                className="rounded-md border border-border"
+                className="rounded-md border border-border-subtle"
               />
             ) : null}
             <div className="flex flex-1 flex-col gap-3">
-              <p className="text-base text-slate">
+              <p className="text-base text-fg">
                 Scan the QR code with your authenticator app, or enter this key:
               </p>
-              <code className="rounded-sm bg-neutral-soft px-2 py-1 font-mono text-sm break-all text-slate">
+              <code className="rounded-sm bg-surface-muted px-2 py-1 font-mono text-sm break-all text-fg">
                 {setup.secret}
               </code>
               <FormError error={confirm.error} />
@@ -160,9 +160,9 @@ export function TwoFactorCard() {
               e.preventDefault()
               disable.mutate()
             }}
-            className="flex flex-col gap-3 border-t border-border pt-4"
+            className="flex flex-col gap-3 border-t border-border-subtle pt-4"
           >
-            <p className="text-sm text-muted">
+            <p className="text-sm text-fg-muted">
               To turn it off, confirm your password and a current code.
             </p>
             <FormError error={disable.error} />

@@ -64,18 +64,18 @@ export function DeletedWorkspaces() {
   }
   const rows = deleted.data ?? []
   return (
-    <details className="rounded-md border border-border bg-surface p-4">
+    <details className="rounded-md border border-border-subtle bg-surface p-4">
       <summary className="cursor-pointer font-medium">
         Deleted workspaces ({deleted.isPending ? '…' : rows.length})
       </summary>
-      <p className="mt-2 text-sm text-secondary">
+      <p className="mt-2 text-sm text-fg-secondary">
         Deleting keeps all data. Restore brings the workspace back for its members exactly as it
         was; reconnect its WhatsApp number afterwards if needed.
       </p>
       {deleted.isError ? (
-        <p className="mt-3 text-sm text-danger-strong">Could not load deleted workspaces.</p>
+        <p className="mt-3 text-sm text-status-error-fg">Could not load deleted workspaces.</p>
       ) : rows.length === 0 ? (
-        <p className="mt-3 text-sm text-secondary">No deleted workspaces.</p>
+        <p className="mt-3 text-sm text-fg-secondary">No deleted workspaces.</p>
       ) : (
         <div className="mt-3">
           <Table containerLabel="Deleted workspaces">
@@ -92,7 +92,7 @@ export function DeletedWorkspaces() {
                 <TableRow key={w.id}>
                   <TableCell>
                     <span className="font-medium">{w.name}</span>
-                    <p className="text-xs text-secondary">{w.slug}</p>
+                    <p className="text-xs text-fg-secondary">{w.slug}</p>
                   </TableCell>
                   <TableCell className="break-all">{w.ownerEmail ?? '—'}</TableCell>
                   <TableCell>{new Date(w.deletedAt).toLocaleString()}</TableCell>

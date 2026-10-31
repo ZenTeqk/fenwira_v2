@@ -8,6 +8,7 @@ import {
 } from '@fenwira/contracts'
 import {
   Alert,
+  Badge,
   Button,
   Card,
   CardContent,
@@ -30,6 +31,7 @@ import {
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
+import { TRANSACTION_TYPE_LABEL } from '@/lib/billing'
 import { platformMoney, platformRequest } from '@/lib/platform'
 import { CommercialActions, ReceiptDetails } from './commercial-actions'
 import { DeleteWorkspace } from './delete-workspace'
@@ -156,7 +158,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
                 {wallet ? platformMoney(wallet.reservedMinor, wallet.currency) : '—'}
               </SummaryItem>
             </dl>
-            <p className="mt-4 text-sm text-secondary">
+            <p className="mt-4 text-sm text-fg-secondary">
               {data.credits
                 .map(
                   (c) =>
@@ -170,7 +172,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
                 Ledger balance or active reservations differ from cached state.
               </Alert>
             ) : (
-              <p className="mt-3 text-sm text-secondary">
+              <p className="mt-3 text-sm text-fg-secondary">
                 Ledger and reservation totals reconcile.
               </p>
             )}
@@ -205,11 +207,11 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
                       {financial.data.costKnownMessages} / {financial.data.messages} usage records
                     </SummaryItem>
                   </dl>
-                  <p className="mt-4 text-sm text-secondary">
+                  <p className="mt-4 text-sm text-fg-secondary">
                     {financial.data.costProvenance} Missing costs are excluded. Gross contribution
                     excludes support refunds and adjustments.
                   </p>
-                  <p className="mt-2 text-sm text-secondary">
+                  <p className="mt-2 text-sm text-fg-secondary">
                     Tax metadata:{' '}
                     {financial.data.taxMetadata
                       .map(
@@ -254,7 +256,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
           </TableBody>
         </Table>
       </section>
-      <section id="operations" aria-labelledby="activity-heading">
+      <section id="commercial-activity" aria-labelledby="activity-heading">
         <h2 id="activity-heading" className="mb-3 text-lg font-semibold">
           Commercial activity
         </h2>
@@ -281,7 +283,7 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
                 <TableHead>Time</TableHead>
                 <TableHead>Operation</TableHead>
                 <TableHead>Fund identity</TableHead>
-                <TableHead>Amount</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Reason / expiry metadata</TableHead>
               </TableRow>
             </TableHeader>
@@ -289,9 +291,22 @@ export function WorkspaceCommercialView({ id }: { id: string }) {
               {data.ledger.map((l) => (
                 <TableRow key={l.id}>
                   <TableCell>{new Date(l.createdAt).toLocaleString()}</TableCell>
-                  <TableCell>{l.type}</TableCell>
-                  <TableCell>{l.fundType}</TableCell>
-                  <TableCell>{platformMoney(l.amountMinor, wallet?.currency ?? 'INR')}</TableCell>
+                  <TableCell>
+                    {TRANSACTION_TYPE_LABEL[l.type as keyof typeof TRANSACTION_TYPE_LABEL] ??
+                      l.type}
+                  </TableCell>
+                  <TableCell>
+                    <Badge tone={l.fundType === 'PROMOTIONAL' ? 'info' : 'neutral'}>
+                      {l.fundType === 'PROMOTIONAL'
+                        ? 'Promotional'
+                        : l.fundType === 'PAID'
+                          ? 'Paid'
+                          : l.fundType}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-medium whitespace-nowrap tabular-nums">
+                    {platformMoney(l.amountMinor, wallet?.currency ?? 'INR')}
+                  </TableCell>
                   <TableCell>
                     {l.reason}
                     {l.expiresAt ? ` · ${new Date(l.expiresAt).toLocaleString()}` : ''}

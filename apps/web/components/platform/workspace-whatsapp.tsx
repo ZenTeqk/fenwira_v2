@@ -124,7 +124,7 @@ export function WorkspaceWhatsApp({ workspaceId, name }: { workspaceId: string; 
           <Button onClick={() => setConnectOpen(true)}>Connect WhatsApp number</Button>
         ) : null}
       </div>
-      <p className="text-sm text-secondary">
+      <p className="text-sm text-fg-secondary">
         Managed connection (ADR-0027): a permanent system-user token and the app secret of the Meta
         app that sends this WABA&apos;s webhooks. Meta bills conversation charges to the
         customer&apos;s own Meta payment method.
@@ -192,7 +192,7 @@ function ConnectionPanel({
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <CardTitle as="h3">{c.displayPhoneNumber}</CardTitle>
-          <p className="text-sm text-muted">
+          <p className="text-sm text-fg-muted">
             {c.verifiedName} · WABA {c.waba.id} · number {c.phoneNumberId}
           </p>
         </div>
@@ -218,7 +218,7 @@ function ConnectionPanel({
               <li key={label} className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={check.ok ? 'SUCCEEDED' : 'FAILED'} label={label} />
                 {check.error ? (
-                  <span className="text-secondary">
+                  <span className="text-fg-secondary">
                     {check.error.code}: {check.error.message}
                   </span>
                 ) : null}
@@ -580,15 +580,15 @@ function MetaHealthPanel({ path }: { path: string }) {
     <section aria-label="Meta messaging health" className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         {health.isPending ? (
-          <span className="text-sm text-secondary">Checking Meta health…</span>
+          <span className="text-sm text-fg-secondary">Checking Meta health…</span>
         ) : health.isError ? (
-          <span className="text-sm text-secondary">
+          <span className="text-sm text-fg-secondary">
             Meta health unavailable: {errorText(health.error, 'Meta did not answer.')}
           </span>
         ) : (
           <>
             <StatusBadge {...HEALTH_BADGE[health.data.canSend]} />
-            <span className="text-sm text-secondary">
+            <span className="text-sm text-fg-secondary">
               Checked {new Date(health.data.checkedAt).toLocaleTimeString()}
             </span>
           </>

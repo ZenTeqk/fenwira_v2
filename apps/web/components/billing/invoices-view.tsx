@@ -32,6 +32,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  textLink,
   toast,
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -57,6 +58,15 @@ const STATUS: Record<InvoiceDisplayStatus, { status: StatusKey; label: string }>
   PAYMENT_SUBMITTED: { status: 'PROCESSING', label: 'Verifying payment' },
   PAID: { status: 'COMPLETED', label: 'Paid' },
   VOID: { status: 'CANCELLED', label: 'Void' },
+}
+/** A submitted reference is only a claim: it reads "Pending verification" until an operator approves it. */
+const PROOF: Record<
+  InvoiceDetail['proofs'][number]['status'],
+  { status: StatusKey; label: string }
+> = {
+  PENDING: { status: 'PENDING', label: 'Pending verification' },
+  APPROVED: { status: 'APPROVED', label: 'Verified' },
+  REJECTED: { status: 'REJECTED', label: 'Rejected' },
 }
 const day = (iso: string | null) =>
   iso
@@ -141,7 +151,7 @@ export function InvoicesView() {
               <TableRow>
                 <TableHead>Reference</TableHead>
                 <TableHead>For</TableHead>
-                <TableHead>Amount</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Due</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -155,7 +165,9 @@ export function InvoicesView() {
                     </Button>
                   </TableCell>
                   <TableCell>{inv.description}</TableCell>
-                  <TableCell>{formatMoney(inv.totalMinor, inv.currency)}</TableCell>
+                  <TableCell className="text-right font-medium whitespace-nowrap tabular-nums">
+                    {formatMoney(inv.totalMinor, inv.currency)}
+                  </TableCell>
                   <TableCell>{day(inv.dueAt)}</TableCell>
                   <TableCell>
                     <StatusBadge {...STATUS[inv.displayStatus]} />
@@ -209,8 +221,8 @@ function CurrentPlan({ hasOpenInvoice }: { hasOpenInvoice: boolean }) {
     <Card className="flex flex-col gap-4 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="text-lg font-semibold text-slate">{headline}</h2>
-          <p className="max-w-2xl text-sm text-secondary">{detail}</p>
+          <h2 className="text-lg font-semibold text-fg">{headline}</h2>
+          <p className="max-w-2xl text-sm text-fg-secondary">{detail}</p>
         </div>
         <StatusBadge status={STATUS_BADGE[s.status]} label={STATUS_LABEL[s.status]} />
       </div>
@@ -240,7 +252,9 @@ function CurrentPlan({ hasOpenInvoice }: { hasOpenInvoice: boolean }) {
           </Button>
         </div>
       ) : (
-        <p className="text-sm text-secondary">The workspace owner manages the plan and payments.</p>
+        <p className="text-sm text-fg-secondary">
+          The workspace owner manages the plan and payments.
+        </p>
       )}
     </Card>
   )
@@ -304,17 +318,17 @@ function PlanChooser() {
           return (
             <Card key={p.id} className="flex flex-col gap-4 p-5">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-md font-semibold text-slate">{p.name}</h3>
+                <h3 className="text-md font-semibold text-fg">{p.name}</h3>
                 {current ? <StatusBadge status="ACTIVE" label="Current plan" /> : null}
                 {requested && !current ? <StatusBadge status="PENDING" label="Requested" /> : null}
               </div>
-              <p className="text-xl font-semibold text-slate">
+              <p className="text-xl font-semibold text-fg">
                 {p.price ? formatMoney(p.price.amountMinor, p.price.currency) : 'Contact us'}
                 {p.price ? (
-                  <span className="text-sm font-normal text-secondary"> / month</span>
+                  <span className="text-sm font-normal text-fg-secondary"> / month</span>
                 ) : null}
               </p>
-              <ul className="flex flex-col gap-1.5 text-sm text-slate">
+              <ul className="flex flex-col gap-1.5 text-sm text-fg">
                 {PLAN_HIGHLIGHTS.filter((k) => k in p.entitlements).map((k) => (
                   <li key={k}>{HIGHLIGHT[k](p.entitlements[k])}</li>
                 ))}
@@ -372,15 +386,20 @@ function UsageMeters() {
         {rows.map((e) => (
           <div key={e.key} className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="font-medium text-slate">{e.label}</span>
-              <span className="text-secondary">
+              <span className="font-medium text-fg">{e.label}</span>
+              <span className="text-fg-secondary">
                 {e.limit === null
                   ? `${count(e.usage ?? 0)} · unlimited`
                   : `${count(e.usage ?? 0)} of ${count(e.limit)}`}
               </span>
             </div>
             {e.limit !== null ? (
-              <Progress label={`${e.label} used`} value={e.usage ?? 0} max={e.limit} />
+              <Progress
+                label={`${e.label} used`}
+                value={e.usage ?? 0}
+                max={e.limit}
+                tone={e.overLimit ? 'warning' : 'primary'}
+              />
             ) : null}
             {e.overLimit ? <StatusBadge status="ATTENTION" label="Over limit" /> : null}
           </div>
@@ -399,8 +418,8 @@ function HowToPay() {
   const href = support?.url ?? (support?.email ? `mailto:${support.email}` : null)
   return (
     <Card className="flex flex-col gap-3 p-5">
-      <h2 className="text-md font-semibold text-slate">How to pay</h2>
-      <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-slate">
+      <h2 className="text-md font-semibold text-fg">How to pay</h2>
+      <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-fg">
         <li>
           Open the invoice under Pay now and scan the QR with any UPI app (or copy the UPI link).
         </li>
@@ -413,16 +432,16 @@ function HowToPay() {
         </li>
       </ol>
       {hours ? (
-        <p className="text-sm text-secondary">
+        <p className="text-sm text-fg-secondary">
           We confirm payments within {hours} hour{hours === 1 ? '' : 's'}.
         </p>
       ) : null}
-      <p className="text-sm text-secondary">
+      <p className="text-sm text-fg-secondary">
         Questions about a payment?{' '}
         {href ? (
           <a
             href={href}
-            className="font-medium text-slate underline underline-offset-4"
+            className={`font-medium ${textLink}`}
             {...(support?.url ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
           >
             {support?.email ?? 'Contact billing'}
@@ -493,12 +512,28 @@ function InvoiceBody({ inv }: { inv: InvoiceDetail }) {
     ).catch((err: unknown) => toast.error(message(err)))
   return (
     <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-md border border-border-subtle bg-surface-muted p-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-sm text-fg-secondary">
+            {inv.status === 'PAID'
+              ? 'Amount paid'
+              : inv.taxLines.length
+                ? 'Total to pay'
+                : 'Amount to pay'}
+          </span>
+          <span className="text-2xl font-semibold break-all text-fg tabular-nums">
+            {formatMoney(inv.totalMinor, inv.currency)}
+          </span>
+          <span className="text-sm text-fg-secondary">
+            {inv.currency} · {inv.kind === 'PLAN_RENEWAL' ? 'Plan' : 'Wallet credits'}
+          </span>
+        </div>
+        <StatusBadge {...STATUS[inv.displayStatus]} />
+      </div>
       <dl className="grid grid-cols-2 gap-4">
-        <SummaryItem label="Status">
-          <StatusBadge {...STATUS[inv.displayStatus]} />
-        </SummaryItem>
         <SummaryItem label="Due">{day(inv.dueAt)}</SummaryItem>
         <SummaryItem label="Issued">{day(inv.issuedAt)}</SummaryItem>
+        {inv.paidAt ? <SummaryItem label="Paid on">{day(inv.paidAt)}</SummaryItem> : null}
         {inv.taxLines.length ? (
           <SummaryItem label="Amount (before GST)">
             {formatMoney(inv.subtotalMinor, inv.currency)}
@@ -509,10 +544,8 @@ function InvoiceBody({ inv }: { inv: InvoiceDetail }) {
             {formatMoney(t.amountMinor, inv.currency)}
           </SummaryItem>
         ))}
-        <SummaryItem label={inv.taxLines.length ? 'Total to pay' : 'Amount to pay'}>
-          {formatMoney(inv.totalMinor, inv.currency)}
-        </SummaryItem>
         {inv.receiptNumber ? <SummaryItem label="Receipt">{inv.receiptNumber}</SummaryItem> : null}
+        {inv.voidReason ? <SummaryItem label="Void reason">{inv.voidReason}</SummaryItem> : null}
       </dl>
 
       {inv.upi && !pending ? (
@@ -523,14 +556,23 @@ function InvoiceBody({ inv }: { inv: InvoiceDetail }) {
             alt={`UPI QR code to pay ${formatMoney(inv.totalMinor, inv.currency)} for ${inv.number}`}
             width={256}
             height={256}
-            className="size-64 shrink-0 self-center rounded-md bg-white [image-rendering:pixelated]"
+            // The PNG carries its own white quiet zone; shown unscaled-looking and square.
+            className="size-64 shrink-0 self-center rounded-md border border-border-subtle [image-rendering:pixelated]"
           />
-          <div className="flex min-w-0 flex-col gap-2">
-            <p className="font-medium text-slate">Scan with any UPI app</p>
-            <p className="text-sm text-secondary">
-              Or pay {inv.payee.name} at <span className="font-mono">{inv.payee.vpa}</span> with
-              reference <span className="font-mono">{inv.number}</span>.
-            </p>
+          <div className="flex min-w-0 flex-col gap-3">
+            <p className="font-medium text-fg">Scan with any UPI app</p>
+            <dl className="grid grid-cols-3 gap-x-4 gap-y-1.5 text-sm">
+              <dt className="text-fg-secondary">Pay to</dt>
+              <dd className="col-span-2 min-w-0 text-fg">{inv.payee.name}</dd>
+              <dt className="text-fg-secondary">UPI ID</dt>
+              <dd className="col-span-2 min-w-0 font-mono break-all text-fg">{inv.payee.vpa}</dd>
+              <dt className="text-fg-secondary">Amount</dt>
+              <dd className="col-span-2 min-w-0 font-medium text-fg tabular-nums">
+                {formatMoney(inv.totalMinor, inv.currency)}
+              </dd>
+              <dt className="text-fg-secondary">Note</dt>
+              <dd className="col-span-2 min-w-0 font-mono text-fg">{inv.number}</dd>
+            </dl>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" asChild>
                 <a href={inv.upi.deepLink}>Open in UPI app</a>
@@ -554,15 +596,16 @@ function InvoiceBody({ inv }: { inv: InvoiceDetail }) {
 
       {pending ? (
         <Alert tone="info" title="We're verifying your payment">
-          UTR {pending.utr}, submitted {day(pending.submittedAt)}. You'll be notified once it's
-          confirmed.
+          UTR <span className="font-mono">{pending.utr}</span>, submitted {day(pending.submittedAt)}
+          . It isn&apos;t confirmed until we match it with our bank statement; you&apos;ll be
+          notified once it is.
         </Alert>
       ) : null}
       {inv.status === 'OPEN' && !pending ? (
         can('billing.manage') ? (
           <ProofForm invoiceId={inv.id} />
         ) : (
-          <p className="text-sm text-secondary">
+          <p className="text-sm text-fg-secondary">
             The workspace owner submits the payment reference after paying.
           </p>
         )
@@ -570,17 +613,19 @@ function InvoiceBody({ inv }: { inv: InvoiceDetail }) {
 
       {inv.proofs.length ? (
         <section aria-labelledby="proofs-heading" className="flex flex-col gap-2">
-          <h3 id="proofs-heading" className="text-md font-semibold">
+          <h3 id="proofs-heading" className="text-md font-semibold text-fg">
             Payment submissions
           </h3>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col divide-y divide-border-subtle rounded-md border border-border-subtle">
             {inv.proofs.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
-                <StatusBadge status={p.status} />
-                <span className="font-mono">{p.utr}</span>
-                <span className="text-secondary">{day(p.submittedAt)}</span>
+              <li key={p.id} className="flex flex-col gap-1 px-3 py-2.5 text-sm">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <StatusBadge {...PROOF[p.status]} />
+                  <span className="font-mono break-all text-fg">UTR {p.utr}</span>
+                  <span className="text-fg-secondary">Submitted {day(p.submittedAt)}</span>
+                </div>
                 {p.rejectionReason ? (
-                  <span className="text-secondary">· {p.rejectionReason}</span>
+                  <p className="text-fg-secondary">Reason: {p.rejectionReason}</p>
                 ) : null}
               </li>
             ))}
@@ -655,7 +700,7 @@ function ProofForm({ invoiceId }: { invoiceId: string }) {
   }
   return (
     <form onSubmit={submit} className="flex flex-col gap-3" aria-labelledby="proof-heading">
-      <h3 id="proof-heading" className="text-md font-semibold">
+      <h3 id="proof-heading" className="text-md font-semibold text-fg">
         Already paid? Confirm your payment
       </h3>
       <Field label="UTR / UPI reference number" hint="12 digits in most UPI apps" required>
@@ -675,7 +720,7 @@ function ProofForm({ invoiceId }: { invoiceId: string }) {
         />
       </Field>
       {error ? (
-        <p role="alert" className="text-sm text-danger-strong">
+        <p role="alert" className="text-sm text-status-error-fg">
           {error}
         </p>
       ) : null}

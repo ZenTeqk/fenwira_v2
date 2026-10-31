@@ -243,7 +243,7 @@ export function CreateInvoiceFlow({
             </SummaryItem>
             <SummaryItem label="Due">{new Date(dueAt).toLocaleDateString()}</SummaryItem>
           </dl>
-          <p className="text-sm text-secondary">
+          <p className="text-sm text-fg-secondary">
             Tax is added as configured on the server. Nothing is created until you press Create
             invoice. Paying it activates or renews this plan.
           </p>

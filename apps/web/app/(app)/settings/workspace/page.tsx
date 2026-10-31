@@ -30,6 +30,7 @@ import {
   useConfirm,
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { TriangleAlert } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { type FormEvent, useEffect, useState } from 'react'
 import { fieldError, FormError } from '@/components/auth/form-error'
@@ -165,10 +166,10 @@ export default function WorkspaceSettingsPage() {
                     <Input id="ws-timezone" readOnly value={INDIA_TIMEZONE_LABEL} />
                   </div>
                 </div>
-                <div className="flex items-start justify-between gap-4 rounded-md border border-border p-4">
+                <div className="flex items-start justify-between gap-4 rounded-md border border-border-subtle p-4">
                   <div className="flex flex-col gap-0.5">
                     <Label htmlFor="ws-2fa">Require two-factor authentication</Label>
-                    <p className="text-sm text-muted">
+                    <p className="text-sm text-fg-muted">
                       Members without 2FA are asked to turn it on before they can use this
                       workspace.
                     </p>
@@ -200,9 +201,12 @@ export default function WorkspaceSettingsPage() {
       ) : null}
 
       {isOwner ? (
-        <Card>
+        <Card className="border-status-error-border">
           <CardHeader>
-            <CardTitle as="h2">Danger zone</CardTitle>
+            <CardTitle as="h2" className="flex items-center gap-2">
+              <TriangleAlert aria-hidden="true" className="size-4 text-status-error-fg" />
+              Danger zone
+            </CardTitle>
             <CardDescription>Only the workspace owner can do these.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
@@ -247,10 +251,10 @@ export default function WorkspaceSettingsPage() {
                 Transfer
               </Button>
             </div>
-            <div className="flex flex-col gap-3 border-t border-border pt-6 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 border-t border-border-subtle pt-6 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-base font-medium text-slate">Delete workspace</p>
-                <p className="text-sm text-muted">
+                <p className="text-base font-medium text-fg">Delete workspace</p>
+                <p className="text-sm text-fg-muted">
                   Everyone loses access. Data is kept for 30 days, then deleted.
                 </p>
               </div>

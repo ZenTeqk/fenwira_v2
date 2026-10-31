@@ -200,13 +200,13 @@ export default function TeamSettingsPage() {
       header: 'Member',
       cell: ({ row }) => (
         <div className="flex min-w-0 flex-col">
-          <span className="font-medium text-slate">
+          <span className="font-medium text-fg">
             {row.original.name}
             {row.original.userId === me.user.id ? (
-              <span className="ml-1 text-sm font-normal text-muted">(you)</span>
+              <span className="ml-1 text-sm font-normal text-fg-muted">(you)</span>
             ) : null}
           </span>
-          <span className="truncate text-sm text-muted">{row.original.email}</span>
+          <span className="truncate text-sm text-fg-muted">{row.original.email}</span>
         </div>
       ),
     },
@@ -217,7 +217,7 @@ export default function TeamSettingsPage() {
         const m = row.original
         const editable =
           canManage && m.role !== 'OWNER' && m.userId !== me.user.id && m.status === 'ACTIVE'
-        if (!editable) return <span className="text-slate">{ROLE_LABELS[m.role]}</span>
+        if (!editable) return <span className="text-fg">{ROLE_LABELS[m.role]}</span>
         return (
           <Select
             value={m.role}
@@ -363,7 +363,7 @@ export default function TeamSettingsPage() {
       />
       {canManage ? (
         <section aria-labelledby="pending-invitations" className="flex flex-col gap-3">
-          <h2 id="pending-invitations" className="text-lg font-semibold text-slate">
+          <h2 id="pending-invitations" className="text-lg font-semibold text-fg">
             Pending invitations
           </h2>
           <DataTable

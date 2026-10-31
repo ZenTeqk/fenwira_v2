@@ -112,7 +112,7 @@ export function WorkspaceInvoices({ workspaceId, name }: { workspaceId: string; 
             <TableRow>
               <TableHead>Reference</TableHead>
               <TableHead>For</TableHead>
-              <TableHead>Total</TableHead>
+              <TableHead className="text-right">Total</TableHead>
               <TableHead>Due</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
@@ -124,11 +124,13 @@ export function WorkspaceInvoices({ workspaceId, name }: { workspaceId: string; 
                 <TableCell>
                   {inv.number}
                   {inv.receiptNumber ? (
-                    <span className="block text-sm text-secondary">{inv.receiptNumber}</span>
+                    <span className="block text-sm text-fg-secondary">{inv.receiptNumber}</span>
                   ) : null}
                 </TableCell>
                 <TableCell>{inv.description}</TableCell>
-                <TableCell>{platformMoney(inv.totalMinor, inv.currency)}</TableCell>
+                <TableCell className="text-right font-medium whitespace-nowrap tabular-nums">
+                  {platformMoney(inv.totalMinor, inv.currency)}
+                </TableCell>
                 <TableCell>{new Date(inv.dueAt).toLocaleDateString()}</TableCell>
                 <TableCell>
                   <StatusBadge {...STATUS[inv.displayStatus]} />

@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
   TrendChart,
+  textLink,
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -85,12 +86,12 @@ function OverviewBody({ o }: { o: ReturnType<typeof platformOverviewSchema.parse
         </CardHeader>
         <CardContent>
           {o.attention.length === 0 ? (
-            <p className="text-sm text-secondary">Nothing needs attention right now.</p>
+            <p className="text-sm text-fg-secondary">Nothing needs attention right now.</p>
           ) : (
             <ul className="flex flex-col gap-2" aria-label="Needs attention">
               {o.attention.map((a, i) => (
                 <li key={`${a.kind}-${i}`}>
-                  <Link className="text-primary-strong hover:underline" href={a.href}>
+                  <Link className={textLink} href={a.href}>
                     {a.title}
                   </Link>
                 </li>
@@ -136,7 +137,7 @@ function OverviewBody({ o }: { o: ReturnType<typeof platformOverviewSchema.parse
               data={statusOrder
                 .filter((s) => o.statusCounts[s])
                 .map((s) => ({ label: STATUS_LABEL[s] ?? s, values: { n: o.statusCounts[s]! } }))}
-              series={[{ key: 'n', label: 'Workspaces', tone: 'primary' }]}
+              series={[{ key: 'n', label: 'Workspaces', tone: 'blue' }]}
             />
           </CardContent>
         </Card>
@@ -150,7 +151,7 @@ function OverviewBody({ o }: { o: ReturnType<typeof platformOverviewSchema.parse
               variant="bar"
               pointHeader="Month"
               data={o.newWorkspaces.map((m) => ({ label: m.month, values: { n: m.count } }))}
-              series={[{ key: 'n', label: 'New workspaces', tone: 'info' }]}
+              series={[{ key: 'n', label: 'New workspaces', tone: 'blue' }]}
             />
           </CardContent>
         </Card>
@@ -168,7 +169,7 @@ function OverviewBody({ o }: { o: ReturnType<typeof platformOverviewSchema.parse
                 .filter((r) => r.currency === 'INR')
                 .reverse()
                 .map((r) => ({ label: r.month, values: { total: r.totalMinor } }))}
-              series={[{ key: 'total', label: 'Paid', tone: 'success' }]}
+              series={[{ key: 'total', label: 'Paid', tone: 'blue' }]}
             />
           </CardContent>
         </Card>
@@ -186,8 +187,8 @@ function OverviewBody({ o }: { o: ReturnType<typeof platformOverviewSchema.parse
                 values: { inbound: d.inbound, outbound: d.outbound },
               }))}
               series={[
-                { key: 'outbound', label: 'Sent', tone: 'primary' },
-                { key: 'inbound', label: 'Received', tone: 'info' },
+                { key: 'outbound', label: 'Sent', tone: 'blue' },
+                { key: 'inbound', label: 'Received', tone: 'orange' },
               ]}
             />
           </CardContent>
@@ -200,18 +201,15 @@ function OverviewBody({ o }: { o: ReturnType<typeof platformOverviewSchema.parse
         </CardHeader>
         <CardContent>
           {o.trialsEnding.length === 0 ? (
-            <p className="text-sm text-secondary">No trials end this week.</p>
+            <p className="text-sm text-fg-secondary">No trials end this week.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {o.trialsEnding.map((t) => (
                 <li key={t.workspaceId}>
-                  <Link
-                    className="text-primary-strong hover:underline"
-                    href={`/platform/workspaces/${t.workspaceId}`}
-                  >
+                  <Link className={textLink} href={`/platform/workspaces/${t.workspaceId}`}>
                     {t.name}
                   </Link>{' '}
-                  <span className="text-sm text-secondary">· ends {day(t.trialEndsAt)}</span>
+                  <span className="text-sm text-fg-secondary">· ends {day(t.trialEndsAt)}</span>
                 </li>
               ))}
             </ul>
@@ -242,10 +240,7 @@ function OverviewBody({ o }: { o: ReturnType<typeof platformOverviewSchema.parse
                 {o.connections.map((c) => (
                   <TableRow key={`${c.workspaceId}-${c.number}`}>
                     <TableCell>
-                      <Link
-                        className="text-primary-strong hover:underline"
-                        href={`/platform/workspaces/${c.workspaceId}`}
-                      >
+                      <Link className={textLink} href={`/platform/workspaces/${c.workspaceId}`}>
                         {c.name}
                       </Link>
                     </TableCell>
@@ -310,8 +305,8 @@ export function WorkspaceActivity({ workspaceId }: { workspaceId: string }) {
                 values: { inbound: d.inbound, outbound: d.outbound },
               }))}
               series={[
-                { key: 'outbound', label: 'Sent', tone: 'primary' },
-                { key: 'inbound', label: 'Received', tone: 'info' },
+                { key: 'outbound', label: 'Sent', tone: 'blue' },
+                { key: 'inbound', label: 'Received', tone: 'orange' },
               ]}
             />
           )}
@@ -325,14 +320,16 @@ export function WorkspaceActivity({ workspaceId }: { workspaceId: string }) {
           {q.isPending ? (
             <Skeleton className="h-40 w-full" />
           ) : q.isError ? null : q.data.recentAudit.length === 0 ? (
-            <p className="text-sm text-secondary">No audit entries yet.</p>
+            <p className="text-sm text-fg-secondary">No audit entries yet.</p>
           ) : (
             <ul className="flex flex-col gap-1 text-sm" aria-label="Recent audit entries">
               {q.data.recentAudit.map((a, i) => (
                 <li key={i}>
-                  <span className="text-secondary">{new Date(a.createdAt).toLocaleString()}</span> ·{' '}
-                  {a.action.replaceAll('_', ' ')}{' '}
-                  <span className="text-muted">({a.actorType.toLowerCase()})</span>
+                  <span className="text-fg-secondary">
+                    {new Date(a.createdAt).toLocaleString()}
+                  </span>{' '}
+                  · {a.action.replaceAll('_', ' ')}{' '}
+                  <span className="text-fg-muted">({a.actorType.toLowerCase()})</span>
                 </li>
               ))}
             </ul>
