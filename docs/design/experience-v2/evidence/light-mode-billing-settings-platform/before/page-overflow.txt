@@ -1,0 +1,5 @@
+http://localhost:3000/platform/workspaces @375: 528px
+http://localhost:3000/platform/payments @375: 528px
+http://localhost:3000/platform/billing-operations @375: 528px
+http://localhost:3000/platform/workspaces/<fixture> @768: 47px
+http://localhost:3000/platform/workspaces/<fixture> @375: 528px

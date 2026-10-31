@@ -50,7 +50,7 @@ function PlatformLogin() {
       <h1 className="sr-only">Fenwira Platform sign in</h1>
       <CardHeader>
         <CardTitle as="h2">Platform sign in</CardTitle>
-        <p className="text-sm text-secondary">
+        <p className="text-sm text-fg-secondary">
           Authorized commercial operators. Password and authenticator required.
         </p>
       </CardHeader>
@@ -101,7 +101,7 @@ function PlatformLogin() {
             </Field>
           )}
           {error ? (
-            <p role="alert" className="text-sm text-danger-strong">
+            <p role="alert" className="text-sm text-status-error-fg">
               {error}
             </p>
           ) : null}
@@ -120,7 +120,7 @@ function PlatformLogin() {
               Start again
             </Button>
           ) : null}
-          <p className="text-xs text-secondary">
+          <p className="text-xs text-fg-secondary">
             Access expires after 30 minutes, or 10 minutes without a platform request. Recovery
             requires restricted operator provisioning.
           </p>

@@ -59,7 +59,7 @@ export function DeleteWorkspace({
         <CardTitle as="h2">Delete workspace</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="mb-3 text-sm text-secondary">
+        <p className="mb-3 text-sm text-fg-secondary">
           For test or unwanted workspaces. It disappears at once for its members and from this
           console; its data is kept, not purged. Disconnect its WhatsApp number first. The internal
           workspace cannot be deleted.

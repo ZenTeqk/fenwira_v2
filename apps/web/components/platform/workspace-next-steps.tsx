@@ -86,7 +86,7 @@ export function WorkspaceNextSteps({ data }: { data: PlatformWorkspace }) {
         <CardTitle as="h2">Next steps</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="mb-3 text-sm text-secondary">
+        <p className="mb-3 text-sm text-fg-secondary">
           {workspace.isInternal
             ? 'Internal workspace: Business limits, no billing steps.'
             : left === 0
@@ -97,16 +97,19 @@ export function WorkspaceNextSteps({ data }: { data: PlatformWorkspace }) {
           {steps.map((s) => (
             <li key={s.title} className="flex gap-3">
               {s.done ? (
-                <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success-strong" aria-hidden />
+                <CheckCircle2
+                  className="mt-0.5 size-5 shrink-0 text-status-success-fg"
+                  aria-hidden
+                />
               ) : (
-                <Circle className="mt-0.5 size-5 shrink-0 text-secondary" aria-hidden />
+                <Circle className="mt-0.5 size-5 shrink-0 text-fg-secondary" aria-hidden />
               )}
               <div>
                 <p className="font-medium">
                   {s.title}
                   <span className="sr-only">{s.done ? ' (done)' : ' (to do)'}</span>
                 </p>
-                {s.done ? null : <p className="text-sm text-secondary">{s.hint}</p>}
+                {s.done ? null : <p className="text-sm text-fg-secondary">{s.hint}</p>}
               </div>
             </li>
           ))}

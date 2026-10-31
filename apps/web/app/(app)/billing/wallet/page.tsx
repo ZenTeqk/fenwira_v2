@@ -117,8 +117,12 @@ function WalletPageContent() {
       header: 'Description',
       cell: ({ row }) => (
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-slate">{row.original.reason}</span>
-          {row.original.fundType === 'PROMOTIONAL' ? <Badge tone="info">Promotional</Badge> : null}
+          <span className="text-fg">{row.original.reason}</span>
+          {row.original.fundType === 'PROMOTIONAL' ? (
+            <Badge tone="info">Promotional</Badge>
+          ) : row.original.type === 'CREDIT' ? (
+            <Badge tone="neutral">Paid</Badge>
+          ) : null}
         </span>
       ),
     },
@@ -134,7 +138,9 @@ function WalletPageContent() {
       cell: ({ row }) => (
         <span
           className={
-            row.original.amountMinor > 0 ? 'font-medium text-success-strong' : 'text-slate'
+            row.original.amountMinor > 0
+              ? 'font-medium whitespace-nowrap text-status-success-fg tabular-nums'
+              : 'whitespace-nowrap text-fg tabular-nums'
           }
         >
           {row.original.amountMinor > 0 ? '+' : ''}
@@ -146,7 +152,11 @@ function WalletPageContent() {
       id: 'balance',
       header: 'Balance after',
       meta: { align: 'right' },
-      cell: ({ row }) => formatMoney(row.original.balanceAfterMinor, row.original.currency),
+      cell: ({ row }) => (
+        <span className="whitespace-nowrap tabular-nums">
+          {formatMoney(row.original.balanceAfterMinor, row.original.currency)}
+        </span>
+      ),
     },
   ]
 
@@ -210,13 +220,13 @@ function WalletPageContent() {
                   )}
                   {w ? <StatusBadge status={w.state} /> : null}
                 </div>
-                <p className="text-sm text-secondary">
+                <p className="text-sm text-fg-secondary">
                   Use wallet credits for billable WhatsApp template messages.
                 </p>
               </div>
               {w ? <ContactBilling support={w.support} /> : null}
             </div>
-            <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-3">
+            <div className="grid gap-4 border-t border-border-subtle pt-4 sm:grid-cols-3">
               {[
                 {
                   label: 'Wallet balance',
@@ -240,14 +250,14 @@ function WalletPageContent() {
                 <div key={label} className="flex min-w-0 items-start gap-3">
                   <span
                     aria-hidden="true"
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-muted text-fg-secondary"
                   >
                     <Icon className="size-4" />
                   </span>
                   <dl className="min-w-0">
-                    <dt className="text-sm text-secondary">{label}</dt>
+                    <dt className="text-sm text-fg-secondary">{label}</dt>
                     <dd className="break-all text-md font-semibold tabular-nums">{value}</dd>
-                    <dd className="text-xs text-secondary">{hint}</dd>
+                    <dd className="text-xs text-fg-secondary">{hint}</dd>
                   </dl>
                 </div>
               ))}
@@ -323,7 +333,7 @@ function WalletPageContent() {
                     </SelectContent>
                   </Select>
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="tx-from" className="text-sm text-secondary">
+                    <Label htmlFor="tx-from" className="text-sm text-fg-secondary">
                       From
                     </Label>
                     <Input
@@ -336,7 +346,7 @@ function WalletPageContent() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="tx-to" className="text-sm text-secondary">
+                    <Label htmlFor="tx-to" className="text-sm text-fg-secondary">
                       To
                     </Label>
                     <Input
@@ -378,13 +388,13 @@ function WalletPageContent() {
             <div className="flex items-center gap-3">
               <span
                 aria-hidden="true"
-                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-muted text-fg-secondary"
               >
                 <WalletIcon className="size-4" />
               </span>
               <h2 className="text-md font-semibold">Top up your wallet</h2>
             </div>
-            <p className="text-sm text-secondary">
+            <p className="text-sm text-fg-secondary">
               {w ? (
                 <TopUpLine support={w.support} />
               ) : (
@@ -395,17 +405,17 @@ function WalletPageContent() {
           </Card>
           <Card className="flex flex-col gap-3 p-4">
             <h2 className="text-md font-semibold">How your wallet works</h2>
-            <p className="text-sm text-secondary">
+            <p className="text-sm text-fg-secondary">
               Wallet credits pay for messages separately from your subscription. Paid and
               promotional funding retain their identity in transaction history.
             </p>
-            <dl className="flex flex-col gap-2 border-t border-border pt-3 text-sm">
+            <dl className="flex flex-col gap-2 border-t border-border-subtle pt-3 text-sm">
               <div className="flex justify-between gap-3">
-                <dt className="text-secondary">Billing mode</dt>
+                <dt className="text-fg-secondary">Billing mode</dt>
                 <dd className="font-medium">{w ? MODE_LABEL[w.billingMode] : '—'}</dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-secondary">Currency</dt>
+                <dt className="text-fg-secondary">Currency</dt>
                 <dd className="font-medium">{w?.currency ?? '—'}</dd>
               </div>
             </dl>

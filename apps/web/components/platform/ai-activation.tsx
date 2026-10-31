@@ -34,6 +34,7 @@ import {
   TableRow,
   Textarea,
   toast,
+  textLink,
 } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -128,19 +129,19 @@ export function AiRequestsView() {
               <TableRow key={r.id}>
                 <TableCell>
                   <Link
-                    className="font-medium text-primary-strong underline-offset-4 hover:underline"
+                    className={`font-medium ${textLink}`}
                     href={`/platform/workspaces/${r.workspaceId}`}
                   >
                     {r.workspaceName}
                   </Link>
-                  <p className="text-xs text-secondary">
+                  <p className="text-xs text-fg-secondary">
                     {new Date(r.createdAt).toLocaleString('en-IN')}
                   </p>
                 </TableCell>
                 <TableCell>
                   {r.planName ?? 'Pricing requested'}
                   {r.includedReplies !== null ? (
-                    <p className="text-xs text-secondary">
+                    <p className="text-xs text-fg-secondary">
                       {r.includedReplies.toLocaleString('en-IN')} replies
                     </p>
                   ) : null}
@@ -150,13 +151,13 @@ export function AiRequestsView() {
                 <TableCell>
                   {r.contactEmail}
                   {r.contactPhone ? (
-                    <p className="text-xs text-secondary">{r.contactPhone}</p>
+                    <p className="text-xs text-fg-secondary">{r.contactPhone}</p>
                   ) : null}
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={BADGE[r.status].status} label={BADGE[r.status].label} />
                   {r.decisionNote ? (
-                    <p className="mt-1 text-xs text-secondary">{r.decisionNote}</p>
+                    <p className="mt-1 text-xs text-fg-secondary">{r.decisionNote}</p>
                   ) : null}
                 </TableCell>
                 <TableCell>
@@ -343,7 +344,9 @@ export function AiPlansView() {
               <TableRow key={p.id}>
                 <TableCell>
                   {p.name}
-                  {p.description ? <p className="text-xs text-secondary">{p.description}</p> : null}
+                  {p.description ? (
+                    <p className="text-xs text-fg-secondary">{p.description}</p>
+                  ) : null}
                 </TableCell>
                 <TableCell>{formatMoney(p.monthlyPriceMinor, p.currency)}</TableCell>
                 <TableCell>{p.includedReplies.toLocaleString('en-IN')}</TableCell>

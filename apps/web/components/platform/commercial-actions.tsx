@@ -88,42 +88,53 @@ function exactMinor(value: string): number {
 export function ReceiptDetails({ receipt }: { receipt: CommercialReceipt }) {
   return (
     <div className="flex flex-col gap-4">
-      <dl className="grid grid-cols-1 gap-3">
+      <div className="flex flex-col gap-1 rounded-md border border-border-subtle bg-surface-muted p-4">
+        <span className="font-mono text-sm text-fg-secondary">{receipt.operation}</span>
+        <span className="text-2xl font-semibold break-all text-fg tabular-nums">
+          {receipt.amountMinor === null
+            ? 'No amount'
+            : platformMoney(receipt.amountMinor, receipt.currency ?? 'INR')}
+        </span>
+      </div>
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-3">
         {[
-          ['Operation', receipt.operation],
-          ['Operator', receipt.operatorId],
-          ['Workspace', receipt.tenantId],
-          [
-            'Amount',
-            receipt.amountMinor === null
-              ? '—'
-              : platformMoney(receipt.amountMinor, receipt.currency ?? 'INR'),
-          ],
           ['Reason', receipt.reason],
           ['Reference', receipt.reference],
+          ['Workspace', receipt.tenantId],
+          ['Operator', receipt.operatorId],
           ['Receipt', receipt.id],
           ['Idempotency key', receipt.idempotencyKey],
           ['Correlation', receipt.correlationId ?? '—'],
           ['Recorded', new Date(receipt.createdAt).toLocaleString()],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-sm text-secondary">{label}</dt>
-            <dd className="break-all text-sm">{value}</dd>
+        ].map(([label, value], i) => (
+          <div key={label} className="contents">
+            <dt className="text-sm text-fg-secondary">{label}</dt>
+            <dd
+              className={
+                i < 2
+                  ? 'min-w-0 sm:col-span-2 text-sm break-words text-fg'
+                  : 'min-w-0 sm:col-span-2 font-mono text-sm break-all text-fg'
+              }
+            >
+              {value}
+            </dd>
           </div>
         ))}
       </dl>
       <details>
-        <summary className="cursor-pointer font-medium">Before and after commercial state</summary>
+        <summary className="cursor-pointer rounded-sm font-medium text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
+          Before and after commercial state
+        </summary>
         <div className="mt-3 grid gap-3">
           <pre
-            className="overflow-auto rounded-md bg-background p-3 text-xs"
+            className="overflow-auto rounded-md border border-border-subtle bg-surface-muted p-3 text-xs text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
             tabIndex={0}
             aria-label="Before state"
           >
             {JSON.stringify(receipt.before, null, 2)}
           </pre>
           <pre
-            className="overflow-auto rounded-md bg-background p-3 text-xs"
+            className="overflow-auto rounded-md border border-border-subtle bg-surface-muted p-3 text-xs text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
             tabIndex={0}
             aria-label="After state"
           >
@@ -293,14 +304,14 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
           <CardTitle as="h2">Billing adjustments (rare)</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-3 text-sm text-secondary">
+          <p className="mb-3 text-sm text-fg-secondary">
             For manual corrections to this workspace&apos;s plan, trial, billing mode, credit or
             limits. Each adjustment is recorded permanently and cannot be edited.{' '}
-            <strong className="font-medium text-slate">
+            <strong className="font-medium text-fg">
               Not needed for connecting WhatsApp or approving payments.
             </strong>
           </p>
-          <p className="mb-3 text-sm text-secondary">
+          <p className="mb-3 text-sm text-fg-secondary">
             You need a reason, a reference (for example a support ticket), a preview and a
             confirmation; identity is checked when you confirm. Afterwards you get a receipt and the
             change appears in the audit log.
@@ -329,6 +340,13 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
         description={`For ${data.snapshot.workspace.name}. No customer content is available.`}
       >
         <form onSubmit={review} className="flex flex-col gap-4">
+          <div className="rounded-md border border-border-subtle bg-surface-muted px-4 py-3 text-sm">
+            <span className="text-fg-secondary">Target workspace</span>
+            <p className="font-medium break-words text-fg">{data.snapshot.workspace.name}</p>
+            <p className="font-mono text-xs break-all text-fg-secondary">
+              {data.snapshot.workspace.slug} · {data.snapshot.workspace.id}
+            </p>
+          </div>
           <Choice
             label="Operation"
             value={kind}
@@ -451,20 +469,30 @@ export function CommercialActions({ data }: { data: PlatformWorkspace }) {
         </form>
         {preview ? (
           <section className="mt-5 flex flex-col gap-3" aria-label="Commercial impact preview">
-            <h3 className="font-semibold">Reviewed impact</h3>
-            <p className="text-sm text-secondary">
+            <h3 className="font-semibold text-fg">Reviewed impact</h3>
+            <p className="text-sm text-fg-secondary">
               No change has been recorded. Workspace state is checked again on confirmation.
             </p>
             {isWallet ? (
-              <p>
-                Available funds: {platformMoney(preview.before.wallet?.availableMinor ?? '0')} →{' '}
-                {platformMoney(preview.after.wallet?.availableMinor ?? '0')}
-              </p>
+              <dl className="grid grid-cols-1 gap-3 rounded-md border border-border-subtle p-4 sm:grid-cols-2">
+                <div>
+                  <dt className="text-sm text-fg-secondary">Available funds now</dt>
+                  <dd className="text-lg font-semibold break-all text-fg tabular-nums">
+                    {platformMoney(preview.before.wallet?.availableMinor ?? '0')}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-fg-secondary">After this operation</dt>
+                  <dd className="text-lg font-semibold break-all text-fg tabular-nums">
+                    {platformMoney(preview.after.wallet?.availableMinor ?? '0')}
+                  </dd>
+                </div>
+              </dl>
             ) : (
               <dl className="grid gap-2">
                 {preview.entitlements.map((e) => (
                   <div key={e.key}>
-                    <dt className="text-sm text-secondary">
+                    <dt className="text-sm text-fg-secondary">
                       {ENTITLEMENT_LABELS[e.key as keyof typeof ENTITLEMENT_LABELS] ?? e.key}
                     </dt>
                     <dd>{e.configured === null ? 'Unlimited' : String(e.configured)}</dd>

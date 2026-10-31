@@ -69,7 +69,7 @@ export function SubscriptionBanner() {
       <div
         role="status"
         aria-label="Trial reminder"
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-warning-soft px-4 py-2 text-sm text-warning-strong"
+        className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-status-warning-bg px-4 py-2 text-sm text-status-warning-fg"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Clock3 aria-hidden="true" className="size-4 shrink-0" />
@@ -96,7 +96,7 @@ export function SubscriptionBanner() {
           <Button
             variant="ghost"
             size="icon"
-            className="size-8 text-warning-strong hover:bg-warning/10 hover:text-warning-strong"
+            className="size-8 text-status-warning-fg hover:bg-status-warning/10 hover:text-status-warning-fg"
             aria-label="Dismiss trial reminder until tomorrow"
             onClick={() => {
               setDismissed(today)

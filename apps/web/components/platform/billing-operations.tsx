@@ -20,9 +20,11 @@ import {
   TableCell,
   TableHead,
   TableHeader,
+  StatusBadge,
   TableRow,
   toast,
   TrendChart,
+  textLink,
 } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -233,9 +235,10 @@ export function BillingOperations() {
             <TableRow>
               <TableHead>Workspace</TableHead>
               <TableHead>Invoice</TableHead>
-              <TableHead>Amount</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
               <TableHead>UTR</TableHead>
               <TableHead>Submitted</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -245,10 +248,15 @@ export function BillingOperations() {
                 <TableCell>
                   <WorkspaceLink id={p.workspaceId} name={p.workspaceName} />
                 </TableCell>
-                <TableCell>{p.invoiceNumber}</TableCell>
-                <TableCell>{platformMoney(p.totalMinor, p.currency)}</TableCell>
+                <TableCell className="font-mono">{p.invoiceNumber}</TableCell>
+                <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">
+                  {platformMoney(p.totalMinor, p.currency)}
+                </TableCell>
                 <TableCell className="font-mono">{p.utr}</TableCell>
                 <TableCell>{new Date(p.submittedAt).toLocaleString()}</TableCell>
+                <TableCell>
+                  <StatusBadge status="PENDING" label="Pending verification" />
+                </TableCell>
                 <TableCell>
                   {canManage ? (
                     <Button
@@ -290,9 +298,15 @@ export function BillingOperations() {
                   <WorkspaceLink id={w.workspaceId} name={w.workspaceName} />
                 </TableCell>
                 <TableCell>
-                  {STATUS_LABEL[w.subscriptionStatus ?? 'NONE'] ?? w.subscriptionStatus}
+                  {w.subscriptionStatus === 'PAST_DUE' ? (
+                    <StatusBadge status="ATTENTION" label={STATUS_LABEL.PAST_DUE ?? 'Past due'} />
+                  ) : w.subscriptionStatus === 'SUSPENDED' ? (
+                    <StatusBadge status="PAUSED" label={STATUS_LABEL.SUSPENDED ?? 'Suspended'} />
+                  ) : (
+                    (STATUS_LABEL[w.subscriptionStatus ?? 'NONE'] ?? w.subscriptionStatus)
+                  )}
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap tabular-nums">
                   {w.openInvoices} · {platformMoney(w.openTotalMinor)}
                 </TableCell>
                 <TableCell>{day(w.oldestDueAt)}</TableCell>
@@ -400,7 +414,7 @@ export function BillingOperations() {
           </CardHeader>
           <CardContent>
             {revenue.length === 0 ? (
-              <p className="text-sm text-secondary">
+              <p className="text-sm text-fg-secondary">
                 No payments approved yet. Approved UPI payments are totalled here by month.
               </p>
             ) : (
@@ -411,7 +425,7 @@ export function BillingOperations() {
                 data={[...revenue]
                   .reverse()
                   .map((r) => ({ label: r.month, values: { n: Number(r.totalMinor) } }))}
-                series={[{ key: 'n', label: 'Collected', tone: 'success' }]}
+                series={[{ key: 'n', label: 'Collected', tone: 'blue' }]}
                 formatValue={(v) => formatMoney(v, 'INR')}
               />
             )}
@@ -429,7 +443,7 @@ export function BillingOperations() {
               data={statusOrder
                 .filter((s) => o.statusCounts[s])
                 .map((s) => ({ label: STATUS_LABEL[s] ?? s, values: { n: o.statusCounts[s]! } }))}
-              series={[{ key: 'n', label: 'Workspaces', tone: 'primary' }]}
+              series={[{ key: 'n', label: 'Workspaces', tone: 'blue' }]}
             />
           </CardContent>
         </Card>
@@ -455,7 +469,7 @@ export function BillingOperations() {
 
 function WorkspaceLink({ id, name }: { id: string; name: string }) {
   return (
-    <Link href={`/platform/workspaces/${id}`} className="text-primary-strong hover:underline">
+    <Link href={`/platform/workspaces/${id}`} className={textLink}>
       {name}
     </Link>
   )
@@ -477,10 +491,10 @@ function Section({
   return (
     <section aria-labelledby={`${id}-heading`} className="flex flex-col gap-3">
       <h2 id={`${id}-heading`} className="text-lg font-semibold">
-        {title} <span className="text-secondary">({rows})</span>
+        {title} <span className="text-fg-secondary">({rows})</span>
       </h2>
       {rows === 0 ? (
-        <p className="rounded-md border border-border bg-surface p-4 text-sm text-secondary">
+        <p className="rounded-md border border-border-subtle bg-surface p-4 text-sm text-fg-secondary">
           {empty}
         </p>
       ) : (

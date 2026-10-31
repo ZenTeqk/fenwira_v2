@@ -1,10 +1,13 @@
 'use client'
-import { Button, ErrorState, Skeleton } from '@fenwira/ui'
+import { Badge, Button, cn, ErrorState, Skeleton } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Clock3, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { type ReactNode, useCallback, useEffect } from 'react'
 import { SessionTimeout } from '@/components/session/session-timeout'
+import { BrandMark } from '@/components/shell/brand-mark'
+import { sidebarItemClass } from '@/components/shell/sidebar-nav'
 import {
   clearPlatformSession,
   platformKeepAlive,
@@ -49,7 +52,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   }, [login, me.isError, router])
   if (login)
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background p-6">
+      <main className="flex min-h-screen items-center justify-center bg-canvas p-6">
         {children}
       </main>
     )
@@ -82,13 +85,26 @@ export function PlatformShell({ children }: { children: ReactNode }) {
       <a href="#platform-main" className="sr-only focus:not-sr-only focus:p-3">
         Skip to platform content
       </a>
-      <div className="min-h-screen bg-background text-slate">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-6 py-4">
-          <Link href="/platform/workspaces" className="font-semibold">
-            Fenwira <span className="text-secondary">/ Platform</span>
-          </Link>
+      <div className="min-h-screen bg-canvas text-fg">
+        {/* Operator identity: a separate privileged console, never the customer workspace shell. */}
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-surface px-4 py-3 md:px-6">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <Link
+              href="/platform/workspaces"
+              className="flex items-center gap-2 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+            >
+              <BrandMark compact />
+              <span className="font-semibold text-fg">
+                Fenwira <span className="font-normal text-fg-secondary">/ Platform</span>
+              </span>
+            </Link>
+            <Badge tone="neutral" icon={<ShieldCheck className="size-4" />}>
+              Operator console
+            </Badge>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm text-secondary">
+            <span className="flex items-center gap-1.5 text-sm text-fg-secondary">
+              <Clock3 aria-hidden="true" className="size-4 text-fg-subtle" />
               Privilege ends {new Date(me.data.expiresAt).toLocaleTimeString()}
             </span>
             <Button
@@ -108,10 +124,10 @@ export function PlatformShell({ children }: { children: ReactNode }) {
             </Button>
           </div>
         </header>
-        <div className="flex flex-col md:flex-row">
+        <div className="flex min-w-0 flex-col md:flex-row">
           <nav
             aria-label="Platform"
-            className="flex gap-2 overflow-x-auto border-b border-border bg-surface p-4 md:min-h-screen md:w-56 md:flex-col md:border-r md:border-b-0"
+            className="flex min-w-0 gap-1 overflow-x-auto border-b border-border-subtle bg-sidebar p-2 md:min-h-screen md:w-56 md:shrink-0 md:flex-col md:border-r md:border-b-0 md:p-3"
           >
             {nav
               .filter(
@@ -120,25 +136,23 @@ export function PlatformShell({ children }: { children: ReactNode }) {
                     me.data.permissions.includes('audit.read')) &&
                   (href !== '/platform/payments' || me.data.permissions.includes('payments.read')),
               )
-              .map(([href, label]) => (
-                <Button
-                  key={href}
-                  asChild
-                  variant={pathname.startsWith(href!) ? 'primary' : 'ghost'}
-                  className="justify-start"
-                >
+              .map(([href, label]) => {
+                // Overview is the console root, so only an exact match makes it current.
+                const current = href === '/platform' ? pathname === href : pathname.startsWith(href)
+                return (
                   <Link
-                    href={href!}
-                    aria-current={
-                      (href === '/platform' ? pathname === href : pathname.startsWith(href!))
-                        ? 'page'
-                        : undefined
-                    }
+                    key={href}
+                    href={href}
+                    aria-current={current ? 'page' : undefined}
+                    className={cn(
+                      sidebarItemClass(current),
+                      'w-auto shrink-0 whitespace-nowrap md:w-full',
+                    )}
                   >
                     {label}
                   </Link>
-                </Button>
-              ))}
+                )
+              })}
           </nav>
           <main id="platform-main" className="min-w-0 flex-1 p-4 md:p-6">
             <IdentityProvider>{children}</IdentityProvider>

@@ -34,6 +34,9 @@ const active = cn(
   'before:absolute before:inset-y-1.5 before:left-0 before:w-0.75 before:rounded-full before:bg-action-primary',
 )
 
+/** The same item treatment for other navigations (the operator console's sections). */
+export const sidebarItemClass = (isActive: boolean) => cn(itemBase, isActive ? active : inactive)
+
 /**
  * Module navigation, with the reference-approved Workflows / Reply Studio children when
  * Automations is open. Other modules retain their own module tabs.

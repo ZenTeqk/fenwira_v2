@@ -120,7 +120,7 @@ function NewFieldModal({
             />
           </Field>
           <div className="flex flex-col gap-1.5">
-            <span id="field-type" className="text-sm font-medium text-slate">
+            <span id="field-type" className="text-sm font-medium text-fg">
               Type
             </span>
             <Select value={type} onValueChange={(v) => setType(v as PropertyType)}>
@@ -180,12 +180,12 @@ export function ContactFieldsCard({ canManage }: { canManage: boolean }) {
       </CardHeader>
       <CardContent>
         {fields.length ? (
-          <ul className="flex flex-col divide-y divide-border" aria-label="Contact fields">
+          <ul className="flex flex-col divide-y divide-border-subtle" aria-label="Contact fields">
             {fields.map((f) => (
               <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="flex items-center gap-2">
-                  <span className="text-slate">{f.label}</span>
-                  <span className="font-mono text-sm text-muted">{f.key}</span>
+                  <span className="text-fg">{f.label}</span>
+                  <span className="font-mono text-sm text-fg-muted">{f.key}</span>
                   <Badge tone="neutral">{TYPE_LABEL[f.type]}</Badge>
                   {f.archived ? <Badge tone="warning">Archived</Badge> : null}
                 </span>

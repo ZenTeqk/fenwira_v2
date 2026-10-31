@@ -79,10 +79,10 @@ export default function RolesPage() {
           <TableBody>
             {[...areas.entries()].map(([area, permissions]) => (
               <Fragment key={area}>
-                <TableRow className="bg-background hover:bg-background">
+                <TableRow className="bg-canvas hover:bg-surface-muted">
                   <TableCell
                     colSpan={matrix.data.roles.length + 1}
-                    className="py-2 text-sm font-semibold text-slate"
+                    className="py-2 text-sm font-semibold text-fg"
                   >
                     {AREA_LABELS[area] ?? area}
                   </TableCell>
@@ -90,19 +90,19 @@ export default function RolesPage() {
                 {permissions.map((permission) => (
                   <TableRow key={permission.key}>
                     <TableCell>
-                      <span className="block text-slate">{permission.description}</span>
-                      <span className="font-mono text-xs text-muted">{permission.key}</span>
+                      <span className="block text-fg">{permission.description}</span>
+                      <span className="font-mono text-xs text-fg-muted">{permission.key}</span>
                     </TableCell>
                     {matrix.data.roles.map((role) => (
                       <TableCell key={role.key} className="text-center">
                         {role.permissions.includes(permission.key) ? (
                           <Check
-                            className="mx-auto size-4 text-primary-strong"
+                            className="mx-auto size-4 text-fg"
                             aria-label={`${role.label}: allowed`}
                           />
                         ) : (
                           <Minus
-                            className="mx-auto size-4 text-slate-400"
+                            className="mx-auto size-4 text-fg-subtle"
                             aria-label={`${role.label}: not allowed`}
                           />
                         )}

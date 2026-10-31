@@ -30,6 +30,7 @@ import {
   TableRow,
   Textarea,
   toast,
+  textLink,
 } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -170,7 +171,7 @@ export function ProvisionWorkspace({
               hint="The first invoice for this plan is sent 3 days before the 14-day trial ends."
             >
               <select
-                className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
+                className="h-10 rounded-md border border-border-control bg-surface px-3 text-sm text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
                 value={form.planKey}
                 onChange={set('planKey')}
               >
@@ -435,7 +436,7 @@ export function AccessRequestsView() {
                 <TableCell>{l.name}</TableCell>
                 <TableCell>{l.company}</TableCell>
                 <TableCell>
-                  <a className="text-primary-strong hover:underline" href={`mailto:${l.email}`}>
+                  <a className={textLink} href={`mailto:${l.email}`}>
                     {l.email}
                   </a>
                 </TableCell>
@@ -448,7 +449,7 @@ export function AccessRequestsView() {
                   {owned.get(l.email.toLowerCase()) ? (
                     <Link
                       href={`/platform/workspaces/${owned.get(l.email.toLowerCase())!.id}`}
-                      className="text-primary-strong hover:underline"
+                      className={textLink}
                     >
                       Workspace created: open
                     </Link>

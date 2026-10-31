@@ -44,7 +44,7 @@ export function WalletPlanContext() {
           <div className="flex items-start gap-3">
             <span
               aria-hidden="true"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-muted text-fg-secondary"
             >
               <Layers className="size-4" />
             </span>
@@ -77,7 +77,10 @@ export function WalletPlanContext() {
                 .map((e) => (
                   <li key={e.key} className="flex items-center gap-2">
                     {e.enabled ? (
-                      <Check aria-hidden="true" className="size-4 shrink-0 text-primary-strong" />
+                      <Check
+                        aria-hidden="true"
+                        className="size-4 shrink-0 text-status-success-fg"
+                      />
                     ) : null}
                     <span>
                       {e.label}
@@ -87,10 +90,10 @@ export function WalletPlanContext() {
                 ))}
             </ul>
           )}
-          <dl className="flex flex-col gap-3 border-t border-border pt-3 text-sm">
+          <dl className="flex flex-col gap-3 border-t border-border-subtle pt-3 text-sm">
             {s.trialEndsAt && s.status === 'TRIALING' ? (
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <dt className="flex items-center gap-2 text-secondary">
+                <dt className="flex items-center gap-2 text-fg-secondary">
                   <CalendarClock aria-hidden="true" className="size-4" />
                   Trial ends
                 </dt>
@@ -98,13 +101,13 @@ export function WalletPlanContext() {
               </div>
             ) : null}
             {s.status === 'TRIALING' && managed ? (
-              <p className="text-secondary">
+              <p className="text-fg-secondary">
                 Billing starts after your free trial. We’ll send you an invoice before it ends.
               </p>
             ) : null}
             {s.currentPeriodEnd ? (
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <dt className="flex items-center gap-2 text-secondary">
+                <dt className="flex items-center gap-2 text-fg-secondary">
                   <CalendarClock aria-hidden="true" className="size-4" />
                   Current period ends
                 </dt>
@@ -112,7 +115,7 @@ export function WalletPlanContext() {
               </div>
             ) : null}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <dt className="flex items-center gap-2 text-secondary">
+              <dt className="flex items-center gap-2 text-fg-secondary">
                 <Tag aria-hidden="true" className="size-4" />
                 Pricing
               </dt>

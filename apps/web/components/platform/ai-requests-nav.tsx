@@ -26,7 +26,7 @@ export function AiRequestsNavLabel() {
     <span className="flex w-full items-center justify-between gap-2">
       AI requests
       {count ? (
-        <span className="rounded-full bg-info-soft px-2 text-xs font-semibold text-info-strong">
+        <span className="rounded-full bg-status-info-bg px-2 text-xs font-semibold text-status-info-fg">
           {count}
           <span className="sr-only"> open</span>
         </span>

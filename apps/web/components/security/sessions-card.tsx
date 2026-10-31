@@ -95,15 +95,15 @@ export function SessionsCard() {
         {sessions.isPending ? (
           <Skeleton className="h-24 w-full" />
         ) : (
-          <ul className="flex flex-col divide-y divide-border" aria-label="Active sessions">
+          <ul className="flex flex-col divide-y divide-border-subtle" aria-label="Active sessions">
             {(sessions.data ?? []).map((s) => (
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div className="flex min-w-0 flex-col">
-                  <span className="flex items-center gap-2 font-medium text-slate">
+                  <span className="flex items-center gap-2 font-medium text-fg">
                     {deviceLabel(s.userAgent)}
                     {s.current ? <Badge tone="primary">This device</Badge> : null}
                   </span>
-                  <span className="text-sm text-muted">
+                  <span className="text-sm text-fg-muted">
                     {s.ip ?? 'Unknown IP'} · last active {dateFormat.format(new Date(s.lastUsedAt))}
                   </span>
                 </div>
@@ -152,11 +152,14 @@ export function ActivityCard() {
         {events.isPending ? (
           <Skeleton className="h-24 w-full" />
         ) : events.data?.length ? (
-          <ul className="flex flex-col divide-y divide-border" aria-label="Security activity">
+          <ul
+            className="flex flex-col divide-y divide-border-subtle"
+            aria-label="Security activity"
+          >
             {events.data.slice(0, 20).map((e) => (
               <li key={e.id} className="flex flex-wrap justify-between gap-2 py-2.5">
-                <span className="text-slate">{EVENT_LABELS[e.type]}</span>
-                <span className="text-sm text-muted">
+                <span className="text-fg">{EVENT_LABELS[e.type]}</span>
+                <span className="text-sm text-fg-muted">
                   {dateFormat.format(new Date(e.createdAt))}
                   {e.ip ? ` · ${e.ip}` : ''}
                 </span>
