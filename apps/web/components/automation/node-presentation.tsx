@@ -82,13 +82,14 @@ export function NodeSymbol({
       className={cn(
         'flex shrink-0 items-center justify-center rounded-lg',
         compact ? 'size-7' : 'size-9',
+        // Same kind accents as the canvas cards (flow-canvas.tsx → HEADER).
         tone === 'brand'
-          ? 'bg-primary-soft text-primary-strong'
+          ? 'bg-accent-automation-bg text-accent-automation-fg'
           : {
-              trigger: 'bg-inverse text-inverse-fg',
-              message: 'bg-primary-soft text-primary-strong',
-              condition: 'bg-warning-soft text-warning-strong',
-              action: 'bg-info-soft text-info-strong',
+              trigger: 'bg-accent-automation-bg text-accent-automation-fg',
+              message: 'bg-accent-conversation-bg text-accent-conversation-fg',
+              condition: 'bg-surface-muted text-fg-secondary',
+              action: 'bg-surface-muted text-fg-secondary',
               ai: 'bg-accent-automation-bg text-accent-automation-fg',
             }[kind],
       )}

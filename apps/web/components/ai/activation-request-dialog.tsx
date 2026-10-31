@@ -110,7 +110,7 @@ export function ActivationRequestDialog({
               </Select>
             </Field>
           ) : (
-            <p className="text-sm text-secondary">
+            <p className="text-sm text-fg-secondary">
               Pricing isn’t published yet. The team will contact you with a quote.
             </p>
           )}

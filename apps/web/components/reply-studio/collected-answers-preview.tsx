@@ -42,8 +42,8 @@ export function CollectedAnswersPreview({ graph }: { graph: DraftGraph }) {
   const handover = graph.nodes.find((n) => n.type === 'action.handover')
   return (
     <section aria-label="Collected-answer preview" className="flex min-w-0 flex-col gap-4">
-      <h3 className="text-md font-semibold text-slate">Collected answers</h3>
-      <p className="text-xs text-muted">
+      <h3 className="text-md font-semibold text-fg">Collected answers</h3>
+      <p className="text-xs text-fg-muted">
         Illustrative sample values. Live answers come from the customer.
       </p>
       <div className="max-w-full overflow-x-auto">
@@ -71,17 +71,17 @@ export function CollectedAnswersPreview({ graph }: { graph: DraftGraph }) {
         </Table>
       </div>
       {review ? (
-        <div className="rounded-lg border border-border bg-surface p-4">
-          <h4 className="text-sm font-semibold text-slate">Review and confirm · customer sees</h4>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-secondary">
+        <div className="rounded-lg border border-border-subtle bg-surface p-4">
+          <h4 className="text-sm font-semibold text-fg">Review and confirm · customer sees</h4>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-fg-secondary">
             {fill(String(review.config.text))}
           </p>
         </div>
       ) : null}
       {handover ? (
-        <div className="rounded-lg border border-border bg-chat-note p-4">
-          <h4 className="text-sm font-semibold text-slate">Private note · salesperson sees</h4>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-secondary">
+        <div className="rounded-lg border border-border-subtle bg-chat-note p-4">
+          <h4 className="text-sm font-semibold text-fg">Private note · salesperson sees</h4>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-fg-secondary">
             {fill(String(handover.config.note ?? ''))}
           </p>
         </div>

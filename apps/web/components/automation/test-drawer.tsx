@@ -145,7 +145,7 @@ export function TestDrawer({
             </Alert>
           ) : null}
           <fieldset className="flex flex-col gap-3">
-            <legend className="mb-1 text-sm font-semibold text-slate">Sample contact</legend>
+            <legend className="mb-1 text-sm font-semibold text-fg">Sample contact</legend>
             <RadioGroup
               value={who}
               onValueChange={(v) => setWho(v as 'sample' | 'existing')}
@@ -172,7 +172,7 @@ export function TestDrawer({
                 </div>
                 {tags.data?.length ? (
                   <fieldset className="flex flex-col gap-2">
-                    <legend className="mb-1 text-sm font-medium text-slate">
+                    <legend className="mb-1 text-sm font-medium text-fg">
                       Tags the contact already has
                     </legend>
                     <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -211,13 +211,13 @@ export function TestDrawer({
                       <RadioGroupItem id={`${ids}-c-${c.id}`} value={c.id} />
                       <Label htmlFor={`${ids}-c-${c.id}`}>
                         {c.name ?? 'Unnamed'}{' '}
-                        <span className="font-mono text-xs text-muted">{c.phoneE164}</span>
+                        <span className="font-mono text-xs text-fg-muted">{c.phoneE164}</span>
                       </Label>
                     </div>
                   ))}
                 </RadioGroup>
                 {contacts.data && !contacts.data.length ? (
-                  <p className="text-sm text-muted">No contacts found.</p>
+                  <p className="text-sm text-fg-muted">No contacts found.</p>
                 ) : null}
               </div>
             )}
@@ -237,7 +237,7 @@ export function TestDrawer({
               />
             </Field>
           ) : (
-            <p className="text-sm text-secondary">
+            <p className="text-sm text-fg-secondary">
               The test runs as if this contact had just been added.
             </p>
           )}

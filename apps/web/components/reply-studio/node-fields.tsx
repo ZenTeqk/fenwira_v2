@@ -29,7 +29,7 @@ export function ReplyNodeFields({
   const str = (key: string) => String(c[key] ?? '')
   if (node.type === 'condition.business_hours')
     return (
-      <p className="text-sm text-secondary">
+      <p className="text-sm text-fg-secondary">
         Yes when your workspace is open, No when closed. Set your timezone, weekly schedule and
         holidays in Reply Studio → Business hours.
       </p>
@@ -74,7 +74,7 @@ export function ReplyNodeFields({
             onChange={(e) => set({ note: e.target.value })}
           />
         </Field>
-        <p className="text-sm text-secondary">
+        <p className="text-sm text-fg-secondary">
           The conversation passes to your team. Staff confirm availability, price and commitment.
         </p>
       </div>
@@ -202,7 +202,7 @@ export function ReplyNodeFields({
         </>
       )}
       <details>
-        <summary className="text-sm font-medium text-slate">Advanced settings</summary>
+        <summary className="text-sm font-medium text-fg">Advanced settings</summary>
         <div className="mt-4">
           <Field
             label="Re-ask invalid answers"

@@ -104,7 +104,7 @@ export function FlowSettings({
             <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
           </Field>
           <details>
-            <summary className="text-sm font-semibold text-slate">Advanced settings</summary>
+            <summary className="text-sm font-semibold text-fg">Advanced settings</summary>
             <div className="mt-4 flex flex-col gap-4">
               <Field label="Priority" hint={PRIORITY_HINT} error={errors.priority}>
                 <Input
@@ -117,9 +117,7 @@ export function FlowSettings({
               </Field>
               {sessionSettings ? (
                 <section className="flex flex-col gap-4">
-                  <h3 className="text-md font-semibold text-slate">
-                    Reply Studio session settings
-                  </h3>
+                  <h3 className="text-md font-semibold text-fg">Reply Studio session settings</h3>
                   <Alert tone="info" title="Publish these changes">
                     Running conversations keep the settings from their original published version.
                   </Alert>
@@ -170,7 +168,7 @@ export function FlowSettings({
                 </section>
               ) : null}
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-1 text-sm font-medium text-slate">
+                <legend className="mb-1 text-sm font-medium text-fg">
                   Can it start again for the same person?
                 </legend>
                 <RadioGroup
@@ -188,7 +186,7 @@ export function FlowSettings({
                       />
                       <span className="flex flex-col">
                         <Label htmlFor={`${ids}-${o.value}`}>{o.label}</Label>
-                        <span id={`${ids}-${o.value}-hint`} className="text-sm text-secondary">
+                        <span id={`${ids}-${o.value}-hint`} className="text-sm text-fg-secondary">
                           {o.hint}
                         </span>
                       </span>

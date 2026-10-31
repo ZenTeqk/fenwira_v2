@@ -37,34 +37,34 @@ export function ReadinessPanel({
   return (
     <section aria-labelledby="readiness-title" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 id="readiness-title" className="text-sm font-semibold text-slate">
+        <h2 id="readiness-title" className="text-sm font-semibold text-fg">
           Ready to publish?
         </h2>
-        <span aria-live="polite" className="inline-flex items-center gap-1.5 text-sm text-slate">
+        <span aria-live="polite" className="inline-flex items-center gap-1.5 text-sm text-fg">
           {issues.length ? (
             <>
-              <AlertTriangle className="size-4 text-warning-strong" aria-hidden="true" />
+              <AlertTriangle className="size-4 text-status-warning-fg" aria-hidden="true" />
               {issues.length === 1
                 ? '1 thing to fix first'
                 : `${issues.length} things to fix first`}
             </>
           ) : (
             <>
-              <CheckCircle2 className="size-4 text-success-strong" aria-hidden="true" />
+              <CheckCircle2 className="size-4 text-status-success-fg" aria-hidden="true" />
               Yes. Every step is set up and connected.
             </>
           )}
         </span>
       </div>
       {issues.length ? (
-        <ul className="flex flex-col divide-y divide-border rounded-md border border-border bg-surface">
+        <ul className="flex flex-col divide-y divide-border-subtle rounded-md border border-border-subtle bg-surface">
           {issues.map((issue, i) => {
             const nodeId = issueNodeId(graph, issue)
             const node = nodeId ? graph.nodes.find((n) => n.id === nodeId) : undefined
             const text = plainIssue(issue, node)
             return (
               <li key={i} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                <span className="text-sm text-slate">
+                <span className="text-sm text-fg">
                   {node ? <span className="font-medium">{NODE_LABEL[node.type]}: </span> : null}
                   {text}
                 </span>
@@ -126,10 +126,10 @@ export function PublishedDialog({
         }
       >
         <div className="flex flex-col gap-4">
-          <p className="rounded-md bg-primary-soft p-3 text-sm text-slate">{summary}</p>
+          <p className="rounded-md bg-surface-muted p-3 text-sm text-fg">{summary}</p>
           <div className="flex flex-col gap-1">
-            <h3 className="text-sm font-semibold text-slate">What happens next</h3>
-            <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-secondary">
+            <h3 className="text-sm font-semibold text-fg">What happens next</h3>
+            <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-fg-secondary">
               <li>It runs on its own whenever the trigger happens, even when nobody is online.</li>
               <li>If a teammate replies in a conversation, the automation stops for that chat.</li>
               <li>Every run appears in History, step by step. Pause it there at any time.</li>

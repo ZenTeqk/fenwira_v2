@@ -79,7 +79,7 @@ export function AddStepMenu({
               aria-labelledby={`add-${g.title}`}
               className="flex flex-col gap-1"
             >
-              <h3 id={`add-${g.title}`} className="text-xs font-semibold text-secondary">
+              <h3 id={`add-${g.title}`} className="text-xs font-semibold text-fg-secondary">
                 {g.title}
               </h3>
               <ul className="flex flex-col gap-1">
@@ -88,7 +88,7 @@ export function AddStepMenu({
                     <button
                       type="button"
                       data-add-item
-                      className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-surface-hover focus-visible:bg-neutral-soft focus-visible:outline-2 focus-visible:outline-focus-ring"
+                      className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-surface-hover focus-visible:bg-surface-muted focus-visible:outline-2 focus-visible:outline-focus-ring"
                       onClick={() => {
                         onPick(t)
                         setSearch('')
@@ -96,10 +96,8 @@ export function AddStepMenu({
                     >
                       <NodeSymbol type={t} compact />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium text-slate">
-                          {NODE_LABEL[t]}
-                        </span>
-                        <span className="block text-xs text-secondary">{NODE_HINT[t]}</span>
+                        <span className="block text-sm font-medium text-fg">{NODE_LABEL[t]}</span>
+                        <span className="block text-xs text-fg-secondary">{NODE_HINT[t]}</span>
                       </span>
                     </button>
                   </li>

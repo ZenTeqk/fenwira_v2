@@ -591,8 +591,8 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
     setup
   ) : (
     <div className="flex flex-col gap-2">
-      <h2 className="text-md font-semibold text-slate">Step settings</h2>
-      <p className="text-sm text-secondary">
+      <h2 className="text-md font-semibold text-fg">Step settings</h2>
+      <p className="text-sm text-fg-secondary">
         {hasTrigger
           ? 'Select a step on the canvas or outline to inspect its settings.'
           : 'Add a trigger to start your automation.'}
@@ -601,7 +601,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
   )
   const rightPanel = (
     <Tabs value={rightTab} onValueChange={setRightTab} className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-3 flex shrink-0 items-center gap-1 border-b border-border">
+      <div className="mb-3 flex shrink-0 items-center gap-1 border-b border-border-subtle">
         <TabsList aria-label="Canvas side panel" className="flex-1 border-b-0">
           <TabsTrigger value="settings">Node settings</TabsTrigger>
           {previewOpen ? <TabsTrigger value="preview">Preview</TabsTrigger> : null}
@@ -685,7 +685,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
         appearance="canvas"
         header={{ title: f.name }}
         topbar={
-          <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-3 py-2 md:flex-nowrap">
+          <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle bg-surface px-3 py-2 md:flex-nowrap">
             <Button
               variant="ghost"
               size="sm"
@@ -725,7 +725,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
               <p
                 tabIndex={0}
                 data-testid="flow-summary"
-                className="hidden min-w-0 flex-1 truncate text-sm text-secondary lg:block"
+                className="hidden min-w-0 flex-1 truncate text-sm text-fg-secondary lg:block"
               >
                 {summary}
               </p>
@@ -869,7 +869,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
         inspector={wide && (node || previewOpen) ? rightPanel : undefined}
       >
         <Tabs value={view} onValueChange={setView} className="flex min-h-0 flex-1 flex-col">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle bg-surface px-3 py-2">
             <TabsList aria-label="Builder view" className="w-auto border-b-0">
               <TabsTrigger value="canvas">Canvas</TabsTrigger>
               <TabsTrigger value="outline">Outline</TabsTrigger>
@@ -936,7 +936,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
           </div>
           <TabsContent value="canvas" className="relative mt-0 min-h-0 flex-1">
             {mobile ? (
-              <p className="absolute top-2 left-2 z-10 rounded-md border border-border bg-surface px-3 py-2 text-sm text-secondary">
+              <p className="absolute top-2 left-2 z-10 rounded-md border border-border-subtle bg-surface px-3 py-2 text-sm text-fg-secondary">
                 Editing is best on a larger screen
               </p>
             ) : null}
@@ -971,7 +971,7 @@ export function FlowBuilder({ flowId }: { flowId: string }) {
         </Tabs>
         <section
           aria-label="Publish preparation"
-          className="shrink-0 border-t border-border bg-surface"
+          className="shrink-0 border-t border-border-subtle bg-surface"
         >
           <Button
             variant="ghost"

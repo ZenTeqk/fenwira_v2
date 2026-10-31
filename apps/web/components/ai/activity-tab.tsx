@@ -12,6 +12,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  cn,
+  textLink,
 } from '@fenwira/ui'
 import { History } from 'lucide-react'
 import Link from 'next/link'
@@ -51,19 +53,19 @@ export function ActivityTab() {
       <TableBody>
         {list.data.map((r) => (
           <TableRow key={r.id}>
-            <TableCell className="whitespace-nowrap text-secondary">
+            <TableCell className="whitespace-nowrap text-fg-secondary">
               <time dateTime={r.createdAt} title={new Date(r.createdAt).toLocaleString()}>
                 {relativeTime(r.createdAt)}
               </time>
             </TableCell>
             <TableCell className="max-w-sm">
-              <p className="line-clamp-2 text-slate">{r.customerExcerpt}</p>
-              {r.playground ? <p className="text-xs text-secondary">Test question</p> : null}
+              <p className="line-clamp-2 text-fg">{r.customerExcerpt}</p>
+              {r.playground ? <p className="text-xs text-fg-secondary">Test question</p> : null}
             </TableCell>
             <TableCell>
               <StatusBadge status={r.outcome} />
             </TableCell>
-            <TableCell className="max-w-56 text-secondary">
+            <TableCell className="max-w-56 text-fg-secondary">
               {r.sources.length
                 ? [...new Set(r.sources.map((s) => s.documentTitle))].join(', ')
                 : '—'}
@@ -72,7 +74,7 @@ export function ActivityTab() {
               {r.conversationId ? (
                 <Link
                   href={`/inbox?c=${r.conversationId}`}
-                  className="whitespace-nowrap font-medium text-primary-strong underline-offset-4 hover:underline"
+                  className={cn('whitespace-nowrap font-medium', textLink)}
                 >
                   Open conversation
                 </Link>

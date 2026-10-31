@@ -9,6 +9,7 @@ import {
   ListPage,
   PermissionState,
   type ColumnDef,
+  textLink,
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -49,10 +50,7 @@ export default function ReportsPage() {
       accessorKey: 'name',
       header: 'Flow',
       cell: ({ row }) => (
-        <Link
-          className="text-primary-strong underline"
-          href={`/automations/${row.original.flowId}/history`}
-        >
+        <Link className={textLink} href={`/automations/${row.original.flowId}/history`}>
           {row.original.name}
         </Link>
       ),
@@ -82,12 +80,12 @@ export default function ReportsPage() {
       }}
     >
       <AutomationNavigation active="reports" />
-      <p className="text-sm text-secondary">
+      <p className="text-sm text-fg-secondary">
         Auto Replies: Sent counts messages accepted as sent, delivered or read; Blocked counts
         policy-denied messages; Send failed counts other delivery failures. Bot Flows: Completed,
         Fallback, Expired, Handed over and Failed count executions.
       </p>
-      <details className="text-sm text-secondary">
+      <details className="text-sm text-fg-secondary">
         <summary>What counts as Completed?</summary>
         <p className="mt-2">
           A Bot Flow reached End or Handover successfully. Expired sessions do not count. A
@@ -96,7 +94,7 @@ export default function ReportsPage() {
         </p>
       </details>
       {report.data?.totals.starts === 0 ? (
-        <p className="text-sm text-muted">No activity yet</p>
+        <p className="text-sm text-fg-muted">No activity yet</p>
       ) : null}
       <div className="flex flex-wrap items-end gap-4">
         <Field label="From (India time)">
@@ -137,13 +135,11 @@ export default function ReportsPage() {
       ) : null}
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-6">
         {METRICS.map((k) => (
-          <div key={k} className="rounded-lg border border-border bg-surface p-4">
-            <dt className="text-sm capitalize text-secondary">
+          <div key={k} className="rounded-lg border border-border-subtle bg-surface p-4">
+            <dt className="text-sm capitalize text-fg-secondary">
               {k === 'expired' ? 'Expired sessions' : k}
             </dt>
-            <dd className="mt-2 text-xl font-semibold text-slate">
-              {report.data?.totals[k] ?? '—'}
-            </dd>
+            <dd className="mt-2 text-xl font-semibold text-fg">{report.data?.totals[k] ?? '—'}</dd>
           </div>
         ))}
       </dl>
@@ -159,8 +155,8 @@ export default function ReportsPage() {
         }}
       />
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-slate">Failures</h2>
-        <p className="text-sm text-secondary">The latest 100 failures in this range.</p>
+        <h2 className="text-lg font-semibold text-fg">Failures</h2>
+        <p className="text-sm text-fg-secondary">The latest 100 failures in this range.</p>
         <FailureList failures={report.data?.failures ?? []} />
       </section>
     </ListPage>

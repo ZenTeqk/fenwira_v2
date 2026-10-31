@@ -63,20 +63,25 @@ type CardData = {
   connected: EdgeHandle[]
 }
 
-/** Header band per node kind (design system → Flow nodes). */
+/**
+ * Header band per node kind (design system → Flow nodes). Kind accents are feature colours —
+ * violet for the trigger and AI, blue for customer messages, neutral for logic and actions — so
+ * amber, red and green stay reserved for readiness and execution status.
+ */
 const HEADER: Record<NodeKind, string> = {
-  trigger: 'bg-inverse text-inverse-fg',
-  message: 'border-b border-border bg-surface text-primary-strong',
-  condition: 'bg-warning-soft text-warning-strong',
-  action: 'bg-info-soft text-info-strong',
-  ai: 'bg-accent-automation-bg text-accent-automation-fg',
+  trigger:
+    'border-b border-accent-automation-border bg-accent-automation-bg text-accent-automation-fg',
+  message: 'border-b border-border-subtle bg-surface text-accent-conversation-fg',
+  condition: 'border-b border-border-subtle bg-surface-muted text-fg-secondary',
+  action: 'border-b border-border-subtle bg-surface-muted text-fg-secondary',
+  ai: 'border-b border-accent-automation-border bg-accent-automation-bg text-accent-automation-fg',
 }
 const HANDLE_TONE: Partial<Record<EdgeHandle, string>> = {
-  yes: 'bg-success-soft text-success-strong',
-  no: 'bg-neutral-soft text-secondary',
-  error: 'bg-danger-soft text-danger-strong',
-  replied: 'bg-success-soft text-success-strong',
-  needs_human: 'bg-info-soft text-info-strong',
+  yes: 'bg-status-success-bg text-status-success-fg',
+  no: 'bg-surface-muted text-fg-secondary',
+  error: 'bg-status-error-bg text-status-error-fg',
+  replied: 'bg-status-success-bg text-status-success-fg',
+  needs_human: 'bg-status-info-bg text-status-info-fg',
 }
 /** Handles sit at the centre of equal columns, so labels and "+" buttons line up with them. */
 const handleLeft = (i: number, n: number) => `${((i + 0.5) / n) * 100}%`
@@ -92,14 +97,21 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
       data-testid={`flow-node-${node.id}`}
       data-kind={kind}
       className={cn(
-        'relative w-64 rounded-lg border bg-surface text-slate shadow-raised',
-        issues.length ? 'border-warning' : 'border-border',
-        traversed && 'border-primary ring-2 ring-primary',
-        selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
+        // Hover lifts; selection is a charcoal outline (keyboard focus keeps the focus-ring colour,
+        // see globals.css); readiness and the replayed path use status colours.
+        'relative w-64 rounded-lg border bg-surface text-fg shadow-raised transition-shadow hover:shadow-overlay motion-reduce:transition-none',
+        issues.length
+          ? 'border-status-warning'
+          : 'border-border-subtle hover:border-border-control',
+        traversed &&
+          (replayStatus === 'FAILED'
+            ? 'border-status-error ring-2 ring-status-error'
+            : 'border-action-primary ring-2 ring-action-primary'),
+        selected && 'border-fg ring-2 ring-fg ring-offset-2 ring-offset-canvas',
       )}
     >
       {kind !== 'trigger' ? (
-        <Handle type="target" position={Position.Top} className="bg-slate-400!" />
+        <Handle type="target" position={Position.Top} className="bg-fg-subtle!" />
       ) : null}
       <div
         className={cn(
@@ -113,12 +125,12 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
           {replayStatus ? (
             <StatusBadge status={replayStatus} />
           ) : issues.length ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-surface px-1.5 py-0.5 text-warning-strong">
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface px-1.5 py-0.5 text-status-warning-fg">
               <AlertTriangle className="size-3.5" aria-hidden="true" />
               <span>Needs attention</span>
             </span>
           ) : (
-            <span className="inline-flex rounded-full bg-surface p-0.5 text-success-strong">
+            <span className="inline-flex rounded-full bg-surface p-0.5 text-status-success-fg">
               <CheckCircle2 className="size-3.5" aria-hidden="true" />
               <span className="sr-only">Ready</span>
             </span>
@@ -127,20 +139,20 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
       </div>
       <div className="px-3 py-2.5">
         <p className="text-sm font-semibold">{NODE_LABEL[node.type]}</p>
-        <p className="mt-0.5 line-clamp-2 text-xs text-secondary">{summarize(node)}</p>
+        <p className="mt-0.5 line-clamp-2 text-xs text-fg-secondary">{summarize(node)}</p>
         {node.type === 'action.question' ? (
-          <p className="mt-2 text-xs font-medium text-secondary">
+          <p className="mt-2 text-xs font-medium text-fg-secondary">
             Save to: {String(node.config.contactProperty ?? node.config.field ?? 'Choose a field')}
           </p>
         ) : null}
         {stats ? (
           <p
-            className="mt-2 flex flex-wrap gap-x-3 text-xs text-secondary"
+            className="mt-2 flex flex-wrap gap-x-3 text-xs text-fg-secondary"
             data-testid={`node-stats-${node.id}`}
           >
             <span>{stats.entered.toLocaleString('en-IN')} entered</span>
             <span>{stats.completed.toLocaleString('en-IN')} completed</span>
-            <span className={stats.failed ? 'font-medium text-danger-strong' : undefined}>
+            <span className={stats.failed ? 'font-medium text-status-error-fg' : undefined}>
               {stats.failed.toLocaleString('en-IN')} failed
             </span>
           </p>
@@ -156,7 +168,7 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
               key={h}
               className={cn(
                 'mx-auto rounded-full px-1.5 py-0.5 text-xs font-medium',
-                HANDLE_TONE[h] ?? 'bg-neutral-soft text-secondary',
+                HANDLE_TONE[h] ?? 'bg-surface-muted text-fg-secondary',
               )}
             >
               {branchLabel(node, h)}
@@ -171,7 +183,7 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
           type="source"
           position={Position.Bottom}
           style={{ left: handleLeft(i, outputs.length) }}
-          className={h === 'error' ? 'bg-danger!' : 'bg-slate-400!'}
+          className={h === 'error' ? 'bg-status-error!' : 'bg-fg-subtle!'}
         />
       ))}
       {onAddAfter
@@ -180,7 +192,7 @@ const FlowCard = memo(function FlowCard({ data, selected }: NodeProps<Node<CardD
               <button
                 key={`add-${h}`}
                 type="button"
-                className="nodrag nopan absolute top-full mt-4 flex size-7 -translate-x-1/2 items-center justify-center rounded-full border border-border-strong bg-surface text-secondary shadow-raised hover:border-primary hover:text-primary-strong focus-visible:outline-2 focus-visible:outline-focus-ring"
+                className="nodrag nopan absolute top-full mt-4 flex size-7 -translate-x-1/2 items-center justify-center rounded-full border border-border-control bg-surface text-fg-secondary shadow-raised hover:border-fg hover:text-fg focus-visible:outline-2 focus-visible:outline-focus-ring"
                 style={{ left: handleLeft(i, outputs.length) }}
                 aria-label={`Add a step after ${NODE_LABEL[node.type]}${labelled ? ` (${branchLabel(node, h)})` : ''}`}
                 onClick={(e) => {
@@ -222,14 +234,14 @@ function PlusEdge(props: EdgeProps<Edge<EdgeData>>) {
             }}
           >
             {d.label ? (
-              <span className="rounded-full border border-border bg-surface px-1.5 py-0.5 text-xs text-slate">
+              <span className="rounded-full border border-border-subtle bg-surface px-1.5 py-0.5 text-xs text-fg">
                 {d.label}
               </span>
             ) : null}
             {d.onInsert ? (
               <button
                 type="button"
-                className="flex size-6 items-center justify-center rounded-full border border-border-strong bg-surface text-secondary shadow-raised hover:border-primary hover:text-primary-strong focus-visible:outline-2 focus-visible:outline-focus-ring"
+                className="flex size-6 items-center justify-center rounded-full border border-border-control bg-surface text-fg-secondary shadow-raised hover:border-fg hover:text-fg focus-visible:outline-2 focus-visible:outline-focus-ring"
                 aria-label={d.insertLabel}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -374,11 +386,23 @@ function Canvas({
         target: e.target,
         sourceHandle: e.sourceHandle,
         type: 'plus',
+        // The arrowhead follows the edge's state so direction stays readable when selected,
+        // on an error branch or on the replayed path.
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: hot ? 'var(--color-primary)' : 'var(--color-slate-400)',
+          color: hot
+            ? 'var(--color-action-primary)'
+            : selectedEdges.has(e.id)
+              ? 'var(--color-fg)'
+              : e.sourceHandle === 'error'
+                ? 'var(--color-status-error)'
+                : 'var(--color-fg-subtle)',
         },
-        className: hot ? 'fw-edge-active' : undefined,
+        className: hot
+          ? 'fw-edge-active'
+          : e.sourceHandle === 'error'
+            ? 'fw-edge-error'
+            : undefined,
         data: {
           label:
             e.sourceHandle === 'next' &&
@@ -519,14 +543,14 @@ function Canvas({
             zoomable
             ariaLabel="Flow overview"
             style={{ width: 120, height: 80 }}
-            nodeColor="var(--color-border-strong)"
-            nodeStrokeColor="var(--color-secondary)"
+            nodeColor="var(--color-border-control)"
+            nodeStrokeColor="var(--color-fg-secondary)"
           />
         ) : null}
       </ReactFlow>
       {!graph.nodes.length && onAddTrigger && !readOnly ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="max-w-xs text-sm text-secondary">
+          <p className="max-w-xs text-sm text-fg-secondary">
             Every automation starts with a trigger: the message, contact or event that sets it off.
           </p>
           <Button className="pointer-events-auto" onClick={onAddTrigger}>
@@ -542,7 +566,7 @@ function Canvas({
 /** The React Flow canvas. React Flow state is converted to and from FlowGraph at this boundary. */
 export function FlowCanvas(props: FlowCanvasProps) {
   return (
-    <div className="fw-flow relative h-full min-h-0 w-full bg-background">
+    <div className="fw-flow relative h-full min-h-0 w-full bg-canvas">
       <ReactFlowProvider>
         <Canvas {...props} />
       </ReactFlowProvider>

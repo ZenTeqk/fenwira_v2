@@ -19,11 +19,11 @@ export function StepPreview({ graph }: { graph: DraftGraph }) {
       {nodes.map((n, i) => (
         <Fragment key={n.id}>
           {i ? (
-            <ArrowRight aria-hidden="true" className="my-auto size-3 shrink-0 text-muted" />
+            <ArrowRight aria-hidden="true" className="my-auto size-3 shrink-0 text-fg-muted" />
           ) : null}
-          <div className="flex min-w-0 flex-1 flex-col items-start gap-2 rounded-md sm:flex-row sm:items-center border border-border bg-background px-2 py-3">
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-2 rounded-md sm:flex-row sm:items-center border border-border-subtle bg-canvas px-2 py-3">
             <NodeSymbol type={n.type} bare />
-            <span className="line-clamp-2 break-words text-xs text-secondary">
+            <span className="line-clamp-2 break-words text-xs text-fg-secondary">
               {NODE_LABEL[n.type]}
             </span>
           </div>
@@ -31,7 +31,7 @@ export function StepPreview({ graph }: { graph: DraftGraph }) {
       ))}
     </div>
   ) : (
-    <p className="rounded-md border border-dashed border-border px-4 py-3 text-xs text-muted">
+    <p className="rounded-md border border-dashed border-border-subtle px-4 py-3 text-xs text-fg-muted">
       Add a trigger and your first step.
     </p>
   )

@@ -152,13 +152,13 @@ export function KnowledgeTab() {
           onDrop={onDrop}
           className={cn(
             'flex flex-col items-center gap-3 rounded-lg border border-dashed px-6 py-8 text-center motion-safe:transition-colors',
-            dragging ? 'border-primary bg-primary-soft' : 'border-border-strong bg-surface',
+            dragging ? 'border-fg bg-surface-selected' : 'border-border-control bg-surface',
           )}
         >
-          <Upload className="size-6 text-secondary" aria-hidden="true" />
+          <Upload className="size-6 text-fg-secondary" aria-hidden="true" />
           <div className="flex flex-col gap-1">
-            <p className="font-medium text-slate">Drag files here, or choose them</p>
-            <p className="text-sm text-secondary">
+            <p className="font-medium text-fg">Drag files here, or choose them</p>
+            <p className="text-sm text-fg-secondary">
               PDF (with selectable text), Word (.docx), TXT, Markdown or CSV · up to 10 MB each
             </p>
           </div>
@@ -198,19 +198,19 @@ export function KnowledgeTab() {
           }
         />
       ) : (
-        <Card className="divide-y divide-border p-0">
-          <ul aria-label="Knowledge sources" className="divide-y divide-border">
+        <Card className="divide-y divide-border-subtle p-0">
+          <ul aria-label="Knowledge sources" className="divide-y divide-border-subtle">
             {list.data.map((s) => {
               const Icon = TYPE_ICON[s.type]
               return (
                 <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-neutral-soft">
-                    <Icon className="size-4 text-secondary" aria-hidden="true" />
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-muted">
+                    <Icon className="size-4 text-fg-secondary" aria-hidden="true" />
                     <span className="sr-only">{TYPE_LABEL[s.type]}</span>
                   </span>
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <p className="truncate font-medium text-slate">{s.title}</p>
-                    <p className="text-sm text-secondary">
+                    <p className="truncate font-medium text-fg">{s.title}</p>
+                    <p className="text-sm text-fg-secondary">
                       {TYPE_LABEL[s.type]} · {formatBytes(s.sizeBytes)}
                       {s.status === 'READY' || s.replacing ? ` · ${s.chunkCount} sections` : ''}
                       {s.replacing
@@ -218,7 +218,7 @@ export function KnowledgeTab() {
                         : ''}
                     </p>
                     {s.status === 'FAILED' && s.failureReason ? (
-                      <p className="text-sm text-danger-strong">{s.failureReason}</p>
+                      <p className="text-sm text-status-error-fg">{s.failureReason}</p>
                     ) : null}
                   </div>
                   <StatusBadge status={s.status} />
@@ -244,7 +244,7 @@ export function KnowledgeTab() {
                         </DropdownItem>
                         <DropdownItem
                           onSelect={() => void onDelete(s)}
-                          className="text-danger-strong"
+                          className="text-status-error-fg"
                         >
                           <Trash2 aria-hidden="true" />
                           Delete
@@ -322,8 +322,11 @@ function FaqPanel({ panel, onClose }: { panel: Panel; onClose: () => void }) {
           </Field>
         ) : null}
         {pairs.map((p, i) => (
-          <fieldset key={i} className="flex flex-col gap-3 rounded-md border border-border p-3">
-            <legend className="px-1 text-sm font-medium text-slate">Question {i + 1}</legend>
+          <fieldset
+            key={i}
+            className="flex flex-col gap-3 rounded-md border border-border-subtle p-3"
+          >
+            <legend className="px-1 text-sm font-medium text-fg">Question {i + 1}</legend>
             <Field label="Question">
               <Input
                 value={p.question}

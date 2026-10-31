@@ -42,22 +42,22 @@ function RunPlan({ flowId, runId }: { flowId: string; runId: string | null }) {
   if (!run.data) return <Skeleton className="h-20 w-full" />
   return (
     <section aria-labelledby="plan-title" className="flex flex-col gap-2">
-      <h3 id="plan-title" className="font-semibold text-slate">
+      <h3 id="plan-title" className="font-semibold text-fg">
         Automations for this event, in order
       </h3>
       {run.data.stopReason ? (
-        <p className="text-sm text-slate">
+        <p className="text-sm text-fg">
           Stopped: {RUN_REASON[run.data.stopReason] ?? run.data.stopReason}
         </p>
       ) : null}
       <ol className="flex flex-col gap-1">
         {run.data.plan.map((p) => (
-          <li key={p.flowId} className="flex flex-wrap items-center gap-2 text-sm text-slate">
+          <li key={p.flowId} className="flex flex-wrap items-center gap-2 text-sm text-fg">
             <span className="font-mono text-xs">#{p.priority}</span>
             <span className={p.flowId === flowId ? 'font-semibold' : undefined}>{p.flowName}</span>
             <StatusBadge status={p.status} />
             {p.reason && RUN_REASON[p.reason] ? (
-              <span className="text-muted">{RUN_REASON[p.reason]}</span>
+              <span className="text-fg-muted">{RUN_REASON[p.reason]}</span>
             ) : null}
           </li>
         ))}
@@ -74,7 +74,9 @@ function Detail({ flowId, id }: { flowId: string; id: string }) {
   const version = useVersion(flowId, e.data?.flowVersionId)
   const [canvas, setCanvas] = useState(false)
   const traversed = useMemo(
-    () => new Map((e.data?.steps ?? []).map((s) => [s.nodeId, s.status.toLowerCase()])),
+    // Step statuses as the contract defines them (STEP_STATUSES), so the canvas shows each
+    // replayed step's badge, including where the run failed.
+    () => new Map((e.data?.steps ?? []).map((s) => [s.nodeId, s.status])),
     [e.data],
   )
   if (!e.data) return <Skeleton className="h-64 w-full" />
@@ -100,10 +102,10 @@ function Detail({ flowId, id }: { flowId: string; id: string }) {
   return (
     <section
       aria-labelledby="run-title"
-      className="flex flex-col gap-4 rounded-md border border-border bg-surface p-4"
+      className="flex flex-col gap-4 rounded-md border border-border-subtle bg-surface p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="run-title" className="text-lg font-semibold text-slate">
+        <h2 id="run-title" className="text-lg font-semibold text-fg">
           Run for {e.data.contactName ?? 'a contact'} · version {e.data.flowVersion}
         </h2>
         <div className="flex gap-2">
@@ -122,7 +124,7 @@ function Detail({ flowId, id }: { flowId: string; id: string }) {
           ) : null}
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2 text-sm text-slate">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-fg">
         <StatusBadge status={e.data.status} />
         {e.data.waitUntil ? (
           <span>Continues {new Date(e.data.waitUntil).toLocaleString()}</span>
@@ -163,7 +165,7 @@ function History() {
       cell: ({ row }) => (
         <Link
           href={`/automations/${id}/history?run=${row.original.id}`}
-          className="font-medium text-slate underline-offset-4 hover:underline"
+          className="font-medium text-fg underline-offset-4 hover:underline"
           aria-current={selected === row.original.id ? 'true' : undefined}
         >
           {row.original.contactName ?? 'Unknown contact'}

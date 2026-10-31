@@ -21,6 +21,8 @@ import {
   Input,
   PermissionState,
   Textarea,
+  cn,
+  textLink,
 } from '@fenwira/ui'
 import { ArrowLeft, ArrowRight, Check, GitBranch, Smartphone } from 'lucide-react'
 import Link from 'next/link'
@@ -159,9 +161,9 @@ export function ReplyWizard() {
     <fieldset
       key={n.id}
       id={`setup-${n.id}`}
-      className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4"
+      className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4"
     >
-      <legend className="px-2 text-sm font-semibold text-slate">
+      <legend className="px-2 text-sm font-semibold text-fg">
         {NODE_LABEL[n.type]} · {n.id.replaceAll('_', ' ')}
       </legend>
       {n.type === 'action.send_message' ? (
@@ -199,7 +201,7 @@ export function ReplyWizard() {
       >
         <div className="grid min-w-0 gap-6 lg:grid-cols-12">
           <nav aria-label="Setup steps" className="min-w-0 lg:col-span-12 xl:col-span-3">
-            <p className="mb-4 text-xs font-medium uppercase tracking-wide text-muted">
+            <p className="mb-4 text-xs font-medium uppercase tracking-wide text-fg-muted">
               Step {step + 1} of {STEPS.length}
             </p>
             <ol className="flex gap-2 overflow-x-auto pb-2 xl:flex-col">
@@ -207,14 +209,14 @@ export function ReplyWizard() {
                 <li key={label} className="shrink-0">
                   <Button
                     variant="ghost"
-                    className={`h-auto min-h-12 w-full justify-start gap-4 px-4 py-2 text-left ${step === i ? 'bg-primary-soft text-primary-strong' : 'text-secondary'}`}
+                    className={`h-auto min-h-12 w-full justify-start gap-4 px-4 py-2 text-left ${step === i ? 'bg-surface-selected font-medium text-fg' : 'text-fg-secondary'}`}
                     aria-current={step === i ? 'step' : undefined}
                     aria-label={`Step ${i + 1}: ${label}`}
                     onClick={() => setStep(i)}
                   >
                     <span
                       aria-hidden="true"
-                      className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs ${step === i ? 'border-primary-strong bg-primary-strong text-surface' : 'border-border-strong bg-surface text-secondary'}`}
+                      className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs ${i < step ? 'border-action-primary bg-action-primary text-action-primary-fg' : step === i ? 'border-2 border-action-primary bg-surface font-semibold text-fg' : 'border-border-control bg-surface text-fg-secondary'}`}
                     >
                       {i < step ? <Check className="size-3" /> : i + 1}
                     </span>
@@ -224,10 +226,10 @@ export function ReplyWizard() {
               ))}
             </ol>
           </nav>
-          <section className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface p-4 md:p-6 lg:col-span-7 xl:col-span-5">
-            <div className="border-b border-border pb-4">
-              <h2 className="text-lg font-semibold text-slate">{STEPS[step]}</h2>
-              <p className="mt-2 text-sm text-secondary">{HELP[step]}</p>
+          <section className="flex min-w-0 flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4 md:p-6 lg:col-span-7 xl:col-span-5">
+            <div className="border-b border-border-subtle pb-4">
+              <h2 className="text-lg font-semibold text-fg">{STEPS[step]}</h2>
+              <p className="mt-2 text-sm text-fg-secondary">{HELP[step]}</p>
             </div>
             {error ? (
               <Alert tone="danger" title="Setup needs attention">
@@ -258,7 +260,7 @@ export function ReplyWizard() {
                     <Button
                       key={p.id}
                       variant="secondary"
-                      className={`h-auto flex-col items-stretch gap-4 whitespace-normal rounded-lg p-4 text-left hover:bg-surface hover:shadow-raised ${selected === p.id ? 'border-primary bg-primary-soft' : 'border-border bg-surface hover:border-border-strong'}`}
+                      className={`h-auto flex-col items-stretch gap-4 whitespace-normal rounded-lg p-4 text-left hover:bg-surface hover:shadow-raised ${selected === p.id ? 'border-fg bg-surface-selected' : 'border-border-subtle bg-surface hover:border-border-control'}`}
                       aria-pressed={selected === p.id}
                       onClick={() => {
                         setSelected(p.id)
@@ -271,7 +273,7 @@ export function ReplyWizard() {
                         <GitBranch className="size-4" aria-hidden="true" />
                         {p.title}
                       </span>
-                      <span className="text-sm font-normal text-secondary">{p.help}</span>
+                      <span className="text-sm font-normal text-fg-secondary">{p.help}</span>
                     </Button>
                   ))}
                 </div>
@@ -376,7 +378,7 @@ export function ReplyWizard() {
                     {errorText(connections.error)}
                   </Alert>
                 ) : numbers.length === 1 ? (
-                  <p className="text-sm text-secondary">
+                  <p className="text-sm text-fg-secondary">
                     WhatsApp number: {numbers[0]!.displayPhoneNumber}
                   </p>
                 ) : (
@@ -406,7 +408,7 @@ export function ReplyWizard() {
                   ]}
                 />
                 <Link
-                  className="text-sm text-primary-strong underline"
+                  className={cn('text-sm', textLink)}
                   href="/automations/reply-studio/business-hours"
                 >
                   Edit workspace business hours
@@ -422,7 +424,7 @@ export function ReplyWizard() {
               <>
                 {graph.nodes.filter((n) => n.type === 'action.question').map(nodeForm)}
                 {!graph.nodes.some((n) => n.type === 'action.question') ? (
-                  <p className="text-sm text-secondary">
+                  <p className="text-sm text-fg-secondary">
                     This starter does not collect typed answers. You can add questions in the canvas
                     after saving.
                   </p>
@@ -497,8 +499,8 @@ export function ReplyWizard() {
               </>
             ) : null}
             {step === 5 ? (
-              <div className="rounded-lg bg-neutral-soft p-4 text-sm text-secondary">
-                <p className="font-medium text-slate">Try it as a customer</p>
+              <div className="rounded-lg bg-surface-muted p-4 text-sm text-fg-secondary">
+                <p className="font-medium text-fg">Try it as a customer</p>
                 <p className="mt-2">
                   Use the phone preview to answer each question and review the handover. No customer
                   messages are sent.
@@ -516,7 +518,7 @@ export function ReplyWizard() {
             {step === 6 ? (
               <>
                 {kind === 'BOT_FLOW' ? <CollectedAnswersPreview graph={graph} /> : null}
-                <p className="text-sm text-secondary">
+                <p className="text-sm text-fg-secondary">
                   {tested
                     ? 'The complete sample conversation passed. You can publish this flow.'
                     : 'Complete Test flow before publishing.'}
@@ -526,7 +528,7 @@ export function ReplyWizard() {
                     {validation.errors.map((issue, i) => (
                       <li
                         key={i}
-                        className="flex flex-wrap items-center gap-2 text-sm text-danger-strong"
+                        className="flex flex-wrap items-center gap-2 text-sm text-status-error-fg"
                       >
                         {issue.nodeId
                           ? `${NODE_LABEL[graph.nodes.find((n) => n.id === issue.nodeId)!.type]} (${issue.nodeId}): `
@@ -551,24 +553,24 @@ export function ReplyWizard() {
             className="hidden min-w-0 flex-col items-center gap-4 lg:col-span-5 lg:flex xl:col-span-4"
           >
             <div className="flex w-full items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-slate">
+              <h2 className="text-sm font-semibold text-fg">
                 {step === 5 ? 'Test your flow' : 'Live preview'}
               </h2>
-              <span className="text-xs text-muted">Sample conversation</span>
+              <span className="text-xs text-fg-muted">Sample conversation</span>
             </div>
             {step === 5 ? (
               <ReplyTestPhone graph={graph} save={save} onTested={() => setTested(true)} />
             ) : (
               <ReplyPhonePreview graph={graph} />
             )}
-            <p className="text-center text-xs text-muted">
+            <p className="text-center text-xs text-fg-muted">
               {step === 5
                 ? 'Nothing is sent to a real customer.'
                 : 'Your changes appear here as you write.'}
             </p>
           </aside>
         </div>
-        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-surface p-4">
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface p-4">
           <Button variant="secondary" disabled={step === 0} onClick={() => setStep(step - 1)}>
             <ArrowLeft aria-hidden="true" className="size-4" />
             Back

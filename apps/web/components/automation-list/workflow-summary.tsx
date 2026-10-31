@@ -21,8 +21,11 @@ export function WorkflowSummary({ flows }: { flows: Flow[] }) {
   const ready = analytics.data?.meta.freshness.status === 'READY'
   const k = ready ? analytics.data?.kpis : undefined
   return (
-    <section aria-label="Workflow overview" className="rounded-lg border border-border bg-surface">
-      <dl className="grid grid-cols-2 gap-y-4 divide-x divide-border py-3 lg:grid-cols-4">
+    <section
+      aria-label="Workflow overview"
+      className="rounded-lg border border-border-subtle bg-surface"
+    >
+      <dl className="grid grid-cols-2 gap-y-4 divide-x divide-border-subtle py-3 lg:grid-cols-4">
         <div className="flex min-w-0 items-center gap-3 px-4">
           <dt className="sr-only">Live workflows</dt>
           <dd>
@@ -52,11 +55,11 @@ export function WorkflowSummary({ flows }: { flows: Flow[] }) {
           <div key={m.label} className="flex min-w-0 flex-wrap items-center gap-2 px-4">
             <m.icon
               aria-hidden="true"
-              className={`size-4 shrink-0 ${i === 2 && Number(m.value) > 0 ? 'text-warning-strong' : 'text-secondary'}`}
+              className={`size-4 shrink-0 ${i === 2 && Number(m.value) > 0 ? 'text-status-warning-fg' : 'text-fg-secondary'}`}
             />
-            <dt className="order-2 text-sm text-secondary">{m.label}</dt>
+            <dt className="order-2 text-sm text-fg-secondary">{m.label}</dt>
             <dd
-              className={`text-sm font-semibold tabular-nums ${i === 2 && Number(m.value) > 0 ? 'text-warning-strong' : 'text-slate'}`}
+              className={`text-sm font-semibold tabular-nums ${i === 2 && Number(m.value) > 0 ? 'text-status-warning-fg' : 'text-fg'}`}
             >
               {typeof m.value === 'number' ? m.value.toLocaleString('en-IN') : m.value}
             </dd>
@@ -64,7 +67,7 @@ export function WorkflowSummary({ flows }: { flows: Flow[] }) {
         ))}
       </dl>
       {can('analytics.read') && !ready ? (
-        <p className="border-t border-border px-4 py-2 text-xs text-muted">
+        <p className="border-t border-border-subtle px-4 py-2 text-xs text-fg-muted">
           {analytics.isError
             ? 'Analytics unavailable.'
             : analytics.isPending
@@ -111,7 +114,7 @@ export function WorkflowHistory({ flows }: { flows: Flow[] }) {
               </Button>
             </div>
           ) : (
-            <p className="text-sm text-secondary">
+            <p className="text-sm text-fg-secondary">
               No workflows yet. History appears after your first workflow runs.
             </p>
           )}

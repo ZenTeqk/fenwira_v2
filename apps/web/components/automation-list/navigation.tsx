@@ -10,7 +10,7 @@ export function AutomationNavigation({
   return (
     <nav
       aria-label="Automation tools"
-      className="flex min-w-0 gap-4 overflow-x-auto border-b border-border"
+      className="flex min-w-0 gap-4 overflow-x-auto border-b border-border-subtle"
     >
       {[
         { id: 'AUTO_REPLY', label: 'Auto Replies', href: '/automations/reply-studio/auto-replies' },
@@ -27,13 +27,13 @@ export function AutomationNavigation({
           className={cn(
             'shrink-0 border-b-2 px-2 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-focus-ring',
             active === t.id
-              ? 'border-primary text-slate'
-              : 'border-transparent text-secondary hover:text-slate',
+              ? 'border-action-primary text-fg'
+              : 'border-transparent text-fg-secondary hover:text-fg',
           )}
         >
           {t.label}
           {counts ? (
-            <span className="ml-2 rounded-md bg-neutral-soft px-2 py-0.5 text-xs text-secondary">
+            <span className="ml-2 rounded-md bg-surface-muted px-2 py-0.5 text-xs text-fg-secondary">
               {counts[t.id as keyof typeof counts]}
             </span>
           ) : null}

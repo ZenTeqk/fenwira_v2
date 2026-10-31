@@ -64,7 +64,8 @@ test('editing a draft updates preview and canvas/message selection links both wa
   await expect(preview.getByTestId('preview-step-message')).toHaveAttribute('data-selected', 'true')
   await page.getByRole('tab', { name: 'Node settings', exact: true }).click()
   await page
-    .getByLabel('Message', { exact: true })
+    .getByRole('tabpanel', { name: 'Node settings' })
+    .getByRole('textbox', { name: 'Message', exact: true })
     .fill('Updated for {{contact.firstName}} in {{contact.city}}')
   await page.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect(preview).toContainText('Updated for Asha in')
@@ -90,7 +91,10 @@ test('condition paths switch, and long conversations scroll inside a bounded pho
   // Editing only text preserves the scroll position and frame geometry.
   await preview.getByTestId('preview-step-message').getByRole('button').click()
   await page.getByRole('tab', { name: 'Node settings', exact: true }).click()
-  await page.getByLabel('Message', { exact: true }).fill('Very long body. '.repeat(190))
+  await page
+    .getByRole('tabpanel', { name: 'Node settings' })
+    .getByRole('textbox', { name: 'Message', exact: true })
+    .fill('Very long body. '.repeat(190))
   await page.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect(preview).toContainText('Very long body.')
   expect((await frame.boundingBox())!.height).toBe(height)
@@ -100,7 +104,10 @@ test('condition paths switch, and long conversations scroll inside a bounded pho
     el.scrollTop = 50
   })
   await page.getByRole('tab', { name: 'Node settings', exact: true }).click()
-  await page.getByLabel('Message', { exact: true }).fill('Very long edited body. '.repeat(170))
+  await page
+    .getByRole('tabpanel', { name: 'Node settings' })
+    .getByRole('textbox', { name: 'Message', exact: true })
+    .fill('Very long edited body. '.repeat(170))
   await page.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect(preview).toContainText('Very long edited body.')
   expect(await chat.evaluate((el) => el.scrollTop)).toBe(50)

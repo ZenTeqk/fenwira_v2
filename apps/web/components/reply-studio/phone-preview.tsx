@@ -17,7 +17,7 @@ export function ReplyPhonePreview({ graph }: { graph: DraftGraph }) {
         {steps.map((s, i) => (
           <div
             key={`${s.nodeId}-${i}`}
-            className={`max-w-full whitespace-pre-wrap rounded-lg px-4 py-2 text-sm ${s.kind === 'incoming' ? 'self-end bg-primary-soft text-primary-strong' : 'self-start border border-border bg-surface text-slate'}`}
+            className={`max-w-full whitespace-pre-wrap rounded-lg px-4 py-2 text-sm ${s.kind === 'incoming' ? 'self-end bg-chat-outgoing text-fg' : 'self-start border border-border-subtle bg-surface text-fg'}`}
           >
             {s.text
               .replace(/\s*\(waits for an answer\)/g, '')
@@ -28,8 +28,8 @@ export function ReplyPhonePreview({ graph }: { graph: DraftGraph }) {
           </div>
         ))}
         {!steps.length ? (
-          <div className="flex flex-col items-center gap-4 rounded-lg bg-surface p-4 text-center text-sm text-secondary">
-            <MessageCircle className="size-5 text-primary-strong" aria-hidden="true" />
+          <div className="flex flex-col items-center gap-4 rounded-lg bg-surface p-4 text-center text-sm text-fg-secondary">
+            <MessageCircle className="size-5 text-fg-subtle" aria-hidden="true" />
             Your messages will appear here as you write.
           </div>
         ) : null}

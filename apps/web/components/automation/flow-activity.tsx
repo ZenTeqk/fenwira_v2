@@ -11,6 +11,8 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  cn,
+  textLink,
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -20,19 +22,19 @@ import { get } from '@/lib/api/client'
 import { automationKey } from '@/lib/automation'
 export function FailureList({ failures }: { failures: ReplyReport['failures'] }) {
   return failures.length ? (
-    <ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
+    <ul className="flex flex-col divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface">
       {failures.map((f, i) => (
         <li
           key={`${f.executionId}-${i}`}
           className="flex flex-wrap items-start justify-between gap-4 p-4"
         >
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <time dateTime={f.at} className="text-xs text-muted">
+            <time dateTime={f.at} className="text-xs text-fg-muted">
               {new Date(f.at).toLocaleString()}
             </time>
-            <p className="text-sm text-slate">{friendlyFailure(f.code, f.reason)}</p>
-            <code className="text-xs text-danger-strong">{f.code ?? 'SEND_FAILED'}</code>
-            <details className="text-xs text-secondary">
+            <p className="text-sm text-fg">{friendlyFailure(f.code, f.reason)}</p>
+            <code className="text-xs text-status-error-fg">{f.code ?? 'SEND_FAILED'}</code>
+            <details className="text-xs text-fg-secondary">
               <summary>Technical details</summary>
               <p className="mt-2 break-words">{f.reason}</p>
             </details>
@@ -57,7 +59,7 @@ export function FailureList({ failures }: { failures: ReplyReport['failures'] })
       ))}
     </ul>
   ) : (
-    <p className="text-sm text-secondary">No failures recorded.</p>
+    <p className="text-sm text-fg-secondary">No failures recorded.</p>
   )
 }
 function friendlyFailure(code: string | undefined, detail: string) {
@@ -126,40 +128,40 @@ export function FlowActivity({
               ) : runs.isError ? (
                 <ErrorState onRetry={() => void runs.refetch()} />
               ) : !runs.data.length ? (
-                <p className="text-sm text-secondary">No runs yet</p>
+                <p className="text-sm text-fg-secondary">No runs yet</p>
               ) : (
                 <ol className="flex flex-col gap-4">
                   {runs.data.map((r) => (
                     <li
                       key={r.id}
-                      className="flex flex-col gap-2 rounded-lg border border-border p-4"
+                      className="flex flex-col gap-2 rounded-lg border border-border-subtle p-4"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <StatusBadge
                           status={r.errorCode === 'SESSION_EXPIRED' ? 'EXPIRED' : r.status}
                         />
-                        <time dateTime={r.startedAt} className="text-xs text-muted">
+                        <time dateTime={r.startedAt} className="text-xs text-fg-muted">
                           {new Date(r.startedAt).toLocaleString()}
                         </time>
                       </div>
-                      <p className="text-sm text-secondary">
+                      <p className="text-sm text-fg-secondary">
                         {r.contactName ?? 'Customer'} · Published version {r.flowVersion}
                       </p>
                       {r.errorDetail ? (
-                        <p className="text-sm text-secondary">
+                        <p className="text-sm text-fg-secondary">
                           {friendlyFailure(r.errorCode ?? undefined, r.errorDetail)}
                         </p>
                       ) : null}
                       <div className="flex flex-wrap gap-4">
                         <Link
-                          className="text-sm text-primary-strong underline"
+                          className={cn('text-sm', textLink)}
                           href={`/automations/${flowId}/history?execution=${r.id}`}
                         >
                           Execution details
                         </Link>
                         {r.conversationId ? (
                           <Link
-                            className="text-sm text-primary-strong underline"
+                            className={cn('text-sm', textLink)}
                             href={`/inbox?c=${r.conversationId}`}
                           >
                             Open conversation

@@ -44,7 +44,7 @@ export function ExecutionTimeline({ steps }: { steps: ExecutionStep[] }) {
           icon: <Icon aria-hidden="true" />,
           time: new Date(s.startedAt).toLocaleString(),
           description: s.errorCode ? (
-            <span className="text-danger-strong">
+            <span className="text-status-error-fg">
               {ERROR_TEXT[s.errorCode] ?? s.errorDetail ?? s.errorCode}{' '}
               <span className="font-mono text-xs">({s.errorCode})</span>
             </span>
@@ -55,7 +55,7 @@ export function ExecutionTimeline({ steps }: { steps: ExecutionStep[] }) {
                 {[input, output].filter(Boolean).map((text, i) => (
                   <pre
                     key={i}
-                    className="overflow-x-auto rounded-sm bg-neutral-soft p-2 text-xs text-slate"
+                    className="overflow-x-auto rounded-sm bg-surface-muted p-2 text-xs text-fg"
                   >
                     {text}
                   </pre>

@@ -106,7 +106,7 @@ export function AutoReplyEditor(p: Props) {
     </div>
   )
   return (
-    <div className="min-h-dvh bg-background p-4 md:p-6">
+    <div className="min-h-dvh bg-canvas p-4 md:p-6">
       <div className="mx-auto max-w-7xl">
         <DetailPage
           header={{
@@ -150,8 +150,8 @@ export function AutoReplyEditor(p: Props) {
           />
           <div className="grid min-w-0 gap-6 lg:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-4">
-              <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
-                <h2 className="text-md font-semibold text-slate">Trigger</h2>
+              <section className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4">
+                <h2 className="text-md font-semibold text-fg">Trigger</h2>
                 <Field label="Name">
                   <Input
                     value={p.name}
@@ -173,8 +173,8 @@ export function AutoReplyEditor(p: Props) {
                 />
               </section>
               {start?.type === 'trigger.keyword' ? (
-                <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
-                  <h2 className="text-md font-semibold text-slate">Keywords</h2>
+                <section className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4">
+                  <h2 className="text-md font-semibold text-fg">Keywords</h2>
                   <div className="flex flex-wrap gap-2">
                     {((c.keywords as string[]) ?? []).map((word, i) => (
                       <Button
@@ -235,12 +235,12 @@ export function AutoReplyEditor(p: Props) {
                       { value: 'STARTS_WITH', label: 'Starts with' },
                     ]}
                   />
-                  <p className="text-xs text-muted">Case-insensitive; punctuation is ignored.</p>
+                  <p className="text-xs text-fg-muted">Case-insensitive; punctuation is ignored.</p>
                 </section>
               ) : null}
               {response ? (
-                <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
-                  <h2 className="text-md font-semibold text-slate">Response</h2>
+                <section className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4">
+                  <h2 className="text-md font-semibold text-fg">Response</h2>
                   <Field label="Reply message">
                     <Textarea
                       rows={4}
@@ -273,8 +273,8 @@ export function AutoReplyEditor(p: Props) {
                   Open the canvas to add a Message step.
                 </Alert>
               )}
-              <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
-                <h2 className="text-md font-semibold text-slate">Behaviour</h2>
+              <section className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4">
+                <h2 className="text-md font-semibold text-fg">Behaviour</h2>
                 {start ? (
                   <>
                     <Choose
@@ -289,7 +289,7 @@ export function AutoReplyEditor(p: Props) {
                       ]}
                     />
                     {mode === 'outside' ? (
-                      <p className="text-xs text-muted">
+                      <p className="text-xs text-fg-muted">
                         The workspace schedule and holidays decide when this reply runs.
                       </p>
                     ) : null}
@@ -307,7 +307,7 @@ export function AutoReplyEditor(p: Props) {
                         />
                       </Field>
                     ) : (
-                      <p className="text-xs text-muted">
+                      <p className="text-xs text-fg-muted">
                         Contact cooldown applies to New conversation replies.
                       </p>
                     )}
@@ -338,7 +338,7 @@ export function AutoReplyEditor(p: Props) {
                   />
                 ) : (
                   <>
-                    <p className="text-sm text-secondary">
+                    <p className="text-sm text-fg-secondary">
                       This reply leaves the conversation available to the shared inbox. Add a
                       handover to route it to your team.
                     </p>
@@ -412,8 +412,8 @@ export function AutoReplyEditor(p: Props) {
                   </ul>
                 </Alert>
               ) : null}
-              <details className="rounded-lg border border-border bg-surface p-4">
-                <summary className="text-md font-semibold text-slate">Test</summary>
+              <details className="rounded-lg border border-border-subtle bg-surface p-4">
+                <summary className="text-md font-semibold text-fg">Test</summary>
                 <div className="mt-4">
                   <ReplyTestPhone
                     graph={p.graph}
@@ -433,7 +433,7 @@ export function AutoReplyEditor(p: Props) {
               aria-label="Live phone preview"
               className="hidden min-w-0 flex-col items-center gap-4 lg:flex"
             >
-              <h2 className="text-sm font-semibold text-slate">Live preview</h2>
+              <h2 className="text-sm font-semibold text-fg">Live preview</h2>
               {phone}
             </aside>
           </div>

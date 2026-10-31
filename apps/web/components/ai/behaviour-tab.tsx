@@ -117,12 +117,12 @@ export function BehaviourTab() {
                   {AI_TONES.map((t) => (
                     <label
                       key={t}
-                      className="flex cursor-pointer items-start gap-2 rounded-md border border-border p-3"
+                      className="flex cursor-pointer items-start gap-2 rounded-md border border-border-subtle p-3"
                     >
                       <RadioGroupItem value={t} aria-label={TONE_LABEL[t].label} />
                       <span className="flex flex-col">
-                        <span className="font-medium text-slate">{TONE_LABEL[t].label}</span>
-                        <span className="text-sm text-secondary">{TONE_LABEL[t].hint}</span>
+                        <span className="font-medium text-fg">{TONE_LABEL[t].label}</span>
+                        <span className="text-sm text-fg-secondary">{TONE_LABEL[t].hint}</span>
                       </span>
                     </label>
                   ))}
@@ -166,18 +166,15 @@ export function BehaviourTab() {
           <CardTitle as="h2">Example reply</CardTitle>
           <CardDescription>A customer asks: “When are you open?”</CardDescription>
         </CardHeader>
-        <CardContent
-          className="flex flex-col gap-3 rounded-lg bg-background p-4"
-          aria-live="polite"
-        >
-          <p className="max-w-9/10 self-start rounded-xl border border-border bg-surface px-3.5 py-2.5 text-message text-slate">
+        <CardContent className="flex flex-col gap-3 rounded-lg bg-canvas p-4" aria-live="polite">
+          <p className="max-w-9/10 self-start rounded-xl border border-border-subtle bg-surface px-3.5 py-2.5 text-message text-fg">
             When are you open?
           </p>
-          <div className="flex max-w-9/10 flex-col gap-1 self-end rounded-xl bg-chat-outgoing px-3.5 py-2.5 text-message text-slate">
-            <span className="text-xs font-medium text-secondary">AI</span>
+          <div className="flex max-w-9/10 flex-col gap-1 self-end rounded-xl border border-accent-automation-border bg-accent-automation-bg px-3.5 py-2.5 text-message text-fg">
+            <span className="text-xs font-medium text-accent-automation-fg">AI</span>
             <p>{EXAMPLE[form.tone](name)}</p>
           </div>
-          <p className="text-xs text-secondary">
+          <p className="text-xs text-fg-secondary">
             Illustration of the tone. Real answers use only your knowledge.
           </p>
         </CardContent>

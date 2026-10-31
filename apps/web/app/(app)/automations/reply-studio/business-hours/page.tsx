@@ -29,7 +29,7 @@ function HoursForm({ initial, writable }: { initial: BusinessHours; writable: bo
   })
   return (
     <form
-      className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-4"
+      className="flex flex-col gap-5 rounded-lg border border-border-subtle bg-surface p-4"
       onSubmit={(e) => {
         e.preventDefault()
         const parsed = businessHoursSchema.safeParse(value)
@@ -56,14 +56,17 @@ function HoursForm({ initial, writable }: { initial: BusinessHours; writable: bo
           onChange={(e) => setValue({ ...value, timezone: e.target.value })}
         />
       </Field>
-      <p className="text-sm text-secondary">
+      <p className="text-sm text-fg-secondary">
         Opening time is included; closing time is excluded. Closed days and holidays always take the
         No path.
       </p>
       {value.week.map((day, i) => (
-        <fieldset key={i} className="flex flex-wrap items-center gap-3 border-b border-border pb-4">
-          <legend className="mb-2 text-sm font-semibold text-slate">{DAYS[i]}</legend>
-          <label className="flex min-h-11 items-center gap-2 text-sm text-slate">
+        <fieldset
+          key={i}
+          className="flex flex-wrap items-center gap-3 border-b border-border-subtle pb-4"
+        >
+          <legend className="mb-2 text-sm font-semibold text-fg">{DAYS[i]}</legend>
+          <label className="flex min-h-11 items-center gap-2 text-sm text-fg">
             <Checkbox
               checked={day.closed}
               disabled={!writable}

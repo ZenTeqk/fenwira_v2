@@ -12,6 +12,8 @@ import {
   Progress,
   StatusBadge,
   toast,
+  cn,
+  textLink,
 } from '@fenwira/ui'
 import { CheckCircle2, Circle } from 'lucide-react'
 import Link from 'next/link'
@@ -112,22 +114,19 @@ export function OverviewTab({
                 </Button>
               )}
               {!active && !overview.readiness.knowledge ? (
-                <p className="text-sm text-secondary">Add knowledge first, then turn it on.</p>
+                <p className="text-sm text-fg-secondary">Add knowledge first, then turn it on.</p>
               ) : null}
             </div>
           ) : (
-            <p className="text-sm text-secondary">
+            <p className="text-sm text-fg-secondary">
               Ask a workspace owner or admin to turn the assistant on or off.
             </p>
           )}
           {flow ? (
-            <p className="text-sm text-secondary">
+            <p className="text-sm text-fg-secondary">
               It runs as the managed “AI assistant” automation (low priority, so keyword flows still
               win).{' '}
-              <Link
-                href={`/automations/${flow.id}`}
-                className="font-medium text-primary-strong underline-offset-4 hover:underline"
-              >
+              <Link href={`/automations/${flow.id}`} className={cn('font-medium', textLink)}>
                 Edit in Automations
               </Link>
             </p>
@@ -141,9 +140,9 @@ export function OverviewTab({
           <CardDescription>Each answer the assistant writes counts once.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          <p className="text-2xl font-semibold text-slate">
+          <p className="text-2xl font-semibold text-fg">
             {used.toLocaleString()}{' '}
-            <span className="text-base font-normal text-secondary">
+            <span className="text-base font-normal text-fg-secondary">
               of {quota.toLocaleString()}
             </span>
           </p>
@@ -162,17 +161,17 @@ export function OverviewTab({
           <CardTitle as="h2">Readiness</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="flex flex-col divide-y divide-border">
+          <ul className="flex flex-col divide-y divide-border-subtle">
             {CHECKS.map((c) => {
               const ok = overview.readiness[c.key]
               const Icon = ok ? CheckCircle2 : Circle
               return (
                 <li key={c.key} className="flex flex-wrap items-center gap-3 py-3">
                   <Icon
-                    className={ok ? 'size-5 text-success-strong' : 'size-5 text-muted'}
+                    className={ok ? 'size-5 text-status-success-fg' : 'size-5 text-fg-muted'}
                     aria-hidden="true"
                   />
-                  <span className="min-w-0 flex-1 text-slate">
+                  <span className="min-w-0 flex-1 text-fg">
                     {ok ? c.done : c.todo}
                     <span className="sr-only">{ok ? ' (done)' : ' (to do)'}</span>
                   </span>
