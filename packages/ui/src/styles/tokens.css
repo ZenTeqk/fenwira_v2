@@ -100,6 +100,10 @@
   --fw-series-aqua: #14a06f;
   --fw-series-aqua-dark: #199e70;
   --fw-series-red-dark: #e66767;
+  --fw-sidebar-hover: #e2e2dc;
+  --fw-sidebar-selected: #d3d5cc;
+  --fw-sidebar-selected-hover: #c9cdc1;
+  --fw-sidebar-selected-fg: #20251f;
   --fw-chat-sand: #f3f0ea;
   --fw-chat-leaf: #ddeed5;
   --fw-chat-forest: #1e3a2b;
@@ -200,6 +204,11 @@
   --color-chat-note-border: var(--fw-amber-200);
   --color-chat-note-fg: var(--fw-amber-800);
   --color-phone-bezel: var(--fw-neutral-900);
+  --color-sidebar-item-hover: var(--fw-sidebar-hover);
+  --color-sidebar-item-hover-fg: var(--fw-neutral-900);
+  --color-sidebar-item-selected: var(--fw-sidebar-selected);
+  --color-sidebar-item-selected-hover: var(--fw-sidebar-selected-hover);
+  --color-sidebar-item-selected-fg: var(--fw-sidebar-selected-fg);
   --color-category-marketing-fg: var(--fw-violet-700);
   --color-category-marketing-bg: var(--fw-violet-50);
   --color-category-authentication-fg: var(--fw-orange-700);
@@ -336,6 +345,11 @@
   --color-chat-note-border: var(--fw-amber-900);
   --color-chat-note-fg: var(--fw-amber-300);
   --color-phone-bezel: var(--fw-neutral-700);
+  --color-sidebar-item-hover: var(--fw-neutral-800);
+  --color-sidebar-item-hover-fg: var(--fw-neutral-70);
+  --color-sidebar-item-selected: var(--fw-neutral-750);
+  --color-sidebar-item-selected-hover: var(--fw-neutral-750);
+  --color-sidebar-item-selected-fg: var(--fw-neutral-70);
   --color-category-marketing-fg: var(--fw-violet-300);
   --color-category-marketing-bg: var(--fw-violet-950);
   --color-category-authentication-fg: var(--fw-orange-300);

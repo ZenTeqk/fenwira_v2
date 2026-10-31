@@ -1,18 +1,6 @@
 'use client'
 
-import {
-  Button,
-  Dropdown,
-  DropdownContent,
-  DropdownItem,
-  DropdownLabel,
-  DropdownTrigger,
-  Modal,
-  ModalContent,
-} from '@fenwira/ui'
-import { CircleHelp, Keyboard, LayoutGrid } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { Modal, ModalContent } from '@fenwira/ui'
 
 const SHORTCUTS: Array<[string, string]> = [
   ['⌘K / Ctrl K', 'Search and jump to anything'],
@@ -22,48 +10,30 @@ const SHORTCUTS: Array<[string, string]> = [
   ['Delete / Backspace', 'Remove the selected step on the flow canvas'],
 ]
 
-/** Help: keyboard shortcuts and (in development) the component gallery. */
-export function HelpMenu({ galleryEnabled }: { galleryEnabled: boolean }) {
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
+/** The keyboard-shortcuts dialog, opened from Help in the account menu. */
+export function KeyboardShortcutsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   return (
-    <>
-      <Dropdown>
-        <DropdownTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Help">
-            <CircleHelp aria-hidden="true" />
-          </Button>
-        </DropdownTrigger>
-        <DropdownContent className="w-60">
-          <DropdownLabel>Help</DropdownLabel>
-          <DropdownItem onSelect={() => setOpen(true)}>
-            <Keyboard aria-hidden="true" />
-            Keyboard shortcuts
-          </DropdownItem>
-          {galleryEnabled ? (
-            <DropdownItem onSelect={() => router.push('/dev/ui')}>
-              <LayoutGrid aria-hidden="true" />
-              Component gallery
-            </DropdownItem>
-          ) : null}
-        </DropdownContent>
-      </Dropdown>
-      <Modal open={open} onOpenChange={setOpen}>
-        <ModalContent title="Keyboard shortcuts">
-          <dl className="flex flex-col gap-2">
-            {SHORTCUTS.map(([keys, what]) => (
-              <div key={keys} className="flex items-baseline justify-between gap-4">
-                <dt className="text-base text-fg">{what}</dt>
-                <dd>
-                  <kbd className="rounded-sm border border-border-control px-1.5 font-mono text-xs text-fg">
-                    {keys}
-                  </kbd>
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </ModalContent>
-      </Modal>
-    </>
+    <Modal open={open} onOpenChange={onOpenChange}>
+      <ModalContent title="Keyboard shortcuts">
+        <dl className="flex flex-col gap-2">
+          {SHORTCUTS.map(([keys, what]) => (
+            <div key={keys} className="flex items-baseline justify-between gap-4">
+              <dt className="text-base text-fg">{what}</dt>
+              <dd>
+                <kbd className="rounded-sm border border-border-control px-1.5 font-mono text-xs text-fg">
+                  {keys}
+                </kbd>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </ModalContent>
+    </Modal>
   )
 }

@@ -130,6 +130,13 @@ export const palette = {
     'aqua-dark': '#199E70',
     'red-dark': '#E66767',
   },
+  // Light sidebar interaction states: hover and selected rows stand out from the sidebar surface.
+  sidebar: {
+    hover: '#E2E2DC',
+    selected: '#D3D5CC',
+    'selected-hover': '#C9CDC1',
+    'selected-fg': '#20251F',
+  },
   // WhatsApp-inspired chat surfaces (warm paper canvas, leaf outgoing, forest outgoing in dark).
   chat: { sand: '#F3F0EA', leaf: '#DDEED5', forest: '#1E3A2B' },
   // Avatar identity hues: decorative, deterministic per contact, never a status.
@@ -254,6 +261,13 @@ export const semanticTokens = {
 /** Component tokens: only where no semantic role fits. */
 export const componentTokens = {
   'phone-bezel': pair('neutral.900', 'neutral.700'),
+  // Sidebar rows (collapsed icons, expanded rows, submenu links, bottom utilities). Dark keeps the
+  // shared hover/selected surfaces; only light gets the stronger sidebar-specific steps.
+  'sidebar-item-hover': pair('sidebar.hover', 'neutral.800'),
+  'sidebar-item-hover-fg': pair('neutral.900', 'neutral.70'),
+  'sidebar-item-selected': pair('sidebar.selected', 'neutral.750'),
+  'sidebar-item-selected-hover': pair('sidebar.selected-hover', 'neutral.750'),
+  'sidebar-item-selected-fg': pair('sidebar.selected-fg', 'neutral.70'),
   // Template categories (Utility reuses status-info).
   'category-marketing-fg': pair('violet.700', 'violet.300'),
   'category-marketing-bg': pair('violet.50', 'violet.950'),

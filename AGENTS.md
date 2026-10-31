@@ -83,7 +83,7 @@ Accents: conversation/info blue accent-conversation-*, automation/AI violet acce
 Chat: chat-canvas #F3F0EA · chat-incoming #FFFFFF · chat-outgoing #DDEED5 · chat-read #2563EB
 ```
 
-Customer navigation is light (`sidebar`), with neutral surfaces and a WhatsApp-inspired chat area in the Inbox. Light is the default theme; dark values exist and are tested, but no theme switcher is exposed. Home remains at `/dashboard`. Never revert to dark customer navigation, introduce fake screenshot capabilities, or expose `/platform` through tenant navigation. Follow the Experience V2 plan and stop at its visual checkpoints.
+Customer navigation is light (`sidebar`), with neutral surfaces and a WhatsApp-inspired chat area in the Inbox. Appearance is Light, Dark or System (the default with no stored preference), chosen from the header Appearance menu; dark values are tested, and `data-theme` on <html> is set before first paint (`lib/theme-script.ts`). Home remains at `/dashboard`. Never revert to dark customer navigation, introduce fake screenshot capabilities, or expose `/platform` through tenant navigation. Follow the Experience V2 plan and stop at its visual checkpoints.
 
 Rules:
 

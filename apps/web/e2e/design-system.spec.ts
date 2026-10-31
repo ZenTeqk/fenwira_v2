@@ -38,17 +38,24 @@ test('shell: modules in the sidebar, sub-pages as module tabs, status footer and
   await expect(page.getByRole('heading', { level: 1, name: 'Segments' })).toBeVisible()
   await expect(main.getByRole('link', { name: 'Contacts' })).toHaveAttribute('aria-current', 'page')
 
-  // Sidebar WhatsApp status (#114): a labelled link that changes once a number is connected.
+  // Header WhatsApp indicator: a labelled control that changes once a number is connected.
   await expect(
-    page.getByRole('link', { name: 'WhatsApp: Not connected. View connections', exact: true }),
+    page.getByRole('button', {
+      name: 'WhatsApp: Not connected. Show connection details',
+      exact: true,
+    }),
   ).toBeVisible()
   await customerWritesIn(page, owner, 'Hello')
   await page.reload()
   await expect(
-    page.getByRole('link', { name: 'WhatsApp: Connected. View connections', exact: true }),
+    page.getByRole('button', {
+      name: 'WhatsApp: Connected. Show connection details',
+      exact: true,
+    }),
   ).toBeVisible()
 
-  await page.getByRole('button', { name: 'Help' }).click()
+  // Help lives in the account menu (the header holds the Appearance control).
+  await page.getByRole('button', { name: /Account menu/ }).click()
   await page.getByRole('menuitem', { name: 'Keyboard shortcuts' }).click()
   await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toContainText(
     '⌘K / Ctrl K',
