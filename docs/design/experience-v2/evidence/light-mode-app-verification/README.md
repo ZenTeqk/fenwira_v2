@@ -157,6 +157,11 @@ the assertion was updated, with no coverage removed:
 - `/integrations/native/callback` (needs a real provider sign-in), a custom application error page
   (none exists; Next's default is used), and the routes listed under "Blocked or not verified".
 
+## Dark theme
+
+The same route matrix, module reviews and gallery checks pass with the root forced to dark:
+[dark-mode-verification/README.md](../dark-mode-verification/README.md).
+
 ## Follow-up
 
 API-generated invoice and receipt HTML (`apps/api/src/modules/billing/invoice-document.ts`) uses

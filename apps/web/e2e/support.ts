@@ -1,4 +1,4 @@
-import { type APIRequestContext, expect, type Page } from '@playwright/test'
+import { type APIRequestContext, expect, type Page, type BrowserContext } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { createHmac } from 'node:crypto'
 import { resolve } from 'node:path'
@@ -162,4 +162,55 @@ export async function customerWritesIn(page: Page, owner: Owner, text: string) {
   })
   expect(res.ok).toBe(true)
   return name
+}
+
+/**
+ * REVIEW_THEME=dark runs every page of a context on the dark tokens: `data-theme="dark"` on
+ * <html> before any app script, kept if anything re-renders it. Portaled overlays live under
+ * <html>, so they inherit it. There is no theme switcher; this is a review harness only.
+ */
+export const reviewTheme = process.env.REVIEW_THEME === 'dark' ? 'dark' : null
+export async function applyReviewTheme(context: BrowserContext): Promise<void> {
+  if (!reviewTheme) return
+  await context.addInitScript(() => {
+    // Init scripts run before <html> exists, so apply it as soon as it appears and keep it.
+    const keep = () => {
+      const root = document.documentElement
+      if (root && root.getAttribute('data-theme') !== 'dark')
+        root.setAttribute('data-theme', 'dark')
+    }
+    keep()
+    new MutationObserver(keep).observe(document, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    })
+  })
+}
+
+/**
+ * E2E_WEB_UPSTREAM serves the web app from another local server (e.g. a production `next start`
+ * on :3001) while pages keep the localhost:3000 origin the local API accepts. API calls are relayed
+ * the same way (and local object storage on :9000), so a relayed page never fetches loopback itself. Redirects and failed requests
+ * behave as in a browser. Review harness only.
+ */
+export async function applyWebUpstream(context: BrowserContext): Promise<void> {
+  const upstream = process.env.E2E_WEB_UPSTREAM
+  if (!upstream) return
+  await context.route(/^http:\/\/localhost:(3000|4000|9000)\//, async (route) => {
+    const url = route.request().url().replace('http://localhost:3000', upstream)
+    const response = await route.fetch({ url, maxRedirects: 0 }).catch(() => null)
+    if (!response) return route.abort('failed')
+    // A fulfilled redirect's follow-up request isn't intercepted, so redirect from the page
+    // instead; the browser then requests the target through this relay (same final URL).
+    const location = response.headers()['location']
+    if (response.status() >= 300 && response.status() < 400 && location)
+      return route.fulfill({
+        contentType: 'text/html',
+        body: `<script>location.replace(${JSON.stringify(location.replace(upstream, 'http://localhost:3000'))})</script>`,
+      })
+    // The page may already have navigated away; a late answer is then irrelevant.
+    await route.fulfill({ response }).catch(() => undefined)
+  })
 }

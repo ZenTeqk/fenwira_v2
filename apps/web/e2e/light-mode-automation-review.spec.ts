@@ -13,6 +13,8 @@ import {
   ownerHeaders,
   refreshCsrf,
   signInAsNewOwner,
+  applyReviewTheme,
+  applyWebUpstream,
 } from './support'
 
 // Light-mode review of Automations, the flow builder, Reply Studio and AI Assistant. Records are
@@ -216,6 +218,9 @@ test.beforeAll(async ({ browser }) => {
   const context = await browser.newContext({
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
   })
+  // This file shares one page, so the review helpers apply to its own context.
+  await applyWebUpstream(context)
+  await applyReviewTheme(context)
   page = await context.newPage()
   seeded = await seed(page)
 })

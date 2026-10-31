@@ -3,8 +3,14 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 import { appendFileSync, mkdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
-import { PASSWORD, signInAsNewOwner, totp } from './support'
+import { PASSWORD, signInAsNewOwner, totp, applyReviewTheme, applyWebUpstream } from './support'
 import { provisionOperator } from './support-platform'
+
+// REVIEW_THEME=dark runs this review on the dark tokens.
+test.beforeEach(async ({ context }) => {
+  await applyWebUpstream(context)
+  await applyReviewTheme(context)
+})
 
 // Light-mode review of Billing, Settings and the /platform console.
 // - Billing: a real local owner; every /billing response is a contract-shaped fixture served in the
@@ -17,29 +23,7 @@ import { provisionOperator } from './support-platform'
 //   workspace. Cross-tenant lists (workspaces, overview, payments, audit, email, requests) are
 //   fixtures, so no other local tenant appears. Drawers and confirmations are opened, never submitted.
 // REVIEW_SHOTS_DIR saves review screenshots.
-// E2E_WEB_UPSTREAM serves the web app from another local server while the page keeps the
-// localhost:3000 origin the local API expects (for reviewing a build while :3000 is busy). API
-// calls are relayed the same way, so the page never fetches loopback from a relayed document.
-const upstream = process.env.E2E_WEB_UPSTREAM
-if (upstream)
-  test.beforeEach(async ({ context }) => {
-    await context.route(/^http:\/\/localhost:(3000|4000)\//, async (route) => {
-      const url = route.request().url().replace('http://localhost:3000', upstream)
-      // A relayed request that fails (e.g. a reset realtime connection) fails like any network error.
-      const response = await route.fetch({ url, maxRedirects: 0 }).catch(() => null)
-      if (!response) return route.abort('failed')
-      // A fulfilled redirect's follow-up request isn't intercepted, so redirect from the page
-      // instead; the browser then requests the target through this relay (same final URL).
-      const location = response.headers()['location']
-      if (response.status() >= 300 && response.status() < 400 && location)
-        return route.fulfill({
-          contentType: 'text/html',
-          body: `<script>location.replace(${JSON.stringify(location.replace(upstream, 'http://localhost:3000'))})</script>`,
-        })
-      // The page may already have navigated away; a late answer is then irrelevant.
-      await route.fulfill({ response }).catch(() => undefined)
-    })
-  })
+
 const shots = process.env.REVIEW_SHOTS_DIR
 if (shots) mkdirSync(shots, { recursive: true })
 const settled = (page: Page) =>

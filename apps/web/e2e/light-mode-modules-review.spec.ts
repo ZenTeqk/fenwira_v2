@@ -2,7 +2,21 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { API, metaId, MOCK, ownerHeaders, signInAsNewOwner } from './support'
+import {
+  API,
+  metaId,
+  MOCK,
+  ownerHeaders,
+  signInAsNewOwner,
+  applyReviewTheme,
+  applyWebUpstream,
+} from './support'
+
+// REVIEW_THEME=dark runs this review on the dark tokens.
+test.beforeEach(async ({ context }) => {
+  await applyWebUpstream(context)
+  await applyReviewTheme(context)
+})
 
 // Light-mode review of Contacts, Templates and Campaigns. Every record is created through the
 // domain APIs and the Meta mock; MODULE_SHOTS_DIR saves review screenshots.

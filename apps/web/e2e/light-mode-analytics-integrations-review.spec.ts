@@ -2,7 +2,20 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page, type Route } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { API, customerWritesIn, ownerHeaders, signInAsNewOwner } from './support'
+import {
+  API,
+  customerWritesIn,
+  ownerHeaders,
+  signInAsNewOwner,
+  applyReviewTheme,
+  applyWebUpstream,
+} from './support'
+
+// REVIEW_THEME=dark runs this review on the dark tokens.
+test.beforeEach(async ({ context }) => {
+  await applyWebUpstream(context)
+  await applyReviewTheme(context)
+})
 
 // Light-mode review of Analytics and Integrations. Analytics: the real API responses (genuine
 // contract shapes) are read, then filled with deterministic values in the browser only, as in
