@@ -30,7 +30,7 @@ export function CustomerFields({
         {add}
       </Button>
     ) : (
-      <span className="text-secondary" aria-label="Not provided">
+      <span className="text-fg-secondary" aria-label="Not provided">
         —
       </span>
     )
@@ -58,7 +58,7 @@ export function CustomerFields({
       label: definitions.find((definition) => definition.key === key)?.label ?? key,
       value:
         stored == null || stored === '' ? (
-          <span className="text-secondary">—</span>
+          <span className="text-fg-secondary">—</span>
         ) : (
           <span className="break-words">
             {typeof stored === 'boolean' ? (stored ? 'Yes' : 'No') : String(stored)}
@@ -69,17 +69,17 @@ export function CustomerFields({
   return (
     <section
       aria-label="Contact fields"
-      className="flex min-w-0 flex-col gap-2 border-t border-border pt-2"
+      className="flex min-w-0 flex-col gap-2 border-t border-border-subtle pt-2"
     >
-      <h3 className="text-base font-semibold text-slate">Contact information</h3>
+      <h3 className="text-base font-semibold text-fg">Contact information</h3>
       <dl className="grid min-w-0 grid-cols-3 items-start gap-x-2 gap-y-2">
         {rows.map((row) => (
           <div key={row.id} className="contents">
-            <dt className="flex min-w-0 items-start gap-1 text-xs text-secondary">
+            <dt className="flex min-w-0 items-start gap-1 text-xs text-fg-secondary">
               {row.icon}
               <span className="min-w-0 break-words">{row.label}</span>
             </dt>
-            <dd className="col-span-2 min-w-0 text-base text-slate">{row.value}</dd>
+            <dd className="col-span-2 min-w-0 text-base text-fg">{row.value}</dd>
           </div>
         ))}
       </dl>

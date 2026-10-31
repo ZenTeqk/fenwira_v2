@@ -47,13 +47,13 @@ function StatusMenu({ c }: { c: Conversation }) {
     <Dropdown>
       <DropdownTrigger
         className={cn(
-          'inline-flex h-8 items-center gap-1 rounded-md border border-border-strong bg-surface px-2.5 hover:bg-surface-hover',
+          'inline-flex h-8 items-center gap-1 rounded-md border border-border-control bg-surface px-2.5 hover:bg-surface-hover',
           focusRing,
         )}
         aria-label={`Conversation status: ${STATUS_LABEL[c.status]}. Change status`}
       >
         {badge}
-        <ChevronDown aria-hidden="true" className="size-3.5 text-secondary" />
+        <ChevronDown aria-hidden="true" className="size-3.5 text-fg-secondary" />
       </DropdownTrigger>
       <DropdownContent align="start">
         {(['OPEN', 'PENDING'] as const).map((s) => (
@@ -102,7 +102,10 @@ export function AssignControl({
   if (!menu)
     return (
       <span
-        className={cn('inline-flex min-w-0 items-center gap-1.5 text-sm text-secondary', className)}
+        className={cn(
+          'inline-flex min-w-0 items-center gap-1.5 text-sm text-fg-secondary',
+          className,
+        )}
       >
         {c.assignee ? <Avatar appearance="varied" name={c.assignee.name} size="sm" /> : null}
         <span className="truncate">{c.assignee ? c.assignee.name : 'Unassigned'}</span>
@@ -123,7 +126,7 @@ export function AssignControl({
   if (!c.assignee && !actions.can.reassign)
     return panel ? (
       <div className={cn('flex items-center justify-between gap-2', className)}>
-        <span className="text-base text-secondary">Unassigned</span>
+        <span className="text-base text-fg-secondary">Unassigned</span>
         {assignToMeLink}
       </div>
     ) : (
@@ -181,7 +184,7 @@ export function AssignControl({
                   onSelect={() => actions.assign(m.userId)}
                 >
                   {m.name}{' '}
-                  <span className="text-xs text-secondary">({PRESENCE_TEXT[m.status]})</span>
+                  <span className="text-xs text-fg-secondary">({PRESENCE_TEXT[m.status]})</span>
                 </DropdownItem>
               ))}
           </>
@@ -233,7 +236,7 @@ export function ConversationHeader({
   const closed = c.status === 'RESOLVED' || c.status === 'SNOOZED'
 
   return (
-    <div className="@container flex h-18 shrink-0 items-center gap-3 border-b border-border bg-surface px-3 md:px-4">
+    <div className="@container flex h-18 shrink-0 items-center gap-3 border-b border-border-subtle bg-surface px-3 md:px-4">
       <Button
         variant="ghost"
         size="icon"
@@ -252,10 +255,10 @@ export function ConversationHeader({
         className="hidden size-10 shrink-0 @sm:flex"
       />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <h2 className="truncate text-md font-semibold text-slate" title={name}>
+        <h2 className="truncate text-md font-semibold text-fg" title={name}>
           {name}
         </h2>
-        <span className="truncate text-base text-secondary tabular-nums">
+        <span className="truncate text-base text-fg-secondary tabular-nums">
           {formatPhone(c.contact.phoneE164)}
         </span>
       </div>

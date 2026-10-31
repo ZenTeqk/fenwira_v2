@@ -144,13 +144,15 @@ function ConversationRow({
             'group/row relative flex min-h-19 w-full min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-3 text-left transition-colors motion-reduce:transition-none',
             focusRing,
             'focus-visible:-outline-offset-2',
-            selected ? 'bg-primary-soft' : 'bg-surface hover:bg-surface-hover',
+            // Neutral selection with a slim emerald bar; hover is lighter than selection, and
+            // keyboard focus keeps its own outline (focusRing).
+            selected ? 'bg-surface-selected' : 'bg-surface hover:bg-surface-muted',
           )}
         >
           {selected ? (
             <span
               aria-hidden="true"
-              className="absolute inset-y-5 left-0 w-0.75 rounded-full bg-primary-strong"
+              className="absolute inset-y-5 left-0 w-0.75 rounded-full bg-action-primary"
             />
           ) : null}
           <Avatar
@@ -164,7 +166,7 @@ function ConversationRow({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <span
               className={cn(
-                'min-w-0 flex-1 truncate text-base text-slate',
+                'min-w-0 flex-1 truncate text-base text-fg',
                 c.unreadCount ? 'font-semibold' : 'font-medium',
               )}
             >
@@ -172,8 +174,8 @@ function ConversationRow({
             </span>
             <div
               className={cn(
-                'flex min-w-0 items-center gap-1 text-sm group-hover/row:text-slate',
-                c.unreadCount || selected ? 'text-slate' : 'text-secondary',
+                'flex min-w-0 items-center gap-1 text-sm group-hover/row:text-fg',
+                c.unreadCount || selected ? 'text-fg' : 'text-fg-secondary',
               )}
               title={preview.text}
             >
@@ -201,8 +203,8 @@ function ConversationRow({
           <div className="flex max-w-20 shrink-0 flex-col items-end gap-2 self-stretch justify-center">
             <span
               className={cn(
-                'text-xs whitespace-nowrap group-hover/row:text-slate',
-                selected ? 'text-slate' : 'text-muted',
+                'text-xs whitespace-nowrap tabular-nums group-hover/row:text-fg',
+                selected || c.unreadCount ? 'font-medium text-fg' : 'text-fg-muted',
               )}
             >
               {shortTime(c.lastMessageAt)}
@@ -211,7 +213,7 @@ function ConversationRow({
               <span
                 title={`${c.unreadCount} unread`}
                 aria-label={`${c.unreadCount} unread`}
-                className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary-strong px-1.5 text-xs font-semibold text-surface"
+                className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-action-primary px-1.5 text-xs font-semibold text-action-primary-fg tabular-nums"
               >
                 <span aria-hidden="true">{compactCount.format(c.unreadCount)}</span>
               </span>
@@ -371,10 +373,10 @@ export function ConversationList({
     <section aria-label="Conversations" className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="flex shrink-0 flex-col gap-2 px-4 pt-3 pb-2">
         <div className="flex h-9 items-center justify-between gap-2">
-          <h2 className="flex min-w-0 items-baseline gap-2 text-lg font-semibold text-slate">
+          <h2 className="flex min-w-0 items-baseline gap-2 text-lg font-semibold text-fg">
             <span className="truncate">Inbox</span>
             {showCounts ? (
-              <span className="rounded-md bg-neutral-soft px-2 py-0.5 text-sm font-normal text-slate tabular-nums">
+              <span className="rounded-md bg-surface-muted px-2 py-0.5 text-sm font-normal text-fg tabular-nums">
                 {counts.data[tab].toLocaleString('en')}
                 <span className="sr-only"> conversations</span>
               </span>
@@ -397,8 +399,7 @@ export function ConversationList({
                 size="icon"
                 className={cn(
                   'size-9 shrink-0',
-                  advanced === 'takeover' &&
-                    'border-primary-strong bg-primary-soft text-primary-strong',
+                  advanced === 'takeover' && 'border-fg bg-surface-selected text-fg',
                 )}
                 aria-label="Advanced conversation filters"
                 aria-description={
@@ -424,7 +425,7 @@ export function ConversationList({
         <div
           role="group"
           aria-label="Inbox views"
-          className="fw-inbox-view-segments mx-4 grid shrink-0 gap-0.5 rounded-lg bg-neutral-soft p-0.5"
+          className="fw-inbox-view-segments mx-4 grid shrink-0 gap-0.5 rounded-lg bg-surface-muted p-0.5"
         >
           {INBOX_VIEWS.map(({ id, label }) => (
             <Button
@@ -438,8 +439,8 @@ export function ConversationList({
               className={cn(
                 'h-8 w-full min-w-0 gap-1 overflow-hidden rounded-md border px-0.5 text-xs focus-visible:-outline-offset-2',
                 tab === id
-                  ? 'border-border-strong bg-surface text-primary-strong shadow-sm hover:bg-surface hover:text-primary-strong'
-                  : 'border-transparent text-slate hover:text-slate',
+                  ? 'border-border-control bg-surface font-semibold text-fg shadow-raised hover:bg-surface hover:text-fg'
+                  : 'border-transparent text-fg-secondary hover:text-fg',
               )}
             >
               <span className="shrink-0">{label}</span>
@@ -447,7 +448,7 @@ export function ConversationList({
                 <span
                   className={cn(
                     'min-w-0 truncate text-xs tabular-nums',
-                    tab === id ? 'text-primary-strong' : 'text-slate',
+                    tab === id ? 'text-fg' : 'text-fg-secondary',
                   )}
                 >
                   {compactCount.format(counts.data[id])}
@@ -485,7 +486,7 @@ export function ConversationList({
             onClick={() => setUnreadOnly(!unreadOnly)}
             className={cn(
               'h-8 rounded-full px-2.5 text-xs',
-              unreadOnly && 'border-primary-strong bg-primary-soft text-primary-strong',
+              unreadOnly && 'border-fg bg-surface-selected font-semibold text-fg',
             )}
           >
             Unread
@@ -496,7 +497,7 @@ export function ConversationList({
               size="sm"
               aria-label="Remove Agent takeover filter"
               onClick={() => setAdvanced('none')}
-              className="h-8 gap-1.5 rounded-full border-primary-strong bg-primary-soft px-2.5 text-xs text-primary-strong"
+              className="h-8 gap-1.5 rounded-full border-fg bg-surface-selected px-2.5 text-xs font-semibold text-fg"
             >
               Agent takeover <X aria-hidden="true" className="size-3.5" />
             </Button>

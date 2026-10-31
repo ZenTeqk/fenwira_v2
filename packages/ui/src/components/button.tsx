@@ -4,6 +4,7 @@ import { Slot } from 'radix-ui'
 import { type ComponentProps } from 'react'
 import { cn } from '../lib/cn'
 import { focusRing } from '../lib/focus'
+import { textLink } from '../lib/link'
 
 export const buttonVariants = cva(
   [
@@ -18,11 +19,12 @@ export const buttonVariants = cva(
         // Action fills pair with their -fg token at WCAG AA in both themes (tokens.test.ts).
         primary: 'bg-action-primary text-action-primary-fg hover:bg-action-primary-hover',
         secondary: 'border border-border-control bg-surface text-fg hover:bg-surface-hover',
-        // Low-emphasis action: green text, no fill (hover underlines rather than tints).
-        tertiary: 'text-action-primary underline-offset-4 hover:underline',
+        // Low-emphasis action: charcoal text, no fill; a quiet underline darkens on hover.
+        tertiary: textLink,
         ghost: 'text-fg hover:bg-surface-hover',
         danger: 'bg-action-danger text-action-danger-fg hover:bg-action-danger-hover',
-        link: 'h-auto px-0 text-action-primary underline-offset-4 hover:underline',
+        // Ordinary links are charcoal; emerald stays reserved for primary actions.
+        link: cn('h-auto px-0', textLink),
       },
       size: {
         sm: 'h-8 px-3 text-sm',

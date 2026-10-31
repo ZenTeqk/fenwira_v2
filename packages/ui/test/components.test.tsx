@@ -193,7 +193,7 @@ describe('status and identity', () => {
     rerender(<Avatar name="ABC Electronics" appearance="varied" />)
     expect(screen.getByLabelText('ABC Electronics').className).not.toBe(first)
     rerender(<Avatar name="ABC Electronics" />)
-    expect(screen.getByLabelText('ABC Electronics').className).toContain('bg-action-primary-subtle')
+    expect(screen.getByLabelText('ABC Electronics').className).toContain('bg-surface-selected')
     expect(screen.getByLabelText('ABC Electronics')).toHaveTextContent('AE')
   })
 

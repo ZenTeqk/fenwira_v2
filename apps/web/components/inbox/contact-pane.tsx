@@ -10,6 +10,8 @@ import {
   TabsList,
   TabsTrigger,
   toast,
+  textLink,
+  cn,
 } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowUpRight, Copy, Pencil } from 'lucide-react'
@@ -155,10 +157,7 @@ export function ContactPane({
         />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex min-w-0 items-start gap-1">
-            <h3
-              className="min-w-0 flex-1 break-words text-md font-semibold text-slate"
-              title={name}
-            >
+            <h3 className="min-w-0 flex-1 break-words text-md font-semibold text-fg" title={name}>
               {name}
             </h3>
             {can('contacts.write') && c ? (
@@ -176,7 +175,7 @@ export function ContactPane({
             ) : null}
           </div>
           <div className="flex min-w-0 items-center gap-1">
-            <span className="min-w-0 select-text break-words text-base text-secondary tabular-nums">
+            <span className="min-w-0 select-text break-words text-base text-fg-secondary tabular-nums">
               {formatPhone(who.phoneE164)}
             </span>
             <Button
@@ -194,7 +193,10 @@ export function ContactPane({
           {enabled ? (
             <Link
               href={`/contacts/${who.id}`}
-              className="inline-flex items-center gap-1 self-start text-xs font-medium text-primary-strong hover:underline"
+              className={cn(
+                'inline-flex items-center gap-1 self-start text-xs font-medium',
+                textLink,
+              )}
             >
               Open contact
               <ArrowUpRight aria-hidden="true" className="size-4" />
@@ -208,24 +210,15 @@ export function ContactPane({
         className="min-w-0 gap-0"
       >
         <TabsList className="sticky top-0 z-10 shrink-0 bg-surface px-4" aria-label="Contact panel">
-          <TabsTrigger
-            value="details"
-            className="h-9 flex-1 justify-center px-2 py-0 text-sm"
-          >
+          <TabsTrigger value="details" className="h-9 flex-1 justify-center px-2 py-0 text-sm">
             Overview
           </TabsTrigger>
           {enabled ? (
-            <TabsTrigger
-              value="activity"
-              className="h-9 flex-1 justify-center px-2 py-0 text-sm"
-            >
+            <TabsTrigger value="activity" className="h-9 flex-1 justify-center px-2 py-0 text-sm">
               Activity
             </TabsTrigger>
           ) : null}
-          <TabsTrigger
-            value="files"
-            className="h-9 flex-1 justify-center px-2 py-0 text-sm"
-          >
+          <TabsTrigger value="files" className="h-9 flex-1 justify-center px-2 py-0 text-sm">
             Files
           </TabsTrigger>
         </TabsList>
@@ -243,8 +236,8 @@ export function ContactPane({
                 onRetry={() => void past.refetch()}
               />
             ) : others.length ? (
-              <details className="border-t border-border pt-2">
-                <summary className="cursor-pointer py-1 text-base font-semibold text-slate">
+              <details className="border-t border-border-subtle pt-2">
+                <summary className="cursor-pointer py-1 text-base font-semibold text-fg">
                   Other conversations ({others.length})
                 </summary>
                 <ul className="flex flex-col gap-2 pt-2">
@@ -252,12 +245,12 @@ export function ContactPane({
                     <li key={pastConversation.id}>
                       <Link
                         href={`/inbox?c=${pastConversation.id}`}
-                        className="flex min-w-0 flex-col gap-1 border-l-2 border-primary-soft pl-2 text-base hover:underline"
+                        className="flex min-w-0 flex-col gap-1 border-l-2 border-border-control pl-2 text-base hover:underline"
                       >
                         <span className="line-clamp-2 break-words">
                           {pastConversation.lastMessagePreview ?? 'No messages'}
                         </span>
-                        <span className="text-xs text-secondary">
+                        <span className="text-xs text-fg-secondary">
                           Via {pastConversation.phoneNumber}
                           {pastConversation.lastMessageAt
                             ? ` · ${relativeTime(pastConversation.lastMessageAt)}`
@@ -269,14 +262,16 @@ export function ContactPane({
                 </ul>
               </details>
             ) : (
-              <p className="text-xs text-secondary">No other conversations with this customer.</p>
+              <p className="text-xs text-fg-secondary">
+                No other conversations with this customer.
+              </p>
             )}
           </TabsContent>
         ) : null}
         <TabsContent value="details" className="flex min-w-0 flex-col gap-2 p-4">
           <CustomerAssignment conversation={conversation} />
           {!enabled ? (
-            <p className="text-xs text-secondary">Your role can&apos;t view contact details.</p>
+            <p className="text-xs text-fg-secondary">Your role can&apos;t view contact details.</p>
           ) : contact.isPending ? (
             <Skeleton className="h-40" />
           ) : contact.isError || !c ? (

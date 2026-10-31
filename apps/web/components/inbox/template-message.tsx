@@ -1,7 +1,7 @@
 'use client'
 
 import { type MessageTemplateSnapshot, type TemplateSnapshotButton } from '@fenwira/contracts'
-import { Button, cn } from '@fenwira/ui'
+import { Button, cn, textLink } from '@fenwira/ui'
 import { Copy, ExternalLink, FileText, Phone, Play, Reply } from 'lucide-react'
 import Image from 'next/image'
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
@@ -48,7 +48,7 @@ function TemplateHeader({
         className="h-auto max-w-full rounded-md"
       />
     ) : (
-      <div className="flex h-32 items-center justify-center rounded-md bg-neutral-soft text-sm text-secondary">
+      <div className="flex h-32 items-center justify-center rounded-md bg-surface-muted text-sm text-fg-secondary">
         {preview ? 'Image header sample' : header.fileId ? 'Image' : 'Image unavailable'}
       </div>
     )
@@ -64,12 +64,15 @@ function TemplateHeader({
       href={url.data}
       target="_blank"
       rel="noreferrer"
-      className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm text-primary-strong underline"
+      className={cn(
+        'flex min-w-0 items-center gap-2 rounded-md border border-border-subtle bg-surface px-3 py-2 text-sm',
+        textLink,
+      )}
     >
       {chip}
     </a>
   ) : (
-    <span className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm text-secondary">
+    <span className="flex min-w-0 items-center gap-2 rounded-md border border-border-subtle bg-surface px-3 py-2 text-sm text-fg-secondary">
       {chip}
     </span>
   )
@@ -106,7 +109,7 @@ export function TemplateMessage({
 
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <p id={labelId} className="text-xs text-secondary">
+      <p id={labelId} className="text-xs text-fg-secondary">
         Template · {snapshot?.name ?? name}
       </p>
       {snapshot?.header ? (
@@ -138,10 +141,10 @@ export function TemplateMessage({
       ) : null}
       {/* Muted fails AA on the outbound tint, so the footer uses secondary. */}
       {snapshot?.footer ? (
-        <p className="text-sm text-secondary">{renderText(snapshot.footer)}</p>
+        <p className="text-sm text-fg-secondary">{renderText(snapshot.footer)}</p>
       ) : null}
       {!preview && (!snapshot || snapshot.partial) ? (
-        <p className="text-xs text-secondary">Original template no longer available</p>
+        <p className="text-xs text-fg-secondary">Original template no longer available</p>
       ) : null}
       {snapshot?.buttons.length ? (
         <ul aria-label="Template buttons" className="mt-1 flex flex-col gap-1">
@@ -151,7 +154,7 @@ export function TemplateMessage({
               <li
                 key={i}
                 title={buttonDetail(b)}
-                className="flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-primary-strong"
+                className="flex items-center justify-center gap-1.5 rounded-md border border-border-subtle bg-surface px-3 py-1.5 text-sm font-medium text-action-primary"
               >
                 <Icon aria-hidden="true" className="size-4 shrink-0" />
                 {b.label}

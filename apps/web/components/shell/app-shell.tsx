@@ -110,10 +110,10 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   const { module: currentModule, tabs } = moduleTabs(pathname, nav)
 
   return (
-    <div className="flex min-h-dvh bg-background">
+    <div className="flex min-h-dvh bg-canvas">
       <a
         href="#main"
-        className="sr-only z-50 rounded-sm bg-surface px-3 py-2 text-slate focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+        className="sr-only z-50 rounded-sm bg-surface px-3 py-2 text-fg focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
       >
         Skip to content
       </a>
@@ -147,7 +147,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           aria-pressed={collapsed}
           className={cn(
-            'flex h-9 items-center gap-3 rounded-sm px-3 text-base text-secondary hover:bg-surface-hover hover:text-slate',
+            'flex h-9 items-center gap-3 rounded-sm px-3 text-base text-fg-secondary hover:bg-surface-hover hover:text-fg',
             collapsed && 'justify-center px-0',
             focusRing,
           )}
@@ -190,7 +190,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       <div className={cn('flex min-w-0 flex-1 flex-col', fullBleed && 'h-dvh')}>
         <header
           className={cn(
-            'sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface px-4 md:px-6',
+            'sticky top-0 z-30 flex items-center gap-3 border-b border-border-subtle bg-surface px-4 md:px-6',
             'h-14',
           )}
         >
@@ -207,7 +207,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           <div className="hidden lg:block">
             <TenantSwitcher variant="topbar" />
           </div>
-          <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
+          <span aria-hidden="true" className="hidden h-5 w-px bg-border-subtle lg:block" />
           <div className="min-w-0 flex-1 lg:w-0 lg:flex-none xl:w-24" />
           <Button
             variant="secondary"
@@ -215,13 +215,13 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             onClick={() => setPaletteOpen(true)}
             aria-label="Search and jump to (Control K)"
             className={cn(
-              'min-w-0 gap-2 bg-sidebar text-secondary shadow-raised lg:justify-start',
+              'min-w-0 gap-2 bg-sidebar text-fg-secondary shadow-raised lg:justify-start',
               'lg:mr-auto lg:w-72 xl:w-96',
             )}
           >
             <Search aria-hidden="true" />
             <span className="hidden sm:inline">Search Fenwira…</span>
-            <kbd className="ml-auto hidden rounded-sm border border-border px-1.5 font-mono text-xs sm:inline">
+            <kbd className="ml-auto hidden rounded-sm border border-border-subtle px-1.5 font-mono text-xs sm:inline">
               ⌘K
             </kbd>
           </Button>

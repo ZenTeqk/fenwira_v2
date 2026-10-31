@@ -53,9 +53,9 @@ export function HelpMenu({ galleryEnabled }: { galleryEnabled: boolean }) {
           <dl className="flex flex-col gap-2">
             {SHORTCUTS.map(([keys, what]) => (
               <div key={keys} className="flex items-baseline justify-between gap-4">
-                <dt className="text-base text-slate">{what}</dt>
+                <dt className="text-base text-fg">{what}</dt>
                 <dd>
-                  <kbd className="rounded-sm border border-border-strong px-1.5 font-mono text-xs text-slate">
+                  <kbd className="rounded-sm border border-border-control px-1.5 font-mono text-xs text-fg">
                     {keys}
                   </kbd>
                 </dd>

@@ -35,8 +35,8 @@ export function TenantSwitcher({
         className={cn(
           'flex items-center gap-2 rounded-md text-left',
           variant === 'topbar'
-            ? 'h-9 max-w-56 px-2 text-slate hover:bg-surface-hover'
-            : 'h-11 w-full px-2 text-slate hover:bg-surface-hover',
+            ? 'h-9 max-w-56 px-2 text-fg hover:bg-surface-hover'
+            : 'h-11 w-full px-2 text-fg hover:bg-surface-hover',
           collapsed && 'justify-center px-0',
           focusRing,
         )}
@@ -49,13 +49,13 @@ export function TenantSwitcher({
                 {membership.tenantName}
               </span>
               {variant === 'sidebar' ? (
-                <span className="block truncate text-xs text-muted">
+                <span className="block truncate text-xs text-fg-muted">
                   {ROLE_LABELS[membership.role]}
                 </span>
               ) : null}
             </span>
             <ChevronsUpDown
-              className={cn('size-4', variant === 'topbar' ? 'text-muted' : 'text-muted')}
+              className={cn('size-4', variant === 'topbar' ? 'text-fg-muted' : 'text-fg-muted')}
               aria-hidden="true"
             />
           </>
@@ -68,7 +68,7 @@ export function TenantSwitcher({
             <Avatar name={m.tenantName} size="sm" className="rounded-sm" />
             <span className="min-w-0 flex-1 truncate">{m.tenantName}</span>
             {m.tenantId === membership.tenantId ? (
-              <Check className="text-primary-strong" aria-label="Current workspace" />
+              <Check className="text-fg" aria-label="Current workspace" />
             ) : null}
           </DropdownItem>
         ))}

@@ -21,6 +21,7 @@ import {
   Skeleton,
   StatusBadge,
   cn,
+  textLink,
   type StatusKey,
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
@@ -35,6 +36,7 @@ import {
   HeartPulse,
   MessageSquare,
   Send,
+  TriangleAlert,
   Wallet,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -276,7 +278,19 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
       }}
       attention={
         <Card>
-          <CardHeader className="border-b border-border px-4 py-3">
+          <CardHeader className="flex-row items-center gap-2 border-b border-border-subtle px-4 py-3">
+            {/* Amber marks the section only while something actually needs attention. */}
+            <span
+              aria-hidden="true"
+              className={cn(
+                'flex size-6 shrink-0 items-center justify-center rounded-md [&_svg]:size-3.5',
+                attention.length
+                  ? 'bg-status-warning-bg text-status-warning-fg'
+                  : 'bg-surface-muted text-fg-secondary',
+              )}
+            >
+              <TriangleAlert />
+            </span>
             <CardTitle as="h2" id="attention" className="text-md">
               Needs attention
             </CardTitle>
@@ -286,20 +300,21 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
               {loadingAttention && !attention.length ? (
                 <Skeleton className="h-32 w-full" />
               ) : attention.length ? (
-                <ul className="divide-y divide-border">
+                <ul className="divide-y divide-border-subtle">
                   {attention.map((a) => (
                     <li key={a.id} className="flex flex-wrap items-center gap-3 py-3">
                       <span
                         aria-hidden="true"
                         className={cn(
                           'flex size-8 shrink-0 items-center justify-center rounded-full',
+                          // Conversations take the blue feature accent; problems keep their status.
                           a.id === 'unassigned' || a.id === 'connect'
-                            ? 'bg-info-soft text-info-strong'
+                            ? 'bg-accent-conversation-bg text-accent-conversation-fg'
                             : a.id === 'automation-failures' || a.tone === 'danger'
-                              ? 'bg-danger-soft text-danger-strong'
+                              ? 'bg-status-error-bg text-status-error-fg'
                               : a.tone === 'warning'
-                                ? 'bg-warning-soft text-warning-strong'
-                                : 'bg-info-soft text-info-strong',
+                                ? 'bg-status-warning-bg text-status-warning-fg'
+                                : 'bg-status-info-bg text-status-info-fg',
                         )}
                       >
                         {a.id === 'unassigned' || a.id === 'connect' ? (
@@ -317,8 +332,8 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
                         )}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-base font-semibold text-slate">{a.title}</p>
-                        <p className="mt-1 text-base text-secondary">{a.body}</p>
+                        <p className="text-base font-semibold text-fg">{a.title}</p>
+                        <p className="mt-1 text-base text-fg-secondary">{a.body}</p>
                       </div>
                       {a.href ? (
                         <div className="basis-full sm:basis-auto">
@@ -333,20 +348,20 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
                     </li>
                   ))}
                   {attention.length < 3 && !failedAttention && !loadingAttention ? (
-                    <li className="flex items-center gap-3 py-3 text-sm text-secondary">
+                    <li className="flex items-center gap-3 py-3 text-sm text-fg-secondary">
                       <span
                         aria-hidden="true"
-                        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success-soft"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-status-success-bg"
                       >
-                        <CircleCheck className="size-4 text-success-strong" />
+                        <CircleCheck className="size-4 text-status-success-fg" />
                       </span>
                       Nothing else needs your attention.
                     </li>
                   ) : null}
                 </ul>
               ) : !failedAttention ? (
-                <p className="flex items-center gap-2 py-4 text-sm text-secondary">
-                  <CircleCheck className="size-5 text-success-strong" aria-hidden="true" />
+                <p className="flex items-center gap-2 py-2 text-sm text-fg-secondary">
+                  <CircleCheck className="size-5 text-status-success-fg" aria-hidden="true" />
                   All clear. Nothing needs your attention right now.
                 </p>
               ) : null}
@@ -383,7 +398,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
       automation={can('automations.read') ? <AutomationActivity /> : undefined}
       summaryNote={
         can('analytics.read') && analytics.data?.meta.freshness.status === 'NOT_STARTED' ? (
-          <p role="status" className="text-xs text-muted">
+          <p role="status" className="text-xs text-fg-muted">
             Analytics are being prepared
           </p>
         ) : undefined
@@ -395,12 +410,13 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
             className="p-2"
             label="Sent · 7 days"
             icon={<Send />}
+            iconTone="conversation"
             loading={can('analytics.read') && analytics.isPending}
             value={a ? a.kpis.sent.value.toLocaleString('en-IN') : '—'}
             delta={a ? countDelta(a.kpis.sent) : undefined}
             hint={
               can('analytics.read') ? (
-                <Link className="underline-offset-4 hover:underline" href="/analytics/messaging">
+                <Link className={textLink} href="/analytics/messaging">
                   View analytics
                 </Link>
               ) : (
@@ -413,10 +429,11 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
             className="p-2"
             label="Open chats"
             icon={<MessageSquare />}
+            iconTone="conversation"
             loading={can('inbox.read') && open.isPending}
             value={can('inbox.read') ? (count(open.data) ?? '—') : '—'}
             hint={
-              <Link className="underline-offset-4 hover:underline" href="/inbox">
+              <Link className={textLink} href="/inbox">
                 Go to inbox
               </Link>
             }
@@ -426,6 +443,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
             className="p-2"
             label="Delivery · 7 days"
             icon={<HeartPulse />}
+            iconTone="success"
             loading={can('analytics.read') && analytics.isPending}
             value={a ? percent(a.kpis.deliveryRate.value) : '—'}
             delta={a ? rateDelta(a.kpis.deliveryRate) : undefined}
@@ -462,7 +480,7 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
                   )
                 ) : (
                   <span className="flex flex-wrap items-center gap-2">
-                    <Link className="underline-offset-4 hover:underline" href="/billing/wallet">
+                    <Link className={textLink} href="/billing/wallet">
                       Open wallet
                     </Link>
                   </span>
@@ -473,14 +491,14 @@ export function Dashboard({ health }: { health: ApiHealthView }) {
         </>
       }
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-secondary">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-fg-secondary">
         {can('whatsapp.read') && connections.data ? (
           <ConnectionState status={conn.status} name="WhatsApp" variant="compact" />
         ) : null}
         <div data-testid="api-overall">
           {health.reachable && health.overall === 'ok' ? (
             <span className="flex items-center gap-2">
-              <Activity className="size-4 text-success-strong" aria-hidden="true" />
+              <Activity className="size-4 text-status-success-fg" aria-hidden="true" />
               All systems operational · API {health.version}
             </span>
           ) : (

@@ -30,7 +30,7 @@ export function MediaLightbox({ item, onClose }: { item: ViewerItem | null; onCl
         <ModalContent title={item.label} className="max-w-3xl">
           <div className="flex justify-center px-5 pb-5">
             {!url.data ? (
-              <p className="text-sm text-muted">Loading…</p>
+              <p className="text-sm text-fg-muted">Loading…</p>
             ) : item.kind === 'IMAGE' ? (
               <Image
                 src={url.data}

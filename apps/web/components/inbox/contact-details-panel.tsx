@@ -70,10 +70,10 @@ export function ContactDetailsPanel({
     <aside
       id={id}
       aria-labelledby={`${id}-title`}
-      className="fw-inbox-customer-panel flex min-h-0 min-w-0 w-80 shrink-0 flex-col border-l border-border bg-surface"
+      className="fw-inbox-customer-panel flex min-h-0 min-w-0 w-80 shrink-0 flex-col border-l border-border-subtle bg-surface"
     >
       <div className="flex min-h-12 shrink-0 items-center justify-between gap-2 px-4 py-2">
-        <h2 id={`${id}-title`} className="text-lg font-semibold text-slate">
+        <h2 id={`${id}-title`} className="text-lg font-semibold text-fg">
           Customer details
         </h2>
         <Button

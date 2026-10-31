@@ -17,6 +17,7 @@ import {
   StatusBadge,
   Textarea,
   toast,
+  textLink,
 } from '@fenwira/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, Plus, StickyNote, X } from 'lucide-react'
@@ -30,8 +31,8 @@ import { formatDateTime, TAG_TONE, useTags } from '@/lib/contacts'
 import { relativeTime } from '@/lib/relative-time'
 import { useConversationActions, usePresence } from './conversation-actions'
 
-const sectionClass = 'flex min-w-0 flex-col gap-2 border-t border-border pt-2'
-const headingClass = 'text-base font-semibold text-slate'
+const sectionClass = 'flex min-w-0 flex-col gap-2 border-t border-border-subtle pt-2'
+const headingClass = 'text-base font-semibold text-fg'
 
 export function CustomerPanelError({ title, onRetry }: { title: string; onRetry: () => void }) {
   return (
@@ -74,7 +75,7 @@ function Collapsible({
           <ChevronDown
             aria-hidden="true"
             className={cn(
-              'size-4 shrink-0 text-secondary motion-reduce:transition-none',
+              'size-4 shrink-0 text-fg-secondary motion-reduce:transition-none',
               open && 'rotate-180',
             )}
           />
@@ -177,7 +178,9 @@ export function CustomerAssignment({ conversation: c }: { conversation: Conversa
           </DropdownContent>
         </Dropdown>
       ) : (
-        <div className="flex min-w-0 items-center gap-2 text-base text-secondary">{identity}</div>
+        <div className="flex min-w-0 items-center gap-2 text-base text-fg-secondary">
+          {identity}
+        </div>
       )}
     </section>
   )
@@ -269,7 +272,7 @@ export function ContactTags({ contact }: { contact: Contact }) {
             </Dropdown>
           </li>
         ) : null}
-        {!contact.tags.length ? <li className="text-xs text-secondary">No tags</li> : null}
+        {!contact.tags.length ? <li className="text-xs text-fg-secondary">No tags</li> : null}
       </ul>
       {editable && catalog.isError ? (
         <Button
@@ -300,7 +303,7 @@ function NoteCard({ note }: { note: ContactNote }) {
     return () => observer.disconnect()
   }, [expanded, note.body])
   return (
-    <li className="flex min-w-0 flex-col gap-1.5 rounded-md border border-chat-note-border bg-chat-note p-2 text-base text-slate">
+    <li className="flex min-w-0 flex-col gap-1.5 rounded-md border border-chat-note-border bg-chat-note p-2 text-base text-fg">
       <p
         id={id}
         ref={content}
@@ -321,7 +324,7 @@ function NoteCard({ note }: { note: ContactNote }) {
           {expanded ? 'Show less' : 'Show more'}
         </Button>
       ) : null}
-      <p className="flex min-w-0 items-start gap-1 text-xs text-secondary">
+      <p className="flex min-w-0 items-start gap-1 text-xs text-fg-secondary">
         <StickyNote aria-hidden="true" className="mt-0.5 size-3 shrink-0 text-chat-note-fg" />
         <span className="min-w-0 break-words">
           {note.authorName} ·{' '}
@@ -366,7 +369,7 @@ export function ContactNotes({
         <h3 className={headingClass}>
           Notes{' '}
           {!notes.isError && !notes.isPending && notes.data ? (
-            <span className="ml-1 text-xs font-normal text-secondary">({rows.length})</span>
+            <span className="ml-1 text-xs font-normal text-fg-secondary">({rows.length})</span>
           ) : null}
         </h3>
         {can('contacts.write') && !adding ? (
@@ -448,7 +451,7 @@ export function ContactNotes({
           ) : null}
         </>
       ) : adding ? null : (
-        <p className="text-xs text-secondary">No notes yet.</p>
+        <p className="text-xs text-fg-secondary">No notes yet.</p>
       )}
     </section>
   )
@@ -464,7 +467,7 @@ export function EligibilitySection({
   const query = useEligibility(contact.id, conversationId)
   const verdict = query.data
   const summary = query.isPending ? (
-    <span className="text-xs text-secondary">Checking…</span>
+    <span className="text-xs text-fg-secondary">Checking…</span>
   ) : query.isError || !verdict ? (
     <StatusBadge status="UNKNOWN" appearance="inline" label="Unavailable" />
   ) : (
@@ -508,7 +511,7 @@ export function EligibilitySection({
                 />
               </div>
               {!verdict[key].allowed && verdict[key].reason ? (
-                <p className="text-xs text-secondary">{verdict[key].reason}</p>
+                <p className="text-xs text-fg-secondary">{verdict[key].reason}</p>
               ) : null}
             </li>
           ))}
@@ -522,7 +525,7 @@ export function EligibilitySection({
           ] as const
         ).map(([key, label]) => (
           <div key={key} className="flex min-w-0 flex-col gap-1">
-            <dt className="text-secondary">{label}</dt>
+            <dt className="text-fg-secondary">{label}</dt>
             <dd>
               {contact[key] === 'NONE' ? (
                 <StatusBadge status="NONE" appearance="inline" label="Not recorded" />
@@ -531,7 +534,7 @@ export function EligibilitySection({
               ) : contact[key] === 'REVOKED' ? (
                 <StatusBadge status="OPTED_OUT" appearance="inline" label="Opted out" />
               ) : (
-                <span className="text-secondary">—</span>
+                <span className="text-fg-secondary">—</span>
               )}
             </dd>
           </div>
@@ -539,7 +542,7 @@ export function EligibilitySection({
       </dl>
       <Link
         href={`/contacts/${contact.id}`}
-        className="self-start text-xs font-medium text-primary-strong hover:underline"
+        className={cn('self-start text-xs font-medium', textLink)}
       >
         View eligibility and consent
       </Link>
@@ -563,11 +566,11 @@ export function AutomationSection({ conversation }: { conversation: Conversation
           status={state.status}
           appearance="inline"
           label={state.label}
-          className="text-secondary"
+          className="text-fg-secondary"
         />
       }
     >
-      <p className="text-xs text-secondary">
+      <p className="text-xs text-fg-secondary">
         {conversation.automationState === 'AUTOMATION_ACTIVE'
           ? 'Automated messages are permitted in this conversation.'
           : conversation.automationState === 'AGENT_TAKEOVER'
@@ -575,7 +578,7 @@ export function AutomationSection({ conversation }: { conversation: Conversation
             : 'Automated messages were paused manually.'}
       </p>
       {conversation.aiHandling ? (
-        <p className="text-xs text-secondary">The AI Assistant is handling this conversation.</p>
+        <p className="text-xs text-fg-secondary">The AI Assistant is handling this conversation.</p>
       ) : null}
     </Collapsible>
   )

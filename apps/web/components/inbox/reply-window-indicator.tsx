@@ -35,7 +35,7 @@ export function ReplyWindowIndicator({
     enabled: can('workspace.read'),
   })
   if (checking || window.kind === 'checking')
-    return <span className="ml-auto text-xs text-secondary">Checking eligibility…</span>
+    return <span className="ml-auto text-xs text-fg-secondary">Checking eligibility…</span>
   if (window.kind !== 'open') return null
   const description = `Free-form replies available until ${expiryDate(window.expiresAt, workspace.data?.timezone ?? INDIA_TIMEZONE)}.`
   return (
@@ -50,7 +50,7 @@ export function ReplyWindowIndicator({
           status={window.phase === 'normal' ? 'WINDOW_OPEN' : 'EXPIRING'}
           appearance={window.phase === 'imminent' ? 'default' : 'inline'}
           label={window.label}
-          className={window.phase === 'normal' ? 'text-secondary' : undefined}
+          className={window.phase === 'normal' ? 'text-fg-secondary' : undefined}
         />
       </Button>
     </Tooltip>
