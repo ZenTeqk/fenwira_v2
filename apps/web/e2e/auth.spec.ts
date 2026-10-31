@@ -48,7 +48,7 @@ test('sign out, sign back in, and wrong passwords get one generic error', async 
   await page.getByLabel('Email').fill(owner.email)
   await page.getByLabel('Password').fill('not-the-right-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByText('Email or password is incorrect.')).toBeVisible()
+  await expect(page.getByText('The email or password is not correct.')).toBeVisible()
 
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in' }).click()
@@ -87,7 +87,7 @@ test('forgot password → emailed link → new password works, old one does not'
   await visitor.getByLabel('Email').fill(owner.email)
   await visitor.getByLabel('Password').fill(PASSWORD)
   await visitor.getByRole('button', { name: 'Sign in' }).click()
-  await expect(visitor.getByText('Email or password is incorrect.')).toBeVisible()
+  await expect(visitor.getByText('The email or password is not correct.')).toBeVisible()
   await visitor.getByLabel('Password').fill('a-brand-new-passphrase')
   await visitor.getByRole('button', { name: 'Sign in' }).click()
   await expect(visitor).toHaveURL(/\/dashboard$/)

@@ -135,7 +135,7 @@ test('Billing wallet: compact reference composition, truthful financial states a
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     expect(
       await page.getByRole('heading', { level: 1 }).evaluate((el) => getComputedStyle(el).fontSize),
-    ).toBe('20px')
+    ).toBe('24px')
     const axe = await new AxeBuilder({ page }).withTags(tags).analyze()
     expect(axe.violations.map((v) => v.id)).toEqual([])
     await page.screenshot({ path: info.outputPath(`wallet-${width}.png`), fullPage: true })

@@ -1,7 +1,7 @@
 'use client'
 
 import { type LoginResult } from '@fenwira/contracts'
-import { Alert, Button, Field, Input } from '@fenwira/ui'
+import { Alert, Button, Field, Input, textLink } from '@fenwira/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -76,10 +76,7 @@ function LoginForm() {
           />
         </Field>
         <div className="flex justify-end">
-          <Link
-            href="/forgot-password"
-            className="text-sm font-medium text-primary-strong hover:underline"
-          >
+          <Link href="/forgot-password" className={`text-sm font-medium ${textLink}`}>
             Forgot password?
           </Link>
         </div>

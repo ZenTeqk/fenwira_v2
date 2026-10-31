@@ -2,7 +2,7 @@
 
 import { type InvitationPreview, ROLE_LABELS } from '@fenwira/contracts'
 import { BrandMark } from '@/components/shell/brand-mark'
-import { Button, ErrorState, Field, Input, Skeleton } from '@fenwira/ui'
+import { Button, Field, Input, Skeleton } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -51,7 +51,7 @@ export default function InvitationPage() {
   })
 
   const shell = (children: React.ReactNode) => (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background px-4 py-10">
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-canvas px-4 py-10">
       <p>
         <BrandMark variant="lockup" size="lg" />
       </p>
@@ -61,15 +61,15 @@ export default function InvitationPage() {
 
   if (preview.isPending) return shell(<Skeleton className="h-64 w-full" />)
   if (preview.isError) {
+    // AuthCard gives the page its h1; the reason stays an announced alert.
     return shell(
-      <ErrorState
-        title="Invitation not available"
-        description={
-          preview.error instanceof ApiError
+      <AuthCard title="Invitation not available">
+        <p role="alert" className="text-base text-fg-secondary">
+          {preview.error instanceof ApiError
             ? preview.error.message
-            : 'This invitation could not be loaded.'
-        }
-      />,
+            : 'This invitation could not be loaded.'}
+        </p>
+      </AuthCard>,
     )
   }
   const inv = preview.data
@@ -81,7 +81,7 @@ export default function InvitationPage() {
       title={`Join ${inv.workspaceName}`}
       description={
         <>
-          {inv.inviterName} invited <strong className="text-slate">{inv.email}</strong> to join as{' '}
+          {inv.inviterName} invited <strong className="text-fg">{inv.email}</strong> to join as{' '}
           {ROLE_LABELS[inv.role]}.
         </>
       }
@@ -92,7 +92,7 @@ export default function InvitationPage() {
           Accept invitation
         </Button>
       ) : me ? (
-        <p className="text-base text-muted">
+        <p className="text-base text-fg-muted">
           You're signed in as {me.user.email}. Sign out and sign in as {inv.email} to accept this
           invitation.
         </p>

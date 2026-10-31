@@ -1,7 +1,7 @@
 'use client'
 
 import { type LoginResult } from '@fenwira/contracts'
-import { Button, Field, Input } from '@fenwira/ui'
+import { Button, Field, Input, textLink } from '@fenwira/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -36,7 +36,7 @@ export default function RegisterPage() {
       footer={
         <>
           Already have an account?{' '}
-          <Link href="/login" className="font-medium text-primary-strong hover:underline">
+          <Link href="/login" className={`font-medium ${textLink}`}>
             Sign in
           </Link>
         </>

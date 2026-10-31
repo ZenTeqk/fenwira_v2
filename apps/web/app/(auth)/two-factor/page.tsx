@@ -1,7 +1,7 @@
 'use client'
 
 import { type LoginResult } from '@fenwira/contracts'
-import { Button, Field, Input } from '@fenwira/ui'
+import { Button, Field, Input, textLink } from '@fenwira/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -47,7 +47,7 @@ function TwoFactorForm() {
       title="Two-factor authentication"
       description="Enter the 6-digit code from your authenticator app, or one of your backup codes."
       footer={
-        <Link href="/login" className="font-medium text-primary-strong hover:underline">
+        <Link href="/login" className={`font-medium ${textLink}`}>
           Back to sign in
         </Link>
       }

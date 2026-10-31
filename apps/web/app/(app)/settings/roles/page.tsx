@@ -65,7 +65,7 @@ export default function RolesPage() {
       {matrix.isPending ? (
         <Skeleton className="h-96 w-full" />
       ) : (
-        <Table aria-label="Role permissions">
+        <Table aria-label="Role permissions" containerLabel="Role permissions">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead scope="col">Permission</TableHead>

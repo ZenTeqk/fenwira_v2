@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { linkFromEmail, PASSWORD, resetRateLimits, signInAsNewOwner, uniqueEmail } from './support'
+import { PASSWORD, resetRateLimits, signInAsNewOwner, uniqueEmail } from './support'
 
 test.beforeEach(() => resetRateLimits())
 
@@ -11,16 +11,19 @@ test('invite a teammate from the Team page; they accept as a new account', async
   await page.goto('/settings/team')
   await page.getByRole('button', { name: 'Invite teammate' }).click()
   const invitee = uniqueEmail('ui-invitee')
-  const since = Date.now()
   const dialog = page.getByRole('dialog', { name: 'Invite a teammate' })
   await dialog.getByLabel('Email').fill(invitee)
-  await dialog.getByRole('button', { name: 'Send invitation' }).click()
+  await dialog.getByRole('button', { name: 'Create invitation' }).click()
+  const share = page.getByRole('dialog', { name: 'Share the invitation link' })
+  const link = await share.getByLabel('Invitation link').inputValue()
+  expect(link).toMatch(/\/invitations\/[^/]+$/)
+  await share.getByRole('button', { name: 'Done' }).click()
   await expect(
     page.getByRole('table', { name: 'Pending invitations' }).getByText(invitee),
   ).toBeVisible()
 
   const guest = await (await browser.newContext()).newPage()
-  await guest.goto(await linkFromEmail(invitee, '/invitations/', since))
+  await guest.goto(link)
   await expect(guest.getByRole('heading', { name: 'Join Acme Foods' })).toBeVisible()
   await guest.getByLabel('Your name').fill('New Agent')
   await guest.getByLabel('Choose a password').fill(PASSWORD)
