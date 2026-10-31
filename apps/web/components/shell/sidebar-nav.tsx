@@ -72,23 +72,13 @@ export function SidebarNav({
         className={cn(
           itemBase,
           isActive ? active : collapsed ? inactiveCollapsed : inactive,
-          collapsed && 'justify-center px-0',
           !collapsed && item.id === 'automations' && 'pr-10',
         )}
       >
         <Icon aria-hidden="true" />
-        {collapsed ? (
-          <span className="sr-only">{item.label}</span>
-        ) : (
-          <span className="truncate">{item.label}</span>
-        )}
+        <span className="fw-sidebar-label truncate">{item.label}</span>
         {count ? (
-          <span
-            className={cn(
-              'rounded-full bg-action-primary px-1.5 text-xs font-semibold text-action-primary-fg',
-              collapsed ? 'absolute top-0.5 right-1' : 'ml-auto',
-            )}
-          >
+          <span className="fw-sidebar-badge ml-auto rounded-full bg-action-primary px-1.5 text-xs font-semibold text-action-primary-fg">
             {count > 99 ? '99+' : count}
             <span className="sr-only"> unread</span>
           </span>
@@ -98,22 +88,20 @@ export function SidebarNav({
     return (
       <li key={item.id}>
         <div className="relative">
-          {collapsed ? (
-            <Tooltip content={item.label} side="right">
-              {link}
-            </Tooltip>
-          ) : (
-            link
-          )}
-          {!collapsed && item.id === 'automations' ? (
+          <Tooltip content={item.label} side="right">
+            {link}
+          </Tooltip>
+          {item.id === 'automations' ? (
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute top-0.5 right-0.5 size-8 p-0 text-fg-secondary"
+              className="fw-sidebar-disclosure absolute top-0.5 right-0.5 size-8 p-0 text-fg-secondary"
               aria-label={showAutomationChildren ? 'Collapse Automations' : 'Expand Automations'}
               aria-expanded={showAutomationChildren}
               aria-controls={automationChildrenId}
+              tabIndex={collapsed ? -1 : undefined}
+              aria-hidden={collapsed || undefined}
               onClick={() => setAutomationsExpanded(!showAutomationChildren)}
             >
               <ChevronDown

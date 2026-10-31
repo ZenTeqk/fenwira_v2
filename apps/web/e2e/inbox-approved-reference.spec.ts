@@ -507,7 +507,7 @@ test('approved inbox: desktop proportions, real actions, IME, details, responsiv
   await expect(log.getByText('Can you confirm delivery by 5 pm?')).toBeVisible()
   const panel = page.getByRole('complementary', { name: 'Customer details' })
   await expect(panel).toBeVisible()
-  expect((await page.locator('aside:has(nav[aria-label="Main"])').boundingBox())?.width).toBe(224)
+  expect((await page.locator('aside:has(nav[aria-label="Main"])').boundingBox())?.width).toBe(68)
   expect(
     (await page.getByRole('region', { name: 'Conversations', exact: true }).boundingBox())?.width,
   ).toBe(319)

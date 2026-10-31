@@ -1,6 +1,39 @@
 @import 'tailwindcss';
 @import '@fenwira/ui/theme.css';
 
+/* Touch-only devices use the drawer even when the viewport is desktop-sized. */
+@custom-variant desktop-navigation (@media (min-width: 64rem) and (hover: hover) and (pointer: fine));
+
+/* Only the rail width and its label/disclosure opacity animate. Icon coordinates, row
+   height and the page's reserved width stay fixed during temporary expansion. */
+.fw-desktop-sidebar {
+  transition:
+    width 200ms ease-out,
+    box-shadow 200ms ease-out;
+}
+
+.fw-desktop-sidebar .fw-sidebar-label,
+.fw-desktop-sidebar .fw-sidebar-disclosure {
+  transition: opacity 200ms ease-out;
+}
+
+.fw-desktop-sidebar .fw-sidebar-label {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.fw-desktop-sidebar[data-expanded='false'] .fw-sidebar-label,
+.fw-desktop-sidebar[data-expanded='false'] .fw-sidebar-disclosure {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fw-desktop-sidebar .fw-sidebar-badge {
+  position: absolute;
+  top: 0.125rem;
+  left: 1.25rem;
+}
+
 /* React Flow (automation builder) themed with semantic tokens: idle edges fg-subtle, active
    action-primary. */
 .fw-flow .react-flow {

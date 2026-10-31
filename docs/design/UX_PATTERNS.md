@@ -6,7 +6,7 @@ How Fenwira screens are put together. Visual tokens are in [FENWIRA_DESIGN_SYSTE
 
 ```text
 ┌──────────┬──────────────────────────────────────────────────────────────┐
-│ Fenwira  │ Workspace ▾ · breadcrumb        [Search ⌘K]  ?  🔔  (Avatar) │ ← top bar 56px
+│ Fenwira  │ Workspace ▾ · WhatsApp        [Search ⌘K]  ?  🔔  (Avatar) │ ← top bar 56px
 │          ├──────────────────────────────────────────────────────────────┤
 │ Home     │ Module tabs (only when the module has sub-pages)             │
 │ Inbox  3 ├──────────────────────────────────────────────────────────────┤
@@ -18,16 +18,16 @@ How Fenwira screens are put together. Visual tokens are in [FENWIRA_DESIGN_SYSTE
 │ Integr.  │                                                              │
 │ Settings │                                                              │
 │ ──────── │                                                              │
-│ ● WhatsApp connected                                                    │
 │ ₹ Wallet ₹1,240 available                                               │
-│ « Collapse                                                              │
+│ Pin / Unpin                                                              │
 └──────────┴──────────────────────────────────────────────────────────────┘
 ```
 
-- **Sidebar** 232px expanded, 64px collapsed (remembered per browser), a drawer below 1024px. It lists **modules only** (except the approved Automations Workflows / Reply Studio children while that module is open): Home (route `/dashboard`), Inbox, Contacts, Campaigns, Templates, Automations, Analytics, then Integrations, Billing, Settings. A module appears once its phase has shipped (Analytics and Billing arrive in Phase 11) and only if the member may see it.
+- **Sidebar** defaults to a 68px desktop icon rail. On hover-capable devices it expands to 232px after 180ms and collapses 250ms after leaving, unless keyboard focus or an active owned portaled menu/popover holds it open. Pointer-created focus does not hold it open; links retain native focus. Temporary expansion overlays content below the 56px header. Keyboard focus expands immediately without remounting links. Width and label opacity use explicit 200ms ease-out transitions; icons stay fixed and labels never wrap. Pin/Unpin is a compact control at the expanded sidebar’s top right; navigation keeps its natural height and scrolls when needed, with no reserved profile footer. Pin/Unpin persists the existing browser preference (`fenwira.sidebar.collapsed`: false means pinned); only pinning reserves 232px. Mobile/tablet and coarse-pointer devices use the explicit menu button and accessible drawer. Navigation scrolls locally, motion follows reduced-motion preferences, and dialogs stay above the rail. It lists **modules only**, preserving existing permissions, routes, badges and the Automations disclosure.
 - **Module tabs** (`ModuleTabs`) under the top bar carry a module's sub-pages (Contacts → All contacts · Segments · Tags · Imports). They are links with `aria-current="page"`, not ARIA tabs.
-- **Status footer**: the WhatsApp connection (`ConnectionState`, compact) and, when billing is enforced and the member can read billing, the available wallet balance. Both link to their settings; both turn into warnings (disconnected, low balance) without shouting.
-- **Top bar**: workspace switcher, breadcrumb (section pages only; record pages such as a contact carry their own, more specific breadcrumb in the page header, so there is never a second trail), command/search (`⌘K` / `Ctrl K`), help menu (keyboard shortcuts; the component gallery in development), notifications, account menu.
+- **Status footer** retains only the existing wallet state when billing is enforced and permitted. WhatsApp status lives beside the workspace switcher.
+- **Top bar**: workspace switcher and compact WhatsApp connection control, breadcrumb (section pages only; record pages such as a contact carry their own, more specific breadcrumb in the page header, so there is never a second trail), command/search (`⌘K` / `Ctrl K`), help menu (keyboard shortcuts; the component gallery in development), notifications, the sole personal account menu (identity/role, Security and Sign out).
+- **WhatsApp control** shares the integrations connection query and existing worst-state summary across live numbers. Connected is a quiet labelled icon with tooltip; attention/disconnected has a visible `StatusBadge`. Loading, unavailable, setup-pending and no-number states remain distinct. Multiple-number details identify each returned number and its state, without new health requests. It links to `/integrations/whatsapp`, follows `whatsapp.read`, and stays beside the workspace switcher on narrow screens; workspace identity becomes compact there.
 - **Wallet** in the footer appears only when billing is enforced for the workspace. Its state comes from the billing domain (decisions P11-D1, P11-D12): the UI renders the backend's `NORMAL` / `LOW_BALANCE` / `INSUFFICIENT_FUNDS` / `NOT_ENFORCED` state from `GET /workspace/status` (every member; amounts only with `billing.read`) and never compares amounts itself. Wallet states use the `StatusBadge` presets `NORMAL` (Funded), `LOW_BALANCE`, `INSUFFICIENT_FUNDS` (No credits) and `NOT_ENFORCED` (Not billed).
 - **Inbox** is full-bleed: it fills the viewport below the top bar with its own panes.
 

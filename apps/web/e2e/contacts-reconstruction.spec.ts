@@ -158,7 +158,7 @@ test('Contacts reconstruction uses real identities, compact rows and contextual 
           directory: box(document.querySelector('[aria-label="Contact directory"]')),
         }
       })
-      expect(geometry.sidebar?.width).toBe(224)
+      expect(geometry.sidebar?.width).toBe(68)
       expect(geometry.topbar?.height).toBe(56)
       expect(geometry.row?.height).toBeGreaterThanOrEqual(52)
       expect(geometry.row?.height).toBeLessThanOrEqual(60)

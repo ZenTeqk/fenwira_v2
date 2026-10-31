@@ -41,13 +41,13 @@ test('connected inbox layout: column sizes, compact header and strip, collapsibl
   const list = await box(page, 'section[aria-label="Conversations"]')
   const chat = await box(page, 'section[aria-label="Conversation"]')
   const details = await box(page, 'aside[aria-labelledby$="-title"]')
-  expect([224, 64]).toContain(rail?.width)
+  expect([232, 68]).toContain(rail?.width)
   expect(list?.width).toBe(319) // 320px column less its 1px divider
   expect(list!.x).toBe(rail!.width)
   expect(chat!.x).toBe(rail!.width + 320)
   expect(details?.width).toBe(320)
   expect(chat!.x + chat!.width).toBe(details!.x)
-  await expect(page.getByRole('button', { name: /Collapse sidebar|Expand sidebar/ })).toBeVisible()
+  await expect(page.getByRole('complementary', { name: 'Application navigation' })).toBeVisible()
   expect(
     await page.evaluate(() =>
       [...document.querySelectorAll('section[aria-label="Conversation"] > *')].map(
