@@ -2,8 +2,8 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 import { mockFrontend } from './frontend-fixture'
 
-async function fixture(page: Page, statuses = ['CONNECTED']) {
-  await mockFrontend(page, ['inbox.read', 'whatsapp.read', 'workspace.read'])
+async function fixture(page: Page, statuses = ['CONNECTED'], tenantName?: string) {
+  await mockFrontend(page, ['inbox.read', 'whatsapp.read', 'workspace.read'], { tenantName })
   await page.route('**/api/v1/whatsapp/connections', (route) =>
     route.fulfill({
       json: {
@@ -238,7 +238,8 @@ test('the 200ms rail transition keeps navigation icons and page geometry fixed',
     await sidebar
       .locator('[data-sidebar-scroll]')
       .evaluate((element) => getComputedStyle(element).flexGrow),
-  ).toBe('0')
+    // Main modules fill the rail and scroll; Integrations, Billing and Settings stay at its foot.
+  ).toBe('1')
   await noOverflow(page)
   await page.mouse.move(600, 20)
   await expect(sidebar).toHaveAttribute('data-expanded', 'false')
@@ -324,7 +325,7 @@ for (const path of ['/dashboard', '/inbox']) {
       await expect(page.getByRole('button', { name: 'Account menu', exact: true })).toHaveCount(1)
       await expect(page.getByRole('button', { name: 'Workspace account menu' })).toHaveCount(0)
       await expect(
-        page.getByRole('link', { name: /WhatsApp: Disconnected · 2 numbers/ }),
+        page.getByRole('button', { name: /^WhatsApp: 1 of 2 numbers not connected/ }),
       ).toBeVisible()
       await expect(page.getByRole('button', { name: /Current workspace/ })).toBeVisible()
       await noOverflow(page)
@@ -352,29 +353,77 @@ for (const path of ['/dashboard', '/inbox']) {
   })
 }
 
-for (const [statuses, label] of [
-  [['CONNECTED'], 'Connected'],
-  [['FLAGGED'], 'Flagged'],
-  [['ERROR'], 'Error'],
-  [['RESTRICTED'], 'Restricted'],
-  [['PENDING'], 'Pending'],
-  [[], 'Not connected'],
-] as [string[], string][]) {
-  test(`WhatsApp ${label} links to existing integrations`, async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 812 })
-    await fixture(page, statuses)
-    await page.goto('/dashboard')
-    const control = page.getByRole('link', {
-      name: `WhatsApp: ${label}. View connections`,
-      exact: true,
+const WHATSAPP_STATES: Array<[string[], string, string]> = [
+  [['CONNECTED'], 'Connected', 'connected'],
+  [['FLAGGED'], 'Needs attention', 'attention'],
+  [['PENDING'], 'Setup pending', 'attention'],
+  [['ERROR'], 'Error', 'disconnected'],
+  [['RESTRICTED'], 'Restricted', 'disconnected'],
+  [[], 'Not connected', 'disconnected'],
+  [['CONNECTED', 'FLAGGED'], '1 of 2 numbers need attention', 'attention'],
+]
+for (const [statuses, label, health] of WHATSAPP_STATES) {
+  for (const scheme of ['light', 'dark'] as const)
+    test(`WhatsApp ${label} (${scheme}): indicator, details popover and keyboard access`, async ({
+      page,
+    }) => {
+      // Appearance defaults to System, so the OS scheme selects the theme.
+      await page.emulateMedia({ colorScheme: scheme })
+      await fixture(page, statuses)
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await page.goto('/dashboard')
+      const control = page.getByRole('button', {
+        name: `WhatsApp: ${label}. Show connection details`,
+        exact: true,
+      })
+      await expect(control).toHaveAttribute('data-health', health)
+      const short = {
+        connected: 'WhatsApp',
+        disconnected: 'Disconnected',
+        attention: 'Needs attention',
+      }[health]!
+      await expect(control).toHaveText(short)
+      if (health === 'connected') {
+        // Healthy: green dot and "WhatsApp", with a tooltip.
+        await control.focus()
+        await expect(page.getByRole('tooltip', { name: 'WhatsApp connected' })).toBeVisible()
+      }
+
+      // Keyboard: Enter opens the details; numbers, statuses and the link; Escape returns focus.
+      await control.focus()
+      await page.keyboard.press('Enter')
+      const details = page.getByRole('dialog')
+      await expect(details).toContainText(`WhatsApp · ${label}`)
+      await expect(details).toContainText('doesn’t guarantee that every message is delivered')
+      const numbers = details.getByRole('list', { name: 'WhatsApp numbers' })
+      await expect(numbers.getByRole('listitem')).toHaveCount(statuses.length)
+      await expect(details.getByRole('link', { name: 'View connection' })).toHaveAttribute(
+        'href',
+        '/integrations/whatsapp',
+      )
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[role="dialog"]')
+            .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+            .analyze()
+        ).violations,
+      ).toEqual([])
+      await page.keyboard.press('Escape')
+      await expect(details).toHaveCount(0)
+      await expect(control).toBeFocused()
+
+      // Mobile: a compact, accessible control; details on tap; no page overflow.
+      await page.setViewportSize({ width: 375, height: 812 })
+      await expect(control).toBeVisible()
+      await noOverflow(page)
+      await control.click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      const box = (await page.getByRole('dialog').boundingBox())!
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(375)
+      await noOverflow(page)
     })
-    await expect(control).toBeVisible()
-    await expect(control).toHaveAttribute('href', '/integrations/whatsapp')
-    await control.focus()
-    await expect(page.getByRole('tooltip')).toBeVisible()
-    await noOverflow(page)
-    if (label !== 'Connected') await expect(control).toContainText(label)
-  })
 }
 
 test('loading and unavailable connection data never imply disconnected', async ({ page }) => {
@@ -392,12 +441,15 @@ test('loading and unavailable connection data never imply disconnected', async (
   })
   await page.goto('/dashboard')
   await expect(
-    page.getByRole('link', { name: 'WhatsApp: Loading. View connections', exact: true }),
-  ).toBeVisible()
+    page.getByRole('button', { name: 'WhatsApp: Checking. Show connection details', exact: true }),
+  ).toHaveAttribute('data-health', 'checking')
   release()
   await expect(
-    page.getByRole('link', { name: 'WhatsApp: Status unavailable. View connections', exact: true }),
-  ).toBeVisible()
+    page.getByRole('button', {
+      name: 'WhatsApp: Status unavailable. Show connection details',
+      exact: true,
+    }),
+  ).toHaveAttribute('data-health', 'unavailable')
 })
 
 test('workspace menu and account actions remain available', async ({ page }) => {
@@ -485,7 +537,7 @@ test('workspace switching refreshes connection data with the selected tenant', a
   await page.setViewportSize({ width: 1024, height: 768 })
   await page.goto('/dashboard')
   await expect(
-    page.getByRole('link', { name: 'WhatsApp: Connected. View connections', exact: true }),
+    page.getByRole('button', { name: 'WhatsApp: Connected. Show connection details', exact: true }),
   ).toBeVisible()
   await rail(page).getByRole('link', { name: /Inbox/ }).focus()
   await page.getByRole('button', { name: 'Pin sidebar', exact: true }).click()
@@ -496,7 +548,10 @@ test('workspace switching refreshes connection data with the selected tenant', a
     page.getByRole('button', { name: /Current workspace: Second workspace/ }),
   ).toBeVisible()
   await expect(
-    page.getByRole('link', { name: 'WhatsApp: Disconnected. View connections', exact: true }),
+    page.getByRole('button', {
+      name: 'WhatsApp: Disconnected. Show connection details',
+      exact: true,
+    }),
   ).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem('fenwira.tenant'))).toBe('two')
 })
@@ -549,3 +604,380 @@ test('no WhatsApp permission hides the control without fetching connections', as
   await expect(page.locator('header a[href="/integrations/whatsapp"]')).toHaveCount(0)
   expect(requests).toBe(0)
 })
+
+/** Relative luminance of a computed `rgb()` colour (dark surfaces are well below 0.2). */
+const luminance = (page: Page, selector: string, property = 'backgroundColor') =>
+  page
+    .locator(selector)
+    .first()
+    .evaluate((element, prop) => {
+      const [r, g, b] = getComputedStyle(element)
+        [prop as 'backgroundColor']!.match(/\d+(\.\d+)?/g)!
+        .slice(0, 3)
+        .map((v) => Number(v) / 255)
+        .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+      return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+    }, property)
+
+test('Appearance: System by default, Light/Dark persist across reloads, OS changes only in System', async ({
+  page,
+}) => {
+  const hydration: string[] = []
+  page.on('console', (m) => {
+    if (m.type() === 'error' && /hydrat/i.test(m.text())) hydration.push(m.text())
+  })
+  await fixture(page)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.goto('/dashboard')
+  const theme = () => page.evaluate(() => document.documentElement.dataset.theme)
+  // No stored preference: System, following the OS (dark, then light).
+  expect(await theme()).toBe('dark')
+  const trigger = page.getByRole('button', { name: /^Appearance: / })
+  await expect(trigger).toHaveAccessibleName('Appearance: System')
+  await page.emulateMedia({ colorScheme: 'light' })
+  await expect.poll(theme).toBe('light')
+
+  // The menu shows the selected option and is themed like the page (portaled under <html>).
+  await trigger.click()
+  const menu = page.getByRole('menu')
+  await expect(menu.getByRole('menuitemradio', { name: 'System' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  )
+  // An open menu aria-hides the page (see a11y.spec), so audit the menu itself.
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('[data-slot="dropdown-content"]')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([])
+  await menu.getByRole('menuitemradio', { name: 'Dark' }).click()
+  await expect.poll(theme).toBe('dark')
+  await expect(trigger).toHaveAccessibleName('Appearance: Dark')
+  expect(await page.evaluate(() => localStorage.getItem('fenwira.theme'))).toBe('dark')
+  await trigger.click()
+  expect(await luminance(page, '[data-slot="dropdown-content"]')).toBeLessThan(0.2)
+  await page.keyboard.press('Escape')
+
+  // An explicit choice survives a reload, is applied before first paint and ignores the OS.
+  await page.addInitScript(() => {
+    ;(window as unknown as { __firstTheme?: string }).__firstTheme = undefined
+    document.addEventListener(
+      'DOMContentLoaded',
+      () =>
+        ((window as unknown as { __firstTheme?: string }).__firstTheme =
+          document.documentElement.dataset.theme),
+      { once: true },
+    )
+  })
+  await page.reload()
+  expect(
+    await page.evaluate(() => (window as unknown as { __firstTheme?: string }).__firstTheme),
+  ).toBe('dark')
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.waitForTimeout(200)
+  expect(await theme()).toBe('dark')
+  expect(await luminance(page, 'header')).toBeLessThan(0.2)
+
+  // Light by choice, then back to System (preference removed; the OS applies again).
+  await trigger.click()
+  await page.getByRole('menuitemradio', { name: 'Light' }).click()
+  await expect.poll(theme).toBe('light')
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.waitForTimeout(200)
+  expect(await theme()).toBe('light')
+  await trigger.click()
+  await page.getByRole('menuitemradio', { name: 'System' }).click()
+  await expect.poll(theme).toBe('dark')
+  expect(await page.evaluate(() => localStorage.getItem('fenwira.theme'))).toBeNull()
+  expect(hydration).toEqual([])
+})
+
+test('Help lives in the account menu; the header has the Appearance control instead', async ({
+  page,
+}) => {
+  await fixture(page)
+  await page.goto('/dashboard')
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Help' })).toHaveCount(0)
+  await page.getByRole('button', { name: /Account menu/ }).click()
+  await page.getByRole('menuitem', { name: 'Keyboard shortcuts' }).click()
+  await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: /Account menu/ })).toBeFocused()
+})
+
+test('sidebar rows, utilities group, badge placement and collapsed-only tooltips', async ({
+  page,
+}) => {
+  await fixture(page)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/dashboard')
+  const nav = rail(page).getByRole('navigation', { name: 'Main' })
+  const inbox = nav.getByRole('link', { name: /Inbox/ })
+  // Collapsed: the count is a compact badge over the icon (labels are hidden).
+  const collapsedBadge = (await inbox.locator('.fw-sidebar-badge').boundingBox())!
+  expect(collapsedBadge.x + collapsedBadge.width).toBeLessThanOrEqual(68)
+  // Hovering expands the rail (180ms) before a tooltip could open (300ms); expanded rows show
+  // their label, so the tooltip stays closed. Pin to inspect the expanded rows.
+  await inbox.hover()
+  await expect(rail(page)).toHaveAttribute('data-expanded', 'true')
+  await rail(page).getByRole('button', { name: 'Pin sidebar' }).click()
+  await expect(rail(page)).toHaveAttribute('data-pinned', 'true')
+  const box = (await inbox.boundingBox())!
+  expect(Math.round(box.height)).toBe(44)
+  expect(
+    await inbox
+      .locator('svg')
+      .first()
+      .evaluate((el) => el.getBoundingClientRect().width),
+  ).toBe(20)
+  expect(await inbox.evaluate((el) => getComputedStyle(el).fontSize)).toBe('14px')
+  const badge = inbox.locator('.fw-sidebar-badge')
+  const badgeBox = (await badge.boundingBox())!
+  expect(box.x + box.width - (badgeBox.x + badgeBox.width)).toBeLessThanOrEqual(16)
+  await inbox.hover()
+  await page.waitForTimeout(600)
+  await expect(page.getByRole('tooltip', { name: 'Inbox' })).toHaveCount(0)
+  // Utilities sit in their own group below a divider, outside the scrolling list.
+  const utilities = nav.getByRole('list', { name: 'Workspace' })
+  await expect(utilities.getByRole('link', { name: 'Settings', exact: true })).toBeVisible()
+  expect(await utilities.evaluate((el) => !el.closest('[data-sidebar-scroll]'))).toBe(true)
+  await axe(page)
+  await rail(page).getByRole('button', { name: 'Unpin sidebar' }).click()
+  await page.setViewportSize({ width: 375, height: 812 })
+  await noOverflow(page)
+})
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`no floating sidebar labels after hovering or tabbing across items (${theme})`, async ({
+    page,
+  }) => {
+    await fixture(page)
+    await page.emulateMedia({ colorScheme: theme })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/dashboard')
+    const nav = rail(page).getByRole('navigation', { name: 'Main' })
+    const links = nav.getByRole('link')
+    // Every navigation link keeps an accessible name from its own text (no tooltip needed).
+    for (const link of await links.all()) expect(await link.textContent()).toMatch(/\w/)
+
+    /** Nothing from the rail floats over page content, at each nav row's height. */
+    const nothingOverContent = async () => {
+      await expect(rail(page)).toHaveAttribute('data-expanded', 'false')
+      await expect(page.getByRole('tooltip')).toHaveCount(0)
+      const rows = await links.evaluateAll((items) =>
+        items.map((item) => item.getBoundingClientRect().top + 22),
+      )
+      // Poll: the 200ms width transition finishes after data-expanded flips.
+      for (const y of rows)
+        await expect
+          .poll(
+            () =>
+              page.evaluate((y) => {
+                const el = document.elementFromPoint(120, y)
+                return el?.closest('aside, [role="tooltip"]')
+                  ? `${el.tagName} ${el.textContent?.slice(0, 30)}`
+                  : null
+              }, y),
+            { message: `nothing from the rail over content at y=${y}` },
+          )
+          .toBeNull()
+    }
+
+    // Pointer: sweep across several items (expanding the rail), then leave for page content.
+    const all = await links.all()
+    expect(all.length).toBeGreaterThanOrEqual(4)
+    for (const link of all) await link.hover()
+    await expect(rail(page)).toHaveAttribute('data-expanded', 'true')
+    await page.mouse.move(900, 450)
+    await nothingOverContent()
+
+    // Keyboard: Tab into the rail (expands at once with a visible focus ring), through several
+    // items, then out to the page; it collapses with nothing left behind.
+    await page.locator('main').focus()
+    await nav.getByRole('link', { name: /^Home/ }).focus()
+    await expect(rail(page)).toHaveAttribute('data-expanded', 'true')
+    for (let i = 0; i < 4; i++) await page.keyboard.press('Tab')
+    // The focused control draws the shared focus ring (a solid outline).
+    expect(await page.locator(':focus').evaluate((el) => getComputedStyle(el).outlineStyle)).toBe(
+      'solid',
+    )
+    await page.locator('main').focus()
+    await nothingOverContent()
+  })
+}
+
+/**
+ * Force CSS :hover on one element (no pointer events, so the collapsed rail stays collapsed).
+ * The DevTools session must stay attached: detaching clears forced pseudo-classes.
+ */
+async function hoverForcer(page: Page) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('DOM.enable')
+  await cdp.send('CSS.enable')
+  return async (selector: string, on: boolean) => {
+    const { root } = await cdp.send('DOM.getDocument', { depth: -1 })
+    const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector })
+    await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: on ? ['hover'] : [] })
+  }
+}
+
+const STATES = {
+  light: {
+    idle: 'rgba(0, 0, 0, 0)',
+    hover: 'rgb(226, 226, 220)', // #E2E2DC
+    selected: 'rgb(211, 213, 204)', // #D3D5CC
+    selectedHover: 'rgb(201, 205, 193)', // #C9CDC1
+    hoverFg: 'rgb(36, 38, 34)', // #242622
+    selectedFg: 'rgb(32, 37, 31)', // #20251F
+  },
+  // Dark keeps the shared surfaces: hover neutral.800, selected neutral.750.
+  dark: {
+    idle: 'rgba(0, 0, 0, 0)',
+    hover: 'rgb(46, 47, 44)',
+    selected: 'rgb(59, 59, 55)',
+    selectedHover: 'rgb(59, 59, 55)',
+    hoverFg: 'rgb(236, 236, 233)',
+    selectedFg: 'rgb(236, 236, 233)',
+  },
+}
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`sidebar row states: default, hover, selected, selected-hover and focus (${theme})`, async ({
+    page,
+  }) => {
+    await fixture(page)
+    await page.emulateMedia({ colorScheme: theme })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/dashboard')
+    const want = STATES[theme]
+    const forceHover = await hoverForcer(page)
+    const nav = rail(page).getByRole('navigation', { name: 'Main' })
+    const home = nav.getByRole('link', { name: /^Home/ })
+    const inbox = nav.getByRole('link', { name: /^Inbox/ })
+    const style = (link: typeof home) =>
+      link.evaluate((el) => {
+        const cs = getComputedStyle(el)
+        return {
+          bg: cs.backgroundColor,
+          color: cs.color,
+          icon: getComputedStyle(el.querySelector('svg')!).color,
+          weight: cs.fontWeight,
+          bar: getComputedStyle(el, '::before').backgroundColor,
+          transition: `${cs.transitionProperty} ${cs.transitionDuration}`,
+        }
+      })
+
+    for (const size of ['collapsed', 'expanded'] as const) {
+      if (size === 'expanded') {
+        await inbox.focus()
+        await rail(page).getByRole('button', { name: 'Pin sidebar' }).click()
+        await page.locator('main').focus()
+        await page.mouse.move(900, 450)
+      }
+      await expect(rail(page)).toHaveAttribute('data-expanded', String(size === 'expanded'))
+      // Default (unselected) and selected.
+      expect((await style(inbox)).bg, `${size} default`).toBe(want.idle)
+      const selected = await style(home)
+      expect(selected.bg, `${size} selected`).toBe(want.selected)
+      expect(selected.color).toBe(want.selectedFg)
+      expect(selected.icon).toBe(want.selectedFg)
+      expect(selected.weight).toBe('600')
+      expect(selected.bar).not.toBe('rgba(0, 0, 0, 0)')
+      expect(selected.transition).toContain('0.15s')
+      // Hover on an unselected row: its own step, visibly different from selected.
+      await forceHover('aside nav a[href="/inbox"]', true)
+      await expect.poll(async () => (await style(inbox)).bg).toBe(want.hover)
+      const hovered = await style(inbox)
+      expect(hovered.color).toBe(want.hoverFg)
+      expect(hovered.icon).toBe(want.hoverFg)
+      expect(hovered.bg).not.toBe(selected.bg)
+      await forceHover('aside nav a[href="/inbox"]', false)
+      // Selected + hover keeps the selected treatment (fill, weight, bar).
+      await forceHover('aside nav a[href="/dashboard"]', true)
+      await expect.poll(async () => (await style(home)).bg).toBe(want.selectedHover)
+      expect((await style(home)).weight).toBe('600')
+      expect((await style(home)).bar).toBe(selected.bar)
+      await forceHover('aside nav a[href="/dashboard"]', false)
+      // Keyboard focus: a separate solid ring, the fill unchanged.
+      await inbox.focus()
+      await page.keyboard.press('Shift+Tab')
+      await page.keyboard.press('Tab')
+      expect(await page.locator(':focus').evaluate((el) => getComputedStyle(el).outlineStyle)).toBe(
+        'solid',
+      )
+      await page.locator('main').focus()
+    }
+    // Reduced motion removes the transition.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    expect((await style(inbox)).transition).toMatch(/^none /)
+    await rail(page).getByRole('button', { name: 'Unpin sidebar' }).click()
+  })
+}
+
+const LONG_WORKSPACE = 'Sri Lakshmi Narasimha Handloom Silk Sarees & Textiles Private Limited'
+for (const scheme of ['light', 'dark'] as const) {
+  test(`header layout: balanced search, sizes, long name and connection error (${scheme})`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: scheme })
+    await fixture(page, ['ERROR'], LONG_WORKSPACE)
+    const header = page.getByRole('banner')
+    const height = async (name: RegExp) =>
+      Math.round((await header.getByRole('button', { name }).first().boundingBox())!.height)
+    for (const width of [1440, 768, 375]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('/dashboard')
+      const workspace = header.getByRole('button', { name: /Current workspace/ })
+      await expect(workspace).toHaveAccessibleName(
+        `Current workspace: ${LONG_WORKSPACE}. Switch workspace`,
+      )
+      const control = header.getByRole('button', { name: /^WhatsApp: Error\./ })
+      await expect(control).toHaveAttribute('data-health', 'disconnected')
+      expect(Math.round((await header.boundingBox())!.height)).toBe(64)
+      expect(await height(/^Appearance/)).toBe(36)
+      expect(await height(/^Notifications/)).toBe(36)
+      expect(await height(/Account menu/)).toBe(32)
+      const search = header
+        .getByRole('button', { name: 'Search and jump to (Control K)' })
+        .locator('visible=true')
+      await expect(search).toHaveCount(1)
+      if (width === 1440) {
+        await expect(control).toHaveText('Disconnected')
+        const s = (await search.boundingBox())!
+        const h = (await header.boundingBox())!
+        expect(s.width).toBeGreaterThanOrEqual(360)
+        expect(s.width).toBeLessThanOrEqual(440)
+        expect(Math.round(s.height)).toBe(40)
+        // Centred in the header (equal flexible sides).
+        expect(Math.abs(s.x + s.width / 2 - (h.x + h.width / 2))).toBeLessThanOrEqual(2)
+      } else {
+        // Collapsed to an icon that opens the existing command palette.
+        expect(Math.round((await search.boundingBox())!.width)).toBe(36)
+        await search.click()
+        await expect(page.getByRole('dialog')).toBeVisible()
+        await page.keyboard.press('Escape')
+      }
+      // No overlaps between the header's groups; long names truncate instead of overflowing.
+      const groups = await header.evaluate((el) =>
+        [...el.querySelectorAll(':scope > *')]
+          .map((child) => child.getBoundingClientRect())
+          .filter((r) => r.width > 0)
+          .map((r) => [r.left, r.right] as const),
+      )
+      for (let i = 1; i < groups.length; i++)
+        expect(groups[i]![0]).toBeGreaterThanOrEqual(groups[i - 1]![1] - 0.5)
+      const ws = (await workspace.boundingBox())!
+      expect(ws.x + ws.width).toBeLessThanOrEqual((await control.boundingBox())!.x)
+      await noOverflow(page)
+    }
+    // The shortcut still opens the palette, and the old divider is gone.
+    await page.keyboard.press('Control+K')
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    expect(await header.locator('span.w-px').count()).toBe(0)
+  })
+}

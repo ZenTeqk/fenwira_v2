@@ -29,13 +29,24 @@ function useReturnFocus(
     const outside = (el: Element | null): el is HTMLElement =>
       el instanceof HTMLElement &&
       el !== document.body &&
-      !el.closest('[role="dialog"],[role="alertdialog"]')
+      !el.closest('[role="dialog"],[role="alertdialog"],[role="menu"]')
     if (outside(document.activeElement)) lastOutside.current = document.activeElement
     const track = (event: FocusEvent) => {
       if (outside(event.target as Element | null)) lastOutside.current = event.target as HTMLElement
     }
+    // Menu triggers don't take focus on pointer down, so remember the control that was pressed.
+    const press = (event: PointerEvent) => {
+      const control = (event.target as Element | null)?.closest(
+        'button, a[href], input, select, textarea, [tabindex]',
+      )
+      if (outside(control ?? null)) lastOutside.current = control as HTMLElement
+    }
     document.addEventListener('focusin', track, true)
-    return () => document.removeEventListener('focusin', track, true)
+    document.addEventListener('pointerdown', press, true)
+    return () => {
+      document.removeEventListener('focusin', track, true)
+      document.removeEventListener('pointerdown', press, true)
+    }
   }, [])
   return {
     onOpenAutoFocus: (event: Event) => {
@@ -50,7 +61,8 @@ function useReturnFocus(
     onCloseAutoFocus: (event: Event) => {
       onCloseAutoFocus?.(event)
       // Radix skips the open event when a field autofocused first, so fall back.
-      const target = opener.current ?? lastOutside.current
+      // A dialog opened from a menu item records that item, which is gone once the menu closes.
+      const target = opener.current?.isConnected ? opener.current : lastOutside.current
       opener.current = null
       if (event.defaultPrevented || !target?.isConnected) return
       event.preventDefault()

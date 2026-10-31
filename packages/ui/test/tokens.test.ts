@@ -54,6 +54,11 @@ const TEXT_SURFACES: ColorToken[] = [
 
 /** Text pairs that must clear WCAG AA 4.5:1 (1.4.3) in both themes. */
 const TEXT_PAIRS: Pair[] = [
+  // Sidebar rows: idle labels on the sidebar, hover and selected (incl. selected + hover).
+  ['fg-secondary', 'sidebar'],
+  ['sidebar-item-hover-fg', 'sidebar-item-hover'],
+  ['sidebar-item-selected-fg', 'sidebar-item-selected'],
+  ['sidebar-item-selected-fg', 'sidebar-item-selected-hover'],
   ...cross(['fg', 'fg-secondary', 'fg-muted'], TEXT_SURFACES),
   // Green links/text and selected navigation (never on the neutral selected surface).
   ...cross(
@@ -98,6 +103,18 @@ const TEXT_PAIRS: Pair[] = [
 
 /** Non-text pairs that must clear 3:1 (WCAG 1.4.11): indicators, icons, focus, chart marks. */
 const NON_TEXT_PAIRS: Pair[] = [
+  // Header WhatsApp status dots on the header surface (shown with a label or shape icon).
+  ['status-success', 'surface'],
+  ['status-error', 'surface'],
+  ['status-warning', 'surface'],
+  ['status-neutral', 'surface'],
+  // Sidebar: the emerald selected bar and the focus ring (drawn inside the row) on every row state.
+  ['action-primary', 'sidebar-item-selected'],
+  ['action-primary', 'sidebar-item-selected-hover'],
+  ['focus-ring', 'sidebar'],
+  ['focus-ring', 'sidebar-item-hover'],
+  ['focus-ring', 'sidebar-item-selected'],
+  ['focus-ring', 'sidebar-item-selected-hover'],
   ...cross(
     ['focus-ring'],
     ['canvas', 'sidebar', 'surface', 'surface-muted', 'surface-selected', 'chat-canvas'],

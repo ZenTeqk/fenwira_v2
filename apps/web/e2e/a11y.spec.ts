@@ -1,6 +1,12 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test } from '@playwright/test'
-import { signInAsNewOwner } from './support'
+import { applyReviewTheme, applyWebUpstream, signInAsNewOwner } from './support'
+
+// REVIEW_THEME=dark runs these checks on the dark tokens.
+test.beforeEach(async ({ context }) => {
+  await applyWebUpstream(context)
+  await applyReviewTheme(context)
+})
 
 // WCAG 2.1 A + AA (docs/prompts/PHASE_02_DESIGN_SYSTEM.md acceptance: no AA violations).
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']

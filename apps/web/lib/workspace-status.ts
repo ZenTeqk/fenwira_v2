@@ -1,7 +1,7 @@
 'use client'
 
 import { type WhatsAppConnection, type WorkspaceStatus } from '@fenwira/contracts'
-import { type ConnectionStatus } from '@fenwira/ui'
+import { type ConnectionStatus, STATUS_PRESETS } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
@@ -52,5 +52,47 @@ export function connectionSummary(list: WhatsAppConnection[] | undefined): {
     count: live.length,
   }
 }
+
+export type ConnectionHealth =
+  'connected' | 'disconnected' | 'attention' | 'checking' | 'unavailable'
+
+/** Numbers that can't send (red), need a look (amber) or are fine (green). */
+const BROKEN = new Set(['ERROR', 'DISCONNECTED', 'RESTRICTED'])
+const ATTENTION = new Set(['FLAGGED', 'PENDING'])
+
+/**
+ * One aggregate across every number. Missing, still-loading or failed-to-load data is never
+ * "connected": a failed refresh over older cached data reads "Status unavailable".
+ */
+export function connectionHealth(
+  list: WhatsAppConnection[] | undefined,
+  pending: boolean,
+  failed: boolean,
+): { health: ConnectionHealth; label: string } {
+  if (failed) return { health: 'unavailable', label: 'Status unavailable' }
+  if (!list) return pending ? { health: 'checking', label: 'Checking…' } : unavailable()
+  if (!list.length) return { health: 'disconnected', label: 'Not connected' }
+  const broken = list.filter((n) => BROKEN.has(n.status))
+  const attention = list.filter((n) => ATTENTION.has(n.status))
+  const one = list.length === 1
+  if (broken.length)
+    return {
+      health: 'disconnected',
+      label: one
+        ? STATUS_PRESETS[broken[0]!.status].label
+        : `${broken.length} of ${list.length} numbers not connected`,
+    }
+  if (attention.length)
+    return {
+      health: 'attention',
+      label: one
+        ? attention[0]!.status === 'PENDING'
+          ? 'Setup pending'
+          : 'Needs attention'
+        : `${attention.length} of ${list.length} numbers need attention`,
+    }
+  return { health: 'connected', label: one ? 'Connected' : `${list.length} numbers connected` }
+}
+const unavailable = () => ({ health: 'unavailable' as const, label: 'Status unavailable' })
 
 export { formatMoney } from '@/lib/billing'

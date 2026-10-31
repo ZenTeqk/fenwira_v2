@@ -12,7 +12,7 @@ import {
   DropdownTrigger,
   focusRing,
 } from '@fenwira/ui'
-import { Check, ChevronsUpDown, Plus } from 'lucide-react'
+import { Check, ChevronDown, ChevronsUpDown, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { requestNavigation } from '@/lib/navigation-intent'
 import { useSession } from '../session/session-provider'
@@ -35,7 +35,7 @@ export function TenantSwitcher({
         className={cn(
           'flex min-w-0 items-center gap-2 rounded-md text-left',
           variant === 'topbar'
-            ? 'h-9 min-w-0 max-w-56 px-0 text-fg hover:bg-surface-hover sm:px-2'
+            ? 'h-9 min-w-0 max-w-64 px-1 text-fg hover:bg-surface-hover sm:px-2'
             : 'h-11 w-full px-2 text-fg hover:bg-surface-hover',
           collapsed && 'justify-center px-0',
           focusRing,
@@ -45,6 +45,7 @@ export function TenantSwitcher({
         {collapsed ? null : (
           <>
             <span className={cn('min-w-0 flex-1', variant === 'topbar' && 'hidden sm:block')}>
+              {/* Long names truncate; the full name is in the accessible label. */}
               <span className="block truncate text-base font-semibold">
                 {membership.tenantName}
               </span>
@@ -54,13 +55,12 @@ export function TenantSwitcher({
                 </span>
               ) : null}
             </span>
-            <ChevronsUpDown
-              className={cn(
-                'size-4 shrink-0 text-fg-muted',
-                variant === 'topbar' && 'hidden sm:block',
-              )}
-              aria-hidden="true"
-            />
+            {variant === 'topbar' ? (
+              // One chevron: the workspace name opens the switcher.
+              <ChevronDown className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+            ) : (
+              <ChevronsUpDown className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+            )}
           </>
         )}
       </DropdownTrigger>

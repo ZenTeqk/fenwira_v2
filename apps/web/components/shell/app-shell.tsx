@@ -25,7 +25,7 @@ import { useSession } from '../session/session-provider'
 import { useCommandGroups } from '@/lib/command-search'
 import { AccountMenu } from './account-menu'
 import { BrandMark } from './brand-mark'
-import { HelpMenu } from './help-menu'
+import { AppearanceMenu } from './appearance-menu'
 import { NotificationsBell } from './notifications-bell'
 import { SidebarNav } from './sidebar-nav'
 import { SidebarStatus } from './sidebar-status'
@@ -109,7 +109,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
         <Link
           href="/dashboard"
           className={cn(
-            'fixed top-0 left-0 z-20 flex h-14 items-center border-b border-r border-border-subtle bg-sidebar',
+            'fixed top-0 left-0 z-20 flex h-16 items-center border-b border-r border-border-subtle bg-sidebar',
             pinned ? 'w-58 justify-start px-6' : 'w-17 justify-center',
             focusRing,
           )}
@@ -123,7 +123,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           data-expanded={expanded}
           data-pinned={pinned}
           className={cn(
-            'fw-desktop-sidebar fixed top-14 bottom-0 left-0 z-20 flex flex-col gap-2 overflow-hidden border-r border-border-subtle bg-sidebar p-3',
+            'fw-desktop-sidebar fixed top-16 bottom-0 left-0 z-20 flex flex-col gap-2 overflow-hidden border-r border-border-subtle bg-sidebar p-3',
             expanded ? 'w-58' : 'w-17',
             expanded && !pinned && 'shadow-overlay',
           )}
@@ -145,10 +145,14 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
               </Tooltip>
             ) : null}
           </div>
-          <div data-sidebar-scroll className="min-h-0 overflow-y-auto overflow-x-hidden">
-            <SidebarNav items={nav} pathname={pathname} collapsed={collapsed} badges={badges} />
-            <SidebarStatus />
-          </div>
+          <SidebarNav
+            items={nav}
+            pathname={pathname}
+            collapsed={collapsed}
+            badges={badges}
+            layout="rail"
+            afterPrimary={<SidebarStatus />}
+          />
         </aside>
       </div>
 
@@ -177,47 +181,49 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       </Drawer>
 
       <div className={cn('flex min-w-0 flex-1 flex-col', fullBleed && 'h-dvh')}>
-        <header
-          className={cn(
-            'sticky top-0 z-30 flex shrink-0 items-center gap-1 border-b border-border-subtle bg-surface px-2 sm:gap-2 sm:px-4 md:gap-3 md:px-6',
-            'h-14',
-          )}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="desktop-navigation:hidden"
-            ref={mobileTrigger}
-            aria-label="Open navigation"
-            onClick={() => setMobileOpen(true)}
-          >
-            <Menu aria-hidden="true" />
-          </Button>
-          <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2 lg:flex-initial">
+        {/* 64px header: workspace on the left, search centred (equal flexible sides), utilities on
+            the right. Below 1024px search collapses to an icon that opens the same palette. */}
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface px-2 sm:gap-3 sm:px-4 md:px-6">
+          <div className="flex min-w-0 flex-1 basis-0 items-center gap-1 sm:gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="desktop-navigation:hidden [&_svg]:size-5"
+              ref={mobileTrigger}
+              aria-label="Open navigation"
+              onClick={() => setMobileOpen(true)}
+            >
+              <Menu aria-hidden="true" />
+            </Button>
             <TenantSwitcher variant="topbar" />
-            <WhatsAppConnectionControl />
           </div>
-          <span aria-hidden="true" className="hidden h-5 w-px bg-border-subtle lg:block" />
-          <div className="hidden min-w-0 flex-1 lg:block" />
           <Button
             variant="secondary"
-            size="sm"
             onClick={() => setPaletteOpen(true)}
             aria-label="Search and jump to (Control K)"
-            className={cn(
-              'min-w-0 gap-2 bg-sidebar px-2 text-fg-secondary shadow-raised sm:px-3 lg:justify-start',
-              'lg:mr-auto lg:w-56 xl:w-80',
-            )}
+            className="hidden h-10 w-90 shrink justify-start gap-2 bg-sidebar px-3 text-fg-secondary shadow-raised lg:flex xl:w-110 [&_svg]:size-5"
           >
             <Search aria-hidden="true" />
-            <span className="hidden sm:inline">Search Fenwira…</span>
-            <kbd className="ml-auto hidden rounded-sm border border-border-subtle px-1.5 font-mono text-xs sm:inline">
+            <span className="truncate">Search Fenwira…</span>
+            <kbd className="ml-auto rounded-sm border border-border-subtle px-1.5 font-mono text-xs">
               ⌘K
             </kbd>
           </Button>
-          <HelpMenu galleryEnabled={galleryEnabled} />
-          <NotificationsBell />
-          <AccountMenu />
+          <div className="flex min-w-0 flex-1 basis-0 items-center justify-end gap-1 sm:gap-2">
+            <WhatsAppConnectionControl />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Search and jump to (Control K)"
+              className="lg:hidden [&_svg]:size-5"
+            >
+              <Search aria-hidden="true" />
+            </Button>
+            <AppearanceMenu />
+            <NotificationsBell />
+            <AccountMenu galleryEnabled={galleryEnabled} />
+          </div>
         </header>
 
         {tabs.length > 1 && !fullBleed && !pageOwnsTabs ? (

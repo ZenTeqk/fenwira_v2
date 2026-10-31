@@ -4,7 +4,7 @@
 
 Fenwira is a WhatsApp operations workspace that people keep open all day. The interface is **calm, dense, fast and trustworthy**: restrained surfaces, strong hierarchy, obvious system status, and no decoration that competes with the work. No gradients, glassmorphism, oversized cards, heavy shadows or marketing-sized headings inside the app.
 
-This is a contract. Tokens live in `packages/ui` and are the only source of color, type, radius and elevation. Feature code uses semantic utilities (`bg-action-primary`, `text-fg-secondary`, `border-border-subtle`) and shared components. Light is the default theme. Dark values exist for every role and are contrast-tested (§1), but no theme switcher is exposed yet (DS1 still holds for the product).
+This is a contract. Tokens live in `packages/ui` and are the only source of color, type, radius and elevation. Feature code uses semantic utilities (`bg-action-primary`, `text-fg-secondary`, `border-border-subtle`) and shared components. Dark values exist for every role and are contrast-tested (§1). The header **Appearance** menu offers Light, Dark and System (default when nothing is stored, following the OS); the preference is stored as `fenwira.theme`, `data-theme` is set on <html> by an inline pre-paint script (no flash), colour transitions are suppressed for one frame while switching, and portaled overlays inherit it.
 
 ## 1. Color
 
@@ -177,7 +177,7 @@ Every component: built on Radix primitives via `@fenwira/ui` (feature code may n
 
 | Context | Treatment |
 | --- | --- |
-| Sidebar | `sidebar` background, `border-subtle` divider, `fg-secondary` labels with `fg-subtle` icons, `surface-hover` hover; active `surface-selected` fill, `fg` icon and medium label, 3px `action-primary` bar (`brand` is below 3:1 on the selected grey) |
+| Sidebar | `sidebar` background, `border-subtle` divider, `fg-secondary` labels with `fg-subtle` icons. Rows (collapsed icons, expanded rows, Automations sub-links, bottom utilities) use sidebar component tokens: hover `sidebar-item-hover` #E2E2DC with `sidebar-item-hover-fg` #242622 label and icon; selected `sidebar-item-selected` #D3D5CC, semibold `sidebar-item-selected-fg` #20251F label and icon and the 3px `action-primary` bar; selected + hover `sidebar-item-selected-hover` #C9CDC1 (selection never disappears). Dark keeps the shared steps (hover `neutral.800`, selected `neutral.750`, `fg`). 150 ms background/colour transition, none with reduced motion; keyboard focus is the separate `focus-ring` outline. Contrast pairs in `tokens.test.ts` cover labels on every state, the bar and the focus ring |
 | Inbox shell | Neutral: `canvas`, `surface` panels, `border-subtle`; conversation rows hover `surface-muted`, selected `surface-selected` + 3px `action-primary` inset, keyboard focus the shared focus ring; unread rows use semibold names, `fg` previews/times and an `action-primary` count |
 | Inbox thread | `chat-canvas` with the original `chat-doodle` tile at 5% (`chat-pattern`, decorative, hidden for `prefers-contrast: more`); incoming `chat-incoming` + `chat-incoming-border` on the left, outgoing `chat-outgoing` on the right, both `shadow-raised`; the first bubble of a sender group squares its top corner on the sender's side; metadata and sent/delivered ticks `chat-meta`; read ticks `chat-read` |
 | Internal notes | `chat-note` + `chat-note-border`, `chat-note-fg` "Internal" label |

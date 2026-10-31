@@ -1,9 +1,9 @@
 'use client'
 
-import { Button, cn, focusRing, Tooltip } from '@fenwira/ui'
+import { Button, cn, focusRing } from '@fenwira/ui'
 import Link from 'next/link'
 import { ChevronDown, GitBranch, MessageCircle } from 'lucide-react'
-import { useId, useState } from 'react'
+import { type ReactNode, useId, useState } from 'react'
 import { activeModule, moduleHref, type NavItem, SECONDARY_MODULES } from '@/lib/navigation'
 
 type SidebarNavProps = {
@@ -13,24 +13,39 @@ type SidebarNavProps = {
   onNavigate?: () => void
   /** Count pills by item id (e.g. unread conversations on Inbox). */
   badges?: Record<string, number>
+  /**
+   * `rail`: main modules scroll; Integrations, Billing and Settings stay pinned below a divider
+   * (desktop sidebar). `stacked`: one flowing list with the same divider (mobile drawer).
+   */
+  layout?: 'rail' | 'stacked'
+  /** Rendered after the main modules (e.g. workspace status). */
+  afterPrimary?: ReactNode
 }
 
 const itemBase = cn(
-  'relative flex h-9 w-full items-center gap-3 rounded-sm px-3 text-base font-normal transition-colors [&_svg]:size-4.5 [&_svg]:shrink-0',
+  // 44px rows, 20px icons, 14px labels; the collapsed rail keeps the icon centred in 68px.
+  'relative flex h-11 w-full items-center gap-3 rounded-sm px-3 text-base font-normal [&_svg]:size-5 [&_svg]:shrink-0',
+  // Short background/colour change between states; none with reduced motion.
+  'transition-colors duration-150 motion-reduce:transition-none',
   focusRing,
   'focus-visible:outline-offset-0',
 )
-// Idle icons are fg-subtle beside their label; with more contrast requested they take the label color.
+// Hover uses the sidebar-specific step (stronger than the shared surface-hover in light) with
+// charcoal label and icon. Idle icons are fg-subtle beside their label; with more contrast
+// requested they take the label color.
+const hover =
+  'hover:bg-sidebar-item-hover hover:text-sidebar-item-hover-fg hover:[&_svg]:text-sidebar-item-hover-fg'
 const inactive = cn(
-  'text-fg-secondary hover:bg-surface-hover hover:text-fg',
-  '[&_svg]:text-fg-subtle contrast-more:[&_svg]:text-fg-secondary',
+  'text-fg-secondary [&_svg]:text-fg-subtle contrast-more:[&_svg]:text-fg-secondary',
+  hover,
 )
 // Collapsed, the icon is the only visible identifier, so it needs 3:1 (WCAG 1.4.11): label color.
-const inactiveCollapsed = 'text-fg-secondary hover:bg-surface-hover hover:text-fg'
-// Active: neutral selected fill, charcoal icon and label, slim emerald bar on the leading edge
-// (action-primary clears 3:1 against the selected surface; the brand emerald does not).
+const inactiveCollapsed = cn('text-fg-secondary', hover)
+// Selected: its own fill (darker on hover, never lost), semibold label, matching icon and the slim
+// emerald bar on the leading edge. Focus stays the separate focus-visible ring.
 const active = cn(
-  'bg-surface-selected font-medium text-fg [&_svg]:text-fg',
+  'bg-sidebar-item-selected font-semibold text-sidebar-item-selected-fg [&_svg]:text-sidebar-item-selected-fg',
+  'hover:bg-sidebar-item-selected-hover',
   'before:absolute before:inset-y-1.5 before:left-0 before:w-0.75 before:rounded-full before:bg-action-primary',
 )
 
@@ -47,6 +62,8 @@ export function SidebarNav({
   collapsed = false,
   onNavigate,
   badges = {},
+  layout = 'stacked',
+  afterPrimary,
 }: SidebarNavProps) {
   const current = activeModule(pathname, items)?.id
   const [automationsExpanded, setAutomationsExpanded] = useState<boolean | null>(null)
@@ -88,9 +105,8 @@ export function SidebarNav({
     return (
       <li key={item.id}>
         <div className="relative">
-          <Tooltip content={item.label} side="right">
-            {link}
-          </Tooltip>
+          {/* No tooltip: the rail expands to show labels, and the link's text is its name. */}
+          {link}
           {item.id === 'automations' ? (
             <Button
               type="button"
@@ -156,10 +172,28 @@ export function SidebarNav({
     )
   }
 
-  return (
-    // One continuous list: workspace modules (Integrations, Billing, Settings) follow straight on.
-    <nav aria-label="Main">
-      <ul className="flex flex-col gap-0.5">{[...primary, ...secondary].map(render)}</ul>
+  const utilities = secondary.length ? (
+    <ul
+      aria-label="Workspace"
+      className="flex shrink-0 flex-col gap-0.5 border-t border-border-subtle pt-2"
+    >
+      {secondary.map(render)}
+    </ul>
+  ) : null
+  // One landmark: main modules (Home → Analytics), then the workspace utilities.
+  return layout === 'rail' ? (
+    <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col gap-2">
+      <div data-sidebar-scroll className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <ul className="flex flex-col gap-0.5">{primary.map(render)}</ul>
+        {afterPrimary}
+      </div>
+      {utilities}
+    </nav>
+  ) : (
+    <nav aria-label="Main" className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-0.5">{primary.map(render)}</ul>
+      {afterPrimary}
+      {utilities}
     </nav>
   )
 }

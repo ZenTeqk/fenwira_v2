@@ -3,6 +3,13 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { seedInbox, seedReviewInbox } from './inbox-fixtures'
+import { applyReviewTheme, applyWebUpstream } from './support'
+
+// REVIEW_THEME=dark runs this review on the dark tokens.
+test.beforeEach(async ({ context }) => {
+  await applyWebUpstream(context)
+  await applyReviewTheme(context)
+})
 
 // Light-mode review (shared shell, Home, Inbox). Records come from the domain APIs through the
 // existing fixtures; LIGHT_SHOTS_DIR saves review screenshots (docs/design/.../light-mode-*/).

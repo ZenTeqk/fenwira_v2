@@ -1,13 +1,14 @@
 'use client'
 
 import { DropdownMenu as MenuPrimitive } from 'radix-ui'
-import { Check } from 'lucide-react'
+import { Check, Circle } from 'lucide-react'
 import { type ComponentProps } from 'react'
 import { cn } from '../lib/cn'
 
 export const Dropdown = MenuPrimitive.Root
 export const DropdownTrigger = MenuPrimitive.Trigger
 export const DropdownGroup = MenuPrimitive.Group
+export const DropdownRadioGroup = MenuPrimitive.RadioGroup
 
 export function DropdownContent({
   className,
@@ -93,5 +94,31 @@ export function DropdownCheckboxItem({
       </span>
       {children}
     </MenuPrimitive.CheckboxItem>
+  )
+}
+
+/** One choice of a `DropdownRadioGroup` (menuitemradio): the selected option shows a dot. */
+export function DropdownRadioItem({
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof MenuPrimitive.RadioItem>) {
+  return (
+    <MenuPrimitive.RadioItem
+      data-slot="dropdown-radio-item"
+      className={cn(
+        'relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-base text-fg outline-none select-none [&_svg]:size-4 [&_svg]:text-fg-muted',
+        'data-[highlighted]:bg-surface-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        className,
+      )}
+      {...props}
+    >
+      <span className="absolute left-2 flex size-4 items-center justify-center">
+        <MenuPrimitive.ItemIndicator>
+          <Circle className="size-2 fill-current text-action-primary" aria-hidden="true" />
+        </MenuPrimitive.ItemIndicator>
+      </span>
+      {children}
+    </MenuPrimitive.RadioItem>
   )
 }

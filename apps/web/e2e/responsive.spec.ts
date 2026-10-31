@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { signInAsNewOwner } from './support'
+import { applyReviewTheme, applyWebUpstream, signInAsNewOwner } from './support'
+
+// REVIEW_THEME=dark runs these checks on the dark tokens.
+test.beforeEach(async ({ context }) => {
+  await applyWebUpstream(context)
+  await applyReviewTheme(context)
+})
 
 const VIEWPORTS = [
   { name: 'desktop', width: 1440, height: 900 },

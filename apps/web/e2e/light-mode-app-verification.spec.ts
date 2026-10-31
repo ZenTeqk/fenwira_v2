@@ -9,35 +9,24 @@ import {
   resetRateLimits,
   signInAsNewOwner,
   uniqueEmail,
+  applyReviewTheme,
+  applyWebUpstream,
+  reviewTheme,
 } from './support'
+
+// REVIEW_THEME=dark runs this review on the dark tokens.
+test.beforeEach(async ({ context }) => {
+  await applyWebUpstream(context)
+  await applyReviewTheme(context)
+})
 
 // Application-wide light-mode verification: every route family at 375/768/1440, with axe, a
 // document-level horizontal-overflow check (wide tables may scroll inside their own container) and
 // screenshots. Fixtures are local accounts on the isolated stack; nothing is sent, paid, invited or
 // connected. REVIEW_SHOTS_DIR saves screenshots and `routes.jsonl` (one result per route/width).
-// E2E_WEB_UPSTREAM serves the web app from another local server (e.g. `next start` on :3001)
-// while the page keeps the localhost:3000 origin the local API expects; API calls are relayed the
-// same way, so the page never fetches loopback from a relayed document. Same as the billing review.
-const upstream = process.env.E2E_WEB_UPSTREAM
-if (upstream)
-  test.beforeEach(async ({ context }) => {
-    await context.route(/^http:\/\/localhost:(3000|4000)\//, async (route) => {
-      const url = route.request().url().replace('http://localhost:3000', upstream)
-      // A relayed request that fails (e.g. a reset realtime connection) fails like any network error.
-      const response = await route.fetch({ url, maxRedirects: 0 }).catch(() => null)
-      if (!response) return route.abort('failed')
-      // A fulfilled redirect's follow-up request isn't intercepted, so redirect from the page
-      // instead; the browser then requests the target through this relay (same final URL).
-      const location = response.headers()['location']
-      if (response.status() >= 300 && response.status() < 400 && location)
-        return route.fulfill({
-          contentType: 'text/html',
-          body: `<script>location.replace(${JSON.stringify(location.replace(upstream, 'http://localhost:3000'))})</script>`,
-        })
-      // The page may already have navigated away; a late answer is then irrelevant.
-      await route.fulfill({ response }).catch(() => undefined)
-    })
-  })
+
+// REVIEW_SHOT_WIDTHS=1440,375 limits which widths are captured (all widths are still checked).
+const shotWidths = process.env.REVIEW_SHOT_WIDTHS?.split(',').map(Number)
 const shots = process.env.REVIEW_SHOTS_DIR
 if (shots) mkdirSync(shots, { recursive: true })
 const record = (row: Record<string, unknown>) => {
@@ -99,6 +88,9 @@ async function verify(page: Page, family: string, path: string, widths = [1440, 
     await expect(page.locator('h1').first(), `${path} @${width}`).toBeVisible({ timeout: 15_000 })
     await expect(page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 15_000 })
     await settled(page)
+    // Guard against a silent light run when the dark review is requested.
+    if (reviewTheme)
+      expect(await page.evaluate(() => document.documentElement.dataset.theme), path).toBe('dark')
     const o = await overflow(page)
     const violations = width === 1440 || width === 375 ? await axeViolations(page) : []
     const final = new URL(page.url()).pathname
@@ -111,7 +103,7 @@ async function verify(page: Page, family: string, path: string, widths = [1440, 
       culprits: o.culprits,
       axe: violations,
     })
-    if (shots && (width !== 768 || family === 'auth'))
+    if (shots && (shotWidths ? shotWidths.includes(width) : width !== 768 || family === 'auth'))
       await page.screenshot({
         path: join(shots, `${family}-${slug(path)}-${width}.png`),
         animations: 'disabled',

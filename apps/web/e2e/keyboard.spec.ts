@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { signInAsNewOwner } from './support'
+import { applyWebUpstream, signInAsNewOwner } from './support'
+
+// E2E_WEB_UPSTREAM reviews a build served on another port.
+test.beforeEach(({ context }) => applyWebUpstream(context))
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })

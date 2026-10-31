@@ -46,7 +46,7 @@ export function NotificationsBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative"
+          className="relative [&_svg]:size-5"
           aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}
         >
           <Bell aria-hidden="true" />
