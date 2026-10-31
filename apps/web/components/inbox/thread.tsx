@@ -10,6 +10,7 @@ import {
 import {
   Button,
   cn,
+  textLink,
   ErrorState,
   focusRing,
   MessageFailure,
@@ -108,7 +109,7 @@ function MessageBody({ m, labelId, bodyId }: { m: Message; labelId: string; body
         />
       )
     default:
-      return <p className="text-secondary">Unsupported message</p>
+      return <p className="text-fg-secondary">Unsupported message</p>
   }
 }
 
@@ -152,15 +153,15 @@ function MediaBody({
         </video>
       ) : null}
       {kind === 'DOCUMENT' ? (
-        <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-surface p-2">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-danger-soft text-danger-strong">
+        <div className="flex min-w-0 items-center gap-2 rounded-md border border-border-subtle bg-surface p-2">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-status-error-bg text-status-error-fg">
             <FileText aria-hidden="true" className="size-6" />
           </span>
           <div className="min-w-0 flex-1">
             <p className="break-words text-base font-semibold" title={label}>
               {label}
             </p>
-            <p className="text-xs text-secondary">
+            <p className="text-xs text-fg-secondary">
               {fileType(label, media?.mimeType ?? null)}
               {media?.sizeBytes != null ? ` · ${fileSize(media.sizeBytes)}` : ''}
             </p>
@@ -173,14 +174,14 @@ function MediaBody({
               aria-label={`Download ${label}`}
               title={`Download ${label}`}
               className={cn(
-                'flex size-9 shrink-0 items-center justify-center rounded-md border border-border text-secondary hover:bg-surface-hover sm:size-8',
+                'flex size-9 shrink-0 items-center justify-center rounded-md border border-border-subtle text-fg-secondary hover:bg-surface-hover sm:size-8',
                 focusRing,
               )}
             >
               <Download aria-hidden="true" className="size-4" />
             </a>
           ) : (
-            <span className="text-xs text-secondary">
+            <span className="text-xs text-fg-secondary">
               {link.isError ? 'Unavailable' : 'Loading…'}
             </span>
           )}
@@ -190,12 +191,12 @@ function MediaBody({
           href={link.data}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1 text-primary-strong underline"
+          className={cn('flex items-center gap-1', textLink)}
         >
           <Paperclip aria-hidden="true" className="size-4" /> {label}
         </a>
       ) : (
-        <span className="flex items-center gap-1 text-secondary">
+        <span className="flex items-center gap-1 text-fg-secondary">
           <Paperclip aria-hidden="true" className="size-4" />{' '}
           {fileId ? label : `${label} (downloading…)`}
         </span>
@@ -219,13 +220,13 @@ function Row({
   const ids = useId()
   if (item.kind === 'note')
     return (
-      <div className="fw-inbox-bubble ml-auto w-fit rounded-lg border border-chat-note-border bg-chat-note px-3 py-2.5 text-slate">
+      <div className="fw-inbox-bubble ml-auto w-fit rounded-lg border border-chat-note-border bg-chat-note px-3 py-2.5 text-fg">
         <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-chat-note-fg">
           <Lock className="size-3.5" aria-hidden="true" />
           Internal note · {item.note.authorName}
         </p>
         <p className="whitespace-pre-wrap break-words">{item.note.body}</p>
-        <p className="text-xs text-secondary">{clockTime(item.note.createdAt)}</p>
+        <p className="text-xs text-fg-secondary">{clockTime(item.note.createdAt)}</p>
       </div>
     )
   const m = item.message
@@ -240,7 +241,7 @@ function Row({
             ? UserRound
             : CircleDot
     return (
-      <p className="mx-auto flex w-fit max-w-5/6 items-start justify-center gap-1.5 px-2 py-0.5 text-center text-xs text-secondary">
+      <p className="mx-auto flex w-fit max-w-5/6 items-start justify-center gap-1.5 px-2 py-0.5 text-center text-xs text-fg-secondary">
         <Icon aria-hidden="true" className="mt-0.5 size-3 shrink-0" />
         <span>
           {(c.event && EVENT_TEXT[c.event]?.(c.data ?? {})) ?? c.event} · {clockTime(m.createdAt)}
@@ -274,23 +275,23 @@ function Row({
             }
           : {})}
         className={cn(
-          'fw-inbox-bubble flex min-w-0 flex-col gap-1 rounded-lg border px-3 py-2.5 text-base leading-normal text-slate',
+          'fw-inbox-bubble flex min-w-0 flex-col gap-1 rounded-lg border px-3 py-2.5 text-base leading-normal text-fg shadow-raised',
           outbound
-            ? 'border-border bg-chat-outgoing'
-            : 'border border-chat-incoming-border bg-chat-incoming contrast-more:border-border-control',
+            ? 'border-transparent bg-chat-outgoing contrast-more:border-border-control'
+            : 'border-chat-incoming-border bg-chat-incoming contrast-more:border-border-control',
+          // The first bubble of a sender's group points at its side, like a chat app's tail.
+          !grouped && (outbound ? 'rounded-tr-none' : 'rounded-tl-none'),
         )}
       >
         {/* Only other senders are named, at the start of their group (never "You"). */}
         {!grouped && outbound && sender ? (
-          <span className="text-xs font-medium text-slate">{sender}</span>
+          <span className="text-xs font-medium text-fg">{sender}</span>
         ) : null}
         <MessageBody m={m} labelId={labelId} bodyId={bodyId} />
         <span
           className={cn(
-            'flex items-center justify-end gap-1 text-xs',
-            // Muted fails AA as text on the outbound tint, so outbound metadata uses secondary.
-            // The ticks are non-text icons (3:1) and keep their own colours (MessageTicks).
-            outbound ? 'text-slate' : 'text-muted',
+            // chat-meta is AA on both bubbles in both themes; ticks keep their own colours.
+            'flex items-center justify-end gap-1 text-xs text-chat-meta tabular-nums',
           )}
         >
           {clockTime(m.createdAt)}
@@ -596,6 +597,11 @@ export function Thread({
     <div className="flex min-h-0 flex-1 flex-col">
       {chips}
       <div className="relative min-h-0 flex-1 overflow-hidden bg-chat-canvas">
+        {/* Very faint original line-art wallpaper (decorative; removed for more contrast). */}
+        <div
+          aria-hidden="true"
+          className="chat-doodle pointer-events-none absolute inset-0 bg-chat-pattern opacity-5 contrast-more:hidden"
+        />
         <div
           ref={scroller}
           tabIndex={0}
@@ -664,7 +670,7 @@ export function Thread({
                   style={{ transform: `translateY(${v.start}px)` }}
                 >
                   {newDay ? (
-                    <p className="mx-auto mb-4 mt-1 w-fit rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-secondary">
+                    <p className="mx-auto mb-4 mt-1 w-fit rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs text-fg-secondary">
                       {date}
                     </p>
                   ) : null}
@@ -672,11 +678,11 @@ export function Thread({
                     <div
                       role="separator"
                       aria-label={`${openingUnread} unread messages`}
-                      className="mb-4 flex items-center gap-3 text-xs text-secondary"
+                      className="mb-4 flex items-center gap-3 text-xs text-fg-secondary"
                     >
-                      <span className="h-px flex-1 bg-border-strong" />
+                      <span className="h-px flex-1 bg-border-control" />
                       {openingUnread} unread messages
-                      <span className="h-px flex-1 bg-border-strong" />
+                      <span className="h-px flex-1 bg-border-control" />
                     </div>
                   ) : null}
                   <div
@@ -728,7 +734,7 @@ function FilteredItems({
   if (!items.length)
     return (
       <div className="flex flex-1 items-center justify-center p-8">
-        <p className="text-sm text-muted">{empty}</p>
+        <p className="text-sm text-fg-muted">{empty}</p>
       </div>
     )
   return (

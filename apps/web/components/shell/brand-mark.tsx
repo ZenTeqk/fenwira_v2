@@ -38,7 +38,7 @@ export function BrandMark({
       className={cn(
         'inline-flex items-center gap-2 font-semibold tracking-tight',
         size === 'lg' ? 'text-xl' : 'text-lg',
-        tone === 'dark' ? 'text-surface' : 'text-slate',
+        tone === 'dark' ? 'text-surface' : 'text-fg',
         className,
       )}
     >

@@ -367,7 +367,9 @@ export function Composer({ conversation }: { conversation: Conversation }) {
     <div
       className={cn(
         'fw-inbox-composer relative z-10 mx-3 mb-3 flex min-w-0 shrink-0 flex-col rounded-lg border px-2 pt-2 md:mx-4',
-        mode === 'note' ? 'border-chat-note-border bg-chat-note' : 'border-border bg-surface',
+        mode === 'note'
+          ? 'border-chat-note-border bg-chat-note'
+          : 'border-border-subtle bg-surface',
       )}
     >
       <span role="status" aria-live="polite" className="sr-only">
@@ -409,8 +411,8 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 mode === value
                   ? value === 'note'
                     ? 'border-chat-note-fg text-chat-note-fg'
-                    : 'border-primary-strong text-primary-strong'
-                  : 'border-transparent text-secondary hover:bg-surface-hover hover:text-slate',
+                    : 'border-action-primary text-fg'
+                  : 'border-transparent text-fg-secondary hover:bg-surface-hover hover:text-fg',
               )}
             >
               <Icon aria-hidden="true" className="size-4" />
@@ -429,7 +431,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         className="flex min-w-0 flex-col gap-1 pt-1"
       >
         {mode === 'reply' && state.kind === 'checking' && eligibility.isError ? (
-          <p className="flex flex-wrap items-center gap-1 text-xs text-secondary">
+          <p className="flex flex-wrap items-center gap-1 text-xs text-fg-secondary">
             Eligibility couldn’t be checked.
             <Button
               size="sm"
@@ -468,7 +470,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
         state.kind === 'reply' &&
         replyWindow.window.kind === 'open' &&
         replyWindow.window.phase === 'imminent' ? (
-          <p className="text-xs text-warning-strong">
+          <p className="text-xs text-status-warning-fg">
             Reply window closes soon. Templates remain available afterward.
           </p>
         ) : null}
@@ -496,7 +498,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 id={listId}
                 role="listbox"
                 aria-label="Canned replies"
-                className="absolute bottom-full left-0 z-10 mb-2 flex max-h-64 w-full max-w-md flex-col overflow-y-auto rounded-md border border-border bg-surface py-1 shadow-overlay"
+                className="absolute bottom-full left-0 z-10 mb-2 flex max-h-64 w-full max-w-md flex-col overflow-y-auto rounded-md border border-border-subtle bg-surface py-1 shadow-overlay"
               >
                 {matches.map((r, i) => (
                   <li
@@ -506,7 +508,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                     aria-selected={i === active}
                     className={cn(
                       'flex cursor-pointer flex-col px-3 py-2 text-left',
-                      i === active ? 'bg-primary-soft' : 'hover:bg-surface-hover',
+                      i === active ? 'bg-surface-selected' : 'hover:bg-surface-hover',
                     )}
                     onMouseDown={(e) => {
                       e.preventDefault()
@@ -514,10 +516,10 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                     }}
                   >
                     <span className="flex gap-2 text-sm">
-                      <span className="font-mono text-slate">{r.shortcut}</span>
-                      <span className="font-medium text-slate">{r.title}</span>
+                      <span className="font-mono text-fg">{r.shortcut}</span>
+                      <span className="font-medium text-fg">{r.title}</span>
                     </span>
-                    <span className="truncate text-sm text-slate">{r.body}</span>
+                    <span className="truncate text-sm text-fg">{r.body}</span>
                   </li>
                 ))}
               </ul>
@@ -538,7 +540,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                 placeholder={mode === 'note' ? 'Only your team sees notes' : 'Type a reply…'}
                 title="Enter to send; Shift+Enter for a new line; / for canned replies"
                 className={cn(
-                  'min-h-11 max-h-40 w-full min-w-0 resize-none overflow-y-auto rounded-md border-0 bg-transparent px-2 py-2 text-base text-slate',
+                  'min-h-11 max-h-40 w-full min-w-0 resize-none overflow-y-auto rounded-md border-0 bg-transparent px-2 py-2 text-base text-fg',
                   'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-ring',
                   disabled && 'cursor-not-allowed opacity-60',
                 )}
@@ -572,7 +574,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-9 text-secondary sm:size-8"
+                        className="size-9 text-fg-secondary sm:size-8"
                         aria-label="Attach a file"
                         disabled={disabled || busy || replyUnavailable}
                         onClick={() => fileInput.current?.click()}
@@ -587,7 +589,7 @@ export function Composer({ conversation }: { conversation: Conversation }) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-9 text-secondary sm:size-8"
+                      className="size-9 text-fg-secondary sm:size-8"
                       aria-label="Send a template"
                       disabled={disabled || busy || !templatesAvailable}
                       onClick={() => setPicking(true)}
@@ -660,7 +662,7 @@ function ComposerStrip({
         <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-chat-note-fg" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="text-base font-semibold text-chat-note-fg">{title}</p>
-          <p className="text-sm text-slate">{message}</p>
+          <p className="text-sm text-fg">{message}</p>
         </div>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}

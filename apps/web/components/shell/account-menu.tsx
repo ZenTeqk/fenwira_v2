@@ -42,19 +42,19 @@ export function AccountMenu({
         </span>
         {footer && !collapsed ? (
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium text-slate">{me.user.name}</span>
-            <span className="block text-sm text-secondary">{ROLE_LABELS[membership.role]}</span>
+            <span className="block truncate font-medium text-fg">{me.user.name}</span>
+            <span className="block text-sm text-fg-secondary">{ROLE_LABELS[membership.role]}</span>
           </span>
         ) : null}
         {footer && !collapsed ? (
-          <ChevronRight className="size-4 text-muted" aria-hidden="true" />
+          <ChevronRight className="size-4 text-fg-muted" aria-hidden="true" />
         ) : null}
         <span className="sr-only">{footer ? 'Workspace account menu' : 'Account menu'}</span>
       </DropdownTrigger>
       <DropdownContent className="w-64">
-        <DropdownLabel className="flex flex-col gap-0.5 text-slate">
+        <DropdownLabel className="flex flex-col gap-0.5 text-fg">
           <span className="truncate text-base font-medium">{me.user.name}</span>
-          <span className="truncate text-xs font-normal text-muted">{me.user.email}</span>
+          <span className="truncate text-xs font-normal text-fg-muted">{me.user.email}</span>
         </DropdownLabel>
         <DropdownSeparator />
         <DropdownItem onSelect={() => router.push('/settings/security')}>

@@ -20,17 +20,18 @@ const itemBase = cn(
   focusRing,
   'focus-visible:outline-offset-0',
 )
-// Idle icons are slate-400 beside their label; with more contrast requested they take the label color.
+// Idle icons are fg-subtle beside their label; with more contrast requested they take the label color.
 const inactive = cn(
-  'text-secondary hover:bg-surface-hover hover:text-slate',
-  '[&_svg]:text-slate-400 contrast-more:[&_svg]:text-secondary',
+  'text-fg-secondary hover:bg-surface-hover hover:text-fg',
+  '[&_svg]:text-fg-subtle contrast-more:[&_svg]:text-fg-secondary',
 )
 // Collapsed, the icon is the only visible identifier, so it needs 3:1 (WCAG 1.4.11): label color.
-const inactiveCollapsed = 'text-secondary hover:bg-surface-hover hover:text-slate'
-// Active: subtle emerald fill, action-emerald icon and label, 3px brand bar on the leading edge.
+const inactiveCollapsed = 'text-fg-secondary hover:bg-surface-hover hover:text-fg'
+// Active: neutral selected fill, charcoal icon and label, slim emerald bar on the leading edge
+// (action-primary clears 3:1 against the selected surface; the brand emerald does not).
 const active = cn(
-  'bg-primary-soft font-medium text-primary-strong',
-  'before:absolute before:inset-y-1.5 before:left-0 before:w-0.75 before:rounded-full before:bg-brand',
+  'bg-surface-selected font-medium text-fg [&_svg]:text-fg',
+  'before:absolute before:inset-y-1.5 before:left-0 before:w-0.75 before:rounded-full before:bg-action-primary',
 )
 
 /**
@@ -81,7 +82,7 @@ export function SidebarNav({
         {count ? (
           <span
             className={cn(
-              'rounded-full bg-primary-strong px-1.5 text-xs font-semibold text-surface',
+              'rounded-full bg-action-primary px-1.5 text-xs font-semibold text-action-primary-fg',
               collapsed ? 'absolute top-0.5 right-1' : 'ml-auto',
             )}
           >
@@ -106,7 +107,7 @@ export function SidebarNav({
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute top-0.5 right-0.5 size-8 p-0 text-secondary"
+              className="absolute top-0.5 right-0.5 size-8 p-0 text-fg-secondary"
               aria-label={showAutomationChildren ? 'Collapse Automations' : 'Expand Automations'}
               aria-expanded={showAutomationChildren}
               aria-controls={automationChildrenId}
@@ -128,7 +129,7 @@ export function SidebarNav({
             hidden={!showAutomationChildren}
             aria-label="Automation sections"
             className={cn(
-              'ml-5 mt-1 flex flex-col gap-1 border-l border-border pl-2',
+              'ml-5 mt-1 flex flex-col gap-1 border-l border-border-subtle pl-2',
               !showAutomationChildren && 'hidden',
             )}
           >
@@ -151,10 +152,7 @@ export function SidebarNav({
                   href={child.href}
                   onClick={onNavigate}
                   aria-current={child.selected ? 'page' : undefined}
-                  className={cn(
-                    itemBase,
-                    child.selected ? 'bg-primary-soft font-medium text-primary-strong' : inactive,
-                  )}
+                  className={cn(itemBase, child.selected ? active : inactive)}
                 >
                   <child.icon aria-hidden="true" />
                   {child.label}

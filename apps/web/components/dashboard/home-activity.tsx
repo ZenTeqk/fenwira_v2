@@ -12,7 +12,9 @@ import {
   Skeleton,
   StatusBadge,
   Progress,
+  cn,
   focusRing,
+  textLink,
 } from '@fenwira/ui'
 import { useQuery } from '@tanstack/react-query'
 import { MessageSquare, Workflow, Megaphone } from 'lucide-react'
@@ -34,7 +36,7 @@ export function RecentConversations() {
   })
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 border-b border-border px-4 py-3">
+      <CardHeader className="flex-row items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
         <CardTitle as="h2" className="text-md">
           Recent conversations
         </CardTitle>
@@ -51,7 +53,7 @@ export function RecentConversations() {
             onRetry={() => void conversations.refetch()}
           />
         ) : conversations.data.length ? (
-          <ul className="divide-y divide-border" aria-label="Recent conversations">
+          <ul className="divide-y divide-border-subtle" aria-label="Recent conversations">
             {conversations.data.slice(0, 4).map((c) => (
               <li key={c.id}>
                 <Link
@@ -60,17 +62,17 @@ export function RecentConversations() {
                 >
                   <Avatar name={displayName(c)} size="md" appearance="varied" />
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-base font-semibold text-slate">
+                    <span className="truncate text-base font-semibold text-fg">
                       {displayName(c)}
                     </span>
-                    <span className="truncate text-base text-secondary">
+                    <span className="truncate text-base text-fg-secondary">
                       {c.lastMessagePreview ?? 'No messages yet'}
                     </span>
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="text-xs text-muted">{shortTime(c.lastMessageAt)}</span>
+                    <span className="text-xs text-fg-muted">{shortTime(c.lastMessageAt)}</span>
                     {c.unreadCount ? (
-                      <span className="rounded-full bg-primary-strong px-2 text-xs text-surface">
+                      <span className="min-w-5 rounded-full bg-action-primary px-1.5 text-center text-xs font-semibold text-action-primary-fg">
                         {c.unreadCount}
                         <span className="sr-only"> unread</span>
                       </span>
@@ -83,7 +85,7 @@ export function RecentConversations() {
             ))}
           </ul>
         ) : (
-          <p className="flex items-start gap-2 py-4 text-sm text-secondary">
+          <p className="flex items-start gap-2 py-3 text-sm text-fg-secondary">
             <MessageSquare className="size-4 shrink-0" aria-hidden="true" />
             New customer conversations will appear here.
           </p>
@@ -125,7 +127,7 @@ export function CampaignActivity({
       label: 'Campaign updated',
       status: c.status,
       Icon: Megaphone,
-      tone: 'bg-primary-soft text-primary-strong',
+      tone: 'bg-surface-muted text-fg-secondary',
     })),
     ...(can('automations.read') ? (flows.data ?? []) : []).slice(0, 1).map((f) => ({
       id: f.id,
@@ -134,7 +136,7 @@ export function CampaignActivity({
       label: 'Automation updated',
       status: f.status,
       Icon: Workflow,
-      tone: 'bg-warning-soft text-warning-strong',
+      tone: 'bg-accent-automation-bg text-accent-automation-fg',
     })),
     ...(can('inbox.read') ? (conversations.data ?? []) : [])
       .filter((c) => c.lastMessageAt !== null)
@@ -146,14 +148,14 @@ export function CampaignActivity({
         label: 'Message',
         status: c.status,
         Icon: MessageSquare,
-        tone: 'bg-info-soft text-info-strong',
+        tone: 'bg-accent-conversation-bg text-accent-conversation-fg',
       })),
   ]
     .sort((a, b) => b.time.localeCompare(a.time))
     .slice(0, 4)
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 px-4 py-3">
+      <CardHeader className="flex-row items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
         <CardTitle as="h2" className="text-md">
           Activity
         </CardTitle>
@@ -161,8 +163,8 @@ export function CampaignActivity({
           <Link href="/campaigns">View campaigns</Link>
         </Button>
       </CardHeader>
-      <CardContent className="px-4 pt-0 pb-4">
-        <p className="mb-3 text-xs text-muted">Current workspace updates</p>
+      <CardContent className="px-4 pt-3 pb-4">
+        <p className="mb-3 text-xs text-fg-muted">Current workspace updates</p>
         {error || conversations.isError || flows.isError ? (
           <ErrorState
             title="Some updates couldn’t be loaded"
@@ -182,7 +184,7 @@ export function CampaignActivity({
                 {i < updates.length - 1 ? (
                   <span
                     aria-hidden="true"
-                    className="absolute top-8 -bottom-2 left-4 w-px bg-border"
+                    className="absolute top-8 -bottom-2 left-4 w-px bg-border-subtle"
                   />
                 ) : null}
                 <span
@@ -192,9 +194,9 @@ export function CampaignActivity({
                   <Icon className="size-4" />
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate font-medium text-slate">{name}</p>
+                  <p className="truncate font-medium text-fg">{name}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-muted">
+                    <span className="text-xs text-fg-muted">
                       {label} · {relativeTime(time)}
                     </span>
                     <StatusBadge status={status} />
@@ -204,7 +206,7 @@ export function CampaignActivity({
             ))}
           </ol>
         ) : (
-          <p className="py-3 text-sm text-secondary">No workspace updates yet.</p>
+          <p className="py-1 text-sm text-fg-secondary">No workspace updates yet.</p>
         )}
       </CardContent>
     </Card>
@@ -223,7 +225,7 @@ export function AutomationActivity() {
     .slice(0, 3)
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 px-4 py-3">
+      <CardHeader className="flex-row items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
         <CardTitle as="h2" className="text-md">
           Automation activity
         </CardTitle>
@@ -231,7 +233,7 @@ export function AutomationActivity() {
           <Link href="/automations">View all</Link>
         </Button>
       </CardHeader>
-      <CardContent className="px-4 pt-0 pb-4">
+      <CardContent className="px-4 pt-3 pb-4">
         {flows.isPending ? (
           <Skeleton className="h-20" />
         ) : flows.isError ? (
@@ -240,25 +242,25 @@ export function AutomationActivity() {
           <ul className="flex flex-col gap-3" aria-label="Current automation activity">
             {recent.map((f) => (
               <li key={f.id} className="flex min-w-0 flex-wrap items-center gap-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-automation-bg text-accent-automation-fg">
                   <Workflow className="size-4" aria-hidden="true" />
                 </span>
                 <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href={`/automations/${f.id}`}
-                      className={`text-base font-semibold text-slate hover:underline ${focusRing}`}
+                      className={`text-base font-semibold text-fg hover:underline ${focusRing}`}
                     >
                       {f.name}
                     </Link>
                     <StatusBadge status={f.status} />
                   </div>
-                  <p className="mt-1 text-sm text-secondary">
+                  <p className="mt-1 text-sm text-fg-secondary">
                     {f.executions.running} running · {f.executions.total} total runs
                   </p>
                   <Link
                     href={`/automations/${f.id}/history`}
-                    className={`mt-2 inline-flex text-sm text-primary-strong hover:underline ${focusRing}`}
+                    className={cn('mt-2 inline-flex text-sm', textLink, focusRing)}
                   >
                     View run history
                   </Link>
@@ -267,7 +269,7 @@ export function AutomationActivity() {
             ))}
           </ul>
         ) : (
-          <p className="py-2 text-sm text-secondary">
+          <p className="text-sm text-fg-secondary">
             No automations yet. Published flows and their real run counts appear here.
           </p>
         )}
@@ -299,7 +301,7 @@ export function CampaignSnapshot({
   const sent = data ? data.sent : undefined
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 px-4 py-3">
+      <CardHeader className="flex-row items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
         <CardTitle as="h2" className="min-w-0 truncate text-md">
           {campaign ? (
             <Link href={`/campaigns/${campaign.id}`} className={`hover:underline ${focusRing}`}>
@@ -315,20 +317,20 @@ export function CampaignSnapshot({
           </Link>
         </Button>
       </CardHeader>
-      <CardContent className="px-4 pt-0 pb-3">
+      <CardContent className="px-4 pt-3 pb-3">
         {error ? (
           <ErrorState title="Campaigns couldn’t be loaded" onRetry={retry} />
         ) : !campaigns ? (
           <Skeleton className="h-24" />
         ) : !campaign ? (
-          <p className="py-3 text-secondary">
+          <p className="text-sm text-fg-secondary">
             No campaigns yet. Your next customer update will appear here.
           </p>
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-3">
               <StatusBadge status={campaign.status} />
-              <span className="text-base text-secondary">
+              <span className="text-base text-fg-secondary">
                 {sent === undefined
                   ? // The audience is snapshotted at launch; before that the total is still 0.
                     campaign.totalRecipients > 0
@@ -351,32 +353,32 @@ export function CampaignSnapshot({
                 onRetry={() => void stats.refetch()}
               />
             ) : null}
-            <dl className="mt-3 grid grid-cols-3 divide-x divide-border border-t border-border pt-2">
+            <dl className="mt-3 grid grid-cols-3 divide-x divide-border-subtle border-t border-border-subtle pt-2">
               <div className="pr-3">
-                <dt className="text-sm text-secondary">Delivered</dt>
+                <dt className="text-sm text-fg-secondary">Delivered</dt>
                 <dd className="mt-1 text-md font-semibold">
                   {data ? percent(data.deliveryRate) : '—'}
                 </dd>
               </div>
               <div className="px-3">
-                <dt className="text-sm text-secondary">Read</dt>
+                <dt className="text-sm text-fg-secondary">Read</dt>
                 <dd className="mt-1 text-md font-semibold">
                   {data ? percent(data.readRate) : '—'}
                 </dd>
               </div>
               <div className="pl-3">
-                <dt className="text-sm text-secondary">Started</dt>
+                <dt className="text-sm text-fg-secondary">Started</dt>
                 <dd className="mt-1 text-md font-semibold">
                   {campaign.startedAt ? shortTime(campaign.startedAt) : 'Not started'}
                 </dd>
               </div>
             </dl>
             {!campaign.audienceSnapshotAt ? (
-              <p className="mt-2 text-xs text-muted">
+              <p className="mt-2 text-xs text-fg-muted">
                 Delivery results become available after launch.
               </p>
             ) : stats.isPending ? (
-              <p role="status" className="mt-2 text-xs text-muted">
+              <p role="status" className="mt-2 text-xs text-fg-muted">
                 Loading delivery results…
               </p>
             ) : null}

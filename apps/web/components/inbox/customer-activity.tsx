@@ -75,7 +75,7 @@ export function CustomerActivity({
     )
   return (
     <section aria-label="Customer activity" className="flex min-w-0 flex-col gap-3">
-      <p className="text-xs text-secondary">Newest first</p>
+      <p className="text-xs text-fg-secondary">Newest first</p>
       <Timeline
         label="Customer activity"
         className="fw-inbox-customer-activity text-base"

@@ -169,13 +169,15 @@ Every component: built on Radix primitives via `@fenwira/ui` (feature code may n
 
 | Context | Treatment |
 | --- | --- |
-| Sidebar | `sidebar` background, `border-subtle` divider, `fg-secondary` labels with `fg-subtle` icons, `surface-hover` hover; active `action-primary-subtle` fill, `action-primary` icon and text, 3px `brand` bar |
-| Inbox shell | Neutral: `canvas`, `surface` panels, `border-subtle`; selected conversation `action-primary-subtle` + 3px `action-primary` inset |
-| Inbox thread | `chat-canvas`; incoming `chat-incoming` + `chat-incoming-border`; outgoing `chat-outgoing`; metadata and sent/delivered ticks `chat-meta`; read ticks `chat-read` |
+| Sidebar | `sidebar` background, `border-subtle` divider, `fg-secondary` labels with `fg-subtle` icons, `surface-hover` hover; active `surface-selected` fill, `fg` icon and medium label, 3px `action-primary` bar (`brand` is below 3:1 on the selected grey) |
+| Inbox shell | Neutral: `canvas`, `surface` panels, `border-subtle`; conversation rows hover `surface-muted`, selected `surface-selected` + 3px `action-primary` inset, keyboard focus the shared focus ring; unread rows use semibold names, `fg` previews/times and an `action-primary` count |
+| Inbox thread | `chat-canvas` with the original `chat-doodle` tile at 5% (`chat-pattern`, decorative, hidden for `prefers-contrast: more`); incoming `chat-incoming` + `chat-incoming-border` on the left, outgoing `chat-outgoing` on the right, both `shadow-raised`; the first bubble of a sender group squares its top corner on the sender's side; metadata and sent/delivered ticks `chat-meta`; read ticks `chat-read` |
 | Internal notes | `chat-note` + `chat-note-border`, `chat-note-fg` "Internal" label |
 | Inbox system event | `surface-muted` / `surface` pill with `fg-secondary` text |
 | Human takeover | `status-info` badge and banner |
 | AI handling, AI flow steps | `accent-automation` (violet) |
+| Ordinary links | `textLink` (`@fenwira/ui`): `fg` text with a `border-control` underline that darkens to `fg` on hover; `Button` `link`/`tertiary` use it. Emerald is for primary actions only |
+| Home | White cards on `canvas` with one header style (16/24 title, `border-subtle` divider, 12×16 padding); Needs attention marks its header amber only while items exist; conversation tiles `accent-conversation`, automation tiles `accent-automation`, campaign tiles neutral; `MetricCard` icon tiles are neutral by default with an optional `iconTone` |
 | Template variables `{{n}}` | `action-primary-subtle` chip, `action-primary` text |
 | Template categories | Utility `status-info`, Marketing `category-marketing-*`, Authentication `category-authentication-*` |
 | WhatsApp preview frame | `phone-bezel` frame, `chat-canvas` background, `whatsapp` channel mark |

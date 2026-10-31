@@ -164,7 +164,10 @@ function ConversationPane({ id, onBack }: { id: string; onBack: () => void }) {
         {can('inbox.reply') ? (
           <Composer key={id} conversation={c} />
         ) : (
-          <p role="status" className="border-t border-border bg-surface p-4 text-sm text-secondary">
+          <p
+            role="status"
+            className="border-t border-border-subtle bg-surface p-4 text-sm text-fg-secondary"
+          >
             Your role can read conversations but cannot reply or add internal notes.
           </p>
         )}
@@ -206,11 +209,11 @@ export function InboxLayout() {
   const select = (id: string | null) => router.replace(id ? `${pathname}?c=${id}` : pathname)
   if (!can('inbox.read')) return <PermissionState what="the inbox" />
   return (
-    <div className="fw-inbox-theme flex h-full min-h-0 min-w-0 bg-background">
+    <div className="fw-inbox-theme flex h-full min-h-0 min-w-0 bg-canvas">
       <h1 className="sr-only">Inbox</h1>
       <div
         className={cn(
-          'min-h-0 w-full shrink-0 border-r border-border bg-surface md:w-70 lg:w-75 xl:w-80',
+          'min-h-0 w-full shrink-0 border-r border-border-subtle bg-surface md:w-70 lg:w-75 xl:w-80',
           selected && 'hidden md:block',
         )}
       >

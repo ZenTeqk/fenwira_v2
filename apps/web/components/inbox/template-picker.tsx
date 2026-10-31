@@ -108,7 +108,7 @@ export function TemplatePicker({
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <span id={selectId} className="text-sm font-medium text-slate">
+            <span id={selectId} className="text-sm font-medium text-fg">
               Template
             </span>
             <Select value={versionId} onValueChange={pick}>
@@ -124,7 +124,7 @@ export function TemplatePicker({
               </SelectContent>
             </Select>
             {templates.data && !templates.data.length ? (
-              <p className="text-sm text-muted">
+              <p className="text-sm text-fg-muted">
                 No approved templates for this number yet. Create one in Templates.
               </p>
             ) : null}
@@ -173,7 +173,7 @@ export function TemplatePicker({
                     </Field>
                   ))}
                   {need.headerMedia ? (
-                    <p className="text-sm text-muted">
+                    <p className="text-sm text-fg-muted">
                       The header uses the template’s sample {need.headerMedia.toLowerCase()}.
                     </p>
                   ) : null}

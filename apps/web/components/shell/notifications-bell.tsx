@@ -53,7 +53,7 @@ export function NotificationsBell() {
           {unread ? (
             <span
               aria-hidden="true"
-              className="absolute top-1 right-1 size-2 rounded-full bg-danger-strong"
+              className="absolute top-1 right-1 size-2 rounded-full bg-status-error-fg"
             />
           ) : null}
         </Button>
@@ -78,16 +78,14 @@ export function NotificationsBell() {
               }}
             >
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className={n.readAt ? 'text-slate' : 'font-semibold text-slate'}>
-                  {n.title}
-                </span>
-                <span className="truncate text-sm text-muted">{n.body}</span>
-                <span className="text-xs text-muted">{relativeTime(n.createdAt)}</span>
+                <span className={n.readAt ? 'text-fg' : 'font-semibold text-fg'}>{n.title}</span>
+                <span className="truncate text-sm text-fg-muted">{n.body}</span>
+                <span className="text-xs text-fg-muted">{relativeTime(n.createdAt)}</span>
               </span>
             </DropdownItem>
           ))
         ) : (
-          <p className="px-3 py-4 text-sm text-muted">You&apos;re all caught up.</p>
+          <p className="px-3 py-4 text-sm text-fg-muted">You&apos;re all caught up.</p>
         )}
       </DropdownContent>
     </Dropdown>

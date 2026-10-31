@@ -1,6 +1,7 @@
 // @fenwira/ui — the only source of UI primitives (AGENTS.md). Consumed as source (ADR-0021).
 export { cn } from './lib/cn'
 export { focusRing } from './lib/focus'
+export { textLink } from './lib/link'
 export * from './tokens'
 
 export * from './components/alert'

@@ -12,7 +12,7 @@ import {
 } from '@/lib/workspace-status'
 
 const row = cn(
-  'flex h-9 w-full items-center gap-2 rounded-sm px-3 text-sm text-secondary hover:bg-surface-hover hover:text-slate',
+  'flex h-9 w-full items-center gap-2 rounded-sm px-3 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg',
   focusRing,
   'focus-visible:outline-offset-0',
 )
@@ -69,7 +69,7 @@ export function SidebarStatus({ collapsed = false }: { collapsed?: boolean }) {
             aria-hidden="true"
             className={cn(
               'size-4 shrink-0',
-              wallet.state === 'NORMAL' ? 'text-secondary' : 'text-warning',
+              wallet.state === 'NORMAL' ? 'text-fg-secondary' : 'text-status-warning',
             )}
           />
           {collapsed ? (
@@ -98,12 +98,12 @@ export function SidebarStatus({ collapsed = false }: { collapsed?: boolean }) {
                     className={cn(
                       'size-2.5 rounded-full',
                       conn.status === 'CONNECTED'
-                        ? 'bg-success'
+                        ? 'bg-status-success'
                         : conn.status === 'NONE'
-                          ? 'bg-slate-400'
+                          ? 'bg-fg-subtle'
                           : conn.status === 'FLAGGED'
-                            ? 'bg-warning'
-                            : 'bg-danger',
+                            ? 'bg-status-warning'
+                            : 'bg-status-error',
                     )}
                   />
                 ) : null}

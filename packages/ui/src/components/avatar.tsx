@@ -76,7 +76,7 @@ export function Avatar({
           'flex size-full items-center justify-center font-medium',
           appearance !== 'default'
             ? avatarTone(identityKey ?? name, appearance)
-            : 'bg-action-primary-subtle text-fg',
+            : 'bg-surface-selected text-fg',
         )}
         aria-label={name}
       >

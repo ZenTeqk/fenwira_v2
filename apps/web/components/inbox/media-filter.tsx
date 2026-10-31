@@ -8,7 +8,7 @@ import {
   type ThreadMediaFilter,
   type ThreadTypeFilter,
 } from '@fenwira/contracts'
-import { Button, cn, ErrorState, focusRing, Skeleton } from '@fenwira/ui'
+import { Button, cn, ErrorState, focusRing, Skeleton, textLink } from '@fenwira/ui'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import {
   ArrowUpRight,
@@ -117,13 +117,13 @@ export function ThreadFilterChips({
       ref={row}
       role="group"
       aria-label="Show messages"
-      className="flex min-w-0 shrink-0 items-center gap-1 border-b border-border bg-surface px-3 py-0.5"
+      className="flex min-w-0 shrink-0 items-center gap-1 border-b border-border-subtle bg-surface px-3 py-0.5"
     >
       {scroll.overflow ? (
         <Button
           variant="ghost"
           size="icon"
-          className="size-8 text-secondary sm:size-6"
+          className="size-8 text-fg-secondary sm:size-6"
           aria-label="Scroll message filters left"
           title="Scroll message filters left"
           aria-controls={viewportId}
@@ -157,16 +157,14 @@ export function ThreadFilterChips({
                   'group flex h-8 shrink-0 snap-start scroll-mx-1 items-center gap-1 rounded-md border px-1.5 text-xs font-medium whitespace-nowrap transition-colors sm:h-6',
                   focusRing,
                   active
-                    ? 'border-primary-strong bg-primary-soft text-primary-strong'
-                    : 'border-border-strong bg-surface text-secondary hover:bg-surface-hover hover:text-slate',
+                    ? 'border-fg bg-surface-selected text-fg'
+                    : 'border-border-control bg-surface text-fg-secondary hover:bg-surface-hover hover:text-fg',
                 )}
               >
                 {chip.label}
                 {count !== undefined ? ' ' : null}
                 {count !== undefined ? (
-                  <span
-                    className={cn('tabular-nums', active ? 'text-primary-strong' : 'text-muted')}
-                  >
+                  <span className={cn('tabular-nums', active ? 'text-fg' : 'text-fg-muted')}>
                     {count}
                   </span>
                 ) : null}
@@ -179,7 +177,7 @@ export function ThreadFilterChips({
         <Button
           variant="ghost"
           size="icon"
-          className="size-8 text-secondary sm:size-6"
+          className="size-8 text-fg-secondary sm:size-6"
           aria-label="Scroll message filters right"
           title="Scroll message filters right"
           aria-controls={viewportId}
@@ -223,16 +221,16 @@ function Thumb({ m, kind, onOpen }: { m: Message; kind: 'IMAGE' | 'VIDEO'; onOpe
       disabled={!fileId}
       aria-label={`Open ${kind === 'IMAGE' ? 'image' : 'video'} ${label} from ${dateOf(m.createdAt)}`}
       className={cn(
-        'relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border bg-surface',
+        'relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border-subtle bg-surface',
         focusRing,
       )}
     >
       {kind === 'IMAGE' && url.data ? (
         <Image src={url.data} unoptimized fill sizes="160px" alt="" className="object-cover" />
       ) : kind === 'IMAGE' ? (
-        <ImageIcon aria-hidden="true" className="size-6 text-secondary" />
+        <ImageIcon aria-hidden="true" className="size-6 text-fg-secondary" />
       ) : (
-        <Play aria-hidden="true" className="size-8 text-secondary" />
+        <Play aria-hidden="true" className="size-8 text-fg-secondary" />
       )}
     </button>
   )
@@ -315,10 +313,10 @@ export function MediaResults({
           compact ? 'gap-2 p-4' : 'gap-3 p-8',
         )}
       >
-        <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-soft">
-          <Icon aria-hidden="true" className="size-6 text-secondary" />
+        <span className="flex size-10 items-center justify-center rounded-lg bg-surface-muted">
+          <Icon aria-hidden="true" className="size-6 text-fg-secondary" />
         </span>
-        <p className="text-sm text-muted">No {NOUN[filter]} in this conversation</p>
+        <p className="text-sm text-fg-muted">No {NOUN[filter]} in this conversation</p>
       </div>
     )
   }
@@ -406,12 +404,12 @@ function DocumentRow({
   return (
     <li
       className={cn(
-        'flex min-w-0 items-center rounded-md border border-border bg-surface py-2',
+        'flex min-w-0 items-center rounded-md border border-border-subtle bg-surface py-2',
         compact ? 'gap-2 px-2' : 'gap-3 px-3',
       )}
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-neutral-soft">
-        <FileText aria-hidden="true" className="size-5 text-secondary" />
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-muted">
+        <FileText aria-hidden="true" className="size-5 text-fg-secondary" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
         {url.data ? (
@@ -422,7 +420,8 @@ function DocumentRow({
             title={name}
             className={cn(
               compact ? 'line-clamp-2 break-words text-base' : 'truncate',
-              'font-medium text-primary-strong underline',
+              'font-medium',
+              textLink,
               focusRing,
             )}
           >
@@ -433,13 +432,13 @@ function DocumentRow({
             title={name}
             className={cn(
               compact ? 'line-clamp-2 break-words text-base' : 'truncate',
-              'font-medium text-slate',
+              'font-medium text-fg',
             )}
           >
             {name}
           </span>
         )}
-        <span className={cn('text-xs text-muted', compact && 'break-words')}>{meta}</span>
+        <span className={cn('text-xs text-fg-muted', compact && 'break-words')}>{meta}</span>
       </div>
       {action}
     </li>

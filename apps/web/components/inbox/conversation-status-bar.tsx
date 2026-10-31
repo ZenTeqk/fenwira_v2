@@ -21,7 +21,7 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
     <div
       role="group"
       aria-label="Conversation state"
-      className="mx-3 mb-2 flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-surface px-3 py-1 md:mx-4"
+      className="mx-3 mb-2 flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border-subtle bg-surface px-3 py-1 md:mx-4"
     >
       <span
         className="min-w-0 truncate"
@@ -35,7 +35,7 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
           appearance="inline"
           status={automation.status}
           label={automation.label}
-          className="text-secondary"
+          className="text-fg-secondary"
         />
       </span>
       {c.aiHandling ? (
@@ -50,7 +50,7 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
         <Button
           size="sm"
           variant="link"
-          className="ml-auto h-8 shrink-0 px-1 text-xs text-primary-strong sm:h-6"
+          className="ml-auto h-8 shrink-0 px-1 text-xs sm:h-6"
           aria-label="Resume automation"
           title="Return this conversation to automation"
           loading={actions.pending}
@@ -63,7 +63,7 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
         <Button
           size="sm"
           variant="link"
-          className="ml-auto h-8 shrink-0 px-1 text-xs text-primary-strong sm:h-6"
+          className="ml-auto h-8 shrink-0 px-1 text-xs sm:h-6"
           loading={actions.pending}
           onClick={() => actions.setAutomation('AGENT_TAKEOVER')}
         >

@@ -241,7 +241,7 @@
   height: 0.875rem;
 }
 .fw-inbox-customer-panel [data-slot='tabs-trigger'][data-state='active'] {
-  color: var(--color-action-primary);
+  color: var(--color-fg);
 }
 .fw-inbox-customer-panel > [data-slot='drawer-header'] {
   min-height: 3rem;

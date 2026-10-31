@@ -28,6 +28,8 @@ export type MetricCardProps = {
   compact?: boolean
   /** Joined Analytics metric strip; default cards and Home remain unchanged. */
   appearance?: 'analytics'
+  /** Icon tile accent: neutral by default; feature accents for conversations and automations. */
+  iconTone?: IconTone
   className?: string
 }
 
@@ -37,11 +39,24 @@ const trendStatus = ({ direction, sentiment = 'neutral' }: MetricDelta): StatusK
     ? 'TREND_FLAT'
     : `TREND_${direction === 'up' ? 'UP' : 'DOWN'}_${sentiment === 'positive' ? 'POSITIVE' : sentiment === 'negative' ? 'NEGATIVE' : 'NEUTRAL'}`
 
-function IconTile({ icon }: { icon: ReactNode }) {
+export type IconTone = 'neutral' | 'conversation' | 'automation' | 'success' | 'warning'
+
+const iconTones: Record<IconTone, string> = {
+  neutral: 'bg-surface-muted text-fg-secondary',
+  conversation: 'bg-accent-conversation-bg text-accent-conversation-fg',
+  automation: 'bg-accent-automation-bg text-accent-automation-fg',
+  success: 'bg-status-success-bg text-status-success-fg',
+  warning: 'bg-status-warning-bg text-status-warning-fg',
+}
+
+function IconTile({ icon, tone = 'neutral' }: { icon: ReactNode; tone?: IconTone }) {
   return (
     <span
       aria-hidden="true"
-      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-action-primary-subtle text-action-primary [&_svg]:size-4"
+      className={cn(
+        'flex size-8 shrink-0 items-center justify-center rounded-md [&_svg]:size-4',
+        iconTones[tone],
+      )}
     >
       {icon}
     </span>
@@ -58,6 +73,7 @@ export function MetricCard({
   loading,
   compact,
   appearance,
+  iconTone,
   className,
 }: MetricCardProps) {
   if (appearance === 'analytics')
@@ -66,7 +82,7 @@ export function MetricCard({
         data-slot="metric-card"
         className={cn('flex items-start gap-3 rounded-none border-0 bg-transparent p-3', className)}
       >
-        {icon ? <IconTile icon={icon} /> : null}
+        {icon ? <IconTile icon={icon} tone={iconTone} /> : null}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="text-sm font-medium text-fg-secondary">{label}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -93,7 +109,7 @@ export function MetricCard({
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-fg-secondary">{label}</p>
-        {icon ? <IconTile icon={icon} /> : null}
+        {icon ? <IconTile icon={icon} tone={iconTone} /> : null}
       </div>
       {loading ? (
         <Skeleton className="h-8 w-24" />
