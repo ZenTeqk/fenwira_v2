@@ -28,7 +28,7 @@ const columns: Array<ColumnDef<Flow>> = [
     cell: ({ row }) => (
       <Link
         href={`/automations/${row.original.flowId}`}
-        className="font-medium text-slate underline-offset-4 hover:underline"
+        className="font-medium text-fg underline-offset-4 hover:underline"
       >
         {row.original.name}
       </Link>
@@ -129,11 +129,12 @@ export default function AutomationAnalyticsPage() {
               variant="stacked"
               data={d.series.map((p) => ({ label: shortDay(p.day), values: p.values }))}
               series={[
-                { key: 'completed', label: 'Completed', tone: 'success' },
-                { key: 'failed', label: 'Failed', tone: 'danger' },
-                { key: 'stoppedByTakeover', label: 'Stopped by takeover', tone: 'info' },
-                { key: 'cancelled', label: 'Cancelled', tone: 'neutral' },
-                { key: 'inProgress', label: 'Running or waiting', tone: 'warning' },
+                // Validated stacking order: no colour-blind-ambiguous pair is adjacent.
+                { key: 'completed', label: 'Completed', tone: 'good' },
+                { key: 'stoppedByTakeover', label: 'Stopped by takeover', tone: 'blue' },
+                { key: 'failed', label: 'Failed', tone: 'critical' },
+                { key: 'inProgress', label: 'Running or waiting', tone: 'violet' },
+                { key: 'cancelled', label: 'Cancelled', tone: 'other' },
               ]}
             />
           </Panel>

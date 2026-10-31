@@ -81,7 +81,7 @@ export function RangePicker({
       {range.kind === 'custom' ? (
         <>
           <div className="flex items-center gap-2">
-            <Label htmlFor="range-from" className="text-sm text-secondary">
+            <Label htmlFor="range-from" className="text-sm text-fg-secondary">
               From
             </Label>
             <Input
@@ -97,7 +97,7 @@ export function RangePicker({
             />
           </div>
           <div className="flex items-center gap-2">
-            <Label htmlFor="range-to" className="text-sm text-secondary">
+            <Label htmlFor="range-to" className="text-sm text-fg-secondary">
               To
             </Label>
             <Input
@@ -181,11 +181,11 @@ export function AnalyticsFrame<T extends { meta: AnalyticsMeta }>({
         items={tabs}
         label="Analytics pages"
         linkAs={Link}
-        className="bg-transparent [&_ul]:px-0 [&_a[aria-current]]:text-primary-strong"
+        className="bg-transparent [&_ul]:px-0"
       />
       <div className="flex flex-wrap items-center justify-between gap-3">
         {data ? (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-fg-muted">
             {shortDay(data.meta.range.from)} – {shortDay(data.meta.range.to)}
             {data.meta.partial ? ' (today so far)' : ''} · {data.meta.timezone}
             {data.meta.previous ? ' · compared with the previous period' : ''}
@@ -266,7 +266,7 @@ export function Panel({
           <CardTitle as="h2">{title}</CardTitle>
           {action}
         </div>
-        {description ? <p className="text-sm text-muted">{description}</p> : null}
+        {description ? <p className="text-sm text-fg-muted">{description}</p> : null}
       </CardHeader>
       <CardContent className="p-4 pt-0">{children}</CardContent>
     </Card>
@@ -276,7 +276,7 @@ export function Panel({
 export const KpiGrid = ({ children }: { children: ReactNode }) => (
   <section
     aria-label="Key metrics"
-    className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 sm:[&>div+div]:border-l sm:[&>div+div]:border-border"
+    className="grid grid-cols-1 divide-y divide-border-subtle overflow-hidden rounded-lg border border-border-subtle bg-surface sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 sm:[&>div+div]:border-l sm:[&>div+div]:border-border-subtle"
   >
     {children}
   </section>

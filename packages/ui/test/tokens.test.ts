@@ -113,6 +113,20 @@ const NON_TEXT_PAIRS: Pair[] = [
   // Delivery ticks on both bubbles: grey sent/delivered, blue read, red failed.
   ...cross(['chat-meta', 'chat-read', 'status-error'], ['chat-incoming', 'chat-outgoing']),
   ...([1, 2, 3, 4, 5, 6] as const).map((n): Pair => [`chart-${n}`, 'surface']),
+  ...(
+    [
+      'chart-stage-1',
+      'chart-stage-2',
+      'chart-stage-3',
+      'chart-blue',
+      'chart-orange',
+      'chart-violet',
+      'chart-aqua',
+      'chart-good',
+      'chart-critical',
+      'chart-other',
+    ] as const
+  ).map((token): Pair => [token, 'surface']),
 ]
 
 describe('color tokens', () => {

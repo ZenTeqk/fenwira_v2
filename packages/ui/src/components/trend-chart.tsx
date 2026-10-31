@@ -2,13 +2,36 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { cn } from '../lib/cn'
+import { focusRing } from '../lib/focus'
+import { textLink } from '../lib/link'
 
 /**
  * Series colors for charts. Each meets the 3:1 non-text contrast of WCAG 1.4.11 against the
  * surface; values are never carried by color alone (legend text, table alternative, focus
  * values). docs/design/FENWIRA_DESIGN_SYSTEM.md → Charts.
  */
-export type ChartTone = 'primary' | 'info' | 'success' | 'danger' | 'warning' | 'neutral'
+export type ChartTone =
+  // Original tones (chart-1…6), kept for existing consumers.
+  | 'primary'
+  | 'info'
+  | 'success'
+  | 'danger'
+  | 'warning'
+  | 'neutral'
+  // Message funnel: one ordinal blue ramp (sent → delivered → read).
+  | 'stage1'
+  | 'stage2'
+  | 'stage3'
+  // Nominal categories, assigned in this fixed order and never cycled.
+  | 'blue'
+  | 'orange'
+  | 'violet'
+  | 'aqua'
+  // Outcomes that are statuses (good/critical) and the grey "other".
+  | 'good'
+  | 'critical'
+  | 'other'
+// Full class names (Tailwind generates only literal classes it can see).
 const FILL: Record<ChartTone, string> = {
   primary: 'fill-chart-1',
   info: 'fill-chart-2',
@@ -16,6 +39,16 @@ const FILL: Record<ChartTone, string> = {
   danger: 'fill-chart-4',
   warning: 'fill-chart-5',
   neutral: 'fill-chart-6',
+  stage1: 'fill-chart-stage-1',
+  stage2: 'fill-chart-stage-2',
+  stage3: 'fill-chart-stage-3',
+  blue: 'fill-chart-blue',
+  orange: 'fill-chart-orange',
+  violet: 'fill-chart-violet',
+  aqua: 'fill-chart-aqua',
+  good: 'fill-chart-good',
+  critical: 'fill-chart-critical',
+  other: 'fill-chart-other',
 }
 const STROKE: Record<ChartTone, string> = {
   primary: 'stroke-chart-1',
@@ -24,6 +57,16 @@ const STROKE: Record<ChartTone, string> = {
   danger: 'stroke-chart-4',
   warning: 'stroke-chart-5',
   neutral: 'stroke-chart-6',
+  stage1: 'stroke-chart-stage-1',
+  stage2: 'stroke-chart-stage-2',
+  stage3: 'stroke-chart-stage-3',
+  blue: 'stroke-chart-blue',
+  orange: 'stroke-chart-orange',
+  violet: 'stroke-chart-violet',
+  aqua: 'stroke-chart-aqua',
+  good: 'stroke-chart-good',
+  critical: 'stroke-chart-critical',
+  other: 'stroke-chart-other',
 }
 const SWATCH: Record<ChartTone, string> = {
   primary: 'bg-chart-1',
@@ -32,6 +75,16 @@ const SWATCH: Record<ChartTone, string> = {
   danger: 'bg-chart-4',
   warning: 'bg-chart-5',
   neutral: 'bg-chart-6',
+  stage1: 'bg-chart-stage-1',
+  stage2: 'bg-chart-stage-2',
+  stage3: 'bg-chart-stage-3',
+  blue: 'bg-chart-blue',
+  orange: 'bg-chart-orange',
+  violet: 'bg-chart-violet',
+  aqua: 'bg-chart-aqua',
+  good: 'bg-chart-good',
+  critical: 'bg-chart-critical',
+  other: 'bg-chart-other',
 }
 
 export type ChartSeries = { key: string; label: string; tone: ChartTone }
@@ -138,7 +191,10 @@ export function TrendChart({
         </ul>
         <button
           type="button"
-          className="text-sm font-medium text-action-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+          className={cn(
+            'text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
+            textLink,
+          )}
           aria-expanded={table}
           aria-controls={`${id}-table`}
           onClick={() => setTable((t) => !t)}
@@ -147,9 +203,18 @@ export function TrendChart({
         </button>
       </div>
       {table ? (
+        // The table scrolls inside a bounded box, so keyboard users can focus it to scroll
+        // (WCAG 2.1.1, axe scrollable-region-focusable).
         <div
           id={`${id}-table`}
-          className="max-h-80 overflow-auto rounded-md border border-border-subtle"
+          role="region"
+          aria-label={`${label} table`}
+          tabIndex={0}
+          className={cn(
+            'max-h-80 overflow-auto rounded-md border border-border-subtle',
+            focusRing,
+            'focus-visible:outline-offset-0',
+          )}
         >
           <table className="w-full text-sm">
             <caption className="sr-only">{label}</caption>

@@ -34,11 +34,11 @@ const columns: Array<ColumnDef<CampaignAnalyticsRow>> = [
       <div className="flex flex-col gap-1">
         <Link
           href={`/campaigns/${row.original.campaignId}`}
-          className="font-medium text-slate underline-offset-4 hover:underline"
+          className="font-medium text-fg underline-offset-4 hover:underline"
         >
           {row.original.name}
         </Link>
-        <span className="text-sm text-muted">Started {shortDay(row.original.startedDay)}</span>
+        <span className="text-sm text-fg-muted">Started {shortDay(row.original.startedDay)}</span>
       </div>
     ),
   },
@@ -158,11 +158,11 @@ export default function CampaignAnalyticsPage() {
                   },
                 }))}
               series={[
-                { key: 'read', label: 'Read', tone: 'success' },
-                { key: 'delivered', label: 'Delivered, not read', tone: 'info' },
-                { key: 'sent', label: 'Sent, not delivered', tone: 'primary' },
-                { key: 'failed', label: 'Failed', tone: 'danger' },
-                { key: 'skipped', label: 'Excluded', tone: 'neutral' },
+                { key: 'read', label: 'Read', tone: 'stage3' },
+                { key: 'delivered', label: 'Delivered, not read', tone: 'stage2' },
+                { key: 'sent', label: 'Sent, not delivered', tone: 'stage1' },
+                { key: 'failed', label: 'Failed', tone: 'critical' },
+                { key: 'skipped', label: 'Excluded', tone: 'other' },
               ]}
             />
           </Panel>

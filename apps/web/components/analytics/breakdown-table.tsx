@@ -28,7 +28,7 @@ export function BreakdownTable({
     {
       id: 'label',
       header: dimension,
-      cell: ({ row }) => <span className="text-slate">{row.original.label}</span>,
+      cell: ({ row }) => <span className="text-fg">{row.original.label}</span>,
     },
     ...columns.map((c): ColumnDef<BreakdownRow> => ({
       id: c.key,

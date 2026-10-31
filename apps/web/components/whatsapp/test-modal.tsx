@@ -127,7 +127,7 @@ export function TestConnectionModal({
             </Button>
           </div>
           <form
-            className="flex flex-col gap-3 border-t border-border pt-4"
+            className="flex flex-col gap-3 border-t border-border-subtle pt-4"
             onSubmit={(e: FormEvent) => {
               e.preventDefault()
               setMessage(null)
@@ -149,7 +149,7 @@ export function TestConnectionModal({
               />
             </Field>
             {message ? (
-              <p className="flex items-center gap-2 text-sm text-muted" aria-live="polite">
+              <p className="flex items-center gap-2 text-sm text-fg-muted" aria-live="polite">
                 Test message: <StatusBadge status={message.status} />
                 {message.errorCode ? <span className="font-mono">{message.errorCode}</span> : null}
               </p>

@@ -97,7 +97,15 @@ A status always shows a **label**, and usually an icon. `StatusBadge` is the onl
 
 ### Charts
 
-`TrendChart` (Phase 11) is the only chart component. Series use `chart-1` … `chart-6`, which meet 3:1 non-text contrast on the surface in both themes (WCAG 1.4.11). Values never depend on color alone: every series has a text legend, the chart's accessible name states the totals, and "Show as table" renders the same numbers as a table. No other chart library is used.
+`TrendChart` (Phase 11) is the only chart component. Chart colours are component tokens, validated with the dataviz palette checks (lightness band, chroma, colour-blind separation of adjacent series and >= 3:1 against the chart surface in both themes) and covered by the contrast test:
+
+| Job | Series → token |
+| --- | --- |
+| Message funnel (ordinal: one hue, light → dark) | Sent `chart-stage-1` · Delivered `chart-stage-2` · Read `chart-stage-3` (blue, matching read ticks); the campaign delivery overview uses the same `Progress` stage tones |
+| Statuses inside a chart (always with a legend label) | Failed `chart-critical` · Completed / Resolved `chart-good` · Excluded / Cancelled `chart-other` (grey) |
+| Nominal categories (fixed order, never cycled; colour follows the category) | `chart-blue` · `chart-orange` · `chart-violet` · `chart-aqua` — e.g. Usage: Utility, Authentication, Marketing, Service; Automations: Stopped by takeover blue, Running or waiting violet |
+
+Status colours never stand in for a category, and a categorical hue never means good or bad. Stacked series follow the validated order so no colour-blind-ambiguous pair touches. `chart-1`…`chart-6` remain for the operator console. Values never depend on colour alone: every series has a text legend, the chart's accessible name states the totals, and "Show as table" (a charcoal `textLink`) renders the same numbers in a keyboard-focusable scrolling region. No other chart library is used.
 
 ### Brand assets
 

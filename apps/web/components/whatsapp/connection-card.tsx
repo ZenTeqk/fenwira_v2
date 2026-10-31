@@ -34,8 +34,8 @@ function tierLabel(tier: string | null): string {
 function Detail({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd className="text-base text-slate">{children}</dd>
+      <dt className="text-sm text-fg-muted">{label}</dt>
+      <dd className="text-base text-fg">{children}</dd>
     </div>
   )
 }
@@ -60,8 +60,8 @@ export function ConnectionCard({
     <Card role="region" aria-label={`WhatsApp number ${c.displayPhoneNumber}`}>
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <h2 className="text-lg font-semibold text-slate">{name}</h2>
-          <p className="text-sm text-muted">
+          <h2 className="text-lg font-semibold text-fg">{name}</h2>
+          <p className="text-sm text-fg-muted">
             {c.verifiedName} · {c.waba.name}
           </p>
         </div>

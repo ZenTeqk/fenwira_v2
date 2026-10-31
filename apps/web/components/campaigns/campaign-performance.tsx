@@ -58,16 +58,16 @@ export function CampaignPerformance({
           <div className="flex flex-col gap-4" aria-label="Delivery funnel">
             {(
               [
-                // Sent stays emerald; delivered and read follow the inbox tick semantics.
-                ['Sent', s.sent, Send, 'primary', 'bg-surface-muted text-fg-secondary'],
+                // The message funnel uses the analytics stage ramp (sent → delivered → read).
+                ['Sent', s.sent, Send, 'stage1', 'bg-surface-muted text-fg-secondary'],
                 [
                   'Delivered',
                   s.delivered,
                   CheckCheck,
-                  'success',
-                  'bg-status-success-bg text-status-success-fg',
+                  'stage2',
+                  'bg-surface-muted text-fg-secondary',
                 ],
-                ['Read', s.read, Eye, 'info', 'bg-status-info-bg text-status-info-fg'],
+                ['Read', s.read, Eye, 'stage3', 'bg-surface-muted text-fg-secondary'],
               ] as const
             ).map(([label, value, Icon, tone, tile]) => (
               <div key={label} className="flex items-start gap-3">

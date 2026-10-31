@@ -14,10 +14,10 @@ export const STEP_LABELS: Record<ConnectionStepKey, string> = {
 }
 
 const ICONS = {
-  DONE: <CheckCircle2 className="size-4 text-primary-strong" aria-hidden="true" />,
-  FAILED: <XCircle className="size-4 text-danger-strong" aria-hidden="true" />,
-  SKIPPED: <MinusCircle className="size-4 text-muted" aria-hidden="true" />,
-  PENDING: <Circle className="size-4 text-muted" aria-hidden="true" />,
+  DONE: <CheckCircle2 className="size-4 text-status-success" aria-hidden="true" />,
+  FAILED: <XCircle className="size-4 text-status-error-fg" aria-hidden="true" />,
+  SKIPPED: <MinusCircle className="size-4 text-fg-muted" aria-hidden="true" />,
+  PENDING: <Circle className="size-4 text-fg-muted" aria-hidden="true" />,
 }
 const STATUS_TEXT = {
   DONE: 'done',
@@ -35,7 +35,7 @@ export function ConnectionSteps({ steps }: { steps: ConnectionStep[] }) {
           <span
             className={cn(
               'flex items-center gap-2 text-sm',
-              step.status === 'FAILED' ? 'font-medium text-slate' : 'text-muted',
+              step.status === 'FAILED' ? 'font-medium text-fg' : 'text-fg-muted',
             )}
           >
             {ICONS[step.status]}
@@ -43,7 +43,7 @@ export function ConnectionSteps({ steps }: { steps: ConnectionStep[] }) {
             <span className="sr-only">: {STATUS_TEXT[step.status]}</span>
           </span>
           {step.error ? (
-            <span className="pl-6 text-sm text-danger-strong">{step.error.message}</span>
+            <span className="pl-6 text-sm text-status-error-fg">{step.error.message}</span>
           ) : null}
         </li>
       ))}

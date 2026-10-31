@@ -6,7 +6,7 @@ import {
   type MessagingAnalytics,
 } from '@fenwira/contracts'
 import { type UseQueryResult } from '@tanstack/react-query'
-import { ErrorState, Skeleton } from '@fenwira/ui'
+import { ErrorState, Skeleton, cn, textLink } from '@fenwira/ui'
 import { CheckCheck, Clock, Eye, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import { type ReactNode } from 'react'
@@ -32,7 +32,7 @@ function QueryContent<T extends { meta: AnalyticsMeta }>({
       </div>
     )
   if (query.data.meta.freshness.status === 'NOT_STARTED')
-    return <p className="py-4 text-sm text-secondary">Analytics are being prepared.</p>
+    return <p className="py-4 text-sm text-fg-secondary">Analytics are being prepared.</p>
   return (
     <>
       <Notices meta={query.data.meta} />
@@ -46,25 +46,27 @@ export function EngagementSummary({ query }: { query: UseQueryResult<MessagingAn
     <Panel title="Customer engagement" description="Delivery and reading of outbound messages.">
       <QueryContent query={query}>
         {(d) => (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border-subtle">
             {[
               {
                 label: 'Delivery rate',
                 icon: CheckCheck,
                 rate: d.kpis.deliveryRate,
                 hint: 'sent messages delivered',
+                bar: 'bg-chart-stage-2',
               },
               {
                 label: 'Read rate',
                 icon: Eye,
                 rate: d.kpis.readRate,
                 hint: 'delivered messages read',
+                bar: 'bg-chart-stage-3',
               },
-            ].map(({ label, icon: Icon, rate, hint }) => (
+            ].map(({ label, icon: Icon, rate, hint, bar }) => (
               <div key={label} className="flex items-start gap-3 py-4">
                 <span
                   aria-hidden="true"
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-muted text-fg-secondary"
                 >
                   <Icon className="size-5" />
                 </span>
@@ -76,24 +78,24 @@ export function EngagementSummary({ query }: { query: UseQueryResult<MessagingAn
                   {rate.value !== null ? (
                     <div
                       aria-hidden="true"
-                      className="h-2 overflow-hidden rounded-full bg-neutral-soft"
+                      className="h-2 overflow-hidden rounded-full bg-surface-muted"
                     >
                       <div
-                        className="h-full rounded-full bg-primary-strong"
+                        className={cn('h-full rounded-full', bar)}
                         style={{ width: `${Math.max(0, Math.min(100, rate.value * 100))}%` }}
                       />
                     </div>
                   ) : null}
-                  <p className="mt-2 text-xs text-secondary">{rateHint(rate, hint)}</p>
+                  <p className="mt-2 text-xs text-fg-secondary">{rateHint(rate, hint)}</p>
                 </div>
               </div>
             ))}
             <div className="flex items-start gap-3 py-4">
-              <MessageSquare aria-hidden="true" className="size-5 text-primary-strong" />
+              <MessageSquare aria-hidden="true" className="size-5 text-accent-conversation-fg" />
               <div>
                 <p className="text-sm font-medium">Messages from customers</p>
                 <p className="text-xl font-semibold tabular-nums">{count(d.kpis.inbound.value)}</p>
-                <p className="text-xs text-secondary">All inbound messages in this period.</p>
+                <p className="text-xs text-fg-secondary">All inbound messages in this period.</p>
               </div>
             </div>
           </div>
@@ -108,10 +110,7 @@ export function TeamSummary({ query }: { query: UseQueryResult<InboxAnalytics> }
     <Panel
       title="Team responsiveness"
       action={
-        <Link
-          href="/analytics/inbox"
-          className="text-sm font-medium text-primary-strong hover:underline"
-        >
+        <Link href="/analytics/inbox" className={cn('text-sm font-medium', textLink)}>
           View team →
         </Link>
       }
@@ -122,39 +121,39 @@ export function TeamSummary({ query }: { query: UseQueryResult<InboxAnalytics> }
             <div className="flex items-center gap-3">
               <span
                 aria-hidden="true"
-                className="flex size-8 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                className="flex size-8 items-center justify-center rounded-full bg-accent-conversation-bg text-accent-conversation-fg"
               >
                 <Clock className="size-5" />
               </span>
               <div>
-                <p className="text-sm text-secondary">Median first reply</p>
+                <p className="text-sm text-fg-secondary">Median first reply</p>
                 <p className="text-xl font-semibold tabular-nums">
                   {duration(d.kpis.medianFirstResponseSeconds)}
                 </p>
               </div>
             </div>
-            <p className="text-xs text-secondary">
+            <p className="text-xs text-fg-secondary">
               {d.kpis.firstResponses
                 ? `From ${count(d.kpis.firstResponses)} replies by teammates`
                 : 'No teammate replies in this period'}
             </p>
             <dl className="grid grid-cols-2 gap-3">
-              <div className="rounded-md border border-border p-3">
-                <dt className="text-xs text-secondary">Open now</dt>
+              <div className="rounded-md border border-border-subtle p-3">
+                <dt className="text-xs text-fg-secondary">Open now</dt>
                 <dd className="mt-1 text-xl font-semibold tabular-nums">{count(d.kpis.openNow)}</dd>
               </div>
-              <div className="rounded-md border border-border p-3">
-                <dt className="text-xs text-secondary">Awaiting first reply</dt>
+              <div className="rounded-md border border-border-subtle p-3">
+                <dt className="text-xs text-fg-secondary">Awaiting first reply</dt>
                 <dd className="mt-1 text-xl font-semibold tabular-nums">
                   {count(d.kpis.awaitingFirstResponse)}
                 </dd>
               </div>
             </dl>
-            <p className="text-xs text-secondary">
+            <p className="text-xs text-fg-secondary">
               Human replies only. Open and awaiting counts reflect the current inbox.
             </p>
             {d.episodesSince && d.episodesSince > d.meta.range.from ? (
-              <p className="text-xs text-secondary">
+              <p className="text-xs text-fg-secondary">
                 Response history starts on {d.episodesSince}.
               </p>
             ) : null}

@@ -147,10 +147,10 @@ function CreateApiKeyDialog({
             />
           </Field>
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium text-slate">Permissions</legend>
-            <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+            <legend className="text-sm font-medium text-fg">Permissions</legend>
+            <div className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">
               {grantableScopes.map((scope) => (
-                <label key={scope} className="flex items-center gap-2.5 text-base text-slate">
+                <label key={scope} className="flex items-center gap-2.5 text-base text-fg">
                   <Checkbox
                     checked={scopes.has(scope)}
                     onCheckedChange={(checked) =>
@@ -216,11 +216,11 @@ function RevealSecretDialog({
         footer={<Button onClick={onClose}>Done</Button>}
       >
         <div className="flex flex-col gap-4">
-          <p className="text-base font-medium text-danger-strong">
+          <p className="text-base font-medium text-status-error-fg">
             Copy this key now. Fenwira will not show it again.
           </p>
-          <div className="flex items-center gap-2 rounded-md border border-border bg-background p-3">
-            <code className="min-w-0 flex-1 overflow-x-auto font-mono text-sm text-slate">
+          <div className="flex items-center gap-2 rounded-md border border-border-subtle bg-canvas p-3">
+            <code className="min-w-0 flex-1 overflow-x-auto font-mono text-sm text-fg">
               {created.secret}
             </code>
             <Button type="button" variant="secondary" size="sm" onClick={copy}>
@@ -228,7 +228,7 @@ function RevealSecretDialog({
               {copied ? 'Copied' : 'Copy API key'}
             </Button>
           </div>
-          <p className="text-sm text-muted">
+          <p className="text-sm text-fg-muted">
             "{created.key.name}" is ready to use. If this key is lost, revoke it and create a new
             one — Fenwira stores only a hash and cannot recover it.
           </p>
@@ -249,13 +249,13 @@ function ApiKeyDetailDrawer({ apiKey, onClose }: { apiKey: ApiKey | null; onClos
       {apiKey ? (
         <dl className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <dt className="text-sm text-muted">Status</dt>
+            <dt className="text-sm text-fg-muted">Status</dt>
             <dd>
               <StatusBadge status={keyStatus(apiKey)} />
             </dd>
           </div>
           <div className="flex flex-col gap-1">
-            <dt className="text-sm text-muted">Permissions</dt>
+            <dt className="text-sm text-fg-muted">Permissions</dt>
             <dd className="flex flex-wrap gap-1.5">
               {apiKey.scopes.map((s) => (
                 <Badge key={s} tone="neutral">
@@ -265,21 +265,21 @@ function ApiKeyDetailDrawer({ apiKey, onClose }: { apiKey: ApiKey | null; onClos
             </dd>
           </div>
           <div className="flex flex-col gap-1">
-            <dt className="text-sm text-muted">Created</dt>
-            <dd className="text-slate">
+            <dt className="text-sm text-fg-muted">Created</dt>
+            <dd className="text-fg">
               {new Date(apiKey.createdAt).toLocaleDateString()}
               {apiKey.createdByName ? ` by ${apiKey.createdByName}` : ''}
             </dd>
           </div>
           <div className="flex flex-col gap-1">
-            <dt className="text-sm text-muted">Expires</dt>
-            <dd className="text-slate">
+            <dt className="text-sm text-fg-muted">Expires</dt>
+            <dd className="text-fg">
               {apiKey.expiresAt ? new Date(apiKey.expiresAt).toLocaleDateString() : 'Never'}
             </dd>
           </div>
           <div className="flex flex-col gap-1">
-            <dt className="text-sm text-muted">Last used</dt>
-            <dd className="text-slate">
+            <dt className="text-sm text-fg-muted">Last used</dt>
+            <dd className="text-fg">
               {apiKey.lastUsedAt ? relativeTime(apiKey.lastUsedAt) : 'Never'}
             </dd>
           </div>
@@ -373,10 +373,10 @@ export default function ApiKeysPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-slate">{key.name}</h3>
+                    <h3 className="font-semibold text-fg">{key.name}</h3>
                     <StatusBadge status={keyStatus(key)} />
                   </div>
-                  <code className="font-mono text-sm text-muted">fw_{key.prefix}_••••••</code>
+                  <code className="font-mono text-sm text-fg-muted">fw_{key.prefix}_••••••</code>
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {key.scopes.map((s) => (
                       <Badge key={s} tone="neutral">
@@ -384,7 +384,7 @@ export default function ApiKeysPage() {
                       </Badge>
                     ))}
                   </div>
-                  <p className="text-sm text-muted">
+                  <p className="text-sm text-fg-muted">
                     {key.lastUsedAt ? `Last used ${relativeTime(key.lastUsedAt)}` : 'Never used'} ·
                     Created {new Date(key.createdAt).toLocaleDateString()} · Expires{' '}
                     {key.expiresAt ? new Date(key.expiresAt).toLocaleDateString() : 'Never'}
