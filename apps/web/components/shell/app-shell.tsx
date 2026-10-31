@@ -8,13 +8,14 @@ import {
   DrawerContent,
   focusRing,
   ModuleTabs,
+  Tooltip,
   useCommandPaletteShortcut,
 } from '@fenwira/ui'
 import Link from 'next/link'
 import { SubscriptionBanner } from '@/components/billing/subscription-banner'
-import { Menu, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react'
+import { Menu, Pin, PinOff, Search } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { moduleTabs, NAVIGATION, type NavItem, visibleNavigation } from '@/lib/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { get } from '@/lib/api/client'
@@ -29,30 +30,14 @@ import { NotificationsBell } from './notifications-bell'
 import { SidebarNav } from './sidebar-nav'
 import { SidebarStatus } from './sidebar-status'
 import { TenantSwitcher } from './tenant-switcher'
-
-const COLLAPSE_KEY = 'fenwira.sidebar.collapsed'
-
-function readCollapsed(): boolean {
-  try {
-    return window.localStorage.getItem(COLLAPSE_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
-function writeCollapsed(value: boolean): void {
-  try {
-    window.localStorage.setItem(COLLAPSE_KEY, String(value))
-  } catch {
-    // Storage unavailable (private mode, blocked): the preference simply isn't remembered.
-  }
-}
+import { WhatsAppConnectionControl } from './whatsapp-connection-control'
+import { useSidebarExpansion } from '@/lib/use-sidebar-expansion'
 
 type AppShellProps = { children: ReactNode; navPreview: boolean; galleryEnabled: boolean }
 
 /**
  * Application shell (docs/design/UX_PATTERNS.md → Application shell): light sidebar of modules
- * (232px, 64px collapsed, a drawer below 1024px) with workspace status at its foot; a top bar with
+ * (232px pinned/overlay, 68px rail, a drawer below 1024px); a top bar with
  * workspace, breadcrumb, search, help, notifications and account; module tabs; the page.
  */
 export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps) {
@@ -89,20 +74,21 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       visibleNavigation(navPreview, NAVIGATION, membership.permissions, me.features.managedLaunch),
     [navPreview, membership.permissions, me.features.managedLaunch],
   )
-  const [collapsed, setCollapsed] = useState(false)
+  const { rail, pinned, expanded, togglePin } = useSidebarExpansion()
+  const collapsed = !expanded
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileTrigger = useRef<HTMLButtonElement>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
 
-  useEffect(() => setCollapsed(readCollapsed()), [])
-  useCommandPaletteShortcut(setPaletteOpen)
-
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed((value) => {
-      writeCollapsed(!value)
-      return !value
-    })
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px) and (hover: hover) and (pointer: fine)')
+    const close = () => {
+      if (desktop.matches) setMobileOpen(false)
+    }
+    desktop.addEventListener('change', close)
+    return () => desktop.removeEventListener('change', close)
   }, [])
+  useCommandPaletteShortcut(setPaletteOpen)
 
   const [search, setSearch] = useState('')
   const palette = useCommandGroups({ nav, search, open: paletteOpen, galleryEnabled })
@@ -118,48 +104,53 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
         Skip to content
       </a>
 
-      {/* Desktop sidebar */}
-      <aside
-        className={cn(
-          'sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 border-r border-border-subtle bg-sidebar p-3 transition-all lg:flex',
-          collapsed ? 'w-16' : 'w-56',
-        )}
-      >
+      {/* Only a pinned rail reserves the expanded width. The temporary rail is below the header. */}
+      <div className={cn('hidden shrink-0 desktop-navigation:block', pinned ? 'w-58' : 'w-17')}>
         <Link
           href="/dashboard"
           className={cn(
-            'flex h-10 items-center rounded-sm px-3',
-            collapsed && 'justify-center px-0',
+            'fixed top-0 left-0 z-20 flex h-14 items-center border-b border-r border-border-subtle bg-sidebar',
+            pinned ? 'w-58 justify-start px-6' : 'w-17 justify-center',
             focusRing,
           )}
         >
-          <BrandMark tone="light" compact={collapsed} size="md" className="text-xl" />
+          <BrandMark tone="light" compact={!pinned} size="md" />
           <span className="sr-only">Fenwira home</span>
         </Link>
-        <div className="flex-1 overflow-y-auto">
-          <SidebarNav items={nav} pathname={pathname} collapsed={collapsed} badges={badges} />
-        </div>
-        <SidebarStatus collapsed={collapsed} />
-        <AccountMenu footer collapsed={collapsed} />
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-pressed={collapsed}
+        <aside
+          ref={rail}
+          aria-label="Application navigation"
+          data-expanded={expanded}
+          data-pinned={pinned}
           className={cn(
-            'flex h-9 items-center gap-3 rounded-sm px-3 text-base text-fg-secondary hover:bg-surface-hover hover:text-fg',
-            collapsed && 'justify-center px-0',
-            focusRing,
+            'fw-desktop-sidebar fixed top-14 bottom-0 left-0 z-20 flex flex-col gap-2 overflow-hidden border-r border-border-subtle bg-sidebar p-3',
+            expanded ? 'w-58' : 'w-17',
+            expanded && !pinned && 'shadow-overlay',
           )}
         >
-          {collapsed ? (
-            <PanelLeftOpen className="size-4" aria-hidden="true" />
-          ) : (
-            <PanelLeftClose className="size-4" aria-hidden="true" />
-          )}
-          {collapsed ? null : <span>Collapse</span>}
-        </button>
-      </aside>
+          <div className="flex h-6 w-52 shrink-0 justify-end">
+            {expanded ? (
+              <Tooltip content={pinned ? 'Unpin sidebar' : 'Pin sidebar'} side="right">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 text-fg-secondary"
+                  onClick={togglePin}
+                  aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
+                  aria-pressed={pinned}
+                >
+                  {pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
+                </Button>
+              </Tooltip>
+            ) : null}
+          </div>
+          <div data-sidebar-scroll className="min-h-0 overflow-y-auto overflow-x-hidden">
+            <SidebarNav items={nav} pathname={pathname} collapsed={collapsed} badges={badges} />
+            <SidebarStatus />
+          </div>
+        </aside>
+      </div>
 
       {/* Mobile / tablet navigation */}
       <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -174,9 +165,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           }}
         >
           <div className="flex flex-col gap-4">
-            <TenantSwitcher />
             <SidebarStatus />
-            <AccountMenu footer />
             <SidebarNav
               items={nav}
               pathname={pathname}
@@ -190,33 +179,34 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
       <div className={cn('flex min-w-0 flex-1 flex-col', fullBleed && 'h-dvh')}>
         <header
           className={cn(
-            'sticky top-0 z-30 flex items-center gap-3 border-b border-border-subtle bg-surface px-4 md:px-6',
+            'sticky top-0 z-30 flex shrink-0 items-center gap-1 border-b border-border-subtle bg-surface px-2 sm:gap-2 sm:px-4 md:gap-3 md:px-6',
             'h-14',
           )}
         >
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="desktop-navigation:hidden"
             ref={mobileTrigger}
             aria-label="Open navigation"
             onClick={() => setMobileOpen(true)}
           >
             <Menu aria-hidden="true" />
           </Button>
-          <div className="hidden lg:block">
+          <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2 lg:flex-initial">
             <TenantSwitcher variant="topbar" />
+            <WhatsAppConnectionControl />
           </div>
           <span aria-hidden="true" className="hidden h-5 w-px bg-border-subtle lg:block" />
-          <div className="min-w-0 flex-1 lg:w-0 lg:flex-none xl:w-24" />
+          <div className="hidden min-w-0 flex-1 lg:block" />
           <Button
             variant="secondary"
             size="sm"
             onClick={() => setPaletteOpen(true)}
             aria-label="Search and jump to (Control K)"
             className={cn(
-              'min-w-0 gap-2 bg-sidebar text-fg-secondary shadow-raised lg:justify-start',
-              'lg:mr-auto lg:w-72 xl:w-96',
+              'min-w-0 gap-2 bg-sidebar px-2 text-fg-secondary shadow-raised sm:px-3 lg:justify-start',
+              'lg:mr-auto lg:w-56 xl:w-80',
             )}
           >
             <Search aria-hidden="true" />

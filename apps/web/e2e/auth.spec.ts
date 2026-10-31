@@ -110,7 +110,7 @@ test('two-factor: enrol with an authenticator, then sign in with a code', async 
     10,
   )
 
-  await page.getByRole('button', { name: /Workspace account menu/ }).click()
+  await page.getByRole('button', { name: 'Account menu', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Sign out' }).click()
   await page.getByLabel('Email').fill(owner.email)
   await page.getByLabel('Password').fill(PASSWORD)

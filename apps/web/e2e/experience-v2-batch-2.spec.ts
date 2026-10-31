@@ -268,7 +268,7 @@ test('Templates are a real message library with filters and keyboard context at 
           preview: box(document.querySelector('[data-template-card] figure')),
         }
       })
-      expect(geometry.sidebar?.width).toBe(224)
+      expect(geometry.sidebar?.width).toBe(68)
       expect(geometry.topbar?.height).toBe(56)
       expect(geometry.context?.width).toBe(448)
       expect(geometry.card?.width).toBeGreaterThan(230)

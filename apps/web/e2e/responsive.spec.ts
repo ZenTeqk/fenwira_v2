@@ -46,18 +46,24 @@ test('sidebar is persistent at 1024px and a drawer at 375px', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Open navigation' })).toBeFocused()
 })
 
-test('sidebar collapses to an icon rail and remembers it', async ({ page }) => {
+test('sidebar starts as an icon rail and remembers the explicit pin preference', async ({
+  page,
+}) => {
   await signInAsNewOwner(page, 'ui-rwd-rail')
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/dashboard')
-  const sidebar = page.locator('aside')
-  const wide = await sidebar.evaluate((el) => el.getBoundingClientRect().width)
-  expect(wide).toBe(224)
-  await page.getByRole('button', { name: 'Collapse sidebar' }).click()
-  await expect.poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width)).toBe(64)
+  const sidebar = page.getByRole('complementary', { name: 'Application navigation' })
+  await expect.poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width)).toBe(68)
+  await sidebar.getByRole('link', { name: 'Home', exact: true }).focus()
+  await page.getByRole('button', { name: 'Pin sidebar', exact: true }).click()
   await page.reload()
-  await expect.poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width)).toBe(64)
-  // Icon-only links keep an accessible name.
-  await expect(page.getByRole('link', { name: 'Home', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Expand sidebar' }).click()
+  await expect(sidebar).toHaveAttribute('data-pinned', 'true')
+  await expect.poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width)).toBe(232)
+  await page.getByRole('button', { name: 'Unpin sidebar' }).click()
+  await page.getByRole('button', { name: 'Account menu', exact: true }).focus()
+  await page.mouse.move(500, 20)
+  await expect.poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width)).toBe(68)
+  await page.reload()
+  await expect(sidebar).toHaveAttribute('data-pinned', 'false')
+  await expect(sidebar.getByRole('link', { name: 'Home', exact: true })).toBeVisible()
 })

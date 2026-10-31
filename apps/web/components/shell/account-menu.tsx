@@ -12,49 +12,29 @@ import {
   DropdownTrigger,
   focusRing,
 } from '@fenwira/ui'
-import { ChevronRight, LogOut, Shield } from 'lucide-react'
+import { LogOut, Shield } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSession } from '../session/session-provider'
 
-/** One account action path, rendered compactly in the topbar and with identity in the footer. */
-export function AccountMenu({
-  footer = false,
-  collapsed = false,
-}: {
-  footer?: boolean
-  collapsed?: boolean
-}) {
+/** The sole personal account menu, in the top-right header. */
+export function AccountMenu() {
   const { me, membership, signOut } = useSession()
   const router = useRouter()
   return (
     <Dropdown>
-      <DropdownTrigger
-        className={cn(
-          footer
-            ? 'flex w-full items-center gap-3 rounded-md border-t border-border-subtle px-2 py-3 text-left hover:bg-surface-hover'
-            : 'rounded-full',
-          collapsed && 'justify-center px-0',
-          focusRing,
-        )}
-      >
+      <DropdownTrigger className={cn('shrink-0 rounded-full', focusRing)}>
         <span aria-hidden="true">
           <Avatar appearance="varied" name={me.user.name} size="md" />
         </span>
-        {footer && !collapsed ? (
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium text-fg">{me.user.name}</span>
-            <span className="block text-sm text-fg-secondary">{ROLE_LABELS[membership.role]}</span>
-          </span>
-        ) : null}
-        {footer && !collapsed ? (
-          <ChevronRight className="size-4 text-fg-muted" aria-hidden="true" />
-        ) : null}
-        <span className="sr-only">{footer ? 'Workspace account menu' : 'Account menu'}</span>
+        <span className="sr-only">Account menu</span>
       </DropdownTrigger>
       <DropdownContent className="w-64">
         <DropdownLabel className="flex flex-col gap-0.5 text-fg">
           <span className="truncate text-base font-medium">{me.user.name}</span>
           <span className="truncate text-xs font-normal text-fg-muted">{me.user.email}</span>
+          <span className="text-xs font-normal text-fg-secondary">
+            {ROLE_LABELS[membership.role]}
+          </span>
         </DropdownLabel>
         <DropdownSeparator />
         <DropdownItem onSelect={() => router.push('/settings/security')}>

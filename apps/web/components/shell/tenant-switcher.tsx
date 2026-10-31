@@ -33,9 +33,9 @@ export function TenantSwitcher({
       <DropdownTrigger
         aria-label={`Current workspace: ${membership.tenantName}. Switch workspace`}
         className={cn(
-          'flex items-center gap-2 rounded-md text-left',
+          'flex min-w-0 items-center gap-2 rounded-md text-left',
           variant === 'topbar'
-            ? 'h-9 max-w-56 px-2 text-fg hover:bg-surface-hover'
+            ? 'h-9 min-w-0 max-w-56 px-0 text-fg hover:bg-surface-hover sm:px-2'
             : 'h-11 w-full px-2 text-fg hover:bg-surface-hover',
           collapsed && 'justify-center px-0',
           focusRing,
@@ -44,7 +44,7 @@ export function TenantSwitcher({
         <Avatar name={membership.tenantName} size="sm" className="rounded-sm" />
         {collapsed ? null : (
           <>
-            <span className="min-w-0 flex-1">
+            <span className={cn('min-w-0 flex-1', variant === 'topbar' && 'hidden sm:block')}>
               <span className="block truncate text-base font-semibold">
                 {membership.tenantName}
               </span>
@@ -55,7 +55,10 @@ export function TenantSwitcher({
               ) : null}
             </span>
             <ChevronsUpDown
-              className={cn('size-4', variant === 'topbar' ? 'text-fg-muted' : 'text-fg-muted')}
+              className={cn(
+                'size-4 shrink-0 text-fg-muted',
+                variant === 'topbar' && 'hidden sm:block',
+              )}
               aria-hidden="true"
             />
           </>
