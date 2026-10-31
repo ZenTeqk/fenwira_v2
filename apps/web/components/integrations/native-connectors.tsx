@@ -151,10 +151,10 @@ export function NativeConnectors() {
   return (
     <section aria-labelledby="native-heading" className="flex flex-col gap-3">
       <div>
-        <h2 id="native-heading" className="text-md font-semibold text-slate">
+        <h2 id="native-heading" className="text-md font-semibold text-fg">
           Connected applications
         </h2>
-        <p className="text-sm text-secondary">
+        <p className="text-sm text-fg-secondary">
           Import CRM and store contacts, or export contacts to Google Sheets.
         </p>
       </div>
@@ -170,7 +170,7 @@ export function NativeConnectors() {
                 <IntegrationLogo integration={item.provider} />
                 <h3 className="text-sm font-semibold">{labels[item.provider]}</h3>
               </div>
-              <p className="text-xs text-secondary">
+              <p className="text-xs text-fg-secondary">
                 {item.provider === 'GOOGLE_SHEETS'
                   ? 'Export contacts to a dedicated sheet'
                   : 'Import contacts for review'}
@@ -192,10 +192,10 @@ export function NativeConnectors() {
                     ))}
                 </>
               ) : (
-                <p className="text-xs text-secondary">Not connected</p>
+                <p className="text-xs text-fg-secondary">Not connected</p>
               )}
               {!item.available ? (
-                <p className="text-xs text-muted">OAuth app setup required</p>
+                <p className="text-xs text-fg-muted">OAuth app setup required</p>
               ) : null}
               <Button
                 variant="secondary"
@@ -344,7 +344,7 @@ export function NativeConnectors() {
         >
           <div className="flex flex-col gap-3">
             {selected?.site ? (
-              <p className="break-all text-sm text-secondary">{selected.site}</p>
+              <p className="break-all text-sm text-fg-secondary">{selected.site}</p>
             ) : null}
             {selected?.status === 'ACTIVE' ? (
               <div className="flex flex-wrap gap-2">
@@ -386,11 +386,13 @@ export function NativeConnectors() {
                 {runs.data.map((run) => (
                   <li
                     key={run.id}
-                    className="flex flex-col gap-2 rounded-md border border-border p-3"
+                    className="flex flex-col gap-2 rounded-md border border-border-subtle p-3"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <StatusBadge status={run.status} />
-                      <span className="text-xs text-secondary">{relativeTime(run.createdAt)}</span>
+                      <span className="text-xs text-fg-secondary">
+                        {relativeTime(run.createdAt)}
+                      </span>
                     </div>
                     <p className="text-sm">
                       {run.rows.toLocaleString('en-IN')} contacts{' '}
@@ -426,12 +428,12 @@ export function NativeConnectors() {
               </ul>
             )}
             {selected?.provider === 'GOOGLE_SHEETS' ? (
-              <p className="text-xs text-secondary">
+              <p className="text-xs text-fg-secondary">
                 Each export creates a separate “Fenwira Contacts” tab named with its transfer ID.
                 Retrying reuses that tab and snapshot.
               </p>
             ) : (
-              <p className="text-xs text-secondary">
+              <p className="text-xs text-fg-secondary">
                 Imports require review and confirmation in Contacts. Provider consent is not
                 imported.
               </p>
@@ -478,7 +480,7 @@ export function NativeConnectors() {
                 </div>
               </>
             ) : (
-              <p className="text-sm text-secondary">
+              <p className="text-sm text-fg-secondary">
                 Read contacts from this application and prepare a CSV for the existing import
                 review. Choose field mapping and duplicate policy before confirming the import.
                 Existing consent and suppression are preserved.

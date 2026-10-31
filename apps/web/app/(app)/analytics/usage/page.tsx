@@ -2,7 +2,7 @@
 
 import { useManagedBillingRedirect } from '@/components/billing/managed-billing'
 import { type UsageAnalytics } from '@fenwira/contracts'
-import { MetricCard, PermissionState, TrendChart } from '@fenwira/ui'
+import { type ChartTone, MetricCard, PermissionState, TrendChart, textLink } from '@fenwira/ui'
 import { Gift, Receipt, Send } from 'lucide-react'
 import Link from 'next/link'
 import { AnalyticsFrame, KpiGrid, Panel } from '@/components/analytics/analytics-frame'
@@ -17,7 +17,19 @@ const CATEGORY_LABEL: Record<string, string> = {
   AUTHENTICATION: 'Authentication',
   SERVICE: 'Service',
 }
-const TONES = ['primary', 'info', 'success', 'warning'] as const
+/**
+ * Colour follows the category, never its position, so a period without one category doesn't
+ * repaint the rest. The stacking order is the validated one (no colour-blind-ambiguous neighbours).
+ */
+const CATEGORY_TONE = {
+  UTILITY: 'blue',
+  AUTHENTICATION: 'orange',
+  MARKETING: 'violet',
+  SERVICE: 'aqua',
+} as const satisfies Record<string, ChartTone>
+const CATEGORY_ORDER = Object.keys(CATEGORY_TONE)
+const order = (key: string) =>
+  CATEGORY_ORDER.includes(key) ? CATEGORY_ORDER.indexOf(key) : CATEGORY_ORDER.length
 
 /**
  * Analytics → Usage. Charges come from usage events (the source of every wallet debit), so they
@@ -39,7 +51,7 @@ function UsageAnalyticsPageContent() {
     >
       {(d) => {
         const money = (minor: number) => formatMoney(minor, d.currency)
-        const categories = d.byCategory.map((c) => c.key)
+        const categories = d.byCategory.map((c) => c.key).sort((a, b) => order(a) - order(b))
         return (
           <>
             <KpiGrid>
@@ -65,7 +77,7 @@ function UsageAnalyticsPageContent() {
                 icon={<Gift />}
                 value={money(d.kpis.promotionalCreditsMinor.value)}
                 hint={
-                  <Link className="underline-offset-4 hover:underline" href="/billing/wallet">
+                  <Link className={textLink} href="/billing/wallet">
                     Balance and transactions
                   </Link>
                 }
@@ -77,10 +89,10 @@ function UsageAnalyticsPageContent() {
                 variant="stacked"
                 formatValue={money}
                 data={d.series.map((p) => ({ label: shortDay(p.day), values: p.values }))}
-                series={categories.map((k, i) => ({
+                series={categories.map((k) => ({
                   key: k,
                   label: CATEGORY_LABEL[k] ?? k,
-                  tone: TONES[i % TONES.length]!,
+                  tone: CATEGORY_TONE[k as keyof typeof CATEGORY_TONE] ?? 'other',
                 }))}
               />
             </Panel>

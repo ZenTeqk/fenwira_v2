@@ -74,6 +74,7 @@
   --fw-blue-200: #bfdbfe;
   --fw-blue-300: #93c5fd;
   --fw-blue-400: #60a5fa;
+  --fw-blue-500: #3b82f6;
   --fw-blue-600: #2563eb;
   --fw-blue-700: #1d4ed8;
   --fw-blue-800: #1e3a8a;
@@ -90,6 +91,15 @@
   --fw-orange-300: #fdba74;
   --fw-orange-700: #c2410c;
   --fw-orange-950: #33200f;
+  --fw-series-blue: #2a78d6;
+  --fw-series-blue-dark: #3987e5;
+  --fw-series-orange: #eb6834;
+  --fw-series-orange-dark: #d95926;
+  --fw-series-violet: #6250d6;
+  --fw-series-violet-dark: #9085e9;
+  --fw-series-aqua: #14a06f;
+  --fw-series-aqua-dark: #199e70;
+  --fw-series-red-dark: #e66767;
   --fw-chat-sand: #f3f0ea;
   --fw-chat-leaf: #ddeed5;
   --fw-chat-forest: #1e3a2b;
@@ -210,6 +220,16 @@
   --color-chart-4: var(--fw-red-600);
   --color-chart-5: var(--fw-amber-700);
   --color-chart-6: var(--fw-neutral-600);
+  --color-chart-stage-1: var(--fw-blue-500);
+  --color-chart-stage-2: var(--fw-blue-700);
+  --color-chart-stage-3: var(--fw-blue-800);
+  --color-chart-blue: var(--fw-series-blue);
+  --color-chart-orange: var(--fw-series-orange);
+  --color-chart-violet: var(--fw-series-violet);
+  --color-chart-aqua: var(--fw-series-aqua);
+  --color-chart-good: var(--fw-green-600);
+  --color-chart-critical: var(--fw-red-600);
+  --color-chart-other: var(--fw-neutral-400);
   /* Deprecated Design System v1 aliases (tokens.ts → tokenAliases). */
   --color-primary: var(--color-action-primary);
   --color-primary-hover: var(--color-action-primary-hover);
@@ -336,6 +356,16 @@
   --color-chart-4: var(--fw-red-400);
   --color-chart-5: var(--fw-amber-400);
   --color-chart-6: var(--fw-neutral-330);
+  --color-chart-stage-1: var(--fw-blue-600);
+  --color-chart-stage-2: var(--fw-blue-400);
+  --color-chart-stage-3: var(--fw-blue-200);
+  --color-chart-blue: var(--fw-series-blue-dark);
+  --color-chart-orange: var(--fw-series-orange-dark);
+  --color-chart-violet: var(--fw-series-violet-dark);
+  --color-chart-aqua: var(--fw-series-aqua-dark);
+  --color-chart-good: var(--fw-green-600);
+  --color-chart-critical: var(--fw-series-red-dark);
+  --color-chart-other: var(--fw-neutral-450);
   --color-primary: var(--color-action-primary);
   --color-primary-hover: var(--color-action-primary-hover);
   --color-primary-soft: var(--color-action-primary-subtle);

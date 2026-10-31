@@ -128,15 +128,15 @@ function DeliveryDrawer({
             </SummaryItem>
           </dl>
           <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-slate">Request payload</p>
-            <pre className="overflow-x-auto rounded-md border border-border bg-background p-3 text-sm text-slate">
+            <p className="text-sm font-medium text-fg">Request payload</p>
+            <pre className="overflow-x-auto rounded-md border border-border-subtle bg-canvas p-3 text-sm text-fg">
               {JSON.stringify(data.payload, null, 2)}
             </pre>
           </div>
           {data.responseBody ? (
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium text-slate">Response body</p>
-              <pre className="max-h-48 overflow-auto rounded-md border border-border bg-background p-3 text-sm text-slate">
+              <p className="text-sm font-medium text-fg">Response body</p>
+              <pre className="max-h-48 overflow-auto rounded-md border border-border-subtle bg-canvas p-3 text-sm text-fg">
                 {data.responseBody}
               </pre>
             </div>
@@ -311,8 +311,8 @@ export default function WebhookEndpointDetailPage() {
         </TabsList>
 
         <TabsContent value="overview" className="flex flex-col gap-4">
-          <div className="rounded-lg border border-border bg-surface p-5">
-            <p className="mb-3 text-sm font-semibold text-slate">Subscribed event families</p>
+          <div className="rounded-lg border border-border-subtle bg-surface p-5">
+            <p className="mb-3 text-sm font-semibold text-fg">Subscribed event families</p>
             <div className="flex flex-wrap gap-1.5">
               {e.events.map((ev) => (
                 <Badge key={ev} tone="neutral">
@@ -360,7 +360,7 @@ export default function WebhookEndpointDetailPage() {
 
         <TabsContent value="settings" className="flex max-w-xl flex-col gap-5">
           {editing ? (
-            <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5">
+            <div className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-5">
               <FormError error={update.error} />
               <Field label="Name">
                 <Input value={editName} onChange={(ev) => setEditName(ev.target.value)} />
@@ -369,10 +369,10 @@ export default function WebhookEndpointDetailPage() {
                 <Input value={editUrl} onChange={(ev) => setEditUrl(ev.target.value)} />
               </Field>
               <fieldset className="flex flex-col gap-2">
-                <legend className="text-sm font-medium text-slate">Events</legend>
-                <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+                <legend className="text-sm font-medium text-fg">Events</legend>
+                <div className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">
                   {ALL_WEBHOOK_EVENTS.map((ev) => (
-                    <label key={ev} className="flex items-center gap-2.5 text-base text-slate">
+                    <label key={ev} className="flex items-center gap-2.5 text-base text-fg">
                       <Checkbox
                         checked={editEvents.has(ev)}
                         onCheckedChange={(checked) =>
@@ -417,10 +417,10 @@ export default function WebhookEndpointDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-5">
+            <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface p-5">
               <div>
-                <p className="font-semibold text-slate">Endpoint details</p>
-                <p className="text-sm text-muted">Name, URL and subscribed events.</p>
+                <p className="font-semibold text-fg">Endpoint details</p>
+                <p className="text-sm text-fg-muted">Name, URL and subscribed events.</p>
               </div>
               <Button variant="secondary" onClick={startEdit}>
                 Edit
@@ -428,12 +428,12 @@ export default function WebhookEndpointDetailPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-5">
+          <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface p-5">
             <div>
-              <p className="font-semibold text-slate">
+              <p className="font-semibold text-fg">
                 {e.status === 'ACTIVE' ? 'Disable endpoint' : 'Re-enable endpoint'}
               </p>
-              <p className="text-sm text-muted">
+              <p className="text-sm text-fg-muted">
                 {e.status === 'ACTIVE'
                   ? 'Stop sending deliveries without deleting the endpoint.'
                   : 'Resume deliveries. Send a test first to confirm the endpoint is ready.'}
@@ -457,10 +457,10 @@ export default function WebhookEndpointDetailPage() {
             </Button>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-5">
+          <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface p-5">
             <div>
-              <p className="font-semibold text-slate">Signing secret</p>
-              <p className="text-sm text-muted">
+              <p className="font-semibold text-fg">Signing secret</p>
+              <p className="text-sm text-fg-muted">
                 Rotating generates a new secret immediately. The old secret stops verifying — there
                 is no overlap window, so update your receiver first if you can.
               </p>
@@ -486,10 +486,10 @@ export default function WebhookEndpointDetailPage() {
             </Button>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger-soft p-5">
+          <div className="flex items-center justify-between rounded-lg border border-status-error/30 bg-status-error-bg p-5">
             <div>
-              <p className="font-semibold text-slate">Delete endpoint</p>
-              <p className="text-sm text-muted">Stops all deliveries. This cannot be undone.</p>
+              <p className="font-semibold text-fg">Delete endpoint</p>
+              <p className="text-sm text-fg-muted">Stops all deliveries. This cannot be undone.</p>
             </div>
             <Button
               variant="danger"
@@ -525,11 +525,11 @@ export default function WebhookEndpointDetailPage() {
           onOpenChange={(open) => !open && setRotatedSecret(null)}
           title="New signing secret"
         >
-          <p className="text-base font-medium text-danger-strong">
+          <p className="text-base font-medium text-status-error-fg">
             Copy this secret now. Fenwira will not show it again.
           </p>
-          <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-background p-3">
-            <code className="min-w-0 flex-1 overflow-x-auto font-mono text-sm text-slate">
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-border-subtle bg-canvas p-3">
+            <code className="min-w-0 flex-1 overflow-x-auto font-mono text-sm text-fg">
               {rotatedSecret}
             </code>
             <Button

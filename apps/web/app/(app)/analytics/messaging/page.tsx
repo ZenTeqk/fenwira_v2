@@ -89,10 +89,10 @@ export default function MessagingAnalyticsPage() {
               label="Messages per day by status"
               data={d.series.map((p) => ({ label: shortDay(p.day), values: p.values }))}
               series={[
-                { key: 'sent', label: 'Sent', tone: 'primary' },
-                { key: 'delivered', label: 'Delivered', tone: 'info' },
-                { key: 'read', label: 'Read', tone: 'success' },
-                { key: 'failed', label: 'Failed', tone: 'danger' },
+                { key: 'sent', label: 'Sent', tone: 'stage1' },
+                { key: 'delivered', label: 'Delivered', tone: 'stage2' },
+                { key: 'read', label: 'Read', tone: 'stage3' },
+                { key: 'failed', label: 'Failed', tone: 'critical' },
               ]}
             />
           </Panel>

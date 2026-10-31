@@ -33,7 +33,7 @@ export function IntegrationLogo({
   return (
     <span
       className={cn(
-        'flex shrink-0 items-center justify-center rounded-md border border-border bg-surface',
+        'flex shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface',
         size === 'sm' ? 'size-7 p-1' : size === 'md' ? 'size-10 p-1.5' : 'size-14 p-2',
         className,
       )}

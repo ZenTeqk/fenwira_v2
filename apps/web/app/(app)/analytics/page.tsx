@@ -5,7 +5,15 @@ import {
   type MessagingAnalytics,
   type OverviewAnalytics,
 } from '@fenwira/contracts'
-import { type ColumnDef, DataTable, MetricCard, PermissionState, TrendChart } from '@fenwira/ui'
+import {
+  type ColumnDef,
+  DataTable,
+  MetricCard,
+  PermissionState,
+  TrendChart,
+  cn,
+  textLink,
+} from '@fenwira/ui'
 import { AlertTriangle, CheckCheck, MessageSquare, Receipt, Send } from 'lucide-react'
 import Link from 'next/link'
 import { AnalyticsFrame, KpiGrid, Panel } from '@/components/analytics/analytics-frame'
@@ -77,7 +85,7 @@ export default function AnalyticsOverviewPage() {
                 value={formatMoney(d.kpis.chargeMinor.value, d.currency)}
                 delta={countDelta(d.kpis.chargeMinor, false)}
                 hint={
-                  <Link className="underline-offset-4 hover:underline" href="/analytics/usage">
+                  <Link className={textLink} href="/analytics/usage">
                     See usage
                   </Link>
                 }
@@ -104,10 +112,10 @@ export default function AnalyticsOverviewPage() {
                   height={160}
                   data={d.series.map((p) => ({ label: shortDay(p.day), values: p.values }))}
                   series={[
-                    { key: 'sent', label: 'Sent', tone: 'primary' },
-                    { key: 'delivered', label: 'Delivered', tone: 'info' },
-                    { key: 'read', label: 'Read', tone: 'success' },
-                    { key: 'failed', label: 'Failed', tone: 'danger' },
+                    { key: 'sent', label: 'Sent', tone: 'stage1' },
+                    { key: 'delivered', label: 'Delivered', tone: 'stage2' },
+                    { key: 'read', label: 'Read', tone: 'stage3' },
+                    { key: 'failed', label: 'Failed', tone: 'critical' },
                   ]}
                 />
               </Panel>
@@ -118,10 +126,7 @@ export default function AnalyticsOverviewPage() {
             <Panel
               title="Campaign performance"
               action={
-                <Link
-                  href="/analytics/campaigns"
-                  className="text-sm font-medium text-primary-strong hover:underline"
-                >
+                <Link href="/analytics/campaigns" className={cn('text-sm font-medium', textLink)}>
                   View all →
                 </Link>
               }
@@ -138,10 +143,7 @@ export default function AnalyticsOverviewPage() {
             <Panel
               title="Automation performance"
               action={
-                <Link
-                  href="/analytics/automations"
-                  className="text-sm font-medium text-primary-strong hover:underline"
-                >
+                <Link href="/analytics/automations" className={cn('text-sm font-medium', textLink)}>
                   View all →
                 </Link>
               }
@@ -168,7 +170,7 @@ const campaignColumns: Array<ColumnDef<Campaign>> = [
     cell: ({ row }) => (
       <Link
         href={`/campaigns/${row.original.campaignId}`}
-        className="font-medium text-slate underline-offset-4 hover:underline"
+        className="font-medium text-fg underline-offset-4 hover:underline"
       >
         {row.original.name}
       </Link>
@@ -195,7 +197,7 @@ const flowColumns: Array<ColumnDef<Flow>> = [
     cell: ({ row }) => (
       <Link
         href={`/automations/${row.original.flowId}`}
-        className="font-medium text-slate underline-offset-4 hover:underline"
+        className="font-medium text-fg underline-offset-4 hover:underline"
       >
         {row.original.name}
       </Link>

@@ -8,6 +8,13 @@ const tones = {
   info: 'accent-status-info [&::-moz-progress-bar]:bg-status-info [&::-webkit-progress-value]:bg-status-info',
   warning:
     'accent-status-warning [&::-moz-progress-bar]:bg-status-warning [&::-webkit-progress-value]:bg-status-warning',
+  // Message funnel stages: the same ordinal blue ramp as the analytics charts.
+  stage1:
+    'accent-chart-stage-1 [&::-moz-progress-bar]:bg-chart-stage-1 [&::-webkit-progress-value]:bg-chart-stage-1',
+  stage2:
+    'accent-chart-stage-2 [&::-moz-progress-bar]:bg-chart-stage-2 [&::-webkit-progress-value]:bg-chart-stage-2',
+  stage3:
+    'accent-chart-stage-3 [&::-moz-progress-bar]:bg-chart-stage-3 [&::-webkit-progress-value]:bg-chart-stage-3',
 } as const
 
 /** Native, named progress with finite bounds. No visual-only or indeterminate fake percentage. */

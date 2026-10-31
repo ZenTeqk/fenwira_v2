@@ -100,6 +100,7 @@ export const palette = {
     200: '#BFDBFE',
     300: '#93C5FD',
     400: '#60A5FA',
+    500: '#3B82F6',
     600: '#2563EB',
     700: '#1D4ED8',
     800: '#1E3A8A',
@@ -116,6 +117,19 @@ export const palette = {
     950: '#251C3B',
   },
   orange: { 50: '#FFF7ED', 300: '#FDBA74', 700: '#C2410C', 950: '#33200F' },
+  // Categorical chart hues (validated with the dataviz palette checks: lightness band, chroma,
+  // colour-blind separation and >= 3:1 against the chart surface in each mode).
+  series: {
+    blue: '#2A78D6',
+    'blue-dark': '#3987E5',
+    orange: '#EB6834',
+    'orange-dark': '#D95926',
+    violet: '#6250D6',
+    'violet-dark': '#9085E9',
+    aqua: '#14A06F',
+    'aqua-dark': '#199E70',
+    'red-dark': '#E66767',
+  },
   // WhatsApp-inspired chat surfaces (warm paper canvas, leaf outgoing, forest outgoing in dark).
   chat: { sand: '#F3F0EA', leaf: '#DDEED5', forest: '#1E3A2B' },
   // Avatar identity hues: decorative, deterministic per contact, never a status.
@@ -256,13 +270,27 @@ export const componentTokens = {
   'avatar-mint-fg': pair('mint.800', 'mint.200'),
   'avatar-periwinkle-bg': pair('periwinkle.100', 'periwinkle.900'),
   'avatar-periwinkle-fg': pair('periwinkle.800', 'periwinkle.200'),
-  // Chart series (TrendChart): 3:1 against the surface in both themes.
+  // Chart series (TrendChart): 3:1 against the surface in both themes. chart-1…6 are the original
+  // tones (still used by the operator console); the named series below are the validated set.
   'chart-1': pair('emerald.700', 'emerald.400'),
   'chart-2': pair('blue.600', 'blue.400'),
   'chart-3': pair('green.800', 'green.400'),
   'chart-4': pair('red.600', 'red.400'),
   'chart-5': pair('amber.700', 'amber.400'),
   'chart-6': pair('neutral.600', 'neutral.330'),
+  // Message funnel (sent → delivered → read): one ordinal blue ramp, light to dark.
+  'chart-stage-1': pair('blue.500', 'blue.600'),
+  'chart-stage-2': pair('blue.700', 'blue.400'),
+  'chart-stage-3': pair('blue.800', 'blue.200'),
+  // Nominal categories, in this fixed order (never cycled).
+  'chart-blue': pair('series.blue', 'series.blue-dark'),
+  'chart-orange': pair('series.orange', 'series.orange-dark'),
+  'chart-violet': pair('series.violet', 'series.violet-dark'),
+  'chart-aqua': pair('series.aqua', 'series.aqua-dark'),
+  // Outcomes that are statuses (always with a legend label) and the grey "other".
+  'chart-good': pair('green.600', 'green.600'),
+  'chart-critical': pair('red.600', 'series.red-dark'),
+  'chart-other': pair('neutral.400', 'neutral.450'),
 } as const satisfies Record<string, ThemePair>
 
 export type SemanticToken = keyof typeof semanticTokens | keyof typeof componentTokens

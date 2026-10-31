@@ -32,6 +32,15 @@ describe('TrendChart', () => {
     )
   })
 
+  it('lets keyboard users focus the scrolling table region', async () => {
+    render(<TrendChart label="Messages per day" data={data} series={series} variant="bar" />)
+    await userEvent.click(screen.getByRole('button', { name: 'Show as table' }))
+    const region = screen.getByRole('region', { name: 'Messages per day table' })
+    expect(region).toHaveAttribute('tabindex', '0')
+    await userEvent.tab()
+    expect(region).toHaveFocus()
+  })
+
   it('renders zero activity without dividing by zero', () => {
     render(
       <TrendChart

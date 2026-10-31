@@ -105,22 +105,22 @@ export function IntegrationsOverview() {
                     <p className="break-words text-sm font-medium">
                       {c.label || c.verifiedName || c.waba.name}
                     </p>
-                    <p className="text-sm text-secondary">Business account</p>
+                    <p className="text-sm text-fg-secondary">Business account</p>
                   </div>
                 </div>
                 <dl className="grid min-w-0 flex-1 basis-80 grid-cols-2 gap-4 lg:grid-cols-4">
                   <div>
-                    <dt className="text-xs text-secondary">Phone number</dt>
+                    <dt className="text-xs text-fg-secondary">Phone number</dt>
                     <dd className="mt-2 text-sm font-medium">{c.displayPhoneNumber}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-secondary">Quality</dt>
+                    <dt className="text-xs text-fg-secondary">Quality</dt>
                     <dd className="mt-2">
                       <StatusBadge status={c.qualityRating} />
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-secondary">Meta webhook</dt>
+                    <dt className="text-xs text-fg-secondary">Meta webhook</dt>
                     <dd className="mt-2">
                       {c.webhookStatus === 'ACTIVE' || c.webhookStatus === 'FAILED' ? (
                         <StatusBadge
@@ -128,12 +128,12 @@ export function IntegrationsOverview() {
                           label={c.webhookStatus === 'ACTIVE' ? 'Subscribed' : 'Failed'}
                         />
                       ) : (
-                        <span className="text-sm text-secondary">Not subscribed</span>
+                        <span className="text-sm text-fg-secondary">Not subscribed</span>
                       )}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-secondary">Last sync</dt>
+                    <dt className="text-xs text-fg-secondary">Last sync</dt>
                     <dd className="mt-2 text-sm">
                       {c.lastSyncedAt ? (
                         <time dateTime={c.lastSyncedAt}>{relativeTime(c.lastSyncedAt)}</time>
@@ -177,10 +177,10 @@ export function IntegrationsOverview() {
         <>
           <section aria-labelledby="build-heading" className="flex flex-col gap-3">
             <div>
-              <h2 id="build-heading" className="text-md font-semibold text-slate">
+              <h2 id="build-heading" className="text-md font-semibold text-fg">
                 Build with Fenwira
               </h2>
-              <p className="text-sm text-secondary">
+              <p className="text-sm text-fg-secondary">
                 Connect your applications and automate your workflows.
               </p>
             </div>
@@ -189,13 +189,15 @@ export function IntegrationsOverview() {
                 <div className="flex items-center gap-4">
                   <span
                     aria-hidden="true"
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-muted text-fg-secondary"
                   >
                     <Code2 className="size-4" />
                   </span>
                   <div>
                     <h3 className="text-md font-semibold">API</h3>
-                    <p className="text-sm text-secondary">Connect your applications to Fenwira.</p>
+                    <p className="text-sm text-fg-secondary">
+                      Connect your applications to Fenwira.
+                    </p>
                   </div>
                 </div>
                 {apiKeys.isError ? (
@@ -206,10 +208,10 @@ export function IntegrationsOverview() {
                 ) : apiKeys.isPending ? (
                   <Skeleton aria-label="Loading API key summary" className="h-10" />
                 ) : (
-                  <div className="flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
+                  <div className="flex flex-wrap items-end justify-between gap-3 border-t border-border-subtle pt-3">
                     <div>
                       <p className="text-lg font-semibold tabular-nums">{activeKeys}</p>
-                      <p className="text-sm text-secondary">active keys</p>
+                      <p className="text-sm text-fg-secondary">active keys</p>
                     </div>
                     <Button variant="link" asChild>
                       <Link href="/integrations/api">Manage API keys →</Link>
@@ -226,13 +228,13 @@ export function IntegrationsOverview() {
                 <div className="flex items-center gap-4">
                   <span
                     aria-hidden="true"
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-info-soft text-info-strong"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-muted text-fg-secondary"
                   >
                     <Webhook className="size-4" />
                   </span>
                   <div>
                     <h3 className="text-md font-semibold">Webhooks</h3>
-                    <p className="text-sm text-secondary">
+                    <p className="text-sm text-fg-secondary">
                       Receive Fenwira events in your systems.
                     </p>
                   </div>
@@ -245,10 +247,10 @@ export function IntegrationsOverview() {
                 ) : endpoints.isPending ? (
                   <Skeleton aria-label="Loading webhook summary" className="h-10" />
                 ) : (
-                  <div className="flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
+                  <div className="flex flex-wrap items-end justify-between gap-3 border-t border-border-subtle pt-3">
                     <div>
                       <p className="text-lg font-semibold tabular-nums">{endpoints.data?.length}</p>
-                      <p className="text-sm text-secondary">
+                      <p className="text-sm text-fg-secondary">
                         endpoints · {endpoints.data?.filter((e) => e.status === 'ACTIVE').length}{' '}
                         active
                       </p>
@@ -270,10 +272,10 @@ export function IntegrationsOverview() {
           <section aria-labelledby="endpoints-heading" className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 id="endpoints-heading" className="text-md font-semibold text-slate">
+                <h2 id="endpoints-heading" className="text-md font-semibold text-fg">
                   Webhook endpoints
                 </h2>
-                <p className="text-sm text-secondary">
+                <p className="text-sm text-fg-secondary">
                   Configured destinations and consecutive delivery failures.
                 </p>
               </div>
@@ -324,7 +326,7 @@ const columns: Array<ColumnDef<WebhookEndpoint>> = [
       } catch {
         /* Invalid historic destinations remain manageable. */
       }
-      return <span className="break-all text-sm text-secondary">{destination}</span>
+      return <span className="break-all text-sm text-fg-secondary">{destination}</span>
     },
   },
   {

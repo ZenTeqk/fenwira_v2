@@ -54,18 +54,12 @@ function StepIndicator({ current }: { current: Step }) {
         <li key={s.id} className="flex items-center gap-2">
           <span
             aria-current={idx === i ? 'step' : undefined}
-            className={
-              idx === i
-                ? 'font-semibold text-primary-strong'
-                : idx < i
-                  ? 'text-slate'
-                  : 'text-muted'
-            }
+            className={idx === i ? 'font-semibold text-fg' : idx < i ? 'text-fg' : 'text-fg-muted'}
           >
             {s.label}
           </span>
           {idx < STEPS.length - 1 ? (
-            <span aria-hidden="true" className="text-border">
+            <span aria-hidden="true" className="text-border-subtle">
               /
             </span>
           ) : null}
@@ -182,15 +176,15 @@ function CreateEndpointDialog({
         ) : null}
         {step === 'events' ? (
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted">
+            <p className="text-sm text-fg-muted">
               Choose exactly what this endpoint should receive. Fenwira only ever sends events from
               this approved list — never arbitrary internal activity.
             </p>
             {WEBHOOK_EVENT_FAMILIES.map((family) => {
               const allSelected = family.events.every((e) => events.has(e))
               return (
-                <div key={family.label} className="rounded-md border border-border p-3">
-                  <label className="mb-2 flex items-center gap-2.5 text-sm font-semibold text-slate">
+                <div key={family.label} className="rounded-md border border-border-subtle p-3">
+                  <label className="mb-2 flex items-center gap-2.5 text-sm font-semibold text-fg">
                     <Checkbox
                       checked={allSelected}
                       onCheckedChange={(checked) => toggleFamily(family.events, Boolean(checked))}
@@ -199,7 +193,7 @@ function CreateEndpointDialog({
                   </label>
                   <div className="flex flex-col gap-2 pl-6">
                     {family.events.map((e) => (
-                      <label key={e} className="flex items-center gap-2.5 text-base text-slate">
+                      <label key={e} className="flex items-center gap-2.5 text-base text-fg">
                         <Checkbox
                           checked={events.has(e)}
                           onCheckedChange={(checked) =>
@@ -221,9 +215,9 @@ function CreateEndpointDialog({
           </div>
         ) : null}
         {step === 'security' ? (
-          <div className="flex flex-col gap-3 text-base text-slate">
+          <div className="flex flex-col gap-3 text-base text-fg">
             <p>Every delivery to this endpoint is protected the same way:</p>
-            <ul className="flex flex-col gap-2 rounded-md border border-border bg-background p-3">
+            <ul className="flex flex-col gap-2 rounded-md border border-border-subtle bg-canvas p-3">
               <li>• A unique signing secret, generated when you create this endpoint</li>
               <li>• Every payload is HMAC-signed and timestamped so your server can verify it</li>
               <li>
@@ -231,7 +225,7 @@ function CreateEndpointDialog({
               </li>
               <li>• Only HTTPS endpoints are accepted in production</li>
             </ul>
-            <p className="text-sm text-muted">
+            <p className="text-sm text-fg-muted">
               The signing secret is shown once, right after you create this endpoint.
             </p>
           </div>
@@ -239,16 +233,16 @@ function CreateEndpointDialog({
         {step === 'review' ? (
           <dl className="flex flex-col gap-3 text-base">
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Name</dt>
-              <dd className="font-medium text-slate">{name}</dd>
+              <dt className="text-fg-muted">Name</dt>
+              <dd className="font-medium text-fg">{name}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">URL</dt>
-              <dd className="max-w-xs truncate font-mono text-sm text-slate">{url}</dd>
+              <dt className="text-fg-muted">URL</dt>
+              <dd className="max-w-xs truncate font-mono text-sm text-fg">{url}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Events</dt>
-              <dd className="font-medium text-slate">{events.size} selected</dd>
+              <dt className="text-fg-muted">Events</dt>
+              <dd className="font-medium text-fg">{events.size} selected</dd>
             </div>
           </dl>
         ) : null}
@@ -284,11 +278,11 @@ function RevealWebhookSecretDialog({
         footer={<Button onClick={onClose}>Done</Button>}
       >
         <div className="flex flex-col gap-4">
-          <p className="text-base font-medium text-danger-strong">
+          <p className="text-base font-medium text-status-error-fg">
             Copy this signing secret now. Fenwira will not show it again.
           </p>
-          <div className="flex items-center gap-2 rounded-md border border-border bg-background p-3">
-            <code className="min-w-0 flex-1 overflow-x-auto font-mono text-sm text-slate">
+          <div className="flex items-center gap-2 rounded-md border border-border-subtle bg-canvas p-3">
+            <code className="min-w-0 flex-1 overflow-x-auto font-mono text-sm text-fg">
               {created.secret}
             </code>
             <Button type="button" variant="secondary" size="sm" onClick={copy}>
@@ -296,7 +290,7 @@ function RevealWebhookSecretDialog({
               {copied ? 'Copied' : 'Copy secret'}
             </Button>
           </div>
-          <p className="text-sm text-muted">
+          <p className="text-sm text-fg-muted">
             Use it to verify the <code className="font-mono">X-Fenwira-Signature</code> header on
             every delivery to &quot;{created.endpoint.name}&quot;. See docs/WEBHOOKS.md for a
             verification example.
@@ -318,16 +312,16 @@ function EndpointCard({ endpoint }: { endpoint: WebhookEndpoint }) {
               aria-hidden="true"
               className={`size-2 shrink-0 rounded-full ${
                 endpoint.status === 'DISABLED'
-                  ? 'bg-danger-strong'
+                  ? 'bg-status-error-fg'
                   : healthy
-                    ? 'bg-success-strong'
-                    : 'bg-warning'
+                    ? 'bg-status-success-fg'
+                    : 'bg-status-warning'
               }`}
             />
-            <h3 className="font-semibold text-slate">{endpoint.name}</h3>
+            <h3 className="font-semibold text-fg">{endpoint.name}</h3>
           </div>
-          <code className="truncate font-mono text-sm text-muted">{endpoint.url}</code>
-          <div className="flex flex-wrap items-center gap-2 pt-1 text-sm text-muted">
+          <code className="truncate font-mono text-sm text-fg-muted">{endpoint.url}</code>
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-sm text-fg-muted">
             <span>{eventFamiliesLabel(endpoint.events)}</span>
             <span aria-hidden="true">·</span>
             <StatusBadge
