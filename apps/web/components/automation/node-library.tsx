@@ -28,7 +28,7 @@ export function NodeLibrary({
   return (
     <nav aria-label="Add a step" className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
-        <h2 className="text-md font-semibold text-slate">Add step</h2>
+        <h2 className="text-md font-semibold text-fg">Add step</h2>
         <Input
           aria-label="Search steps"
           placeholder="Search steps…"
@@ -38,7 +38,7 @@ export function NodeLibrary({
       </div>
       {groups.map((g) => (
         <section key={g.title} className="flex flex-col gap-2">
-          <h3 className="text-xs font-semibold text-secondary">{g.title}</h3>
+          <h3 className="text-xs font-semibold text-fg-secondary">{g.title}</h3>
           {g.types.map((t) => (
             <Button
               key={t}
@@ -55,10 +55,10 @@ export function NodeLibrary({
             >
               <NodeSymbol type={t} compact />
               <span className="min-w-0 flex-1 whitespace-normal">
-                <span className="block text-xs font-medium text-slate">{NODE_LABEL[t]}</span>
+                <span className="block text-xs font-medium text-fg">{NODE_LABEL[t]}</span>
                 <span
                   title={NODE_HINT[t]}
-                  className="mt-0.5 block truncate text-xs font-normal text-secondary"
+                  className="mt-0.5 block truncate text-xs font-normal text-fg-secondary"
                 >
                   {NODE_HINT[t]}
                 </span>
@@ -71,7 +71,7 @@ export function NodeLibrary({
         <EmptyState title="No steps found" description="Try another search." />
       ) : null}
       {hasTrigger ? (
-        <p className="text-xs text-muted">
+        <p className="text-xs text-fg-muted">
           This flow already has its trigger. Select it on the canvas or outline to edit it.
         </p>
       ) : null}

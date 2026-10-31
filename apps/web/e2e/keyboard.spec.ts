@@ -113,7 +113,19 @@ test('CommandPalette navigates to every visible nav item', async ({ page }) => {
         page.getByRole('heading', { level: 1, name: 'Inbox', exact: true }),
       ).toBeAttached()
     } else {
-      await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).first()).toContainText(leaf)
+      // The page announces where you are: a breadcrumb, or the current module tab / navigation
+      // link (aria-current="page"). The approved shell has no top-bar breadcrumb on list pages,
+      // and a module's Overview is its root page, announced by the module's own current link.
+      const names = leaf === 'Overview' ? [leaf, label.split(' › ')[0]!] : [leaf]
+      const current = names
+        .map((name) =>
+          page
+            .getByRole('navigation', { name: 'Breadcrumb' })
+            .filter({ hasText: name })
+            .or(page.locator('a[aria-current="page"]').filter({ hasText: name })),
+        )
+        .reduce((a, b) => a.or(b))
+      await expect(current.first()).toBeVisible()
     }
   }
 })

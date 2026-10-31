@@ -43,17 +43,17 @@ export function CreateReplyChoice() {
                 key={c.kind}
                 asChild
                 variant="secondary"
-                className="h-auto flex-col items-stretch gap-4 whitespace-normal rounded-lg border-border p-4 text-left hover:border-border-strong hover:bg-surface hover:shadow-raised"
+                className="h-auto flex-col items-stretch gap-4 whitespace-normal rounded-lg border-border-subtle p-4 text-left hover:border-border-control hover:bg-surface hover:shadow-raised"
               >
                 <Link aria-label={c.aria} href={`/automations/reply-studio/new?kind=${c.kind}`}>
                   <MiniChat preset={c.preset} />
-                  <span className="flex items-center gap-2 text-md font-semibold text-slate">
-                    <c.icon aria-hidden="true" className="size-4 text-primary-strong" />
+                  <span className="flex items-center gap-2 text-md font-semibold text-fg">
+                    <c.icon aria-hidden="true" className="size-4 text-accent-automation-fg" />
                     {c.title}
                   </span>
-                  <span className="text-sm font-medium text-slate">{c.detail}</span>
-                  <span className="text-sm font-normal text-secondary">{c.example}</span>
-                  <span className="flex items-center justify-between text-sm font-medium text-primary-strong">
+                  <span className="text-sm font-medium text-fg">{c.detail}</span>
+                  <span className="text-sm font-normal text-fg-secondary">{c.example}</span>
+                  <span className="flex items-center justify-between text-sm font-medium text-fg">
                     Get started
                     <ArrowRight aria-hidden="true" className="size-4" />
                   </span>

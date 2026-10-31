@@ -114,9 +114,9 @@ export function FlowOutline({ graph, issues, selectedId, onSelect, onChange, rea
             <li
               key={n.id}
               className={cn(
-                'flex flex-col gap-3 rounded-md border border-border bg-surface p-4',
-                selected && 'ring-2 ring-primary',
-                own.length > 0 && 'border-danger',
+                'flex flex-col gap-3 rounded-md border border-border-subtle bg-surface p-4',
+                selected && 'ring-2 ring-fg',
+                own.length > 0 && 'border-status-error',
               )}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -126,11 +126,11 @@ export function FlowOutline({ graph, issues, selectedId, onSelect, onChange, rea
                   aria-pressed={selected}
                   onClick={() => onSelect(selected ? null : n.id)}
                 >
-                  <span className="block font-semibold text-slate">{name(n.id)}</span>
-                  <span className="block text-sm text-muted">{summarize(n)}</span>
+                  <span className="block font-semibold text-fg">{name(n.id)}</span>
+                  <span className="block text-sm text-fg-muted">{summarize(n)}</span>
                 </button>
                 {own.length ? (
-                  <span className="inline-flex items-center gap-1 text-sm text-danger-strong">
+                  <span className="inline-flex items-center gap-1 text-sm text-status-error-fg">
                     <AlertCircle className="size-4" aria-hidden="true" />
                     {own.length === 1 ? own[0]!.message : `${own.length} problems`}
                   </span>

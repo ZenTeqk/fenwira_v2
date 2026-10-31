@@ -6,9 +6,14 @@
 .fw-flow .react-flow {
   --xy-edge-stroke-default: var(--color-fg-subtle);
   --xy-edge-stroke-width-default: 2;
-  --xy-edge-stroke-selected-default: var(--color-action-primary);
+  --xy-edge-stroke-selected-default: var(--color-fg);
   --xy-connectionline-stroke-default: var(--color-action-primary);
   --xy-minimap-background-color-default: var(--color-surface);
+  --xy-minimap-mask-background-color-default: color-mix(
+    in srgb,
+    var(--color-canvas) 60%,
+    transparent
+  );
   --xy-background-color-default: var(--color-canvas);
   --xy-background-pattern-color-default: var(--color-border-subtle);
   --xy-controls-button-background-color-default: var(--color-surface);
@@ -31,6 +36,17 @@
   to {
     stroke-dashoffset: -12;
   }
+}
+/* Error branches ("If it fails") read as such without relying on the handle label alone. */
+.fw-flow .fw-edge-error .react-flow__edge-path {
+  stroke: var(--color-status-error);
+  stroke-dasharray: 6 4;
+}
+/* Keyboard focus on a node keeps the shared focus-ring colour, distinct from selection. */
+.fw-flow .react-flow__node:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 4px;
+  border-radius: var(--radius-lg);
 }
 /* Traversed paths stay highlighted but still under reduced motion. */
 @media (prefers-reduced-motion: reduce) {

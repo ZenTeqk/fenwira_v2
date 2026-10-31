@@ -97,16 +97,21 @@ test('contacts: quick view drawer explains what can be sent', async ({ page }) =
     data: { name: 'Farah Ali', phone: '+919876500011' },
     headers: ownerHeaders(owner),
   })
+  // Below 1280px Quick view opens the drawer; wider screens show the same content inline
+  // (UX_PATTERNS → Contacts). Full eligibility sits in the keyboard disclosure.
+  await page.setViewportSize({ width: 1024, height: 900 })
   await page.goto('/contacts')
   await page.getByRole('button', { name: 'Actions for Farah Ali' }).click()
   await page.getByRole('menuitem', { name: 'Quick view' }).click()
   const drawer = page.getByRole('dialog', { name: 'Farah Ali' })
+  await drawer.getByText('Eligibility and consent details', { exact: true }).click()
   const eligibility = drawer.getByRole('region', { name: 'Messaging eligibility' })
   await expect(eligibility).toContainText('Free-form replies')
   await expect(eligibility).toContainText("Can't send")
   await expect(eligibility).toContainText('This contact has not opted in to marketing messages.')
   await expectNoViolations(page, '[data-slot="drawer"]')
-  await drawer.getByRole('link', { name: 'Open full profile' }).click()
+  await drawer.getByRole('button', { name: 'More' }).click()
+  await page.getByRole('menuitem', { name: 'Open full profile' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Farah Ali' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Messaging eligibility' })).toBeVisible()
 })

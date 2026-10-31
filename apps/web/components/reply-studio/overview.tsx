@@ -40,7 +40,7 @@ export function BusinessHoursAction() {
       {hours.isPending ? (
         <Skeleton className="h-6 w-40" />
       ) : state ? (
-        <span className="flex items-center gap-2 text-xs text-secondary">
+        <span className="flex items-center gap-2 text-xs text-fg-secondary">
           <StatusBadge
             status={state.open ? 'ACTIVE' : 'INACTIVE'}
             label={state.open ? 'Open now' : 'Closed'}
@@ -48,7 +48,7 @@ export function BusinessHoursAction() {
           <span>· {state.detail}</span>
         </span>
       ) : (
-        <span className="text-xs text-muted">Schedule unavailable</span>
+        <span className="text-xs text-fg-muted">Schedule unavailable</span>
       )}
     </div>
   )
@@ -80,9 +80,9 @@ export function ReplyOverview({ liveCount = 0 }: { liveCount?: number }) {
   return (
     <section
       aria-label="Reply Studio overview"
-      className="overflow-hidden rounded-lg border border-border bg-surface"
+      className="overflow-hidden rounded-lg border border-border-subtle bg-surface"
     >
-      <div className="grid grid-cols-2 gap-y-4 divide-x divide-border py-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-y-4 divide-x divide-border-subtle py-3 lg:grid-cols-4">
         <div className="flex min-w-0 items-center px-4">
           <StatusBadge status="ACTIVE" label={`${liveCount} replies live`} />
         </div>
@@ -96,7 +96,7 @@ export function ReplyOverview({ liveCount = 0 }: { liveCount?: number }) {
               aria-label={`${m.label}: ${value ?? 'loading'}. View reports`}
               className="flex min-w-0 items-center gap-3 px-4 focus-visible:outline-2 focus-visible:outline-focus-ring"
             >
-              <m.icon className="size-4 shrink-0 text-muted" aria-hidden="true" />
+              <m.icon className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
               <div
                 className="flex flex-wrap items-center gap-x-2"
                 title={
@@ -105,10 +105,10 @@ export function ReplyOverview({ liveCount = 0 }: { liveCount?: number }) {
                     : undefined
                 }
               >
-                <p className="order-2 text-sm text-secondary">
-                  {m.label} <span className="text-muted">· 7 days</span>
+                <p className="order-2 text-sm text-fg-secondary">
+                  {m.label} <span className="text-fg-muted">· 7 days</span>
                 </p>
-                <p className="text-sm font-semibold text-slate">
+                <p className="text-sm font-semibold text-fg">
                   {totals.isPending ? '…' : totals.isError ? '—' : value?.toLocaleString('en-IN')}
                 </p>
                 <p className="sr-only">

@@ -25,7 +25,7 @@ export function WorkflowStarters({
   }
   return (
     <section aria-label="Workflow starters" className="flex flex-col gap-3">
-      <h2 className="text-md font-semibold text-slate">Build your first workflow faster</h2>
+      <h2 className="text-md font-semibold text-fg">Build your first workflow faster</h2>
       <div className="grid gap-3 md:grid-cols-3">
         {[
           {
@@ -51,21 +51,21 @@ export function WorkflowStarters({
             key={s.title}
             variant="secondary"
             disabled={busy}
-            className="h-auto justify-start gap-3 rounded-lg border-border bg-surface p-4 text-left whitespace-normal"
+            className="h-auto justify-start gap-3 rounded-lg border-border-subtle bg-surface p-4 text-left whitespace-normal"
             onClick={() => (s.category ? onBrowse(s.category) : void blank())}
           >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-automation-bg text-accent-automation-fg">
               <s.icon aria-hidden="true" className="size-5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-slate">{s.title}</span>
-              <span className="mt-1 block text-xs font-normal text-muted">{s.detail}</span>
+              <span className="block text-sm font-semibold text-fg">{s.title}</span>
+              <span className="mt-1 block text-xs font-normal text-fg-muted">{s.detail}</span>
             </span>
             <ArrowRight aria-hidden="true" className="size-4" />
           </Button>
         ))}
       </div>
-      <p className="flex items-center gap-2 text-xs text-muted">
+      <p className="flex items-center gap-2 text-xs text-fg-muted">
         <ShieldCheck aria-hidden="true" className="size-4" />
         Messaging actions check eligibility before sending.
       </p>

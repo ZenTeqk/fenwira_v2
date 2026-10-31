@@ -1,6 +1,6 @@
 'use client'
 import { REPLY_PRESETS, type ReplyPresetId } from '@fenwira/contracts'
-import { Button, cn } from '@fenwira/ui'
+import { Button, cn, textLink } from '@fenwira/ui'
 import {
   ArrowRight,
   ChevronDown,
@@ -39,22 +39,22 @@ export function MiniChat({
     <div
       aria-hidden="true"
       className={cn(
-        'flex h-32 flex-col justify-center gap-2 overflow-hidden rounded-lg bg-neutral-soft p-4',
+        'flex h-32 flex-col justify-center gap-2 overflow-hidden rounded-lg bg-surface-muted p-4',
         className,
       )}
     >
-      <div className="max-w-full self-start rounded-lg rounded-tl-sm border border-border bg-surface px-4 py-2 text-xs text-secondary">
+      <div className="max-w-full self-start rounded-lg rounded-tl-sm border border-border-subtle bg-surface px-4 py-2 text-xs text-fg-secondary">
         {incoming}
       </div>
-      <div className="max-w-full self-end rounded-lg rounded-tr-sm bg-primary-soft px-4 py-2 text-xs text-primary-strong">
+      <div className="max-w-full self-end rounded-lg rounded-tr-sm bg-chat-outgoing px-4 py-2 text-xs text-fg">
         {outgoing}
       </div>
       {preset === 'faq' || preset === 'product-enquiry' ? (
         <div className="flex justify-end gap-2">
-          <span className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-secondary">
+          <span className="rounded-md border border-border-subtle bg-surface px-2 py-1 text-xs text-fg-secondary">
             {preset === 'faq' ? 'Opening hours' : 'Clothing'}
           </span>
-          <span className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-secondary">
+          <span className="rounded-md border border-border-subtle bg-surface px-2 py-1 text-xs text-fg-secondary">
             {preset === 'faq' ? 'Talk to our team' : 'Home'}
           </span>
         </div>
@@ -95,12 +95,12 @@ export function ReplyStarterCards({
         {populated ? (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-md font-semibold text-slate">
+              <h2 className="text-md font-semibold text-fg">
                 {kind === 'AUTO_REPLY'
                   ? 'Start with a ready-made reply'
                   : 'Start with a guided conversation'}
               </h2>
-              <p className="mt-1 text-xs text-muted">
+              <p className="mt-1 text-xs text-fg-muted">
                 Editable starters. Customise, test, then publish.
               </p>
             </div>
@@ -126,12 +126,12 @@ export function ReplyStarterCards({
           </Button>
         ) : (
           <div>
-            <h2 className="text-lg font-semibold text-slate">
+            <h2 className="text-lg font-semibold text-fg">
               {kind === 'AUTO_REPLY'
                 ? 'Create your first auto reply'
                 : 'Create your first bot flow'}
             </h2>
-            <p className="mt-2 text-sm text-secondary">
+            <p className="mt-2 text-sm text-fg-secondary">
               Start with an editable conversation recipe. Nothing runs until you publish.
             </p>
           </div>
@@ -144,18 +144,21 @@ export function ReplyStarterCards({
             return (
               <article
                 key={p.id}
-                className="flex items-start gap-3 rounded-lg border border-border bg-surface p-4"
+                className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface p-4"
               >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-strong">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-automation-bg text-accent-automation-fg">
                   <Icon aria-hidden="true" className="size-5" />
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <h3 className="text-sm font-semibold text-slate">{p.title}</h3>
-                  <p className="text-xs text-muted">{p.help}</p>
+                  <h3 className="text-sm font-semibold text-fg">{p.title}</h3>
+                  <p className="text-xs text-fg-muted">{p.help}</p>
                   <Link
                     href={`/automations/reply-studio/new?kind=${kind}&preset=${p.id}`}
                     aria-label={`Use starter: ${p.title}`}
-                    className="inline-flex min-h-6 items-center rounded-sm text-xs font-semibold text-primary-strong focus-visible:outline-2 focus-visible:outline-focus-ring"
+                    className={cn(
+                      'inline-flex min-h-6 items-center rounded-sm text-xs font-semibold focus-visible:outline-2 focus-visible:outline-focus-ring',
+                      textLink,
+                    )}
                   >
                     Use starter →
                   </Link>
@@ -178,15 +181,15 @@ export function ReplyStarterCards({
           return (
             <article
               key={p.id}
-              className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 transition-shadow hover:border-border-strong hover:shadow-raised"
+              className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4 transition-shadow hover:border-border-control hover:shadow-raised"
             >
               <MiniChat preset={p.id} />
               <div className="flex items-center gap-2">
-                <Icon aria-hidden="true" className="size-4 text-primary-strong" />
-                <h3 className="text-md font-semibold text-slate">{p.title}</h3>
+                <Icon aria-hidden="true" className="size-4 text-fg-secondary" />
+                <h3 className="text-md font-semibold text-fg">{p.title}</h3>
               </div>
-              <p className="flex-1 text-sm text-secondary">{p.help}</p>
-              <p className="text-xs text-muted">
+              <p className="flex-1 text-sm text-fg-secondary">{p.help}</p>
+              <p className="text-xs text-fg-muted">
                 {
                   {
                     welcome: 'New conversation · Contact cooldown',

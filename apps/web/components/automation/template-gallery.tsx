@@ -66,14 +66,14 @@ function MiniFlow({ graph }: { graph: DraftGraph }) {
     )
     .join(', then ')
   return (
-    <div className="flex min-h-14 items-center rounded-md border border-border bg-background px-3 py-2">
+    <div className="flex min-h-14 items-center rounded-md border border-border-subtle bg-canvas px-3 py-2">
       <span className="sr-only">Steps: {names}</span>
       <div aria-hidden="true" className="flex items-center">
         {steps.map((s, i) => (
           <Fragment key={i}>
-            {i > 0 ? <span className="h-px w-3 bg-slate-400" /> : null}
+            {i > 0 ? <span className="h-px w-3 bg-fg-subtle" /> : null}
             {'fork' in s ? (
-              <span className="flex flex-col gap-1 border-l border-slate-400 pl-1.5">
+              <span className="flex flex-col gap-1 border-l border-fg-subtle pl-1.5">
                 {s.fork.map((f) => (
                   <NodeSymbol key={f.id} type={f.type} compact />
                 ))}
@@ -154,9 +154,9 @@ export function TemplateGallery({
             'flex h-full w-full flex-col gap-3 rounded-lg border bg-surface p-4 text-left shadow-raised transition-colors',
             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
             locked
-              ? 'cursor-not-allowed border-border bg-neutral-soft'
-              : 'border-border hover:border-primary',
-            busy && 'border-primary',
+              ? 'cursor-not-allowed border-border-subtle bg-surface-muted'
+              : 'border-border-subtle hover:border-border-control',
+            busy && 'border-fg',
           )}
         >
           <span className="flex items-start gap-3">
@@ -165,17 +165,17 @@ export function TemplateGallery({
             ) : (
               <span
                 aria-hidden="true"
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-strong"
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-automation-bg text-accent-automation-fg"
               >
                 <Plus className="size-5" />
               </span>
             )}
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-base font-semibold text-slate">
+              <span className="text-base font-semibold text-fg">
                 {t?.title ?? 'Start from scratch'}
                 {busy ? <span className="sr-only"> (creating…)</span> : null}
               </span>
-              <span className="text-sm text-secondary">
+              <span className="text-sm text-fg-secondary">
                 {t?.description ?? 'Build your own on the canvas or with the keyboard outline.'}
               </span>
             </span>
@@ -193,7 +193,7 @@ export function TemplateGallery({
           {locked ? (
             <span
               id={`locked-${t!.id}`}
-              className="flex items-start gap-1.5 text-sm text-secondary"
+              className="flex items-start gap-1.5 text-sm text-fg-secondary"
             >
               <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               {aiReason}
@@ -207,7 +207,7 @@ export function TemplateGallery({
   return (
     <div className="flex flex-col gap-4">
       <Tabs value={tab} onValueChange={(v) => setTab(v as FlowTemplateCategory)}>
-        <div className="flex flex-col gap-3 border-b border-border pb-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 border-b border-border-subtle pb-3 lg:flex-row lg:items-center lg:justify-between">
           <TabsList
             aria-label="Starter workflow categories"
             className="w-auto overflow-x-auto border-b-0"
@@ -232,7 +232,7 @@ export function TemplateGallery({
                 {list.map(card)}
               </ul>
               {q && !list.length ? (
-                <p className="mt-4 text-sm text-secondary">
+                <p className="mt-4 text-sm text-fg-secondary">
                   No {c.label.toLowerCase()} starter workflows match “{search.trim()}”. Try another
                   category, or start from scratch.
                 </p>

@@ -61,14 +61,14 @@ export function PlaygroundTab({
   return (
     <Card className="flex flex-col gap-0 p-0">
       <div
-        className="flex max-h-128 min-h-64 flex-col gap-4 overflow-y-auto bg-background p-4"
+        className="flex max-h-128 min-h-64 flex-col gap-4 overflow-y-auto bg-canvas p-4"
         role="log"
         aria-live="polite"
         aria-label="Test conversation"
       >
         {!turns.length ? (
           <div className="m-auto flex max-w-md flex-col items-center gap-3 text-center">
-            <p className="text-secondary">
+            <p className="text-fg-secondary">
               Ask a question the way a customer would. Nothing is sent on WhatsApp.
             </p>
             {samples.length ? (
@@ -89,7 +89,7 @@ export function PlaygroundTab({
         {turns.map((t) => (
           <div key={t.id} className="flex flex-col gap-2">
             <div className="flex justify-start">
-              <p className="max-w-7/10 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-message text-slate">
+              <p className="max-w-7/10 rounded-xl border border-border-subtle bg-surface px-3.5 py-2.5 text-message text-fg">
                 {t.question}
               </p>
             </div>
@@ -99,12 +99,12 @@ export function PlaygroundTab({
                   <FormError error={t.error} />
                 </div>
               ) : !t.result ? (
-                <p className="text-sm text-secondary">Thinking…</p>
+                <p className="text-sm text-fg-secondary">Thinking…</p>
               ) : (
                 <>
                   {t.result.answer ? (
-                    <div className="flex max-w-7/10 flex-col gap-1 rounded-xl bg-chat-outgoing px-3.5 py-2.5 text-message text-slate">
-                      <span className="text-xs font-medium text-secondary">AI</span>
+                    <div className="flex max-w-7/10 flex-col gap-1 rounded-xl border border-accent-automation-border bg-accent-automation-bg px-3.5 py-2.5 text-message text-fg">
+                      <span className="text-xs font-medium text-accent-automation-fg">AI</span>
                       <p className="whitespace-pre-wrap">{t.result.answer}</p>
                     </div>
                   ) : null}
@@ -112,24 +112,24 @@ export function PlaygroundTab({
                     <StatusBadge status={t.result.outcome} label={OUTCOME_NOTE[t.result.outcome]} />
                   ) : null}
                   {t.result.sources.length ? (
-                    <details className="w-full max-w-7/10 rounded-md border border-border bg-surface px-3 py-2 text-sm">
-                      <summary className="cursor-pointer font-medium text-slate">
+                    <details className="w-full max-w-7/10 rounded-md border border-border-subtle bg-surface px-3 py-2 text-sm">
+                      <summary className="cursor-pointer font-medium text-fg">
                         Sources used ({t.result.sources.length})
                       </summary>
                       <ul className="mt-2 flex flex-col gap-2">
                         {t.result.sources.map((s, i) => (
                           <li key={i} className="flex flex-col gap-0.5">
-                            <span className="font-medium text-slate">
+                            <span className="font-medium text-fg">
                               {s.documentTitle}
                               {s.page ? ` · page ${s.page}` : ''}
                             </span>
-                            <span className="text-secondary">{s.snippet}</span>
+                            <span className="text-fg-secondary">{s.snippet}</span>
                           </li>
                         ))}
                       </ul>
                     </details>
                   ) : null}
-                  <p className="text-xs text-secondary">
+                  <p className="text-xs text-fg-secondary">
                     {t.result.tokens.input + t.result.tokens.output} tokens
                   </p>
                 </>
@@ -140,7 +140,7 @@ export function PlaygroundTab({
         <div ref={end} />
       </div>
       <form
-        className="flex items-center gap-2 border-t border-border p-3"
+        className="flex items-center gap-2 border-t border-border-subtle p-3"
         onSubmit={(e: FormEvent) => {
           e.preventDefault()
           submit(question)

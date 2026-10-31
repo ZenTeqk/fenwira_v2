@@ -44,10 +44,10 @@ export function SetupPanel({
   return (
     <section aria-labelledby="setup-title" className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <h2 id="setup-title" className="text-md font-semibold text-slate">
+        <h2 id="setup-title" className="text-md font-semibold text-fg">
           Set up your automation
         </h2>
-        <p className="text-sm text-secondary" aria-live="polite">
+        <p className="text-sm text-fg-secondary" aria-live="polite">
           {done === items.length
             ? 'Everything is set. Test it, then publish.'
             : `${done} of ${items.length} done. Choose an item to open its step.`}
@@ -68,19 +68,19 @@ export function SetupPanel({
               >
                 {item.done ? (
                   <CheckCircle2
-                    className="mt-0.5 size-4 shrink-0 text-success-strong"
+                    className="mt-0.5 size-4 shrink-0 text-status-success-fg"
                     aria-hidden="true"
                   />
                 ) : (
-                  <Circle className="mt-0.5 size-4 shrink-0 text-slate-400" aria-hidden="true" />
+                  <Circle className="mt-0.5 size-4 shrink-0 text-fg-subtle" aria-hidden="true" />
                 )}
                 <span className="flex flex-col">
-                  <span className="text-sm font-medium text-slate">
+                  <span className="text-sm font-medium text-fg">
                     {item.label}
                     <span className="sr-only">{item.done ? ' (done)' : ' (to do)'}</span>
                   </span>
                   {item.hint && !item.done ? (
-                    <span className="text-xs text-secondary">{item.hint}</span>
+                    <span className="text-xs text-fg-secondary">{item.hint}</span>
                   ) : null}
                 </span>
               </button>

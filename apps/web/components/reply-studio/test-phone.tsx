@@ -89,13 +89,13 @@ export function ReplyTestPhone({
   }
   return (
     <div className="flex min-w-0 flex-col items-center gap-4">
-      <p className="text-sm text-secondary">
+      <p className="text-sm text-fg-secondary">
         Test the saved draft with sample answers. No customer messages are sent.
       </p>
       <Field label="Sample incoming message">
         <Input value={sampleMessage} onChange={(e) => setSampleMessage(e.target.value)} />
       </Field>
-      <label className="flex items-center gap-2 text-sm text-secondary">
+      <label className="flex items-center gap-2 text-sm text-fg-secondary">
         <Checkbox checked={windowOpen} onCheckedChange={(v) => setWindowOpen(v === true)} />
         Sample service window is open
       </label>
@@ -111,13 +111,13 @@ export function ReplyTestPhone({
             {result?.steps.map((s, i) => (
               <div
                 key={`${s.nodeId}-${i}`}
-                className="whitespace-pre-wrap rounded-lg border border-border bg-surface p-3 text-sm text-slate"
+                className="whitespace-pre-wrap rounded-lg border border-border-subtle bg-surface p-3 text-sm text-fg"
               >
                 {s.summary}
               </div>
             ))}
             {!result ? (
-              <p className="rounded-lg bg-surface p-3 text-sm text-secondary">
+              <p className="rounded-lg bg-surface p-3 text-sm text-fg-secondary">
                 Start the test to try your flow as a customer.
               </p>
             ) : null}

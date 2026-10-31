@@ -54,11 +54,11 @@ export default function AutomationsPage() {
     >
       <WorkflowSummary flows={current.data ?? []} />
       <Tabs value={tab} onValueChange={setTab}>
-        <div className="flex min-w-0 flex-col gap-2 border-b border-border sm:flex-row sm:items-end">
+        <div className="flex min-w-0 flex-col gap-2 border-b border-border-subtle sm:flex-row sm:items-end">
           <TabsList aria-label="Workflow library" className="min-w-0 border-b-0">
             <TabsTrigger value="yours">
               Your workflows
-              <span className="rounded-md bg-neutral-soft px-2 py-0.5 text-xs">
+              <span className="rounded-md bg-surface-muted px-2 py-0.5 text-xs">
                 {current.data?.length ?? 0}
               </span>
             </TabsTrigger>

@@ -26,6 +26,8 @@ import {
   Switch,
   Textarea,
   toast,
+  cn,
+  textLink,
 } from '@fenwira/ui'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
@@ -158,10 +160,10 @@ function TagChecklist(props: {
 }) {
   const tags = useTags()
   if (!tags.data?.length)
-    return <p className="text-sm text-muted">Create tags in Contacts first.</p>
+    return <p className="text-sm text-fg-muted">Create tags in Contacts first.</p>
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-1 text-sm font-medium text-slate">Tags</legend>
+      <legend className="mb-1 text-sm font-medium text-fg">Tags</legend>
       {tags.data.map((t) => {
         const id = `tag-${t.id}`
         const on = props.value.includes(t.id)
@@ -221,7 +223,9 @@ function WebhookTokenPanel({ flowId }: { flowId: string }) {
       <Button variant="secondary" onClick={() => rotate.mutate()} loading={rotate.isPending}>
         Create webhook URL
       </Button>
-      <p className="text-sm text-muted">Creating a new URL stops the previous one from working.</p>
+      <p className="text-sm text-fg-muted">
+        Creating a new URL stops the previous one from working.
+      </p>
       <Modal open={!!token} onOpenChange={(o) => !o && setToken(null)}>
         <ModalContent
           title="Webhook URL and signing secret"
@@ -313,7 +317,7 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
       const sources = (c.sources as string[] | undefined) ?? []
       form = (
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-sm font-medium text-slate">
+          <legend className="mb-1 text-sm font-medium text-fg">
             Only contacts added from (none = any)
           </legend>
           {CONTACT_SOURCES.map((s) => (
@@ -500,7 +504,7 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
               .map((t) => ({ value: t.templateId, label: `${t.name} (${t.language})` }))}
           />
           {chosen ? (
-            <p className="rounded-sm bg-neutral-soft p-3 text-sm text-slate">
+            <p className="rounded-sm bg-surface-muted p-3 text-sm text-fg">
               {chosen.components.body.text}
             </p>
           ) : null}
@@ -572,7 +576,7 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
       form = (
         <div className="flex flex-col gap-4">
           {updates.map((u, i) => (
-            <div key={i} className="flex flex-col gap-2 rounded-sm border border-border p-3">
+            <div key={i} className="flex flex-col gap-2 rounded-sm border border-border-subtle p-3">
               <Choose
                 label={`Field ${i + 1}`}
                 value={u.field}
@@ -643,7 +647,7 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
             />
           </Field>
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-medium text-slate">Headers</legend>
+            <legend className="mb-1 text-sm font-medium text-fg">Headers</legend>
             {headers.map(([k, v], i) => (
               <div key={i} className="flex gap-2">
                 <Input
@@ -674,7 +678,7 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
                 Add a header
               </Button>
             )}
-            <p className="text-sm text-muted">
+            <p className="text-sm text-fg-muted">
               Secret headers (authorization, tokens, keys) are hidden in history.
             </p>
           </fieldset>
@@ -762,12 +766,9 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
               onChange={(e) => set({ instructions: e.target.value || undefined })}
             />
           </Field>
-          <p className="text-sm text-secondary">
+          <p className="text-sm text-fg-secondary">
             Knowledge, tone and handover messages are set on the{' '}
-            <Link
-              href="/ai-assistant"
-              className="font-medium text-primary-strong underline-offset-4 hover:underline"
-            >
+            <Link href="/ai-assistant" className={cn('font-medium', textLink)}>
               AI Assistant page
             </Link>
             . Outside the 24-hour window this step takes its error path.
@@ -776,7 +777,7 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
       )
       break
     case 'action.end':
-      form = <p className="text-sm text-muted">The automation finishes here.</p>
+      form = <p className="text-sm text-fg-muted">The automation finishes here.</p>
       break
   }
 
@@ -785,7 +786,7 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
           <NodeSymbol type={node.type} />
-          <h2 id="inspector-title" className="text-md font-semibold text-slate">
+          <h2 id="inspector-title" className="text-md font-semibold text-fg">
             {NODE_LABEL[node.type]}
           </h2>
         </div>
@@ -810,7 +811,7 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
           </ul>
         </Alert>
       ) : null}
-      <p className="text-sm text-secondary">{NODE_HINT[node.type]}</p>
+      <p className="text-sm text-fg-secondary">{NODE_HINT[node.type]}</p>
       {form}
       {node.type === 'trigger.keyword' || node.type === 'trigger.message_received' ? (
         <>
@@ -842,15 +843,15 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
       {node.type === 'action.send_message' && typeof c.text === 'string' && c.text ? (
         <section
           aria-label="Message preview"
-          className="flex flex-col gap-3 border-t border-border pt-4"
+          className="flex flex-col gap-3 border-t border-border-subtle pt-4"
         >
-          <h3 className="text-sm font-semibold text-slate">Preview</h3>
+          <h3 className="text-sm font-semibold text-fg">Preview</h3>
           <TemplatePhonePreview
             compact
             components={{ body: { text: c.text }, buttons: [] }}
             samples={{ body: [] }}
           />
-          <p className="text-xs text-secondary">
+          <p className="text-xs text-fg-secondary">
             Expression markers are replaced with actual contact or event values when this step runs.
           </p>
         </section>
@@ -858,16 +859,16 @@ export function NodeInspector({ flowId, node, issues, readOnly, onChange, onDele
       {node.type === 'action.send_template' && chosenTemplate ? (
         <section
           aria-label="Template preview"
-          className="flex flex-col gap-3 border-t border-border pt-4"
+          className="flex flex-col gap-3 border-t border-border-subtle pt-4"
         >
-          <h3 className="text-sm font-semibold text-slate">Preview</h3>
+          <h3 className="text-sm font-semibold text-fg">Preview</h3>
           <TemplatePhonePreview
             compact
             components={chosenTemplate.components}
             samples={(c.variables as { body: string[]; header?: string[] }) ?? { body: [] }}
             headerImageUrl={sample.data}
           />
-          <p className="text-xs text-secondary">
+          <p className="text-xs text-fg-secondary">
             The approved template version is resolved when this step runs. Expressions use actual
             event values.
           </p>

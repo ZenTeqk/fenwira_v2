@@ -50,7 +50,7 @@ export function ReplyStudioPage({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
         className="gap-4"
       >
         {!flows.isPending && !flows.isError && !managed.length ? (
-          <p className="text-sm text-muted">Activity will appear after your first reply runs.</p>
+          <p className="text-sm text-fg-muted">Activity will appear after your first reply runs.</p>
         ) : (
           <ReplyOverview liveCount={managed.filter((f) => f.status === 'ACTIVE').length} />
         )}
@@ -83,7 +83,7 @@ export function ReplyStudioPage({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
           retry={() => void flows.refetch()}
           empty={
             archived ? (
-              <p className="text-sm text-secondary">No archived items</p>
+              <p className="text-sm text-fg-secondary">No archived items</p>
             ) : can('automations.write') ? (
               <ReplyStarterCards kind={kind} />
             ) : undefined
@@ -92,7 +92,7 @@ export function ReplyStudioPage({ kind }: { kind: 'AUTO_REPLY' | 'BOT_FLOW' }) {
         {!archived && managed.length > 0 && can('automations.write') ? (
           <ReplyStarterCards kind={kind} populated />
         ) : null}
-        <p className="flex items-center gap-2 border-t border-border pt-3 text-xs text-muted">
+        <p className="flex items-center gap-2 border-t border-border-subtle pt-3 text-xs text-fg-muted">
           <ShieldCheck aria-hidden="true" className="size-4" />
           Replies pause when a teammate takes over.
         </p>

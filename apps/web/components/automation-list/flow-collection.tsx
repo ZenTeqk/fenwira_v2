@@ -17,6 +17,8 @@ import {
   SelectValue,
   toast,
   useConfirm,
+  cn,
+  textLink,
 } from '@fenwira/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -167,14 +169,15 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
             : keywords.length
               ? Tag
               : Icon
+  // Identity accents only (never a status colour): violet for automation, blue for bot conversations.
   const tone =
     outside || Identity === MapPin || Identity === Clock3
-      ? 'bg-warning-soft text-warning-strong'
+      ? 'bg-accent-automation-bg text-accent-automation-fg'
       : Identity === Tag
-        ? 'bg-neutral-soft text-secondary'
+        ? 'bg-surface-muted text-fg-secondary'
         : flow.replyStudioKind === 'BOT_FLOW'
-          ? 'bg-info-soft text-info-strong'
-          : 'bg-primary-soft text-primary-strong'
+          ? 'bg-accent-conversation-bg text-accent-conversation-fg'
+          : 'bg-accent-automation-bg text-accent-automation-fg'
   const title = (
     <Link
       href={`/automations/${flow.id}/edit`}
@@ -183,7 +186,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
       onClick={(e) => {
         if (flow.status === 'ARCHIVED') e.preventDefault()
       }}
-      className="min-h-6 line-clamp-2 rounded-sm text-sm font-semibold text-slate hover:underline focus-visible:outline-2 focus-visible:outline-focus-ring"
+      className="min-h-6 line-clamp-2 rounded-sm text-sm font-semibold text-fg hover:underline focus-visible:outline-2 focus-visible:outline-focus-ring"
     >
       {flow.name || 'Untitled workflow'}
     </Link>
@@ -275,7 +278,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
           </span>
           <div className="flex min-w-0 flex-col gap-1">
             {title}
-            <p className="truncate text-xs text-muted">
+            <p className="truncate text-xs text-fg-muted">
               {numbers.length ? numbers.join(', ') : preview || 'All WhatsApp numbers'}
             </p>
           </div>
@@ -299,7 +302,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-fg-muted">
             {outside
               ? 'Workspace hours and holidays'
               : flow.trigger?.config.onlyNewConversation
@@ -312,10 +315,10 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
         <Link
           href={`/automations/${flow.id}/history`}
           aria-label={`${flow.executions.last7d} starts in 7 days for ${flow.name}`}
-          className="text-sm font-medium text-slate tabular-nums focus-visible:outline-2 focus-visible:outline-focus-ring md:col-span-2"
+          className="text-sm font-medium text-fg tabular-nums focus-visible:outline-2 focus-visible:outline-focus-ring md:col-span-2"
         >
           {flow.executions.last7d.toLocaleString('en-IN')}
-          <span className="ml-2 text-xs font-normal text-muted md:hidden">starts · 7 days</span>
+          <span className="ml-2 text-xs font-normal text-fg-muted md:hidden">starts · 7 days</span>
         </Link>
         <div className="flex flex-wrap items-center gap-2 md:col-span-2">
           {badge}
@@ -338,7 +341,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
   return (
     <article
       aria-label={flow.name}
-      className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface p-4 transition-shadow hover:border-border-strong hover:shadow-raised"
+      className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-4 transition-shadow hover:border-border-control hover:shadow-raised"
     >
       <div className="flex items-start gap-3">
         <span className={`flex size-10 shrink-0 items-center justify-center rounded-full ${tone}`}>
@@ -346,7 +349,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {title}
-          <p className="line-clamp-2 text-xs text-muted">
+          <p className="line-clamp-2 text-xs text-fg-muted">
             {flow.description ?? triggerClause(flow.trigger ?? undefined)}
           </p>
         </div>
@@ -362,7 +365,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
         ) : draft.data ? (
           <StepPreview graph={draft.data.graph} />
         ) : (
-          <p className="rounded-md border border-dashed border-border px-4 py-3 text-xs text-muted">
+          <p className="rounded-md border border-dashed border-border-subtle px-4 py-3 text-xs text-fg-muted">
             {flow.status === 'ARCHIVED'
               ? 'Restore this workflow to edit its steps.'
               : 'Open the editor to view its steps.'}
@@ -370,7 +373,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
         )}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted">
+        <p className="text-xs text-fg-muted">
           {flow.executions.last7d.toLocaleString('en-IN')} runs · 7 days
           {latest.data
             ? ` · Last run ${relativeTime(latest.data.startedAt)}`
@@ -381,7 +384,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
         {flowMetrics?.failed ? (
           <Link
             href={`/automations/${flow.id}/history`}
-            className="inline-flex min-h-8 items-center gap-2 rounded-sm text-xs font-medium text-warning-strong focus-visible:outline-2 focus-visible:outline-focus-ring"
+            className="inline-flex min-h-8 items-center gap-2 rounded-sm text-xs font-medium text-status-warning-fg focus-visible:outline-2 focus-visible:outline-focus-ring"
           >
             {flowMetrics.failed} failed · View runs
             <ArrowRight className="size-4" aria-hidden="true" />
@@ -389,7 +392,10 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
         ) : flow.status !== 'ARCHIVED' ? (
           <Link
             href={`/automations/${flow.id}/edit`}
-            className="inline-flex min-h-6 items-center gap-2 rounded-sm text-xs font-semibold text-primary-strong focus-visible:outline-2 focus-visible:outline-focus-ring"
+            className={cn(
+              'inline-flex min-h-6 items-center gap-2 rounded-sm text-xs font-semibold focus-visible:outline-2 focus-visible:outline-focus-ring',
+              textLink,
+            )}
           >
             {flow.status === 'DRAFT' ? 'Continue editing' : 'Edit workflow'}
             <ArrowRight className="size-4" aria-hidden="true" />
@@ -397,8 +403,8 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
         ) : null}
       </div>
       {flow.managedBy === 'REPLY_STUDIO' ? (
-        <div className="-mx-4 -mb-4 flex flex-wrap items-center justify-between gap-2 rounded-b-lg border-t border-border bg-primary-soft px-4 py-3">
-          <span className="text-xs text-secondary">Managed by Reply Studio</span>
+        <div className="-mx-4 -mb-4 flex flex-wrap items-center justify-between gap-2 rounded-b-lg border-t border-border-subtle bg-surface-muted px-4 py-3">
+          <span className="text-xs text-fg-secondary">Managed by Reply Studio</span>
           <Link
             href={`/automations/${flow.id}/edit`}
             aria-disabled={flow.status === 'ARCHIVED' || undefined}
@@ -406,7 +412,7 @@ function FlowRow({ flow, studio }: { flow: Flow; studio: boolean }) {
             onClick={(e) => {
               if (flow.status === 'ARCHIVED') e.preventDefault()
             }}
-            className="inline-flex min-h-6 items-center text-xs font-semibold text-primary-strong hover:underline"
+            className={cn('inline-flex min-h-6 items-center text-xs font-semibold', textLink)}
           >
             Open in Reply Studio →
           </Link>
@@ -580,13 +586,18 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
         {!studio ? (
           <Link
             href="/automations/reply-studio/auto-replies"
-            className="inline-flex items-center gap-3 rounded-md border border-border bg-primary-soft px-4 py-2 text-xs text-secondary lg:ml-auto"
+            className="inline-flex items-center gap-3 rounded-md border border-accent-automation-border bg-accent-automation-bg px-4 py-2 text-xs text-fg-secondary lg:ml-auto"
           >
-            <MessageCircle className="size-5 shrink-0 text-primary-strong" aria-hidden="true" />
+            <MessageCircle
+              className="size-5 shrink-0 text-accent-automation-fg"
+              aria-hidden="true"
+            />
             <span>
               Customer-facing replies and bot conversations are in
               <br />
-              <strong className="font-semibold text-primary-strong">Reply Studio →</strong>
+              <strong className="font-semibold text-fg underline underline-offset-4">
+                Reply Studio →
+              </strong>
             </span>
           </Link>
         ) : null}
@@ -594,7 +605,10 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
       {loading ? (
         <div aria-label="Loading automations" role="status" className="flex flex-col gap-4">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="flex gap-4 rounded-lg border border-border bg-surface p-4">
+            <div
+              key={i}
+              className="flex gap-4 rounded-lg border border-border-subtle bg-surface p-4"
+            >
               <Skeleton className="size-10" />
               <div className="flex flex-1 flex-col gap-2">
                 <Skeleton className="h-5 w-48" />
@@ -638,13 +652,15 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
         <>
           <div
             className={
-              studio ? 'overflow-hidden rounded-lg border border-border bg-surface' : undefined
+              studio
+                ? 'overflow-hidden rounded-lg border border-border-subtle bg-surface'
+                : undefined
             }
           >
             {studio && live.length ? (
               <div
                 aria-hidden="true"
-                className="hidden grid-cols-12 border-b border-border bg-neutral-soft px-4 py-3 text-xs font-medium text-secondary md:grid"
+                className="hidden grid-cols-12 border-b border-border-subtle bg-surface-muted px-4 py-3 text-xs font-medium text-fg-secondary md:grid"
               >
                 <span className="col-span-4">Reply</span>
                 <span className="col-span-3">Trigger</span>
@@ -662,7 +678,7 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
                 <div
                   role="listitem"
                   key={f.id}
-                  className={studio ? 'border-b border-border last:border-b-0' : undefined}
+                  className={studio ? 'border-b border-border-subtle last:border-b-0' : undefined}
                 >
                   <FlowRow flow={f} studio={studio} />
                 </div>
@@ -670,7 +686,7 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
             </div>
           </div>
           {drafts.length ? (
-            <section className="overflow-hidden rounded-lg border border-border bg-neutral-soft">
+            <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-muted">
               <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
                 <Button
                   variant="ghost"
@@ -704,7 +720,7 @@ export function FlowCollection({ flows, studio = false, loading, error, retry, e
                 aria-label="Drafts"
                 className={
                   draftsOpen
-                    ? 'grid gap-3 border-t border-border p-4 md:grid-cols-2 xl:grid-cols-3'
+                    ? 'grid gap-3 border-t border-border-subtle p-4 md:grid-cols-2 xl:grid-cols-3'
                     : 'hidden'
                 }
               >

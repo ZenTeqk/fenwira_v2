@@ -29,7 +29,7 @@ function PreviewText({ text }: { text: string }) {
         part.missing ? (
           <span
             key={index}
-            className="inline-block rounded-sm bg-warning-soft px-1 text-warning-strong"
+            className="inline-block rounded-sm bg-status-warning-bg px-1 text-status-warning-fg"
             aria-label={`Missing value: ${part.missing}`}
             title={`Missing value: ${part.missing}`}
           >
@@ -152,7 +152,7 @@ export function LivePreview({
           </PopoverContent>
         </Popover>
       </div>
-      <p className="text-xs text-secondary">
+      <p className="text-xs text-fg-secondary">
         A quick visual of your flow. Test runs the engine-accurate dry run. Nothing is sent or
         called from this preview.
       </p>
@@ -189,7 +189,7 @@ export function LivePreview({
                   'rounded-lg',
                   selected === step.nodeId &&
                     !terminal &&
-                    'ring-2 ring-primary-strong ring-offset-2 ring-offset-chat-canvas',
+                    'ring-2 ring-fg ring-offset-2 ring-offset-chat-canvas',
                   system ? 'self-center w-full' : step.kind === 'incoming' ? 'mr-4' : 'ml-4',
                 )}
               >
@@ -199,9 +199,9 @@ export function LivePreview({
                   aria-label={`Select preview step ${index + 1}`}
                   aria-pressed={selected === step.nodeId && !terminal}
                   className={cn(
-                    'h-auto w-full flex-col items-stretch whitespace-normal rounded-lg p-3 text-left text-base font-normal text-slate',
+                    'h-auto w-full flex-col items-stretch whitespace-normal rounded-lg p-3 text-left text-base font-normal text-fg',
                     system
-                      ? 'bg-surface text-center text-secondary'
+                      ? 'bg-surface text-center text-fg-secondary'
                       : step.kind === 'incoming'
                         ? 'bg-surface'
                         : 'bg-chat-outgoing',
@@ -251,7 +251,7 @@ export function LivePreview({
                         </Button>
                       ))}
                     </div>
-                    <p className="text-xs text-secondary">{step.reason}</p>
+                    <p className="text-xs text-fg-secondary">{step.reason}</p>
                   </div>
                 ) : null}
               </li>
@@ -259,11 +259,11 @@ export function LivePreview({
           })}
         </ol>
         {!steps.length ? (
-          <p className="text-sm text-secondary">Add a trigger to preview your flow.</p>
+          <p className="text-sm text-fg-secondary">Add a trigger to preview your flow.</p>
         ) : null}
       </PhoneFrame>
       {selected && !steps.some((step) => step.nodeId === selected) ? (
-        <p className="text-xs text-secondary">
+        <p className="text-xs text-fg-secondary">
           The selected step is outside the connected preview path or after the 30-step limit.
         </p>
       ) : null}
