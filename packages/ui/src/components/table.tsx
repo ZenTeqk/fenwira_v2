@@ -40,7 +40,8 @@ export function TableRow({ className, ...props }: ComponentProps<'tr'>) {
   return (
     <tr
       className={cn(
-        'border-b border-border-subtle transition-colors hover:bg-canvas data-[state=selected]:bg-action-primary-subtle',
+        // Neutral states (Inbox list parity): hover lighter than selection; the checkbox also marks it.
+        'border-b border-border-subtle transition-colors hover:bg-surface-muted data-[state=selected]:bg-surface-selected',
         className,
       )}
       {...props}

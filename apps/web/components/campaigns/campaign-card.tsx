@@ -26,7 +26,8 @@ export function CampaignCard({
           ? PAUSE_LABEL[c.pauseReason ?? 'MANUAL']
           : null
   return (
-    <Card className={cn(c.status === 'RUNNING' && 'border-primary')} data-campaign-card>
+    // Status is the labelled badge, not a coloured card outline.
+    <Card data-campaign-card>
       <CardContent className="flex flex-col gap-3 p-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -36,7 +37,7 @@ export function CampaignCard({
                 <Link
                   href={`/campaigns/${c.id}`}
                   className={cn(
-                    'break-words text-sm font-semibold text-slate hover:underline',
+                    'break-words text-sm font-semibold text-fg hover:underline',
                     focusRing,
                   )}
                 >
@@ -46,7 +47,7 @@ export function CampaignCard({
               </div>
               {c.template ? (
                 <p
-                  className="line-clamp-1 text-sm text-secondary"
+                  className="line-clamp-1 text-sm text-fg-secondary"
                   title={campaignBodyPreview(
                     c.template.components.body.text,
                     c.variableMapping.body,
@@ -55,7 +56,7 @@ export function CampaignCard({
                   {campaignBodyPreview(c.template.components.body.text, c.variableMapping.body)}
                 </p>
               ) : null}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-secondary">
                 {c.template ? (
                   <span className="inline-flex items-center gap-1.5">
                     <Megaphone aria-hidden="true" className="size-3.5 shrink-0" />
@@ -80,7 +81,7 @@ export function CampaignCard({
           <CampaignActions campaign={c} />
         </div>
         {c.status === 'SCHEDULED' && c.scheduleAt ? (
-          <div className="flex items-start gap-2 rounded-md bg-info-soft p-3 text-info-strong">
+          <div className="flex items-start gap-2 rounded-md bg-status-info-bg p-3 text-status-info-fg">
             <CalendarDays aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-medium">{formatInZone(c.scheduleAt, c.timezone)}</p>
@@ -91,7 +92,7 @@ export function CampaignCard({
           <CampaignResults campaign={c} />
         )}
         {pause && c.status === 'PAUSED' && (!c.pauseReason || c.pauseReason === 'MANUAL') ? (
-          <p className="text-sm text-secondary">{pause}</p>
+          <p className="text-sm text-fg-secondary">{pause}</p>
         ) : pause ? (
           <Alert
             tone={c.status === 'PAUSED_INSUFFICIENT_FUNDS' ? 'danger' : 'warning'}
@@ -108,8 +109,8 @@ export function CampaignCard({
             ) : null}
           </Alert>
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-          <span className="flex min-w-0 items-center gap-1.5 break-words text-xs text-secondary">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-3">
+          <span className="flex min-w-0 items-center gap-1.5 break-words text-xs text-fg-secondary">
             <FileText aria-hidden="true" className="size-4 shrink-0" />
             <span>
               {c.template

@@ -236,7 +236,7 @@ export default function TemplatePage() {
                   <TemplateMessage version={v} businessName={t.wabaName} />
                 </CardContent>
               </Card>
-              <dl className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 text-base">
+              <dl className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface p-5 text-base">
                 {[
                   ['Version', `v${v.version}`],
                   ['Submitted', when(v.submittedAt)],
@@ -245,8 +245,8 @@ export default function TemplatePage() {
                   ['Meta template ID', v.metaTemplateId ?? '—'],
                 ].map(([k, val]) => (
                   <div key={k} className="flex gap-2">
-                    <dt className="w-32 shrink-0 text-muted">{k}</dt>
-                    <dd className="min-w-0 break-words text-slate">{val}</dd>
+                    <dt className="w-32 shrink-0 text-fg-muted">{k}</dt>
+                    <dd className="min-w-0 break-words text-fg">{val}</dd>
                   </div>
                 ))}
               </dl>

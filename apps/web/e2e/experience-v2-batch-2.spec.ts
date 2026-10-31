@@ -55,7 +55,7 @@ test('Contacts use server eligibility and lightweight context at four widths', a
     await page.setViewportSize({ width, height: 900 })
     await accessible(page)
     await page.screenshot({ path: info.outputPath(`contacts-${width}.png`), fullPage: true })
-    const trigger = page.getByRole('button', { name: /^Priya Shah(?: \+\d+)?$/ })
+    const trigger = page.getByRole('button', { name: /^Priya Shah(?: \+[\d ]+)?$/ })
     await trigger.focus()
     await page.keyboard.press('Enter')
     const drawer = page.getByRole(width >= 1280 ? 'complementary' : 'dialog', {

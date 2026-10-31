@@ -171,8 +171,8 @@ function Chips({
             className={cn(
               'rounded-full border px-2.5 py-1 text-sm transition-colors',
               on
-                ? 'border-primary-strong bg-primary-soft text-slate'
-                : 'border-border bg-surface text-muted hover:bg-surface-hover',
+                ? 'border-fg bg-surface-selected font-medium text-fg'
+                : 'border-border-subtle bg-surface text-fg-muted hover:bg-surface-hover',
             )}
           >
             {o.label}
@@ -258,7 +258,7 @@ function ValueEditor({
           value={show(a)}
           onChange={(e) => onChange([parse(e.target.value), b])}
         />
-        <span className="text-sm text-muted">and</span>
+        <span className="text-sm text-fg-muted">and</span>
         <Input
           className="h-9 w-36"
           type={type}
@@ -296,7 +296,7 @@ function RuleRow({
   const operators = OPERATORS_BY_KIND[meta.kind] as readonly Operator[]
   const custom = fields.filter((f) => f.field.startsWith('property.'))
   return (
-    <div className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface p-2">
+    <div className="flex flex-wrap items-start gap-2 rounded-md border border-border-subtle bg-surface p-2">
       <Select
         value={rule.field}
         onValueChange={(field) => {
@@ -387,10 +387,10 @@ function Group({
     <div
       className={cn(
         'flex flex-col gap-2',
-        nested && 'rounded-md border border-dashed border-border p-3',
+        nested && 'rounded-md border border-dashed border-border-subtle p-3',
       )}
     >
-      <div className="flex items-center gap-2 text-sm text-slate">
+      <div className="flex items-center gap-2 text-sm text-fg">
         <span>Match</span>
         <Select
           value={value.op}

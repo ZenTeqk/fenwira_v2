@@ -53,7 +53,7 @@ function PropertyInput({
             ))}
           </SelectContent>
         </Select>
-        {error ? <p className="text-sm text-danger-strong">{error}</p> : null}
+        {error ? <p className="text-sm text-status-error-fg">{error}</p> : null}
       </div>
     )
   }
@@ -214,10 +214,10 @@ export function ContactFormModal({
           ))}
           {!contact && tags.length ? (
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-sm font-medium text-slate">Tags</legend>
+              <legend className="mb-1 text-sm font-medium text-fg">Tags</legend>
               <div className="flex flex-wrap gap-3">
                 {tags.map((t) => (
-                  <label key={t.id} className="flex items-center gap-2 text-sm text-slate">
+                  <label key={t.id} className="flex items-center gap-2 text-sm text-fg">
                     <Checkbox
                       checked={tagIds.includes(t.id)}
                       onCheckedChange={(on) =>
@@ -231,8 +231,8 @@ export function ContactFormModal({
             </fieldset>
           ) : null}
           {!contact ? (
-            <div className="flex flex-col gap-2 rounded-md border border-border p-3">
-              <label className="flex items-center gap-2 text-sm text-slate">
+            <div className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">
+              <label className="flex items-center gap-2 text-sm text-fg">
                 <Checkbox checked={optedIn} onCheckedChange={(on) => setOptedIn(on === true)} />
                 This contact agreed to receive marketing messages
               </label>

@@ -14,8 +14,8 @@ export function CampaignMessagePreview({ campaign }: { campaign: Campaign }) {
     <Card>
       <CardContent className="flex flex-col gap-3 p-4">
         <div>
-          <h2 className="text-md font-semibold text-slate">Campaign message</h2>
-          <p className="mt-1 break-words text-xs text-secondary">
+          <h2 className="text-md font-semibold text-fg">Campaign message</h2>
+          <p className="mt-1 break-words text-xs text-fg-secondary">
             {template ? `${template.name} · ${template.language}` : 'No frozen message'}
           </p>
         </div>
@@ -28,7 +28,7 @@ export function CampaignMessagePreview({ campaign }: { campaign: Campaign }) {
               businessName={campaign.phoneNumberDisplay ?? undefined}
               compact
             />
-            <p className="text-xs text-secondary">
+            <p className="text-xs text-fg-secondary">
               The version frozen at launch. Variable markers stay visible here; recipient-specific
               values are in the recipient report.
             </p>

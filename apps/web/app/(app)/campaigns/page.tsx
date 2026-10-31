@@ -131,7 +131,7 @@ export default function CampaignsPage() {
           ))}
         </TabsList>
         <FilterBar
-          className="rounded-lg border border-border bg-surface p-3"
+          className="rounded-lg border border-border-subtle bg-surface p-3"
           activeCount={
             [
               Boolean(search.trim()),
@@ -258,7 +258,7 @@ export default function CampaignsPage() {
             <>
               {active.length ? (
                 <section aria-label="Active campaigns" className="flex flex-col gap-3">
-                  <h2 className="text-md font-semibold text-slate">Active</h2>
+                  <h2 className="text-md font-semibold text-fg">Active</h2>
                   <div className="grid gap-3 xl:grid-cols-2">
                     {active.slice(0, limit).map((c) => (
                       <CampaignCard key={c.id} campaign={c} audienceLabel={audienceLabel(c)} />

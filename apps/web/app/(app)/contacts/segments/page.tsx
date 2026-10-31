@@ -103,7 +103,7 @@ function SegmentEditor({
             <Input value={name} onChange={(e) => setName(e.target.value)} required maxLength={80} />
           </Field>
           <FilterBuilder value={draft} onChange={setDraft} />
-          <p className="text-base text-slate" aria-live="polite">
+          <p className="text-base text-fg" aria-live="polite">
             {count.isError
               ? count.error instanceof ApiError
                 ? count.error.message
@@ -152,7 +152,7 @@ export default function SegmentsPage() {
           <span title={row.original.cachedCountAt ?? undefined}>
             ≈ {row.original.cachedCount.toLocaleString()}
             {row.original.cachedCountAt ? (
-              <span className="ml-1 text-sm text-muted">
+              <span className="ml-1 text-sm text-fg-muted">
                 ({relativeTime(row.original.cachedCountAt)})
               </span>
             ) : null}

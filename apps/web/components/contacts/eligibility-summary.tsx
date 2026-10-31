@@ -50,7 +50,7 @@ export function EligibilityIndicator({ contactId }: { contactId: string }) {
   const q = useEligibility(contactId)
   if (q.isPending) return <Skeleton className="h-8 w-32" />
   if (q.isError)
-    return <span className="text-xs text-secondary">Open details to retry eligibility</span>
+    return <span className="text-xs text-fg-secondary">Open details to retry eligibility</span>
   return (
     <span className="flex flex-col items-start gap-1">
       <StatusBadge
@@ -70,7 +70,7 @@ export function DirectoryEligibility({ contactId }: { contactId: string }) {
   const q = useEligibility(contactId)
   if (q.isPending) return <Skeleton className="h-8 w-24" />
   if (q.isError)
-    return <span className="text-xs text-secondary">Open details to retry eligibility</span>
+    return <span className="text-xs text-fg-secondary">Open details to retry eligibility</span>
   return (
     <span className="flex flex-col items-start gap-0.5">
       <StatusBadge
@@ -115,17 +115,19 @@ export function EligibilitySummary({
   const e = q.data
   return (
     <section aria-label="Messaging eligibility" className={cn('flex flex-col gap-2', className)}>
-      <p className="text-sm text-secondary">{windowText(e.serviceWindowExpiresAt, now)}</p>
+      <p className="text-sm text-fg-secondary">{windowText(e.serviceWindowExpiresAt, now)}</p>
       <ul className="flex flex-col gap-2">
         {ROWS.map(({ key, label }) => {
           const v: EligibilityVerdict = e[key]
           return (
             <li key={key} className="flex flex-col gap-0.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-slate">{label}</span>
+                <span className="text-sm text-fg">{label}</span>
                 <StatusBadge status={v.allowed ? 'CAN_SEND' : 'CANNOT_SEND'} />
               </div>
-              {!v.allowed && v.reason ? <p className="text-xs text-secondary">{v.reason}</p> : null}
+              {!v.allowed && v.reason ? (
+                <p className="text-xs text-fg-secondary">{v.reason}</p>
+              ) : null}
             </li>
           )
         })}

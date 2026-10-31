@@ -36,7 +36,7 @@ const columns: Array<ColumnDef<ContactCampaign>> = [
       <div className="flex flex-col gap-1">
         <Link
           href={`/campaigns/${row.original.campaignId}`}
-          className="font-medium text-slate underline-offset-4 hover:underline"
+          className="font-medium text-fg underline-offset-4 hover:underline"
         >
           {row.original.name}
         </Link>

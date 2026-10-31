@@ -50,7 +50,7 @@ export function TemplateMessage({
         </div>
       )}
       {sample.isError ? (
-        <p className="text-sm text-secondary">
+        <p className="text-sm text-fg-secondary">
           Media sample unavailable.{' '}
           <Button variant="link" size="sm" onClick={() => void sample.refetch()}>
             Retry sample

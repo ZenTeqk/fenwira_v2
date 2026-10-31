@@ -81,11 +81,11 @@ function Recipients({ id, live, timezone }: { id: string; live: boolean; timezon
   return (
     <section aria-labelledby="recipients-heading" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h2 id="recipients-heading" className="text-lg font-semibold text-slate">
+        <h2 id="recipients-heading" className="text-lg font-semibold text-fg">
           Recipients
         </h2>
         <div className="flex flex-col gap-1.5">
-          <span id={selectId} className="text-sm font-medium text-slate">
+          <span id={selectId} className="text-sm font-medium text-fg">
             Status
           </span>
           <Select value={status} onValueChange={setStatus}>
@@ -318,10 +318,10 @@ export default function CampaignPage() {
             <div className="grid gap-4 md:grid-cols-2">
               {Object.keys(s.skipReasons).length ? (
                 <section aria-labelledby="skip-heading">
-                  <h2 id="skip-heading" className="mb-2 text-base font-semibold text-slate">
+                  <h2 id="skip-heading" className="mb-2 text-base font-semibold text-fg">
                     Why recipients were skipped
                   </h2>
-                  <ul className="flex flex-col gap-1 text-sm text-slate">
+                  <ul className="flex flex-col gap-1 text-sm text-fg">
                     {Object.entries(s.skipReasons).map(([r, n]) => (
                       <li key={r}>
                         {skipLabel(r)}: {n.toLocaleString('en-IN')}
@@ -332,10 +332,10 @@ export default function CampaignPage() {
               ) : null}
               {Object.keys(s.failureCodes).length ? (
                 <section aria-labelledby="fail-heading">
-                  <h2 id="fail-heading" className="mb-2 text-base font-semibold text-slate">
+                  <h2 id="fail-heading" className="mb-2 text-base font-semibold text-fg">
                     Failures
                   </h2>
-                  <ul className="flex flex-col gap-1 text-sm text-slate">
+                  <ul className="flex flex-col gap-1 text-sm text-fg">
                     {Object.entries(s.failureCodes).map(([code, n]) => (
                       <li key={code}>
                         <span className="font-mono">{code}</span>: {n.toLocaleString('en-IN')}

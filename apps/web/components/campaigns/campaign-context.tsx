@@ -58,12 +58,12 @@ export function CampaignContext({ campaign: c }: { campaign: Campaign }) {
     <Card>
       <CardContent className="grid gap-5 p-4 md:grid-cols-2">
         <section aria-label="Audience and timing" className="flex flex-col gap-3">
-          <h2 className="text-md font-semibold text-slate">Audience and timing</h2>
+          <h2 className="text-md font-semibold text-fg">Audience and timing</h2>
           <div className="flex items-start gap-3">
-            <Users aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-strong" />
+            <Users aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-fg-secondary" />
             <div>
-              <p className="text-sm font-medium text-slate">{campaignAudienceLabel(c)}</p>
-              <p className="mt-1 text-xs text-secondary">
+              <p className="text-sm font-medium text-fg">{campaignAudienceLabel(c)}</p>
+              <p className="mt-1 text-xs text-fg-secondary">
                 {c.audienceSnapshotAt
                   ? `${c.totalRecipients.toLocaleString('en-IN')} recipients frozen at launch`
                   : 'Audience will be prepared at launch'}
@@ -72,30 +72,27 @@ export function CampaignContext({ campaign: c }: { campaign: Campaign }) {
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <CalendarDays
-              aria-hidden="true"
-              className="mt-0.5 size-5 shrink-0 text-primary-strong"
-            />
+            <CalendarDays aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-fg-secondary" />
             <div>
-              <p className="text-sm font-medium text-slate">
+              <p className="text-sm font-medium text-fg">
                 {c.status === 'SCHEDULED' && c.scheduleAt
                   ? formatInZone(c.scheduleAt, c.timezone)
                   : c.startedAt
                     ? formatInZone(c.startedAt, c.timezone)
                     : 'Sending has not started'}
               </p>
-              <p className="mt-1 text-xs text-secondary">
+              <p className="mt-1 text-xs text-fg-secondary">
                 {c.timezone}
                 {c.status === 'SCHEDULED' ? ' · Planned send' : ''}
               </p>
             </div>
           </div>
           {c.phoneNumberDisplay ? (
-            <p className="text-xs text-secondary">Sending number: {c.phoneNumberDisplay}</p>
+            <p className="text-xs text-fg-secondary">Sending number: {c.phoneNumberDisplay}</p>
           ) : null}
         </section>
         <section aria-label="Campaign milestones" className="flex flex-col gap-3">
-          <h2 className="text-md font-semibold text-slate">Recorded milestones</h2>
+          <h2 className="text-md font-semibold text-fg">Recorded milestones</h2>
           <Timeline label="Campaign milestone timeline" items={milestones} appearance="activity" />
         </section>
       </CardContent>

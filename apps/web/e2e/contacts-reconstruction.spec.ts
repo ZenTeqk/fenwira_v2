@@ -110,7 +110,7 @@ test('Contacts reconstruction uses real identities, compact rows and contextual 
   ).toBe(true)
   await page.goto('/contacts')
   await expect(page.getByText('10 contacts · Page 1', { exact: true })).toBeVisible()
-  const trigger = page.getByRole('button', { name: /^Priya Sharma(?: \+\d+)?$/ })
+  const trigger = page.getByRole('button', { name: /^Priya Sharma(?: \+[\d ]+)?$/ })
   for (const width of [1440, 1024, 768, 375]) {
     await page.setViewportSize({ width, height: 1000 })
     await accessible(page)

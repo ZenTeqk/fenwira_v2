@@ -31,6 +31,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowRight,
+  CircleAlert,
   Eye,
   Languages,
   Megaphone,
@@ -38,6 +39,7 @@ import {
   Plus,
   RefreshCw,
   ShieldCheck,
+  TriangleAlert,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
@@ -58,7 +60,7 @@ import {
 
 const ALL = 'ALL'
 const CATEGORY_PRESENTATION = {
-  UTILITY: { icon: Package, className: 'bg-info-soft text-info-strong' },
+  UTILITY: { icon: Package, className: 'bg-status-info-bg text-status-info-fg' },
   MARKETING: { icon: Megaphone, className: 'bg-category-marketing-bg text-category-marketing-fg' },
   AUTHENTICATION: {
     icon: ShieldCheck,
@@ -108,10 +110,10 @@ function TemplateStatus({ template: t }: { template: Template }) {
     t.status === 'APPROVED'
       ? 'bg-status-success-bg text-status-success-fg'
       : t.status === 'PENDING'
-        ? 'bg-status-warning-bg text-warning-strong'
+        ? 'bg-status-warning-bg text-status-warning-fg'
         : ['REJECTED', 'PAUSED', 'DISABLED'].includes(t.status)
-          ? 'bg-status-error-bg text-danger-strong'
-          : 'bg-neutral-soft text-secondary'
+          ? 'bg-status-error-bg text-status-error-fg'
+          : 'bg-surface-muted text-fg-secondary'
   return (
     <span className="flex shrink-0 flex-col items-end gap-1.5">
       <StatusBadge
@@ -123,7 +125,7 @@ function TemplateStatus({ template: t }: { template: Template }) {
         <StatusBadge
           status="ATTENTION"
           label="Needs attention"
-          className="rounded-full bg-status-error-bg text-danger-strong [&_[data-tone-icon]]:text-inherit"
+          className="rounded-full bg-status-error-bg text-status-error-fg [&_[data-tone-icon]]:text-inherit"
         />
       ) : null}
       {t.qualityScore && t.qualityScore !== 'UNKNOWN' ? (
@@ -201,7 +203,7 @@ export default function TemplatesPage() {
         ?.focus()
   }
   return (
-    <div className="fw-template-library flex min-w-0 items-start gap-4 bg-background">
+    <div className="fw-template-library flex min-w-0 items-start gap-4 bg-canvas">
       <ListPage
         className="min-w-0 flex-1 gap-4 [&_[data-slot=page-header]>div>div]:max-w-full"
         header={{
@@ -238,16 +240,16 @@ export default function TemplatesPage() {
                     <Badge
                       tone="neutral"
                       className={cn(
-                        'min-w-6 justify-center rounded-full px-1.5 tabular-nums text-secondary',
+                        'min-w-6 justify-center rounded-full px-1.5 tabular-nums text-fg-secondary',
                         count > 0 &&
                           v.id === 'APPROVED' &&
                           'bg-status-success-bg text-status-success-fg',
                         count > 0 &&
                           v.id === 'PENDING' &&
-                          'bg-status-warning-bg text-warning-strong',
+                          'bg-status-warning-bg text-status-warning-fg',
                         count > 0 &&
                           v.id === 'ATTENTION' &&
-                          'bg-status-error-bg text-danger-strong',
+                          'bg-status-error-bg text-status-error-fg',
                       )}
                     >
                       {count}
@@ -370,8 +372,10 @@ export default function TemplatesPage() {
                     <li key={t.id} className="min-w-0">
                       <Card
                         className={cn(
-                          'h-full border-border-subtle bg-surface shadow-none transition-shadow hover:border-primary-strong/30 hover:shadow-raised focus-within:border-primary-strong focus-within:shadow-raised motion-reduce:transition-none',
-                          selectedId === t.id && 'border-primary-strong',
+                          // Neutral card states: hover lifts, the open preview gets a charcoal
+                          // outline, keyboard focus keeps the focus-ring colour.
+                          'h-full border-border-subtle bg-surface shadow-none transition-shadow hover:border-border-control hover:shadow-raised focus-within:border-focus-ring focus-within:shadow-raised motion-reduce:transition-none',
+                          selectedId === t.id && 'border-fg',
                         )}
                         data-template-card={t.id}
                       >
@@ -383,7 +387,7 @@ export default function TemplatesPage() {
                                   <Link
                                     href={`/templates/${t.id}`}
                                     className={cn(
-                                      'line-clamp-2 break-words rounded-sm text-md font-semibold text-slate underline-offset-4 hover:underline',
+                                      'line-clamp-2 break-words rounded-sm text-md font-semibold text-fg underline-offset-4 hover:underline',
                                       focusRing,
                                     )}
                                     title={title}
@@ -391,7 +395,7 @@ export default function TemplatesPage() {
                                     {title}
                                   </Link>
                                 </h2>
-                                <p className="mt-1 break-all text-xs text-muted">{t.name}</p>
+                                <p className="mt-1 break-all text-xs text-fg-muted">{t.name}</p>
                               </div>
                               <TemplateStatus template={t} />
                             </div>
@@ -402,7 +406,7 @@ export default function TemplatesPage() {
                               </Badge>
                               <Badge
                                 tone="neutral"
-                                className="rounded-full font-normal text-secondary"
+                                className="rounded-full font-normal text-fg-secondary"
                               >
                                 <Languages aria-hidden="true" />
                                 {languageLabel(t.language)}
@@ -411,26 +415,35 @@ export default function TemplatesPage() {
                           </div>
                           <TemplateMessage version={t.currentVersion} compact library />
                           {t.status === 'REJECTED' && t.currentVersion.rejectionReason ? (
-                            <p className="line-clamp-2 text-xs text-secondary">
-                              Meta: {t.currentVersion.rejectionReason}
+                            <p className="flex items-start gap-1.5 text-xs text-status-error-fg">
+                              <CircleAlert aria-hidden="true" className="mt-px size-3.5 shrink-0" />
+                              <span className="line-clamp-2">
+                                Rejected by Meta: {t.currentVersion.rejectionReason}
+                              </span>
                             </p>
                           ) : null}
                           {t.currentVersion.lastError ? (
-                            <p className="line-clamp-2 text-xs text-secondary">
-                              Last submission: {t.currentVersion.lastError}
+                            <p className="flex items-start gap-1.5 text-xs text-status-warning-fg">
+                              <TriangleAlert
+                                aria-hidden="true"
+                                className="mt-px size-3.5 shrink-0"
+                              />
+                              <span className="line-clamp-2">
+                                Last submission failed: {t.currentVersion.lastError}
+                              </span>
                             </p>
                           ) : null}
                           <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
-                            <span className="text-xs text-muted">
+                            <span className="text-xs text-fg-muted">
                               Updated {relativeTime(t.updatedAt)}
                             </span>
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="sm"
                               aria-label={`Preview ${t.name}`}
                               aria-current={selectedId === t.id ? 'true' : undefined}
                               data-template-preview={t.id}
-                              className="h-8 rounded-md bg-action-primary-subtle px-2.5 text-sm text-status-success-fg hover:bg-action-primary-subtle-hover hover:text-primary-strong-hover"
+                              className="h-8 px-2.5 text-sm"
                               onClick={(event) => {
                                 trigger.current = event.currentTarget
                                 setSelectedId(t.id)
@@ -500,27 +513,30 @@ export default function TemplatesPage() {
                 onRetry={() => void approved.refetch()}
               />
             ) : null}
-            <section className="border-t border-border pt-3" aria-label="Template details">
+            <section className="border-t border-border-subtle pt-3" aria-label="Template details">
               <h3 className="mb-2 text-sm font-semibold">Template details</h3>
               <dl className="grid grid-cols-2 gap-2 text-sm">
-                <dt className="text-secondary">Category</dt>
+                <dt className="text-fg-secondary">Category</dt>
                 <dd>{CATEGORY_LABEL[selected.category]}</dd>
-                <dt className="text-secondary">Language</dt>
+                <dt className="text-fg-secondary">Language</dt>
                 <dd>{languageLabel(selected.language)}</dd>
-                <dt className="text-secondary">Quality</dt>
+                <dt className="text-fg-secondary">Quality</dt>
                 <dd>{selected.qualityScore ?? 'Not available'}</dd>
-                <dt className="text-secondary">Created</dt>
+                <dt className="text-fg-secondary">Created</dt>
                 <dd>{relativeTime(selected.createdAt)}</dd>
               </dl>
             </section>
             {selected.currentVersion.samples.body.length ? (
-              <section className="border-t border-border pt-3" aria-label="Stored sample values">
+              <section
+                className="border-t border-border-subtle pt-3"
+                aria-label="Stored sample values"
+              >
                 <h3 className="mb-2 text-sm font-semibold">Message sample values</h3>
-                <p className="mb-2 text-xs text-muted">Stored examples for this version.</p>
+                <p className="mb-2 text-xs text-fg-muted">Stored examples for this version.</p>
                 <dl className="grid grid-cols-2 gap-2 text-sm">
                   {selected.currentVersion.samples.body.map((sample, index) => (
                     <div key={index} className="contents">
-                      <dt className="text-secondary">{`Message {{${index + 1}}}`}</dt>
+                      <dt className="text-fg-secondary">{`Message {{${index + 1}}}`}</dt>
                       <dd className="break-words">{sample}</dd>
                     </div>
                   ))}
@@ -528,11 +544,11 @@ export default function TemplatesPage() {
               </section>
             ) : null}
             <dl className="grid grid-cols-2 gap-3 text-sm">
-              <dt className="text-muted">WhatsApp account</dt>
+              <dt className="text-fg-muted">WhatsApp account</dt>
               <dd className="break-words">{selected.wabaName}</dd>
-              <dt className="text-muted">Current version</dt>
+              <dt className="text-fg-muted">Current version</dt>
               <dd>v{selected.currentVersion.version}</dd>
-              <dt className="text-muted">Updated</dt>
+              <dt className="text-fg-muted">Updated</dt>
               <dd>{relativeTime(selected.updatedAt)}</dd>
             </dl>
             {selected.status === 'PENDING' ? (

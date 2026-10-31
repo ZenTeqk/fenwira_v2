@@ -17,6 +17,7 @@ import {
   StatusBadge,
   Timeline,
   toast,
+  textLink,
 } from '@fenwira/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, Globe, Mail, MessageSquare, Pencil, Phone, X } from 'lucide-react'
@@ -58,10 +59,10 @@ function ContactContext({ contact }: { contact: Contact }) {
   return (
     <>
       <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-3"
+        className="flex flex-col gap-2 border-t border-border-subtle/70 pt-3"
         aria-labelledby="contact-recent-conversations"
       >
-        <h3 id="contact-recent-conversations" className="text-sm font-semibold text-slate">
+        <h3 id="contact-recent-conversations" className="text-sm font-semibold text-fg">
           Recent conversations
         </h3>
         {conversations.isPending ? (
@@ -72,11 +73,11 @@ function ContactContext({ contact }: { contact: Contact }) {
             onRetry={() => void conversations.refetch()}
           />
         ) : conversations.data.length ? (
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-border-subtle">
             {conversations.data.slice(0, 3).map((cv) => (
               <li key={cv.id} className="flex flex-col gap-1 py-2 text-sm">
                 {can('inbox.read') ? (
-                  <Link className="text-primary-strong hover:underline" href={`/inbox?c=${cv.id}`}>
+                  <Link className={textLink} href={`/inbox?c=${cv.id}`}>
                     {cv.lastMessagePreview ?? 'Open conversation'}
                   </Link>
                 ) : (
@@ -85,7 +86,7 @@ function ContactContext({ contact }: { contact: Contact }) {
                 <span className="flex flex-wrap items-center gap-2">
                   <StatusBadge appearance="inline" status={cv.status as 'OPEN'} />
                   {cv.lastMessageAt ? (
-                    <time dateTime={cv.lastMessageAt} className="text-muted">
+                    <time dateTime={cv.lastMessageAt} className="text-fg-muted">
                       {relativeTime(cv.lastMessageAt)}
                     </time>
                   ) : null}
@@ -94,14 +95,14 @@ function ContactContext({ contact }: { contact: Contact }) {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-secondary">No conversations yet.</p>
+          <p className="text-sm text-fg-secondary">No conversations yet.</p>
         )}
       </section>
       <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-3"
+        className="flex flex-col gap-2 border-t border-border-subtle/70 pt-3"
         aria-labelledby="contact-recent-activity"
       >
-        <h3 id="contact-recent-activity" className="text-sm font-semibold text-slate">
+        <h3 id="contact-recent-activity" className="text-sm font-semibold text-fg">
           Recent activity
         </h3>
         {activities.isPending ? (
@@ -127,10 +128,10 @@ function ContactContext({ contact }: { contact: Contact }) {
       </section>
       {can('campaigns.read') ? (
         <details
-          className="border-t border-border/70 pt-2"
+          className="border-t border-border-subtle/70 pt-2"
           onToggle={(e) => setCampaignsOpen(e.currentTarget.open)}
         >
-          <summary className="cursor-pointer py-2 text-sm font-medium text-slate">
+          <summary className="cursor-pointer py-2 text-sm font-medium text-fg">
             Campaign history
           </summary>
           {campaignsOpen ? <ContactCampaigns contactId={contact.id} /> : null}
@@ -171,7 +172,7 @@ function WhatsAppRelationship({ contact }: { contact: Contact }) {
   const q = useEligibility(contact.id)
   return (
     <section
-      className="flex flex-col gap-2 border-t border-border/70 pt-3"
+      className="flex flex-col gap-2 border-t border-border-subtle/70 pt-3"
       aria-label="WhatsApp relationship"
     >
       <h3 className="text-sm font-semibold">WhatsApp eligibility</h3>
@@ -192,8 +193,8 @@ function WhatsAppRelationship({ contact }: { contact: Contact }) {
               className={cn(
                 'rounded-md border px-3 py-2',
                 verdict.allowed
-                  ? 'border-border bg-primary-soft/50'
-                  : 'border-border bg-background',
+                  ? 'border-border-subtle bg-surface'
+                  : 'border-border-subtle bg-canvas',
               )}
             >
               <div className="flex items-center justify-between gap-2 text-sm">
@@ -204,7 +205,7 @@ function WhatsAppRelationship({ contact }: { contact: Contact }) {
                 />
               </div>
               {!verdict.allowed && verdict.reason ? (
-                <p className="mt-1 text-xs text-secondary">{verdict.reason}</p>
+                <p className="mt-1 text-xs text-fg-secondary">{verdict.reason}</p>
               ) : null}
             </div>
           ))}
@@ -212,18 +213,21 @@ function WhatsAppRelationship({ contact }: { contact: Contact }) {
       ) : null}
       <details>
         <summary
-          className={cn('min-h-8 cursor-pointer rounded-sm py-1 text-xs text-secondary', focusRing)}
+          className={cn(
+            'min-h-8 cursor-pointer rounded-sm py-1 text-xs text-fg-secondary',
+            focusRing,
+          )}
         >
           Eligibility and consent details
         </summary>
         <div className="flex flex-col gap-3 pt-2">
           <EligibilitySummary contactId={contact.id} />
           <dl className="grid grid-cols-2 items-center gap-2 text-sm">
-            <dt className="text-secondary">Marketing consent</dt>
+            <dt className="text-fg-secondary">Marketing consent</dt>
             <dd>
               <ConsentBadge state={contact.marketingConsent} />
             </dd>
-            <dt className="text-secondary">Utility consent</dt>
+            <dt className="text-fg-secondary">Utility consent</dt>
             <dd>
               <ConsentBadge state={contact.utilityConsent} />
             </dd>
@@ -271,11 +275,11 @@ export function ContactPreview({
   const name = c ? (c.name ?? c.waProfileName ?? c.phoneE164) : 'Contact'
   const field = (label: string, value: ReactNode, Icon: typeof Phone) => (
     <div className="grid grid-cols-2 items-start gap-2 text-sm">
-      <dt className="flex items-center gap-2 text-secondary">
+      <dt className="flex items-center gap-2 text-fg-secondary">
         <Icon aria-hidden="true" className="size-4 shrink-0" />
         {label}
       </dt>
-      <dd className="min-w-0 break-words text-right text-slate">{value}</dd>
+      <dd className="min-w-0 break-words text-right text-fg">{value}</dd>
     </div>
   )
   const content = q.isError ? (
@@ -290,8 +294,8 @@ export function ContactPreview({
           <h2 id={titleId} className="truncate text-base font-semibold">
             {name}
           </h2>
-          <p className="text-xs text-muted tabular-nums">{formatPhone(c.phoneE164)}</p>
-          <p className="mt-1 text-xs text-secondary">
+          <p className="text-xs text-fg-muted tabular-nums">{formatPhone(c.phoneE164)}</p>
+          <p className="mt-1 text-xs text-fg-secondary">
             {SOURCE_LABEL[c.source]}
             {c.status === 'BLOCKED' ? (
               <StatusBadge appearance="inline" status="RESTRICTED" label="Blocked" />
@@ -333,7 +337,7 @@ export function ContactPreview({
         </Dropdown>
       </div>
       <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-3"
+        className="flex flex-col gap-2 border-t border-border-subtle/70 pt-3"
         aria-label="Contact information"
       >
         <h3 className="text-sm font-semibold">Contact</h3>
@@ -342,10 +346,7 @@ export function ContactPreview({
           {c.email
             ? field(
                 'Email',
-                <a
-                  href={`mailto:${c.email}`}
-                  className="break-all text-primary-strong hover:underline"
-                >
+                <a href={`mailto:${c.email}`} className={cn('break-all', textLink)}>
                   {c.email}
                 </a>,
                 Mail,
@@ -356,7 +357,7 @@ export function ContactPreview({
         </dl>
       </section>
       <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-3"
+        className="flex flex-col gap-2 border-t border-border-subtle/70 pt-3"
         aria-label="Contact tags"
       >
         <h3 className="text-sm font-semibold">Tags</h3>
@@ -364,7 +365,7 @@ export function ContactPreview({
       </section>
       <WhatsAppRelationship contact={c} />
       <section
-        className="flex flex-col gap-2 border-t border-border/70 pt-3"
+        className="flex flex-col gap-2 border-t border-border-subtle/70 pt-3"
         aria-label="Contact assignment"
       >
         <h3 className="text-sm font-semibold">Assigned to</h3>
@@ -403,7 +404,7 @@ export function ContactPreview({
               close()
             }
           }}
-          className="sticky top-4 max-h-screen w-72 shrink-0 overflow-y-auto rounded-lg border border-border bg-surface outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+          className="sticky top-4 max-h-screen w-72 shrink-0 overflow-y-auto rounded-lg border border-border-subtle bg-surface outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
         >
           {content}
         </aside>

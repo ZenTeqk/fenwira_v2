@@ -373,7 +373,7 @@ function Contacts() {
                 </Button>
               ) : null}
               {showFilter ? (
-                <div className="w-full rounded-lg border border-border bg-surface p-3">
+                <div className="w-full rounded-lg border border-border-subtle bg-surface p-3">
                   <FilterBuilder
                     value={draft}
                     onChange={(f) => {
