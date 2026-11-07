@@ -6,7 +6,7 @@ Usage: python3 scripts/brand-assets.py   (needs Pillow and numpy; a manual tool,
 Outputs (see docs/brand/README.md for where each one is used):
   apps/web/app/favicon.ico, public/brand/favicon-*.png  favicons (light/dark, by colour scheme)
   public/brand/apple-icon.png                           iOS home screen (full-bleed app icon)
-  apps/web/app/opengraph-image.png, twitter-image.png  link previews (dark banner, 1200x630)
+  apps/web/app/opengraph-image.png, twitter-image.png  link previews (dark lockup banner, 1200x630)
   apps/web/public/brand/*.png                          mark, lockups, manifest icons, brand kit
 """
 from collections import deque
@@ -89,6 +89,20 @@ def white_to_alpha(img: Image.Image) -> Image.Image:
     return Image.fromarray(out, 'RGBA')
 
 
+def dark_to_alpha(img: Image.Image) -> Image.Image:
+    """Removes the near-uniform dark background of the dark lockup: pixels close to the background
+    colour become transparent, a soft band keeps the antialiased edges, and edge colours are
+    un-mixed from the background so they stay clean on any dark surface."""
+    a = np.asarray(img.convert('RGB')).astype(np.float64)
+    bg = np.median(np.concatenate([a[:24].reshape(-1, 3), a[-24:].reshape(-1, 3)]), axis=0)
+    dist = np.sqrt(((a - bg) ** 2).sum(axis=2))
+    alpha = np.clip((dist - 14) / 60, 0, 1)
+    safe = np.where(alpha > 0, alpha, 1)[..., None]
+    rgb = np.clip((a - bg * (1 - alpha[..., None])) / safe, 0, 255)
+    out = np.dstack([rgb, alpha * 255]).astype(np.uint8)
+    return Image.fromarray(out, 'RGBA')
+
+
 def card(img: Image.Image, dark: bool, size: int) -> Image.Image:
     """A favicon from a rounded-square icon: cropped to the card's outline (found on the middle
     row and column), with transparent rounded corners, at `size` px."""
@@ -152,23 +166,27 @@ save(icon.resize((180, 180), Image.LANCZOS), PUB / 'apple-icon.png')
 for s in (192, 512):
     save(icon.resize((s, s), Image.LANCZOS), PUB / f'app-icon-{s}.png')
 
-# Light-surface lockup: auth pages and transactional email header.
-lockup = trim(white_to_alpha(load('Fenwira_primary_logo_light.png')), pad=0.01)
-save(lockup.resize((960, round(960 * lockup.height / lockup.width)), Image.LANCZOS), PUB / 'fenwira-lockup-light.png')
+# Lockups ("Fenwira" only): light for light surfaces, dark for dark surfaces. Auth pages pick by
+# theme; the transactional email header uses the light one.
+LOCKUP_W = 960
+lockup = trim(white_to_alpha(load('Fenwira Ribbon Logo.png')), pad=0.01)
+save(lockup.resize((LOCKUP_W, round(LOCKUP_W * lockup.height / lockup.width)), Image.LANCZOS), PUB / 'fenwira-lockup-light.png')
+dark_lockup = trim(dark_to_alpha(load('Fenwira Leaf Emblem Banner.png')), pad=0.01)
+dark_lockup = dark_lockup.resize((LOCKUP_W, round(LOCKUP_W * dark_lockup.height / dark_lockup.width)), Image.LANCZOS)
+save(dark_lockup, PUB / 'fenwira-lockup-dark.png')
 
-# Link previews: dark banner, 1200x630 (content is centred; crop the 1.9:1 band).
-banner = load('Fenwira_stacked_logo.png').convert('RGB')
-bh = round(banner.width / 1.905)
-top = (banner.height - bh) // 2
-og = banner.crop((0, top, banner.width, top + bh)).resize((1200, 630), Image.LANCZOS)
+# Link previews: the dark banner centred on its own background, 1200x630.
+banner = load('Fenwira Leaf Emblem Banner.png').convert('RGB')
+bg = tuple(int(c) for c in np.median(np.asarray(banner)[:24].reshape(-1, 3), axis=0))
+og = Image.new('RGB', (1200, 630), bg)
+fit = banner.resize((1200, round(1200 * banner.height / banner.width)), Image.LANCZOS)
+og.paste(fit, (0, (630 - fit.height) // 2))
 save(og, APP / 'opengraph-image.png')
 save(og, APP / 'twitter-image.png')
 
 # Brand kit (not used by the UI directly): documented in docs/brand/README.md.
 for src, dst, size in (
-    ('Fenwira_primary_logo_dark.png', 'fenwira-lockup-dark.png', 1200),
     ('Fenwira_rounded_icon.png', 'fenwira-rounded-icon.png', 1024),
-    ('Fenwira_stacked_logo.png', 'fenwira-stacked-logo.png', 1536),
 ):
     img = load(src).convert('RGB')
     save(img.resize((size, round(size * img.height / img.width)), Image.LANCZOS), PUB / dst)

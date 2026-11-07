@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Fenwira',
     short_name: 'Fenwira',
-    description: 'WhatsApp operations platform by ZenteqK',
+    description: 'WhatsApp operations platform',
     start_url: '/dashboard',
     display: 'standalone',
     background_color: colorTokens.canvas,
