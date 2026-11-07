@@ -8,16 +8,18 @@ The originals are in `images/` at the repository root. Web derivatives are gener
 | `Fenwira_favicon_light.png`                  | `public/brand/favicon-light.png`, `apps/web/app/favicon.ico`                                                | Browser favicon for light colour schemes (`/favicon.ico` for legacy requests)                                                                                                                                                   |
 | `Fenwira_Favicon_dark.png`                   | `public/brand/favicon-dark.png`                                                                             | Browser favicon for dark colour schemes                                                                                                                                                                                         |
 | `Fenwira_App_Icon.png`                       | `public/brand/apple-icon.png` (180), `app-icon-192.png`, `app-icon-512.png`                                 | iOS home screen and the web app manifest (`app/manifest.ts`). Cropped full-bleed so platform masks never show the white margin.                                                                                                 |
-| `Fenwira_primary_logo_light.png`             | `public/brand/fenwira-lockup-light.png` (white made transparent)                                            | "Fenwira by ZenteqK" on light surfaces: sign-in and registration, onboarding, invitation acceptance, and the header of every transactional email                                                                                |
-| `Fenwira_stacked_logo.png`                   | `apps/web/app/opengraph-image.png`, `twitter-image.png` (1200×630), `public/brand/fenwira-stacked-logo.png` | Link previews; the stacked logo for dark banners                                                                                                                                                                                |
-| `Fenwira_primary_logo_dark.png`              | `public/brand/fenwira-lockup-dark.png`                                                                      | Dark backgrounds that can show the logo's own background (presentations, dark marketing). The glows are part of the artwork and can't be separated cleanly, so the dark sidebar uses the symbol plus the live wordmark instead. |
+| `Fenwira Ribbon Logo.png` | `public/brand/fenwira-lockup-light.png` (white made transparent) | The "Fenwira" lockup on light surfaces: sign-in and registration, onboarding and invitation acceptance in the light theme, and the header of every transactional email |
+| `Fenwira Leaf Emblem Banner.png` | `public/brand/fenwira-lockup-dark.png` (dark background made transparent); `apps/web/app/opengraph-image.png`, `twitter-image.png` (1200×630, on its own background) | The "Fenwira" lockup on dark surfaces (the same pages in the dark theme) and link previews |
 | `Fenwira_rounded_icon.png`                   | `public/brand/fenwira-rounded-icon.png`                                                                     | Round avatar: the WhatsApp Business profile photo and social profiles. It is uploaded in Meta's WhatsApp Manager; Fenwira doesn't set it.                                                                                       |
+
+The product is branded **Fenwira** only. `Fenwira_primary_logo_light.png`, `Fenwira_primary_logo_dark.png` and `Fenwira_stacked_logo.png` carry the retired "Fenwira by ZenteqK" lockup and are no longer used.
 
 Rules:
 
 - The logo's gradient lives only in these images. UI colours stay the design-system tokens (`docs/design/FENWIRA_DESIGN_SYSTEM.md`): the logo is not a source of new UI colours.
+- `BrandMark variant="lockup"` renders both lockups and shows the one matching the current theme (`fw-theme-light-only` / `fw-theme-dark-only` in `packages/ui/src/styles/theme.css`). Never place the light lockup on a dark surface or the reverse.
 - Use the lockups as supplied, at least 120 px wide, with clear space of at least the height of the "F" crossbar.
-- Always give the image text: `alt="Fenwira by ZenteqK"` for lockups, `alt="Fenwira"` for the symbol alone, and `alt=""` when the name is already written next to it.
+- Always give the image text: `alt="Fenwira"` for the lockups and the symbol alone, and `alt=""` when the name is already written next to it.
 
 ## Third-party logos
 

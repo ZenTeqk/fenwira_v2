@@ -22,10 +22,10 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(serverEnv.WEB_ORIGIN),
   title: { default: 'Fenwira', template: '%s · Fenwira' },
-  description: 'WhatsApp operations platform by ZenteqK',
+  description: 'WhatsApp operations platform',
   applicationName: 'Fenwira',
-  openGraph: { siteName: 'Fenwira', title: 'Fenwira by ZenteqK', type: 'website' },
-  twitter: { card: 'summary_large_image', title: 'Fenwira by ZenteqK' },
+  openGraph: { siteName: 'Fenwira', title: 'Fenwira', type: 'website' },
+  twitter: { card: 'summary_large_image', title: 'Fenwira' },
   icons: {
     icon: [
       {

@@ -288,3 +288,15 @@
   pointer-events: none;
   background: linear-gradient(transparent, var(--color-chat-canvas));
 }
+
+/* Theme-specific artwork (the brand lockups): show the variant that matches the nearest
+   `data-theme`, so the logo follows the Appearance menu rather than the OS setting. */
+.fw-theme-dark-only {
+  display: none;
+}
+[data-theme='dark'] .fw-theme-dark-only {
+  display: block;
+}
+[data-theme='dark'] .fw-theme-light-only {
+  display: none;
+}
