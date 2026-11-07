@@ -818,6 +818,11 @@ export class AutomationExecuteProcessor implements QueueProcessor<Data>, OnAppli
       const n = o.notify
       after.push(() => this.realtime.toUser(n.userId, 'notification.created', n.notification))
     }
+    if (o.conversationEvents?.length && e.conversationId) {
+      const conversationId = e.conversationId
+      for (const { event, payload } of o.conversationEvents)
+        after.push(() => this.realtime.toConversation(e.tenantId, conversationId, event, payload))
+    }
     const context =
       o.vars || o.reply
         ? {

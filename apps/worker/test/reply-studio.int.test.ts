@@ -7,7 +7,7 @@ import { Database } from '@fenwira/database'
 import { deliverWebhook, inboundMessageWebhook, startMetaMock } from '@fenwira/whatsapp/testing'
 import { type INestApplication } from '@nestjs/common'
 import { type AddressInfo } from 'node:net'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { bootApi, bootWorker } from './support/harness'
 import { createOwner, type Member } from './support/workspace'
 import { metaId, waitFor } from './support/campaigns'
@@ -133,6 +133,13 @@ describe('Reply Studio acceptance through mock WhatsApp', { timeout: 120000 }, (
     ).toBe(false)
     await worker.close()
     worker = await bootWorker({ META_GRAPH_BASE_URL: mock.url, WHATSAPP_OUTBOUND_BACKOFF_MS: '20' })
+    // Watch the live events the handover pushes to an open inbox.
+    const realtime = (
+      worker.get(AutomationExecuteProcessor) as unknown as {
+        realtime: { toConversation: (...args: unknown[]) => void }
+      }
+    ).realtime
+    const pushed = vi.spyOn(realtime, 'toConversation')
     await send(w, from, '12')
     await state(w, 'required_date')
     await send(w, from, '2026-12-15')
@@ -153,6 +160,18 @@ describe('Reply Studio acceptance through mock WhatsApp', { timeout: 120000 }, (
     expect(rows.notes[0]?.body).toContain('Blue, size M')
     expect(rows.conversation?.automationState).toBe('AGENT_TAKEOVER')
     expect(rows.tags).toBe(1)
+    // An open inbox learns about the takeover, the assignee and the note without a refresh.
+    const live = pushed.mock.calls.filter(
+      ([, conversationId]) => conversationId === initial.conversationId,
+    )
+    expect(live.map(([, , event]) => event)).toEqual(
+      expect.arrayContaining(['conversation.assigned', 'conversation.updated', 'note.created']),
+    )
+    expect(live.find(([, , event]) => event === 'note.created')?.[3]).toMatchObject({
+      id: rows.notes[0]!.id,
+      conversationId: initial.conversationId,
+      body: rows.notes[0]!.body,
+    })
     expect((await report(w)).totals).toMatchObject({
       starts: 1,
       completions: 1,
