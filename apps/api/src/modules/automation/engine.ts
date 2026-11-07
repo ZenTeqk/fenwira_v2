@@ -1,6 +1,7 @@
 import {
   businessHoursSchema,
   businessIsOpen,
+  type ConversationNote,
   DEFAULT_BUSINESS_HOURS,
   type EdgeHandle,
   evaluateExpression,
@@ -40,6 +41,11 @@ export type Outcome = {
   vars?: Record<string, unknown>
   /** Realtime pushes to do after commit. */
   notify?: { userId: string; notification: unknown }
+  /** Conversation realtime events to push after commit, so an open inbox shows the change live. */
+  conversationEvents?: Array<{
+    event: 'conversation.updated' | 'conversation.assigned' | 'note.created'
+    payload: unknown
+  }>
   /** AI conversation mode: stay on this step and wait for the customer's next message. */
   stay?: { handledMessageId: string }
   /** AI handed the conversation to a person: takeover is applied with the step. */
@@ -201,15 +207,16 @@ export async function runInternal(
         })
         if (tags.status === 'FAILED') return tags
       }
+      let assigned: Outcome | null = null
       if (node.config.userId) {
-        const assigned = await assignUser(tx, e, {
+        assigned = await assignUser(tx, e, {
           id: node.id,
           type: 'action.assign_agent',
           config: { mode: 'USER', userId: node.config.userId },
         })
         if (assigned.status === 'FAILED') return assigned
       }
-      await tx.conversationNote.create({
+      const note = await tx.conversationNote.create({
         data: {
           tenantId: e.tenantId,
           conversationId: e.conversationId,
@@ -217,6 +224,7 @@ export async function runInternal(
           body: ev(node.config.note),
           mentions: [],
         },
+        include: { author: { select: { name: true } } },
       })
       await tx.conversation.update({
         where: { id: e.conversationId },
@@ -236,7 +244,30 @@ export async function runInternal(
           },
         },
       })
-      return { status: 'SUCCEEDED', terminal: 'COMPLETED', output: { handover: true } }
+      const conversationId = e.conversationId
+      return {
+        status: 'SUCCEEDED',
+        terminal: 'COMPLETED',
+        output: { handover: true },
+        notify: assigned?.notify,
+        // The open conversation shows the takeover, the assignee and the handover note live.
+        conversationEvents: [
+          ...(assigned?.conversationEvents ?? []),
+          { event: 'conversation.updated', payload: { conversationId } },
+          {
+            event: 'note.created',
+            payload: {
+              id: note.id,
+              conversationId,
+              body: note.body,
+              authorId: note.authorId,
+              authorName: note.author.name,
+              mentions: note.mentions,
+              createdAt: note.createdAt.toISOString(),
+            } satisfies ConversationNote,
+          },
+        ],
+      }
     }
     case 'action.end':
       return { status: 'SUCCEEDED', terminal: 'COMPLETED' }
@@ -339,6 +370,9 @@ async function assignUser(
       input: { mode: 'USER' },
       output: { assigneeId: node.config.userId },
       notify: pushed ?? undefined,
+      conversationEvents: [
+        { event: 'conversation.assigned', payload: { conversationId: conversation.id } },
+      ],
     }
   } catch (err) {
     if (err instanceof AppError)
