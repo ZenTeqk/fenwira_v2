@@ -26,6 +26,8 @@ export const ERROR_CODES = [
   'AI_ALREADY_ENABLED',
   /** The chosen AI plan is missing or inactive (or a plan is required because plans exist). */
   'AI_PLAN_UNAVAILABLE',
+  /** Follow-ups, sales stages and response alerts are off for this workspace (rollout switch). */
+  'FEATURE_NOT_ENABLED',
   // 404
   'NOT_FOUND',
   'TENANT_NOT_FOUND',

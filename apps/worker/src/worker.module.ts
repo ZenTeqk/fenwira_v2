@@ -19,6 +19,8 @@ import { TenancyModule, TenancyProcessor } from '@fenwira/api/modules/tenancy'
 import { LeadsModule, LeadsProcessor } from '@fenwira/api/modules/leads'
 import { CONTACTS_PROCESSORS, ContactsModule } from '@fenwira/api/modules/contacts'
 import { InboxEventsProcessor, InboxModule } from '@fenwira/api/modules/inbox'
+import { SalesEventsProcessor, SalesModule } from '@fenwira/api/modules/sales'
+import { ResponseAlertsModule, ResponseAlertsProcessor } from '@fenwira/api/modules/response-alerts'
 import { MESSAGING_PROCESSORS, MessagingModule } from '@fenwira/api/modules/messaging'
 import { TemplatesModule, TemplatesSyncProcessor } from '@fenwira/api/modules/templates'
 import {
@@ -118,6 +120,8 @@ export class WorkerModule {
     )
     const contacts = ContactsModule.forWorker([messaging])
     const inbox = InboxModule.forWorker()
+    const sales = SalesModule.forWorker()
+    const responseAlerts = ResponseAlertsModule.forWorker()
     const whatsapp = WhatsAppAccountsModule.forWorker({
       keyRing,
       appId: env.META_APP_ID,
@@ -175,6 +179,8 @@ export class WorkerModule {
         messaging,
         contacts,
         inbox,
+        sales,
+        responseAlerts,
         templates,
         billing,
         notifications,
@@ -194,6 +200,8 @@ export class WorkerModule {
         ...MESSAGING_PROCESSORS,
         ...CONTACTS_PROCESSORS,
         InboxEventsProcessor,
+        SalesEventsProcessor,
+        ResponseAlertsProcessor,
         TemplatesSyncProcessor,
         BillingUsageProcessor,
         BillingMaintenanceProcessor,

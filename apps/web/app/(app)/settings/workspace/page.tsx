@@ -63,6 +63,7 @@ export default function WorkspaceSettingsPage() {
     country: 'IN',
     timezone: INDIA_TIMEZONE,
     require2fa: false,
+    salesFollowupsEnabled: false,
   })
   const [transferTo, setTransferTo] = useState('')
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function WorkspaceSettingsPage() {
         country: w.country,
         timezone: INDIA_TIMEZONE,
         require2fa: w.require2fa,
+        salesFollowupsEnabled: w.salesFollowupsEnabled,
       })
     }
   }, [workspace.data])
@@ -178,6 +180,23 @@ export default function WorkspaceSettingsPage() {
                     id="ws-2fa"
                     checked={form.require2fa}
                     onCheckedChange={(require2fa) => setForm((f) => ({ ...f, require2fa }))}
+                    disabled={!canManage}
+                  />
+                </div>
+                <div className="flex items-start justify-between gap-4 rounded-md border border-border-subtle p-4">
+                  <div className="flex flex-col gap-0.5">
+                    <Label htmlFor="ws-sales">Follow-ups and sales</Label>
+                    <p className="text-sm text-fg-muted">
+                      Follow-up reminders, simple sales stages and missed-enquiry alerts. Turning it
+                      off hides them again; nothing is deleted.
+                    </p>
+                  </div>
+                  <Switch
+                    id="ws-sales"
+                    checked={form.salesFollowupsEnabled}
+                    onCheckedChange={(salesFollowupsEnabled) =>
+                      setForm((f) => ({ ...f, salesFollowupsEnabled }))
+                    }
                     disabled={!canManage}
                   />
                 </div>

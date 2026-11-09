@@ -21,6 +21,8 @@ import {
   XCircle,
   Zap,
   Sparkles,
+  MessageCircleReply,
+  Trophy,
 } from 'lucide-react'
 import { type ComponentType } from 'react'
 import { cn } from '../lib/cn'
@@ -126,6 +128,14 @@ export const STATUS_PRESETS = {
   HANDOFF: { tone: 'info', label: 'Handed to team', icon: Hand },
   QUOTA: { tone: 'warning', label: 'Quota reached', icon: Ban },
   AI_HANDLING: { tone: 'info', label: 'AI handling', icon: Sparkles },
+  // Follow-ups and sales (docs/FOLLOW_UPS_AND_SALES.md); overlaps with Today are allowed
+  OVERDUE: { tone: 'warning', label: 'Overdue', icon: AlertTriangle },
+  DUE_TODAY: { tone: 'info', label: 'Due today', icon: Clock },
+  CUSTOMER_REPLIED: { tone: 'info', label: 'Customer replied', icon: MessageCircleReply },
+  WON: { tone: 'success', label: 'Won', icon: Trophy },
+  LOST: { tone: 'neutral', label: 'Lost', icon: XCircle },
+  // Response alerts (docs/RESPONSE_ALERTS.md): a customer is waiting for staff
+  AWAITING_REPLY: { tone: 'warning', label: 'Awaiting reply', icon: Clock },
   // Team
   DEACTIVATED: { tone: 'neutral', label: 'Deactivated', icon: Ban },
   EXPIRED: { tone: 'warning', label: 'Expired', icon: Clock },

@@ -117,8 +117,9 @@ export class InboxService {
         take: q.limit + 1,
       })
       const hasMore = rows.length > q.limit
+      const salesOn = await this.salesOn(tx)
       return {
-        items: rows.slice(0, q.limit).map((r) => toConversation(r, snippets?.get(r.id))),
+        items: rows.slice(0, q.limit).map((r) => toConversation(r, snippets?.get(r.id), salesOn)),
         page: {
           nextCursor: hasMore ? encodeOffset(offset + q.limit) : null,
           hasMore,
@@ -163,6 +164,20 @@ export class InboxService {
     if (q.tagId) where.push({ tags: { some: { tagId: q.tagId } } })
     if (q.phoneNumberId) where.push({ phoneNumberId: q.phoneNumberId })
     const now = new Date()
+    // Sales filters (docs/FOLLOW_UPS_AND_SALES.md): the customer's open opportunity, and pending
+    // follow-ups past due. Sales stage is independent of conversation status and assignee.
+    if (q.salesStageId)
+      where.push({
+        contact: { opportunities: { some: { status: 'OPEN', stageId: q.salesStageId } } },
+      })
+    if (q.salesOwnerId)
+      where.push({
+        contact: { opportunities: { some: { status: 'OPEN', ownerId: q.salesOwnerId } } },
+      })
+    if (q.overdueFollowUp)
+      where.push({
+        contact: { followUps: { some: { status: 'PENDING', dueAt: { lte: now } } } },
+      })
     if (q.window === 'OPEN') where.push({ serviceWindowExpiresAt: { gt: now } })
     if (q.window === 'CLOSED')
       where.push({
@@ -188,7 +203,10 @@ export class InboxService {
     const userId = currentApiKey() ? NIL_USER_ID : currentAuth().userId
     return this.tenantDb.run(async (tx) => {
       const c = await this.find(tx, id, userId)
-      return { ...toConversation(c), aiHandling: await this.aiHandling(tx, c) }
+      return {
+        ...toConversation(c, undefined, await this.salesOn(tx)),
+        aiHandling: await this.aiHandling(tx, c),
+      }
     })
   }
 
@@ -684,6 +702,14 @@ export class InboxService {
   }
 
   // ------------------------------------------------------------------------------- helpers
+
+  private async salesOn(tx: TenantTx): Promise<boolean> {
+    const t = await tx.tenant.findUnique({
+      where: { id: currentTenant().tenantId },
+      select: { salesFollowupsEnabled: true },
+    })
+    return t?.salesFollowupsEnabled ?? false
+  }
 
   /** ASSIGNED_ONLY workspaces show agents only their own and unassigned conversations. */
   private visibility(tx: TenantTx, userId: string): Promise<Prisma.ConversationWhereInput> {

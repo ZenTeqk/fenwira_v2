@@ -13,6 +13,8 @@ type SidebarNavProps = {
   onNavigate?: () => void
   /** Count pills by item id (e.g. unread conversations on Inbox). */
   badges?: Record<string, number>
+  /** What each count means, for screen readers ("unread", "overdue"). */
+  badgeLabels?: Record<string, string>
   /**
    * `rail`: main modules scroll; Integrations, Billing and Settings stay pinned below a divider
    * (desktop sidebar). `stacked`: one flowing list with the same divider (mobile drawer).
@@ -62,6 +64,7 @@ export function SidebarNav({
   collapsed = false,
   onNavigate,
   badges = {},
+  badgeLabels = {},
   layout = 'stacked',
   afterPrimary,
 }: SidebarNavProps) {
@@ -97,7 +100,7 @@ export function SidebarNav({
         {count ? (
           <span className="fw-sidebar-badge ml-auto rounded-full bg-action-primary px-1.5 text-xs font-semibold text-action-primary-fg">
             {count > 99 ? '99+' : count}
-            <span className="sr-only"> unread</span>
+            <span className="sr-only"> {badgeLabels[item.id] ?? 'unread'}</span>
           </span>
         ) : null}
       </Link>

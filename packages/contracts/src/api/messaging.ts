@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { templateVariablesSchema } from '../templates/components'
 import { messageTemplateSnapshotSchema, type MessageTemplateSnapshot } from '../templates/snapshot'
 import { idSchema } from './common'
+import { conversationWaitingSchema } from './sales'
 
 /**
  * Message content, typed per message type (docs/MESSAGING_ENGINE.md). Stored as `messages.content`
@@ -270,6 +271,8 @@ export const conversationSchema = z.object({
   firstResponseAt: z.string().nullable(),
   /** Matching message text when the list was searched. */
   snippet: z.string().nullable().optional(),
+  /** Awaiting a staff response (docs/RESPONSE_ALERTS.md); only with follow-ups and sales on. */
+  waiting: conversationWaitingSchema.nullable().optional(),
   createdAt: z.string(),
 })
 export type Conversation = z.infer<typeof conversationSchema>
@@ -286,6 +289,12 @@ export const conversationsQuerySchema = z.object({
   unread: boolParam.optional(),
   window: z.enum(['OPEN', 'CLOSED']).optional(),
   phoneNumberId: idSchema.optional(),
+  /** The customer's open opportunity is in this stage (docs/FOLLOW_UPS_AND_SALES.md). */
+  salesStageId: idSchema.optional(),
+  /** The customer's open opportunity belongs to this sales owner. */
+  salesOwnerId: idSchema.optional(),
+  /** The customer has a pending follow-up past its due time. */
+  overdueFollowUp: boolParam.optional(),
   q: z.string().trim().min(1).max(120).optional(),
   sort: z.enum(['recent', 'oldest_waiting']).default('recent'),
   limit: z.coerce.number().int().min(1).max(100).default(30),

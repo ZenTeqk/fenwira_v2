@@ -21,6 +21,8 @@ import { RealtimeModule } from './modules/realtime'
 import { PermissionGuard, TenancyModule, TenantGuard } from './modules/tenancy'
 import { ContactsModule } from './modules/contacts'
 import { InboxModule } from './modules/inbox'
+import { SalesModule } from './modules/sales'
+import { ResponseAlertsModule } from './modules/response-alerts'
 import { MessagingModule } from './modules/messaging'
 import { TemplatesModule } from './modules/templates'
 import { AnalyticsModule } from './modules/analytics'
@@ -120,6 +122,8 @@ export class ApiModule {
         NativeModule.forApi(nativeOptions(env, keyRing)),
         messaging,
         InboxModule.forApi([messaging]),
+        SalesModule.forApi(),
+        ResponseAlertsModule.forApi(),
         AnalyticsModule.forApi(),
         ApiKeysModule.forApi({
           pepper: env.API_KEY_PEPPER,

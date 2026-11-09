@@ -15,7 +15,7 @@ import Link from 'next/link'
 import { SubscriptionBanner } from '@/components/billing/subscription-banner'
 import { Menu, Pin, PinOff, Search } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { moduleTabs, NAVIGATION, type NavItem, visibleNavigation } from '@/lib/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { get } from '@/lib/api/client'
@@ -32,6 +32,8 @@ import { SidebarStatus } from './sidebar-status'
 import { TenantSwitcher } from './tenant-switcher'
 import { WhatsAppConnectionControl } from './whatsapp-connection-control'
 import { useSidebarExpansion } from '@/lib/use-sidebar-expansion'
+import { useFollowUpSummary } from '@/lib/follow-ups'
+import { WorkspaceLinkHandler } from '../session/workspace-link'
 
 type AppShellProps = { children: ReactNode; navPreview: boolean; galleryEnabled: boolean }
 
@@ -68,11 +70,20 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
   usePresenceHeartbeat(can('inbox.reply'))
   useRealtimeEvent('message.created', () => void unread.refetch())
   useRealtimeEvent('conversation.read', () => void unread.refetch())
-  const badges = { inbox: unread.data ?? 0 }
+  const followUps = useFollowUpSummary()
+  // Follow-ups: the current user's overdue count (hidden at zero).
+  const badges = { inbox: unread.data ?? 0, 'follow-ups': followUps.data?.overdue ?? 0 }
+  const badgeLabels = { inbox: 'unread', 'follow-ups': 'overdue' }
   const nav: NavItem[] = useMemo(
     () =>
-      visibleNavigation(navPreview, NAVIGATION, membership.permissions, me.features.managedLaunch),
-    [navPreview, membership.permissions, me.features.managedLaunch],
+      visibleNavigation(
+        navPreview,
+        NAVIGATION,
+        membership.permissions,
+        me.features.managedLaunch,
+        membership.salesFollowups,
+      ),
+    [navPreview, membership.permissions, me.features.managedLaunch, membership.salesFollowups],
   )
   const { rail, pinned, expanded, togglePin } = useSidebarExpansion()
   const collapsed = !expanded
@@ -150,6 +161,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
             pathname={pathname}
             collapsed={collapsed}
             badges={badges}
+            badgeLabels={badgeLabels}
             layout="rail"
             afterPrimary={<SidebarStatus />}
           />
@@ -174,6 +186,7 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
               items={nav}
               pathname={pathname}
               badges={badges}
+              badgeLabels={badgeLabels}
               onNavigate={() => setMobileOpen(false)}
             />
           </div>
@@ -234,6 +247,9 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           />
         ) : null}
         <main id="main" tabIndex={-1} className="min-h-0 flex-1 outline-none">
+          <Suspense fallback={null}>
+            <WorkspaceLinkHandler />
+          </Suspense>
           {fullBleed ? (
             children
           ) : (

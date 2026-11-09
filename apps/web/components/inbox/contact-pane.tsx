@@ -36,6 +36,7 @@ import {
   EligibilitySection,
 } from './contact-details'
 import { CustomerActivity } from './customer-activity'
+import { NextFollowUpSection, SalesSection } from './sales-panel'
 import { CustomerFields } from './customer-fields'
 
 type PastConversation = {
@@ -270,6 +271,8 @@ export function ContactPane({
         ) : null}
         <TabsContent value="details" className="flex min-w-0 flex-col gap-2 p-4">
           <CustomerAssignment conversation={conversation} />
+          <SalesSection conversation={conversation} />
+          <NextFollowUpSection conversation={conversation} />
           {!enabled ? (
             <p className="text-xs text-fg-secondary">Your role can&apos;t view contact details.</p>
           ) : contact.isPending ? (

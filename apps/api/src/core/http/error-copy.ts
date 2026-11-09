@@ -74,6 +74,10 @@ export const ERROR_COPY: Partial<Record<ErrorCode, { message?: string; hint: str
   },
   LIMIT_EXCEEDED: { hint: 'Upgrade the plan or remove items to stay within the limit.' },
   ENTITLEMENT_REQUIRED: { hint: 'This feature is not on the current plan.' },
+  FEATURE_NOT_ENABLED: {
+    message: 'Follow-ups and sales are not turned on for this workspace.',
+    hint: 'An admin can turn them on in Settings → Workspace.',
+  },
   AI_NOT_ENABLED: {
     message: 'AI Assistant is not enabled for this workspace.',
     hint: 'Contact Fenwira to add AI Assistant to your plan.',

@@ -15,9 +15,10 @@ import {
   StatusBadge,
   Tooltip,
 } from '@fenwira/ui'
-import { type Ref } from 'react'
+import { type Ref, useState } from 'react'
 import {
   ArrowLeft,
+  CalendarPlus,
   ChevronDown,
   Check,
   Ellipsis,
@@ -25,8 +26,10 @@ import {
   Paperclip,
   PanelRightOpen,
 } from 'lucide-react'
+import { FollowUpForm } from '@/components/follow-ups/follow-up-form'
 import { useSession } from '@/components/session/session-provider'
 import { useTags } from '@/lib/contacts'
+import { useSalesOn } from '@/lib/follow-ups'
 import { displayName } from '@/lib/inbox'
 import { formatPhone } from '@/lib/phone'
 import {
@@ -35,6 +38,7 @@ import {
   useConversationActions,
   usePresence,
 } from './conversation-actions'
+import { WaitingIndicator } from './waiting-indicator'
 
 const PRESENCE_TEXT = { ONLINE: 'online', AWAY: 'away', OFFLINE: 'offline' } as const
 
@@ -232,6 +236,10 @@ export function ConversationHeader({
 }) {
   const tags = useTags().data ?? []
   const actions = useConversationActions(c)
+  const { can } = useSession()
+  const salesOn = useSalesOn()
+  const [followingUp, setFollowingUp] = useState(false)
+  const canFollowUp = salesOn && can('followups.write')
   const name = displayName(c)
   const closed = c.status === 'RESOLVED' || c.status === 'SNOOZED'
 
@@ -258,8 +266,11 @@ export function ConversationHeader({
         <h2 className="truncate text-md font-semibold text-fg" title={name}>
           {name}
         </h2>
-        <span className="truncate text-base text-fg-secondary tabular-nums">
-          {formatPhone(c.contact.phoneE164)}
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-base text-fg-secondary tabular-nums">
+            {formatPhone(c.contact.phoneE164)}
+          </span>
+          <WaitingIndicator waiting={c.waiting} />
         </span>
       </div>
       <div className="hidden shrink-0 @3xl:block">
@@ -282,6 +293,20 @@ export function ConversationHeader({
               Resolve
             </Button>
           )
+        ) : null}
+        {canFollowUp ? (
+          <Tooltip content="Create a follow-up reminder">
+            <Button
+              size="icon"
+              variant="secondary"
+              aria-label="Follow up"
+              title="Follow up"
+              onClick={() => setFollowingUp(true)}
+              className="hidden @lg:inline-flex"
+            >
+              <CalendarPlus aria-hidden="true" />
+            </Button>
+          </Tooltip>
         ) : null}
         <Tooltip content="Filter conversation messages by type">
           <Button
@@ -312,6 +337,12 @@ export function ConversationHeader({
               <ListFilter aria-hidden="true" className="size-4" />
               Filter messages
             </DropdownItem>
+            {canFollowUp ? (
+              <DropdownItem onSelect={() => setFollowingUp(true)}>
+                <CalendarPlus aria-hidden="true" className="size-4" />
+                Follow up
+              </DropdownItem>
+            ) : null}
             {onSharedFiles ? (
               <DropdownItem onSelect={onSharedFiles}>
                 <Paperclip aria-hidden="true" className="size-4" />
@@ -381,6 +412,17 @@ export function ConversationHeader({
           </Button>
         ) : null}
       </div>
+      {followingUp ? (
+        <FollowUpForm
+          open
+          onOpenChange={setFollowingUp}
+          draft={{
+            contact: { id: c.contact.id, label: name },
+            conversationId: c.id,
+            defaultAssigneeId: c.assignee?.id ?? null,
+          }}
+        />
+      ) : null}
     </div>
   )
 }

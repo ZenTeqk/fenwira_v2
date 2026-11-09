@@ -418,6 +418,39 @@ const FIXTURES: Record<string, Fixture> = {
         status: 'SUCCEEDED',
       },
     }),
+  // Follow-ups and sales (docs/FOLLOW_UPS_AND_SALES.md) and response alerts.
+  sales_stages: (tx, { tenantId }) =>
+    tx.salesStage.create({
+      data: { tenantId, name: `Stage ${metaId()}`, outcome: 'OPEN', position: 0 },
+    }),
+  opportunities: async (tx, { tenantId }) => {
+    const stage = await tx.salesStage.create({
+      data: { tenantId, name: `Stage ${metaId()}`, outcome: 'OPEN', position: 0 },
+    })
+    return tx.opportunity.create({
+      data: { tenantId, contactId: (await contact(tx, tenantId)).id, stageId: stage.id },
+    })
+  },
+  follow_ups: async (tx, { tenantId, userId }) =>
+    tx.followUp.create({
+      data: {
+        tenantId,
+        contactId: (await contact(tx, tenantId)).id,
+        title: 'Matrix follow-up',
+        assigneeId: userId,
+        dueAt: new Date(),
+      },
+    }),
+  conversation_wait_episodes: async (tx, { tenantId }) =>
+    tx.conversationWaitEpisode.create({
+      data: {
+        tenantId,
+        conversationId: (await conversation(tx, tenantId)).id,
+        startedAt: new Date(),
+      },
+    }),
+  response_alert_settings: (tx, { tenantId }) =>
+    tx.responseAlertSettings.create({ data: { tenantId } }),
   canned_replies: (tx, { tenantId, userId }) =>
     tx.cannedReply.create({
       data: { tenantId, shortcut: `/t${Date.now()}`, title: 't', body: 'b', createdBy: userId },

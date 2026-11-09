@@ -206,15 +206,25 @@ export class OutboundProcessor implements QueueProcessor<OutboundJob>, OnModuleI
         buildSendPayload(toWaId(message.contact.phoneE164), content, mediaId, message.id),
       )
       // Written immediately: a crash after this point can no longer cause a duplicate send.
-      await this.db.withTenant(
-        tenantId,
-        (tx) =>
-          tx.$executeRaw`
+      // A staff reply's `message.outbound.sent` commits with it (response alerts: it ends the
+      // customer's wait). Campaign, automation and API sends emit nothing extra.
+      await this.db.withTenant(tenantId, async (tx) => {
+        const updated = await tx.$executeRaw`
           UPDATE messages SET provider_message_id = ${providerMessageId},
             status = CASE WHEN fenwira_message_status_rank(status) < 3 THEN 'SENT'::message_status ELSE status END,
             sent_at = COALESCE(sent_at, now()), error_code = NULL, error_detail = NULL, updated_at = now()
-          WHERE id = ${message.id}::uuid AND status <> 'FAILED'`,
-      )
+          WHERE id = ${message.id}::uuid AND status <> 'FAILED'`
+        if (updated && message.source === 'INBOX')
+          await tx.outboxEvent.create({
+            data: {
+              tenantId,
+              eventType: 'message.outbound.sent',
+              aggregateType: 'message',
+              aggregateId: message.id,
+              payload: { messageId: message.id, conversationId: message.conversationId },
+            },
+          })
+      })
       timer()
       this.metrics.metaRequests.inc({ endpoint: 'messages', result: 'success', error_code: '' })
       this.metrics.messageStatus.inc({ direction: 'OUTBOUND', status: 'SENT' })

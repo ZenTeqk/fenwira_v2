@@ -82,6 +82,9 @@ model User {
   apiKeysCreated          ApiKey[]                 @relation("ApiKeyCreator")
   webhookEndpointsCreated WebhookEndpoint[]        @relation("WebhookEndpointCreator")
   campaignsCreated        Campaign[]               @relation("CampaignCreator")
+  ownedOpportunities      Opportunity[]            @relation("OpportunityOwner")
+  assignedFollowUps       FollowUp[]               @relation("FollowUpAssignee")
+  createdFollowUps        FollowUp[]               @relation("FollowUpCreator")
 
   @@map("users")
 }
@@ -217,6 +220,8 @@ model Tenant {
   /// workspace. Business limits, all features on, no trial/renewal invoices, lifecycle emails,
   /// suspension or wallet charges. Never connect it to a customer's WABA (docs/MANAGED_LAUNCH.md).
   isInternal               Boolean                @default(false) @map("is_internal")
+  /// Rollout switch: Follow-ups, sales stages and response alerts (docs/FOLLOW_UPS_AND_SALES.md).
+  salesFollowupsEnabled    Boolean                @default(false) @map("sales_followups_enabled")
   ownerUserId              String                 @map("owner_user_id") @db.Uuid
   createdAt                DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -285,6 +290,11 @@ model Tenant {
   aiUsage                  AiUsage[]
   aiReplyLogs              AiReplyLog[]
   aiActivationRequests     AiActivationRequest[]
+  salesStages              SalesStage[]
+  opportunities            Opportunity[]
+  followUps                FollowUp[]
+  waitEpisodes             ConversationWaitEpisode[]
+  responseAlertSettings    ResponseAlertSettings?
 
   @@map("tenants")
 }
@@ -673,6 +683,8 @@ model Contact {
   consents       Consent[]
   activities     ContactActivity[]
   propertyValues ContactPropertyValue[]
+  opportunities  Opportunity[]
+  followUps      FollowUp[]
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([tenantId, marketingConsent])
@@ -721,14 +733,17 @@ model Conversation {
   createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant      Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contact     Contact                 @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  phoneNumber WhatsAppPhoneNumber     @relation(fields: [phoneNumberId], references: [id], onDelete: Cascade)
-  assignee    User?                   @relation("ConversationAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  messages    Message[]
-  readStates  ConversationReadState[]
-  notes       ConversationNote[]
-  tags        ConversationTag[]
+  tenant        Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact       Contact                   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  phoneNumber   WhatsAppPhoneNumber       @relation(fields: [phoneNumberId], references: [id], onDelete: Cascade)
+  assignee      User?                     @relation("ConversationAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages      Message[]
+  readStates    ConversationReadState[]
+  notes         ConversationNote[]
+  tags          ConversationTag[]
+  opportunities Opportunity[]
+  followUps     FollowUp[]
+  waitEpisodes  ConversationWaitEpisode[]
 
   @@unique([tenantId, contactId, phoneNumberId])
   @@index([tenantId, status, lastMessageAt(sort: Desc)])
@@ -2786,4 +2801,164 @@ model AiActivationRequest {
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([status, createdAt])
   @@map("ai_activation_requests")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Follow-ups, sales stages and opportunities (docs/FOLLOW_UPS_AND_SALES.md) and response alerts
+// (docs/RESPONSE_ALERTS.md). Tenant tables: RLS from post-migrate.sql (tenant_id).
+// ---------------------------------------------------------------------------------------------
+
+enum SalesOutcome {
+  OPEN
+  WON
+  LOST
+
+  @@map("sales_outcome")
+}
+
+/// Workspace sales stages. Stable ids; `key` marks the seeded defaults. Never deleted while
+/// referenced: archiving hides a stage from new choices and keeps history intact.
+model SalesStage {
+  id         String       @id @default(uuid(7)) @db.Uuid
+  tenantId   String       @map("tenant_id") @db.Uuid
+  key        String?
+  name       String
+  outcome    SalesOutcome
+  position   Int
+  archivedAt DateTime?    @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  opportunities Opportunity[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, position])
+  @@map("sales_stages")
+}
+
+/// A lightweight sales opportunity for a contact. At most one OPEN per contact (partial unique
+/// index); closed ones stay as history so repeat purchases start a new opportunity.
+model Opportunity {
+  id                 String       @id @default(uuid(7)) @db.Uuid
+  tenantId           String       @map("tenant_id") @db.Uuid
+  contactId          String       @map("contact_id") @db.Uuid
+  conversationId     String?      @map("conversation_id") @db.Uuid
+  stageId            String       @map("stage_id") @db.Uuid
+  status             SalesOutcome @default(OPEN)
+  ownerId            String?      @map("owner_id") @db.Uuid
+  title              String?
+  expectedValueMinor BigInt?      @map("expected_value_minor")
+  currency           String?      @db.Char(3)
+  closedAt           DateTime?    @map("closed_at") @db.Timestamptz(3)
+  createdBy          String?      @map("created_by") @db.Uuid
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact      Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  stage        SalesStage    @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  owner        User?         @relation("OpportunityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  followUps    FollowUp[]
+
+  @@index([tenantId, contactId, createdAt(sort: Desc)])
+  @@index([tenantId, status, stageId])
+  @@index([tenantId, status, ownerId])
+  @@map("opportunities")
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+
+  @@map("follow_up_status")
+}
+
+/// Internal reminder for a teammate. due_at is UTC. `version` increments on every change so a
+/// reminder job armed for an older version is a no-op; due_notified_at is reset when the due
+/// time or assignee changes.
+model FollowUp {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  contactId      String         @map("contact_id") @db.Uuid
+  conversationId String?        @map("conversation_id") @db.Uuid
+  opportunityId  String?        @map("opportunity_id") @db.Uuid
+  title          String
+  note           String?
+  assigneeId     String         @map("assignee_id") @db.Uuid
+  createdBy      String?        @map("created_by") @db.Uuid
+  dueAt          DateTime       @map("due_at") @db.Timestamptz(3)
+  status         FollowUpStatus @default(PENDING)
+  version        Int            @default(1)
+  dueNotifiedAt  DateTime?      @map("due_notified_at") @db.Timestamptz(3)
+  needsReviewAt  DateTime?      @map("needs_review_at") @db.Timestamptz(3)
+  completedAt    DateTime?      @map("completed_at") @db.Timestamptz(3)
+  completedBy    String?        @map("completed_by") @db.Uuid
+  cancelledAt    DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  cancelledBy    String?        @map("cancelled_by") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact      Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  opportunity  Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  assignee     User          @relation("FollowUpAssignee", fields: [assigneeId], references: [id])
+  creator      User?         @relation("FollowUpCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, assigneeId, status, dueAt])
+  @@index([tenantId, status, dueAt])
+  @@index([tenantId, contactId, status])
+  @@index([tenantId, conversationId, status])
+  @@index([tenantId, opportunityId, status])
+  @@map("follow_ups")
+}
+
+/// "Waiting for staff" episode (docs/RESPONSE_ALERTS.md): from the oldest unanswered customer
+/// message until a staff reply is accepted or the conversation is resolved. One open episode per
+/// conversation (partial unique index). clock_started_at is null while a bot handles it.
+model ConversationWaitEpisode {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  conversationId      String    @map("conversation_id") @db.Uuid
+  startedAt           DateTime  @map("started_at") @db.Timestamptz(3)
+  startMessageId      String?   @map("start_message_id") @db.Uuid
+  botHandling         Boolean   @default(false) @map("bot_handling")
+  clockStartedAt      DateTime? @map("clock_started_at") @db.Timestamptz(3)
+  nextCheckAt         DateTime? @map("next_check_at") @db.Timestamptz(3)
+  unassignedAlertedAt DateTime? @map("unassigned_alerted_at") @db.Timestamptz(3)
+  responseAlertedAt   DateTime? @map("response_alerted_at") @db.Timestamptz(3)
+  escalatedAt         DateTime? @map("escalated_at") @db.Timestamptz(3)
+  endedAt             DateTime? @map("ended_at") @db.Timestamptz(3)
+  endReason           String?   @map("end_reason")
+  endMessageId        String?   @map("end_message_id") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, conversationId, startedAt(sort: Desc)])
+  @@map("conversation_wait_episodes")
+}
+
+/// Response alert policy, one row per workspace. Disabled until a manager configures it.
+model ResponseAlertSettings {
+  tenantId          String    @id @map("tenant_id") @db.Uuid
+  enabled           Boolean   @default(false)
+  enabledAt         DateTime? @map("enabled_at") @db.Timestamptz(3)
+  unassignedMinutes Int       @default(5) @map("unassigned_minutes")
+  responseMinutes   Int       @default(15) @map("response_minutes")
+  escalationMinutes Int       @default(30) @map("escalation_minutes")
+  escalationUserIds String[]  @default([]) @map("escalation_user_ids") @db.Uuid
+  issueCode         String?   @map("issue_code")
+  issueMessage      String?   @map("issue_message")
+  issueAt           DateTime? @map("issue_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("response_alert_settings")
 }

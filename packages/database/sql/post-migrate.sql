@@ -1042,3 +1042,37 @@ $$;
 ALTER FUNCTION system.platform_ai_activation_requests(uuid, text, integer) OWNER TO fenwira_system;
 REVOKE ALL ON FUNCTION system.platform_ai_activation_requests(uuid, text, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION system.platform_ai_activation_requests(uuid, text, integer) TO fenwira_app;
+
+-- Follow-ups (docs/FOLLOW_UPS_AND_SALES.md → Reminders): the recovery sweep for due reminders a
+-- lost or late delayed job missed. Bounded by the partial index follow_ups_due_unnotified; only
+-- workspaces with the rollout switch on. IDs only; the worker re-checks inside withTenant.
+GRANT SELECT (id, tenant_id, status, due_at, due_notified_at) ON public.follow_ups TO fenwira_system;
+GRANT SELECT (id, sales_followups_enabled, deleted_at) ON public.tenants TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.follow_ups_due(p_now timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid, follow_up_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT f.tenant_id, f.id FROM public.follow_ups f
+  JOIN public.tenants t ON t.id = f.tenant_id
+  WHERE f.status = 'PENDING' AND f.due_notified_at IS NULL AND f.due_at <= p_now
+    AND t.sales_followups_enabled AND t.deleted_at IS NULL
+  ORDER BY f.due_at
+  LIMIT least(greatest(p_limit, 1), 1000);
+$$;
+ALTER FUNCTION system.follow_ups_due(timestamptz, integer) OWNER TO fenwira_system;
+REVOKE ALL ON FUNCTION system.follow_ups_due(timestamptz, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION system.follow_ups_due(timestamptz, integer) TO fenwira_app;
+
+-- Response alerts (docs/RESPONSE_ALERTS.md → Checks): open waiting episodes whose next alert level
+-- may be due. Bounded by the partial index conversation_wait_episodes_next_check.
+GRANT SELECT (id, tenant_id, next_check_at, ended_at) ON public.conversation_wait_episodes TO fenwira_system;
+CREATE OR REPLACE FUNCTION system.wait_episodes_due(p_now timestamptz, p_limit integer)
+RETURNS TABLE (tenant_id uuid, episode_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+  SELECT e.tenant_id, e.id FROM public.conversation_wait_episodes e
+  WHERE e.ended_at IS NULL AND e.next_check_at IS NOT NULL AND e.next_check_at <= p_now
+  ORDER BY e.next_check_at
+  LIMIT least(greatest(p_limit, 1), 1000);
+$$;
+ALTER FUNCTION system.wait_episodes_due(timestamptz, integer) OWNER TO fenwira_system;
+REVOKE ALL ON FUNCTION system.wait_episodes_due(timestamptz, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION system.wait_episodes_due(timestamptz, integer) TO fenwira_app;

@@ -27,6 +27,8 @@ const AREA_LABELS: Record<string, string> = {
   whatsapp: 'WhatsApp',
   contacts: 'Contacts',
   inbox: 'Inbox',
+  followups: 'Follow-ups',
+  sales: 'Sales',
   templates: 'Templates',
   campaigns: 'Campaigns',
   automations: 'Automations',

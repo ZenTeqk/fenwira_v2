@@ -22,6 +22,7 @@ export class MeService {
         role: m.role as Role,
         permissions: [...ROLE_PERMISSIONS[m.role as Role]],
         require2fa: m.tenant.require2fa,
+        salesFollowups: m.tenant.salesFollowupsEnabled,
       }))
     })
   }

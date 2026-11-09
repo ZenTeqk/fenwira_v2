@@ -71,6 +71,8 @@ export const membershipSummarySchema = z.object({
   role: roleSchema,
   permissions: z.array(z.string()) as z.ZodType<Permission[]>,
   require2fa: z.boolean(),
+  /** Workspace rollout switch: Follow-ups, sales stages and response alerts. */
+  salesFollowups: z.boolean(),
 })
 export type MembershipSummary = z.infer<typeof membershipSummarySchema>
 

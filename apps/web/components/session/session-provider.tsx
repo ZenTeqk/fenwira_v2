@@ -73,7 +73,8 @@ type SessionContextValue = {
   membership: MembershipSummary
   tenantId: string
   can: (permission: Permission) => boolean
-  switchTenant: (tenantId: string) => void
+  /** `to`: where to land in the new workspace (default /dashboard). */
+  switchTenant: (tenantId: string, to?: string) => void
   signOut: () => Promise<void>
 }
 
@@ -104,16 +105,16 @@ export function SessionProvider({ me, children }: { me: Me; children: ReactNode 
   }, [membership.tenantId, tenantId])
 
   const switchTenant = useCallback(
-    (next: string) => {
+    (next: string, to = '/dashboard') => {
       if (next === membership.tenantId) return
-      requestNavigation('/dashboard', () => {
+      requestNavigation(to, () => {
         setActiveTenantId(next)
         storeTenant(next)
         drafts.clearAll()
         // Drop every cached query from the previous tenant before anything re-renders with the new one.
         queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
         setTenantId(next)
-        router.push('/dashboard')
+        router.push(to)
       })
     },
     [membership.tenantId, queryClient, router],

@@ -32,6 +32,7 @@ export async function mockFrontend(
               ...extraPermissions,
             ],
             require2fa: false,
+            salesFollowups: false,
           },
         ],
         csrfToken: 'preview-csrf',

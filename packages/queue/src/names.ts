@@ -18,6 +18,10 @@ export const QUEUES = {
   contactsImport: 'contacts.import',
   contactsExport: 'contacts.export',
   inboxEvents: 'inbox.events',
+  /** Response alerts: waiting-for-staff episodes and their once-a-minute check. */
+  inboxAlerts: 'inbox.alerts',
+  /** Follow-up due reminders, customer-reply review flags and the recovery sweep. */
+  salesEvents: 'sales.events',
   campaignDispatch: 'campaign.dispatch',
   campaignEvents: 'campaign.events',
   automationTrigger: 'automation.trigger',

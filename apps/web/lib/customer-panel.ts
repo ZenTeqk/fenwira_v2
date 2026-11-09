@@ -13,12 +13,24 @@ export type CustomerActivity = {
   at: string
   text: string
   actor?: string
-  kind: 'assignment' | 'tag' | 'note' | 'automation'
+  kind: 'assignment' | 'tag' | 'note' | 'automation' | 'sales'
 }
 const text = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined
 
-/** Summarize only recorded assignment, tag, contact-note and automation events. */
+function salesText(type: string, data: Record<string, unknown>): string | undefined {
+  const stage = text(data.stage)
+  if (type === 'opportunity.created') return `Opportunity created${stage ? ` in ${stage}` : ''}`
+  if (type === 'opportunity.stage_changed')
+    return `Sales stage: ${text(data.from) ?? '?'} → ${text(data.to) ?? '?'}`
+  if (type === 'opportunity.won') return 'Opportunity won'
+  if (type === 'opportunity.lost') return 'Opportunity lost'
+  if (type === 'opportunity.reopened') return 'Opportunity reopened'
+  if (type === 'opportunity.owner_changed') return `Sales owner: ${text(data.to) ?? 'no owner'}`
+  return undefined
+}
+
+/** Summarize only recorded assignment, tag, contact-note, sales and automation events. */
 export function customerActivity(
   activities: ContactActivity[],
   messages: Message[],
@@ -34,6 +46,16 @@ export function customerActivity(
         kind: 'tag',
         actor: event.actorName ?? undefined,
         text: `${event.type === 'tag.added' ? 'Added' : 'Removed'} tag${tag ? ` “${tag}”` : ''}`,
+      })
+    // Sales (docs/FOLLOW_UPS_AND_SALES.md): stage, owner and outcome history.
+    const sales = salesText(event.type, event.data)
+    if (sales)
+      result.push({
+        id: `contact-${event.id}`,
+        at: event.occurredAt,
+        kind: 'sales',
+        actor: event.actorName ?? undefined,
+        text: sales,
       })
     if (event.type === 'note.added')
       result.push({

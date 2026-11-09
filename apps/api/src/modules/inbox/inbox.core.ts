@@ -12,13 +12,21 @@ export const CONVERSATION_INCLUDE = (userId: string) =>
     assignee: { select: { id: true, name: true } },
     tags: { include: { tag: true }, orderBy: { createdAt: 'asc' } },
     readStates: { where: { userId }, select: { unreadCount: true } },
+    // Response alerts (docs/RESPONSE_ALERTS.md): the open "waiting for staff" episode, if any.
+    waitEpisodes: {
+      where: { endedAt: null },
+      select: { startedAt: true, botHandling: true },
+      take: 1,
+    },
   }) satisfies Prisma.ConversationInclude
 
 type Row = Prisma.ConversationGetPayload<{ include: ReturnType<typeof CONVERSATION_INCLUDE> }>
 const iso = (d: Date | null) => d?.toISOString() ?? null
 
-export function toConversation(c: Row, snippet?: string | null): Conversation {
+/** `salesOn`: the workspace's follow-ups and sales rollout switch (hides `waiting` when off). */
+export function toConversation(c: Row, snippet?: string | null, salesOn = true): Conversation {
   const expires = c.serviceWindowExpiresAt
+  const wait = salesOn ? c.waitEpisodes[0] : undefined
   return {
     id: c.id,
     status: c.status,
@@ -42,6 +50,7 @@ export function toConversation(c: Row, snippet?: string | null): Conversation {
     snoozedUntil: iso(c.snoozedUntil),
     firstResponseAt: iso(c.firstResponseAt),
     ...(snippet !== undefined ? { snippet } : {}),
+    waiting: wait ? { since: wait.startedAt.toISOString(), botHandling: wait.botHandling } : null,
     createdAt: c.createdAt.toISOString(),
   }
 }
