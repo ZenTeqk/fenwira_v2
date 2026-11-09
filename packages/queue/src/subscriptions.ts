@@ -32,7 +32,14 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
     QUEUES.automationTrigger,
     QUEUES.analyticsEvents,
     QUEUES.webhooksDeliver,
+    // Response alerts start a waiting episode; follow-ups are flagged for review.
+    QUEUES.inboxAlerts,
+    QUEUES.salesEvents,
   ],
+  // A staff reply accepted by Meta ends the waiting episode (docs/RESPONSE_ALERTS.md).
+  'message.outbound.sent': [QUEUES.inboxAlerts],
+  // Follow-up due reminders (docs/FOLLOW_UPS_AND_SALES.md).
+  'follow_up.scheduled': [QUEUES.salesEvents],
   // Contacts (131050 opt-out), campaign recipient status, billing settlement, analytics.
   'message.status.changed': [
     QUEUES.contactsEvents,
@@ -40,6 +47,8 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
     QUEUES.billingUsage,
     QUEUES.analyticsEvents,
     QUEUES.webhooksDeliver,
+    // A send accepted on a recovery path (status webhook) also ends the waiting episode.
+    QUEUES.inboxAlerts,
   ],
   'contact.created': [QUEUES.automationTrigger, QUEUES.webhooksDeliver],
   'contact.updated': [QUEUES.webhooksDeliver],
@@ -52,17 +61,23 @@ export const EVENT_SUBSCRIPTIONS: Record<DomainEventType, readonly QueueName[]> 
   'subscription.plan_requested': [QUEUES.notificationsDispatch],
   // Auto-assign (round robin) on open; analytics records the episode.
   'conversation.opened': [QUEUES.inboxEvents, QUEUES.analyticsEvents, QUEUES.webhooksDeliver],
-  'conversation.assigned': [QUEUES.analyticsEvents, QUEUES.webhooksDeliver],
+  'conversation.assigned': [QUEUES.analyticsEvents, QUEUES.webhooksDeliver, QUEUES.inboxAlerts],
   // Automation outcomes for analytics (Phase 11) and outbound webhooks (Phase 11 Step 3).
-  'automation.execution.finished': [QUEUES.analyticsEvents, QUEUES.webhooksDeliver],
+  // A finished bot run starts the staff timer of a waiting episode (response alerts).
+  'automation.execution.finished': [
+    QUEUES.analyticsEvents,
+    QUEUES.webhooksDeliver,
+    QUEUES.inboxAlerts,
+  ],
   // AI Assistant: resolving ends a waiting AI conversation; knowledge sources are indexed.
-  'conversation.resolved': [QUEUES.automationTrigger],
+  'conversation.resolved': [QUEUES.automationTrigger, QUEUES.inboxAlerts],
   'ai.knowledge_source.ingest_requested': [QUEUES.aiIngest],
   // AI Assistant activation: an ops alert for requests, in-app + email for decisions.
   'ai.activation.requested': [QUEUES.notificationsDispatch],
   'ai.activation.decided': [QUEUES.notificationsDispatch],
   // Takeover stops running automation immediately (P10-D2).
-  'conversation.automation_state.changed': [QUEUES.automationTrigger],
+  // Response alerts: handover starts the staff timer.
+  'conversation.automation_state.changed': [QUEUES.automationTrigger, QUEUES.inboxAlerts],
 }
 
 export function subscribersFor(eventType: string): readonly QueueName[] {

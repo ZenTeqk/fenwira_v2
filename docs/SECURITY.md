@@ -63,6 +63,13 @@ Permission catalog and matrix (● = granted):
 | `inbox.reassign` | ● | ● | ● | | |
 | `inbox.read_all` (see conversations assigned to others) | ● | ● | ● | ● | ● |
 | `inbox.canned_replies.manage` (create/edit/delete workspace canned replies; using them needs `inbox.reply`) | ● | ● | ● | | |
+| `inbox.alerts.manage` (response alerts: thresholds, escalation recipients) | ● | ● | ● | | |
+| `followups.read` | ● | ● | ● | ● | ● |
+| `followups.write` (create follow-ups; complete/reschedule/cancel your own) | ● | ● | ● | ● | |
+| `followups.manage` (team view; act on and reassign anyone's follow-ups) | ● | ● | ● | | |
+| `sales.read` | ● | ● | ● | ● | ● |
+| `sales.write` (create opportunities, change stage, owner and value) | ● | ● | ● | ● | |
+| `sales.stages.manage` (rename, reorder, add, archive stages) | ● | ● | ● | | |
 | `templates.read` | ● | ● | ● | ● | ● |
 | `templates.write` | ● | ● | ● | | |
 | `templates.submit` | ● | ● | ● | | |

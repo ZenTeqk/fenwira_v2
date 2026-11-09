@@ -3,7 +3,7 @@
 import { type ContactActivity, type Message } from '@fenwira/contracts'
 import { Button, Skeleton, Timeline } from '@fenwira/ui'
 import { type InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { Hand, StickyNote, Tag, UserRound } from 'lucide-react'
+import { Hand, StickyNote, Tag, TrendingUp, UserRound } from 'lucide-react'
 import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
@@ -14,7 +14,13 @@ import { CustomerPanelError } from './contact-details'
 import { threadKey } from './thread'
 
 type Page<T> = { data: T[]; page: { nextCursor: string | null } }
-const ICON = { assignment: UserRound, tag: Tag, note: StickyNote, automation: Hand }
+const ICON = {
+  assignment: UserRound,
+  tag: Tag,
+  note: StickyNote,
+  automation: Hand,
+  sales: TrendingUp,
+}
 
 /** Independent cursors preserve the chat's own pagination/scroll anchor. Reuse its authorized
  * initial cache, then page the right-panel history without modifying the chat cache. */

@@ -552,3 +552,37 @@ published versions and running executions. No published version or no draft retu
 Reports add per-flow kind, sent messages and blocked/sendFailed attempt counts and flowId/code on
 failure rows. Existing execution counts retain their definitions. All reads/writes use
 existing tenant RLS. No migration is required.
+
+### Follow-ups, sales and response alerts (docs/FOLLOW_UPS_AND_SALES.md, docs/RESPONSE_ALERTS.md)
+
+Tenant-scoped, normal session/CSRF guards; contracts in `packages/contracts/src/api/sales.ts`.
+Writes need the workspace rollout switch (`403 FEATURE_NOT_ENABLED` otherwise); reads always
+answer. Lists use offset cursors (`page.nextCursor`). Follow-up actions accept an optional
+`version` (409 `VERSION_CONFLICT` when stale); closed follow-ups answer 409 `CONFLICT`.
+
+| Method | Route | Permission | Request / response |
+| --- | --- | --- | --- |
+| GET | `/follow-ups` | `followups.read` | Query `followUpsQuerySchema` (`tab` today/overdue/upcoming/completed/pending, `scope` mine/team/related — team needs `followups.manage`, `assigneeId`, `stageId`, `contactId`, `conversationId`, `needsReview`, `q`, `limit`, `cursor`) → `{data: FollowUp[], page}` |
+| GET | `/follow-ups/counts` | `followups.read` | Same filters → `{data: {today, overdue, upcoming, completed}}` |
+| GET | `/follow-ups/summary` | `followups.read` | Current user's `{overdue, today, needsReview}` (sidebar badge) |
+| GET | `/follow-ups/:id` | `followups.read` | `{data: FollowUp}`; 404 unless assigned to/created by the caller or the caller manages the team |
+| POST | `/follow-ups` | `followups.write` | `createFollowUpSchema` `{contactId, conversationId?, opportunityId?, title, note?, assigneeId?, dueAt}` → 201; audits `follow_up.created` |
+| PATCH | `/follow-ups/:id` | `followups.write` | `{title?, note?, version?}`; audits `follow_up.updated` |
+| POST | `/follow-ups/:id/complete` · `/cancel` · `/reviewed` | `followups.write` | `{version?}`; audits `follow_up.completed` / `.cancelled` / `.reviewed` |
+| POST | `/follow-ups/:id/reschedule` | `followups.write` | `{dueAt, version?}`; audits `follow_up.rescheduled` |
+| POST | `/follow-ups/:id/reassign` | `followups.write` | `{assigneeId, version?}`; assignee or `followups.manage` only; audits `follow_up.reassigned` |
+| GET | `/sales/stages` | `sales.read` | `{data: SalesStage[]}` (defaults created on first read) |
+| POST | `/sales/stages` | `sales.stages.manage` | `{name, outcome}` → 201 with all stages |
+| PATCH | `/sales/stages/:id` | `sales.stages.manage` | `{name?, archived?}`; 422 when archiving the last stage of an outcome or a stage with open opportunities |
+| PUT | `/sales/stages/order` | `sales.stages.manage` | `{ids}` — the full active order |
+| GET | `/opportunities` | `sales.read` | Query `{contactId?, status?, limit, cursor}` → `{data: Opportunity[], page}` |
+| GET | `/opportunities/:id` | `sales.read` | `{data: Opportunity}` |
+| POST | `/opportunities` | `sales.write` | `{contactId, conversationId?, title?, stageId?, ownerId?, expectedValueMinor?, currency?}` → 201; 409 `CONFLICT` when the contact already has an open one |
+| PATCH | `/opportunities/:id` | `sales.write` | `{stageId?, ownerId?, title?, expectedValueMinor?, currency?, cancelPendingFollowUps?}`; history in contact activities + audit |
+| GET | `/inbox/response-alerts` | `inbox.alerts.manage` | `{data: ResponseAlertSettings}` incl. read-only business hours, workspace timezone and the current issue |
+| PATCH | `/inbox/response-alerts` | `inbox.alerts.manage` | `{enabled?, unassignedMinutes?, responseMinutes?, escalationMinutes?, escalationUserIds?}`; audits `inbox.response_alerts_updated` |
+
+`GET /conversations` also accepts `salesStageId`, `salesOwnerId` and `overdueFollowUp=true`;
+conversations carry `waiting: {since, botHandling} | null` when the rollout switch is on.
+`PATCH /workspace` accepts `salesFollowupsEnabled`; `/auth/me` memberships carry `salesFollowups`.
+Realtime: `follow_up.changed` and `sales.updated` (tenant room, IDs only).

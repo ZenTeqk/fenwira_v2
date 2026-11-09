@@ -45,7 +45,7 @@ export function CustomerPanelError({ title, onRetry }: { title: string; onRetry:
   )
 }
 
-function Collapsible({
+export function Collapsible({
   title,
   summary,
   children,

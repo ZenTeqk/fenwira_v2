@@ -67,6 +67,8 @@ Both api and worker use the same domain modules from `apps/api/src/modules/*`. T
 | `billing` | `plans`, `plan_entitlements`, `subscriptions`, `tenant_entitlement_overrides`, `wallets`, `wallet_transactions`, `wallet_reservations`, `usage_events`, `price_book_entries` | 11 |
 | `analytics` | `analytics_events`, `analytics_daily_rollups`, `analytics_conversation_episodes`, `analytics_dirty`, `analytics_tenant_state` (`ANALYTICS.md`) | 11 |
 | `api-keys`, `webhooks` | `api_keys`, `webhook_endpoints`, `webhook_deliveries` | 11 |
+| `sales` | `sales_stages`, `opportunities`, `follow_ups` (`FOLLOW_UPS_AND_SALES.md`) | Follow-ups & sales |
+| `response-alerts` | `conversation_wait_episodes`, `response_alert_settings` (`RESPONSE_ALERTS.md`) | Follow-ups & sales |
 | `platform-operations` | global `platform_grants`, `platform_challenges`, `platform_sessions`, immutable `platform_audit`; tenant `commercial_operations` | 11 Step 5 |
 
 ### Module rules
@@ -138,6 +140,8 @@ The relay provides at-least-once delivery. `jobId` dedupes inside BullMQ, and ev
 | `wallet.funded` | billing (an unfunded wallet's first available funds, P11-D21) | `walletId, to, availableMinor, currency` | `notifications.dispatch` |
 | `wallet.recovered` | billing (a funded wallet crossing back to NORMAL) | `walletId, from, availableMinor, currency` | `notifications.dispatch` |
 | `subscription.plan_requested` | billing (OWNER requests a plan, Phase 11 Step 4, P11-D24) | `subscriptionId, planId` | `notifications.dispatch` (operator alert) |
+| `message.outbound.sent` | messaging (outbound worker, an INBOX message accepted by Meta) | `messageId, conversationId` | `inbox.alerts` |
+| `follow_up.scheduled` | sales (every change that leaves a follow-up pending) | `followUpId, version` | `sales.events` |
 | `whatsapp.connection.changed` | whatsapp-accounts | `phoneNumberId, status` | `notifications.dispatch` |
 
 Payloads carry IDs, not full records. Processors re-read current state inside `withTenant`. Payload schemas live in `packages/contracts/src/events`.
@@ -159,6 +163,8 @@ Payloads carry IDs, not full records. Processors re-read current state inside `w
 | `contacts.events` | outbox relay | Opt-in/out keyword and 131050 consent handling | 10 |
 | `contacts.import` / `contacts.export` | contacts API | CSV import/export | 2 |
 | `inbox.events` | outbox relay | Auto-assignment | 10 |
+| `inbox.alerts` | outbox relay + repeatable scheduler | Response alerts: waiting episodes from inbound/reply/handover/resolve events; once-a-minute check (X25) | 5 |
+| `sales.events` | outbox relay + repeatable scheduler | Follow-up due reminders (delayed job per version), recovery sweep (X24), customer-reply review flags | 5 |
 | `campaign.dispatch` | outbox relay / scheduler | Snapshot and batch-dispatch recipients | 4 |
 | `campaign.events` | outbox relay | Recipient status sync, completion detection | 10 |
 | `automation.trigger` | outbox relay | Match events to active flows, store the ordered plan (trigger run), start the first flow; stop executions on takeover | 5 |

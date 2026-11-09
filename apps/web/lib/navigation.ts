@@ -1,6 +1,7 @@
 import { type Permission } from '@fenwira/contracts'
 import {
   BarChart3,
+  CalendarCheck,
   CreditCard,
   LayoutDashboard,
   type LucideIcon,
@@ -36,6 +37,8 @@ export type NavLeaf = {
   early?: true
   /** Hidden from customers in Managed Launch Mode (ADR-0027: one simple billing view). */
   hideInManagedLaunch?: true
+  /** Only when the workspace's Follow-ups and sales rollout switch is on. */
+  salesFollowups?: true
   /** `action` leaves (create …) go to the command palette's Create group, not the module tabs. */
   kind?: 'page' | 'action'
 }
@@ -50,6 +53,16 @@ export const NAVIGATION: NavItem[] = [
     phase: 7,
     icon: MessageSquare,
     permission: 'inbox.read',
+  },
+  {
+    // Follow-ups (docs/FOLLOW_UPS_AND_SALES.md): directly below Inbox; overdue count badge.
+    id: 'follow-ups',
+    label: 'Follow-ups',
+    href: '/follow-ups',
+    phase: 7,
+    icon: CalendarCheck,
+    permission: 'followups.read',
+    salesFollowups: true,
   },
   {
     id: 'contacts',
@@ -350,6 +363,22 @@ export const NAVIGATION: NavItem[] = [
         phase: 4,
         permission: 'whatsapp.read',
       },
+      {
+        id: 'settings-inbox',
+        label: 'Inbox',
+        href: '/settings/inbox',
+        phase: 7,
+        permission: 'inbox.alerts.manage',
+        salesFollowups: true,
+      },
+      {
+        id: 'settings-sales',
+        label: 'Sales',
+        href: '/settings/sales',
+        phase: 7,
+        permission: 'sales.read',
+        salesFollowups: true,
+      },
       { id: 'settings-security', label: 'Security', href: '/settings/security', phase: 3 },
       {
         id: 'settings-audit',
@@ -369,10 +398,12 @@ const visible = (
   preview: boolean,
   permissions?: readonly Permission[],
   managedLaunch = false,
+  salesFollowups = false,
 ) =>
   (preview || leaf.phase <= SHIPPED_PHASE || leaf.early === true) &&
   (!leaf.permission || !permissions || permissions.includes(leaf.permission)) &&
-  !(managedLaunch && leaf.hideInManagedLaunch)
+  !(managedLaunch && leaf.hideInManagedLaunch) &&
+  (preview || !leaf.salesFollowups || salesFollowups)
 
 /**
  * Visible navigation: unshipped leaves and leaves the member lacks permission for are removed;
@@ -384,11 +415,14 @@ export function visibleNavigation(
   permissions?: readonly Permission[],
   /** ADR-0027: wallet, usage and plan-request pages are hidden from customers in Managed Launch. */
   managedLaunch = false,
+  /** The workspace's Follow-ups and sales rollout switch. */
+  salesFollowups = false,
 ): NavItem[] {
   return nav.flatMap((item) => {
-    if (!item.children) return visible(item, preview, permissions, managedLaunch) ? [item] : []
+    if (!item.children)
+      return visible(item, preview, permissions, managedLaunch, salesFollowups) ? [item] : []
     const children = item.children.filter((child) =>
-      visible(child, preview, permissions, managedLaunch),
+      visible(child, preview, permissions, managedLaunch, salesFollowups),
     )
     return children.length > 0 ? [{ ...item, children }] : []
   })

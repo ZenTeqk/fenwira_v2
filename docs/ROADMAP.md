@@ -26,6 +26,17 @@ Legend: ⬜ not started · 🟡 spec partially defined · 🔵 in progress · �
 | 11 | Billing + analytics + administration | Local remediation and acceptance verified 2026-10-20; formal closure pending current-commit CI, clean Compose and deployed worker/SMTP/scheduler evidence. This supersedes the 2026-10-19 closure label: see the [current readiness audit](audits/phase-11/PHASE_11_AUDIT_REPORT.md). Enforcement remains default false pending separate rollout authorization. | [PHASE_11](prompts/PHASE_11_BILLING_ANALYTICS.md) |
 | 12 | Hardening + testing + production readiness | ⬜ | [PHASE_12](prompts/PHASE_12_HARDENING.md) |
 
+## Follow-ups, sales stages and response alerts (2026-11-09)
+
+Navigation change requested by the owner: one new sidebar module, **Follow-ups**, directly below
+Inbox (`lib/navigation.ts`), plus **Settings → Inbox** and **Settings → Sales**. All three appear
+only when the workspace's rollout switch is on (Settings → Workspace). Specs:
+[FOLLOW_UPS_AND_SALES.md](FOLLOW_UPS_AND_SALES.md) and [RESPONSE_ALERTS.md](RESPONSE_ALERTS.md).
+Verified locally: RLS tenant matrix (all new tables), security route matrix for the new routes,
+`followups-sales.int.test.ts` and `response-alerts.int.test.ts`, business-time unit tests (DST,
+holidays), and the `follow-ups.spec.ts` browser suite (keyboard, axe in light and dark, no
+horizontal overflow at 390 px).
+
 ## Dependency order
 
 ```text

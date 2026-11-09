@@ -491,6 +491,7 @@ test('workspace switching refreshes connection data with the selected tenant', a
     role: 'OWNER',
     permissions: ['inbox.read', 'whatsapp.read', 'workspace.read'],
     require2fa: false,
+    salesFollowups: false,
   }
   await page.route('**/api/v1/auth/me', (route) =>
     route.fulfill({

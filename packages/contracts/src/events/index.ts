@@ -56,6 +56,11 @@ export const EVENT_PAYLOAD_SCHEMAS = {
     conversationId: z.uuid(),
     contactId: z.uuid(),
   }),
+  // An outbound message was accepted by Meta (the outbound worker wrote SENT). A staff reply ends
+  // the conversation's "waiting for staff" episode (docs/RESPONSE_ALERTS.md).
+  'message.outbound.sent': z.object({ messageId: z.uuid(), conversationId: z.uuid() }),
+  // Follow-ups (docs/FOLLOW_UPS_AND_SALES.md): (re)arm the due reminder for this version only.
+  'follow_up.scheduled': z.object({ followUpId: z.uuid(), version: z.number().int() }),
   'message.status.changed': z.object({
     messageId: z.uuid(),
     from: z.string(),

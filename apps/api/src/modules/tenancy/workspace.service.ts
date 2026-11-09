@@ -19,6 +19,7 @@ type TenantRow = {
   timezone: string
   currency: string
   require2fa: boolean
+  salesFollowupsEnabled: boolean
   createdAt: Date
 }
 
@@ -30,6 +31,7 @@ export const toWorkspace = (t: TenantRow): Workspace => ({
   timezone: t.timezone,
   currency: t.currency,
   require2fa: t.require2fa,
+  salesFollowupsEnabled: t.salesFollowupsEnabled,
   createdAt: t.createdAt.toISOString(),
 })
 
@@ -115,6 +117,7 @@ export class WorkspaceService {
     country?: string
     timezone?: string
     require2fa?: boolean
+    salesFollowupsEnabled?: boolean
   }): Promise<Workspace> {
     const { tenantId } = currentTenant()
     return this.tenantDb.run(async (tx) => {
@@ -126,6 +129,7 @@ export class WorkspaceService {
           defaultCountry: input.country,
           timezone: input.timezone,
           require2fa: input.require2fa,
+          salesFollowupsEnabled: input.salesFollowupsEnabled,
         },
       })
       await this.audit.write(tx, {
@@ -180,7 +184,7 @@ function diff(
   after: Record<string, unknown>,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {}
-  for (const key of ['name', 'defaultCountry', 'timezone', 'require2fa']) {
+  for (const key of ['name', 'defaultCountry', 'timezone', 'require2fa', 'salesFollowupsEnabled']) {
     if (before[key] !== after[key]) out[key] = [before[key], after[key]]
   }
   return out

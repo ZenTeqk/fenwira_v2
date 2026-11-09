@@ -16,6 +16,7 @@ describe('navigation', () => {
     expect(NAVIGATION.map((i) => i.label)).toEqual([
       'Home',
       'Inbox',
+      'Follow-ups',
       'Contacts',
       'Campaigns',
       'Templates',
@@ -26,7 +27,7 @@ describe('navigation', () => {
       'Billing',
       'Settings',
     ])
-    expect(flattenLeaves(NAVIGATION)).toHaveLength(34)
+    expect(flattenLeaves(NAVIGATION)).toHaveLength(37)
     const hrefs = flattenLeaves(NAVIGATION).map((l) => l.href)
     expect(new Set(hrefs).size).toBe(hrefs.length)
   })
@@ -89,8 +90,28 @@ describe('navigation', () => {
     ])
   })
 
+  it('shows Follow-ups below Inbox and the sales settings only with the rollout switch on', () => {
+    const off = visibleNavigation(false, NAVIGATION, undefined, false, false)
+    expect(off.map((i) => i.id)).not.toContain('follow-ups')
+    const on = visibleNavigation(false, NAVIGATION, undefined, false, true)
+    expect(on.map((i) => i.id).slice(0, 3)).toEqual(['dashboard', 'inbox', 'follow-ups'])
+    expect(on.find((i) => i.id === 'settings')!.children!.map((c) => c.label)).toEqual([
+      'Workspace',
+      'Team',
+      'Roles',
+      'WhatsApp',
+      'Inbox',
+      'Sales',
+      'Security',
+      'Audit logs',
+    ])
+    // Permissions still apply: a role without followups.read never sees it.
+    const viewerless = visibleNavigation(false, NAVIGATION, ['inbox.read'], false, true)
+    expect(viewerless.map((i) => i.id)).not.toContain('follow-ups')
+  })
+
   it('reveals everything in preview mode', () => {
-    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(34)
+    expect(flattenLeaves(visibleNavigation(true))).toHaveLength(37)
   })
 
   it('keeps partially shipped groups with only their shipped children', () => {

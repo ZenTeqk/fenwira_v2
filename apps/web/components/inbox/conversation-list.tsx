@@ -9,6 +9,9 @@ import {
   DropdownCheckboxItem,
   DropdownContent,
   DropdownLabel,
+  DropdownRadioGroup,
+  DropdownRadioItem,
+  DropdownSeparator,
   DropdownTrigger,
   EmptyState,
   ErrorState,
@@ -49,10 +52,12 @@ import {
   conversationPreview,
   latestPreviewMessage,
 } from '@/lib/conversation-preview'
+import { useMembers, useSalesOn, useSalesStages } from '@/lib/follow-ups'
 import { displayName, shortTime } from '@/lib/inbox'
 import { useRealtimeEvent, useRealtimeReconnect } from '@/lib/realtime'
 import { STATUS_LABEL } from './conversation-actions'
 import { type AdvancedFilter, INBOX_VIEWS, type InboxView } from './inbox-views'
+import { WaitingIndicator } from './waiting-indicator'
 
 export function useDebounced<T>(value: T, ms = 300): T {
   const [v, setV] = useState(value)
@@ -198,6 +203,7 @@ function ConversationRow({
               ) : null}
               <span className="min-w-0 flex-1 truncate">{preview.text}</span>
             </div>
+            <WaitingIndicator waiting={c.waiting} />
             <span className="sr-only">{context}</span>
           </div>
           <div className="flex max-w-20 shrink-0 flex-col items-end gap-2 self-stretch justify-center">
@@ -253,6 +259,17 @@ export function ConversationList({
   const [status, setStatus] = useState<StatusChoice>('DEFAULT')
   const [search, setSearch] = useState('')
   const [unreadOnly, setUnreadOnly] = useState(false)
+  // Sales filters (docs/FOLLOW_UPS_AND_SALES.md): only with the rollout switch on.
+  const salesOn = useSalesOn()
+  const { can } = useSession()
+  const stages = useSalesStages()
+  const owners = useMembers('sales.write')
+  const [salesStageId, setSalesStageId] = useState('')
+  const [salesOwnerId, setSalesOwnerId] = useState('')
+  const [overdueOnly, setOverdueOnly] = useState(false)
+  const salesFilters = salesOn
+    ? (salesStageId ? 1 : 0) + (salesOwnerId ? 1 : 0) + (overdueOnly ? 1 : 0)
+    : 0
   const q = useDebounced(search.trim())
   const filters = new URLSearchParams({
     ...(status !== 'DEFAULT' ? { status } : {}),
@@ -266,6 +283,9 @@ export function ConversationList({
     if (tab === 'mine') params.set('assigneeId', me.user.id)
     if (tab === 'unassigned') params.set('unassigned', 'true')
   } else params.set('view', tab)
+  if (salesOn && salesStageId) params.set('salesStageId', salesStageId)
+  if (salesOn && salesOwnerId) params.set('salesOwnerId', salesOwnerId)
+  if (salesOn && overdueOnly) params.set('overdueFollowUp', 'true')
   params.set('limit', String(PAGE_SIZE))
 
   const listKey = keys.tenant(tenantId, 'inbox', 'list')
@@ -284,7 +304,8 @@ export function ConversationList({
     queryFn: () =>
       get<{ data: ConversationCounts }>(`/conversations/counts?${filters}`).then((r) => r.data),
     placeholderData: keepPreviousData,
-    enabled: advanced === 'none',
+    // Tab counts cover search, status and unread only; hidden while narrower filters apply.
+    enabled: advanced === 'none' && salesFilters === 0,
   })
   // Realtime: new messages, assignments and state changes reorder or move items between tabs.
   const refresh = () => void queryClient.invalidateQueries({ queryKey: listKey })
@@ -368,7 +389,7 @@ export function ConversationList({
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const rows = (list.data?.pages ?? []).flatMap((p) => p.data)
-  const showCounts = advanced === 'none' && counts.data
+  const showCounts = advanced === 'none' && salesFilters === 0 && counts.data
   return (
     <section aria-label="Conversations" className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="flex shrink-0 flex-col gap-2 px-4 pt-3 pb-2">
@@ -399,11 +420,14 @@ export function ConversationList({
                 size="icon"
                 className={cn(
                   'size-9 shrink-0',
-                  advanced === 'takeover' && 'border-fg bg-surface-selected text-fg',
+                  (advanced === 'takeover' || salesFilters > 0) &&
+                    'border-fg bg-surface-selected text-fg',
                 )}
                 aria-label="Advanced conversation filters"
                 aria-description={
-                  advanced === 'takeover' ? 'Agent takeover filter active' : undefined
+                  advanced === 'takeover' || salesFilters > 0
+                    ? `${(advanced === 'takeover' ? 1 : 0) + salesFilters} advanced filters active`
+                    : undefined
                 }
               >
                 <SlidersHorizontal aria-hidden="true" />
@@ -417,6 +441,40 @@ export function ConversationList({
               >
                 Agent takeover
               </DropdownCheckboxItem>
+              {salesOn && can('followups.read') ? (
+                <DropdownCheckboxItem
+                  checked={overdueOnly}
+                  onCheckedChange={(checked) => setOverdueOnly(checked === true)}
+                >
+                  Overdue follow-up
+                </DropdownCheckboxItem>
+              ) : null}
+              {salesOn && can('sales.read') && stages.data?.length ? (
+                <>
+                  <DropdownSeparator />
+                  <DropdownLabel>Sales stage</DropdownLabel>
+                  <DropdownRadioGroup value={salesStageId} onValueChange={setSalesStageId}>
+                    <DropdownRadioItem value="">Any stage</DropdownRadioItem>
+                    {stages.data
+                      .filter((st) => !st.archived && st.outcome === 'OPEN')
+                      .map((st) => (
+                        <DropdownRadioItem key={st.id} value={st.id}>
+                          {st.name}
+                        </DropdownRadioItem>
+                      ))}
+                  </DropdownRadioGroup>
+                  <DropdownSeparator />
+                  <DropdownLabel>Sales owner</DropdownLabel>
+                  <DropdownRadioGroup value={salesOwnerId} onValueChange={setSalesOwnerId}>
+                    <DropdownRadioItem value="">Anyone</DropdownRadioItem>
+                    {owners.data.map((m) => (
+                      <DropdownRadioItem key={m.userId} value={m.userId}>
+                        {m.userId === me.user.id ? `${m.name} (you)` : m.name}
+                      </DropdownRadioItem>
+                    ))}
+                  </DropdownRadioGroup>
+                </>
+              ) : null}
             </DropdownContent>
           </Dropdown>
         </div>
@@ -502,6 +560,39 @@ export function ConversationList({
               Agent takeover <X aria-hidden="true" className="size-3.5" />
             </Button>
           ) : null}
+          {salesOn
+            ? (
+                [
+                  overdueOnly && {
+                    key: 'overdue',
+                    label: 'Overdue follow-up',
+                    clear: () => setOverdueOnly(false),
+                  },
+                  salesStageId && {
+                    key: 'stage',
+                    label: `Stage: ${stages.data?.find((st) => st.id === salesStageId)?.name ?? '…'}`,
+                    clear: () => setSalesStageId(''),
+                  },
+                  salesOwnerId && {
+                    key: 'owner',
+                    label: `Owner: ${owners.data.find((m) => m.userId === salesOwnerId)?.name ?? '…'}`,
+                    clear: () => setSalesOwnerId(''),
+                  },
+                ].filter(Boolean) as Array<{ key: string; label: string; clear: () => void }>
+              ).map((chip) => (
+                <Button
+                  key={chip.key}
+                  variant="secondary"
+                  size="sm"
+                  aria-label={`Remove ${chip.label} filter`}
+                  onClick={chip.clear}
+                  className="h-8 max-w-48 gap-1.5 rounded-full border-fg bg-surface-selected px-2.5 text-xs font-semibold text-fg"
+                >
+                  <span className="truncate">{chip.label}</span>
+                  <X aria-hidden="true" className="size-3.5" />
+                </Button>
+              ))
+            : null}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto contain-paint">
           {list.isPending ? (

@@ -377,6 +377,26 @@ export class SystemGateway {
     }))
   }
 
+  /** X24 — pending follow-ups past due whose reminder hasn't been sent (IDs only). */
+  async followUpsDue(
+    now: Date,
+    limit: number,
+  ): Promise<Array<{ tenantId: string; followUpId: string }>> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; follow_up_id: string }>>`
+      SELECT * FROM system.follow_ups_due(${now}, ${limit}::int)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, followUpId: r.follow_up_id }))
+  }
+
+  /** X25 — open waiting episodes whose next response-alert check is due (IDs only). */
+  async waitEpisodesDue(
+    now: Date,
+    limit: number,
+  ): Promise<Array<{ tenantId: string; episodeId: string }>> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant_id: string; episode_id: string }>>`
+      SELECT * FROM system.wait_episodes_due(${now}, ${limit}::int)`
+    return rows.map((r) => ({ tenantId: r.tenant_id, episodeId: r.episode_id }))
+  }
+
   /** X17 — ACTIVE reservations past `olderThan` whose message is final or missing (IDs only). */
   async staleReservations(
     olderThan: Date,

@@ -17,6 +17,8 @@ export const workspaceSchema = z.object({
   timezone: z.string(),
   currency: z.string(),
   require2fa: z.boolean(),
+  /** Rollout switch for Follow-ups, sales stages and response alerts (off by default). */
+  salesFollowupsEnabled: z.boolean(),
   createdAt: z.string(),
 })
 export type Workspace = z.infer<typeof workspaceSchema>
@@ -27,6 +29,7 @@ export const updateWorkspaceRequestSchema = z
     country: z.string().length(2).toUpperCase(),
     timezone: z.string().min(1).max(64),
     require2fa: z.boolean(),
+    salesFollowupsEnabled: z.boolean(),
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, 'Provide at least one field.')
