@@ -1,8 +1,11 @@
+import { Info } from 'lucide-react'
 import { type ReactNode } from 'react'
 import { cn } from '../lib/cn'
+import { focusRing } from '../lib/focus'
 import { Card } from './card'
 import { Skeleton } from './skeleton'
 import { StatusBadge, type StatusKey } from './status-badge'
+import { Tooltip } from './tooltip'
 
 export type MetricDelta = {
   /** Pre-formatted, e.g. "+4.2%" */
@@ -26,8 +29,13 @@ export type MetricCardProps = {
   loading?: boolean
   /** Compact secondary summary for Home; analytics keeps the standard presentation. */
   compact?: boolean
-  /** Joined Analytics metric strip; default cards and Home remain unchanged. */
-  appearance?: 'analytics'
+  /**
+   * `analytics`: one cell of the joined Analytics metric strip. `summary`: a separate compact
+   * summary card (Analytics → Overview). Default cards and Home remain unchanged.
+   */
+  appearance?: 'analytics' | 'summary'
+  /** `summary` only: the metric's definition, behind an accessible info button. */
+  info?: ReactNode
   /** Icon tile accent: neutral by default; feature accents for conversations and automations. */
   iconTone?: IconTone
   className?: string
@@ -74,8 +82,55 @@ export function MetricCard({
   compact,
   appearance,
   iconTone,
+  info,
   className,
 }: MetricCardProps) {
+  if (appearance === 'summary')
+    return (
+      <Card
+        data-slot="metric-card"
+        className={cn('flex min-h-32 min-w-0 flex-col gap-2 p-4', className)}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1">
+            <p className="text-sm font-medium text-fg-secondary">{label}</p>
+            {info ? (
+              <Tooltip content={info} disableHoverableContent>
+                <button
+                  type="button"
+                  aria-label={`About ${label.toLowerCase()}`}
+                  className={cn(
+                    'inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-fg-muted hover:text-fg',
+                    focusRing,
+                  )}
+                >
+                  <Info aria-hidden="true" className="size-3.5" />
+                </button>
+              </Tooltip>
+            ) : null}
+          </div>
+          {icon ? (
+            <span aria-hidden="true" className="shrink-0 text-fg-muted [&_svg]:size-4">
+              {icon}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          {loading ? (
+            <Skeleton className="h-8 w-24" />
+          ) : (
+            <p className="text-3xl font-semibold text-fg tabular-nums">{value}</p>
+          )}
+          {delta && !loading ? (
+            <span className="inline-flex items-center gap-1">
+              <StatusBadge status={trendStatus(delta)} label={delta.value} />
+              {delta.label ? <span className="sr-only">{delta.label}</span> : null}
+            </span>
+          ) : null}
+        </div>
+        {hint ? <div className="mt-auto text-xs text-fg-secondary">{hint}</div> : null}
+      </Card>
+    )
   if (appearance === 'analytics')
     return (
       <Card

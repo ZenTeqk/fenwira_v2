@@ -65,7 +65,7 @@ test('Analytics: activity appears after processing, with chart, table alternativ
   await expect(page.getByRole('table', { name: 'Messages per day by status' })).toBeVisible()
   await page.getByRole('combobox', { name: 'Date range' }).click()
   await page.getByRole('option', { name: 'Last 7 days' }).click()
-  await expect(page.getByText(/compared with the previous period/)).toBeVisible()
+  await expect(page.getByText(/compared with the previous period/i)).toBeVisible()
   await noViolations(page)
 
   await page.goto('/analytics/inbox')

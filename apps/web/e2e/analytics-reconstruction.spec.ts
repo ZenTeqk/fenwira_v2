@@ -86,9 +86,7 @@ test('Analytics reconstruction: populated overview, responsive layout, range and
   for (const width of [1440, 1024, 768, 375]) {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto('/analytics')
-    await expect(
-      page.getByRole('heading', { name: 'Customer engagement', exact: true }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Engagement', exact: true })).toBeVisible()
     await expect(page.getByText('4m', { exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Usage', exact: true })).toBeVisible()
     expect(
@@ -101,12 +99,16 @@ test('Analytics reconstruction: populated overview, responsive layout, range and
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     // A wider panel must not scale up the graph or its SVG labels.
     const graph = page.getByRole('img', { name: /^Messages per day/ })
-    await expect.poll(async () => (await graph.boundingBox())?.height).toBeCloseTo(160, 0)
+    await expect.poll(async () => (await graph.boundingBox())?.height).toBeCloseTo(300, 0)
     await page.screenshot({ path: info.outputPath(`overview-${width}.png`), fullPage: true })
   }
-  await page.getByRole('button', { name: 'Show as table' }).focus()
+  await page.getByRole('button', { name: 'Table', exact: true }).focus()
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('table', { name: 'Messages per day', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('table', { name: 'Messages per day by latest status', exact: true }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Chart', exact: true }).click()
+  await expect(page.getByRole('img', { name: /^Messages per day by latest status/ })).toBeVisible()
   await page.getByRole('combobox', { name: 'Date range', exact: true }).click()
   slowRange = true
   await page.getByRole('option', { name: 'Last 7 days', exact: true }).click()
@@ -139,6 +141,15 @@ test('Analytics reconstruction: populated overview, responsive layout, range and
         .analyze()
     ).violations,
   ).toEqual([])
+  // Zero charges stay a Message charges KPI (₹0.00), never swapped for another metric.
+  overview.kpis.chargeMinor = { value: 0, previous: 0 }
+  await page.reload()
+  await expect(page.getByText('₹0.00', { exact: true })).toBeVisible()
+  await expect(page.getByText('Requires billing access')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Table', exact: true }).click()
+  await expect(
+    page.getByRole('columnheader', { name: 'Messages represented (pending excluded)' }),
+  ).toBeVisible()
   messaging.meta.freshness.status = 'NOT_STARTED'
   inbox.meta.freshness.status = 'NOT_STARTED'
   await page.reload()
@@ -162,6 +173,15 @@ test('Analytics navigation preserves billing permission and read-denied states',
       )
     await route.fulfill({ response, json: body })
   })
+  // A member without billing.read gets no money from the API (chargeMinor and currency null).
+  await page.route('**/api/v1/analytics/overview**', async (route) => {
+    const response = await route.fetch()
+    const body = (await response.json()) as OverviewAnalytics
+    body.meta.freshness.status = 'READY'
+    body.kpis.chargeMinor = null
+    body.currency = null
+    await route.fulfill({ response, json: body })
+  })
   await page.goto('/analytics')
   await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible()
   await expect(
@@ -169,6 +189,9 @@ test('Analytics navigation preserves billing permission and read-denied states',
       .getByRole('navigation', { name: 'Analytics pages' })
       .getByRole('link', { name: 'Usage', exact: true }),
   ).toHaveCount(0)
+  // Without billing.read the API omits money: unavailable, not ₹0.00.
+  await expect(page.getByText('Requires billing access')).toBeVisible()
+  await expect(page.getByText('₹0.00', { exact: true })).toHaveCount(0)
   await page.goto('/analytics/usage')
   await expect(page.getByText(/You don.t have access/)).toBeVisible()
   analyticsAllowed = false

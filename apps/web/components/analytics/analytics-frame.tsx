@@ -119,6 +119,19 @@ export function RangePicker({
   )
 }
 
+/** "1 Oct – 30 Oct (today so far) · Asia/Kolkata · Compared with the previous period (…)" */
+function RangeLine({ meta }: { meta: AnalyticsMeta }) {
+  const parts = [
+    `${shortDay(meta.range.from)} – ${shortDay(meta.range.to)}${meta.partial ? ' (today so far)' : ''}`,
+    meta.timezone,
+  ]
+  if (meta.previous)
+    parts.push(
+      `Compared with the previous period (${shortDay(meta.previous.from)} – ${shortDay(meta.previous.to)})`,
+    )
+  return <>{parts.join(' · ')}</>
+}
+
 /** Freshness, retention and partial-day notices, so "0" is never confused with "not available". */
 export function Notices({ meta }: { meta: AnalyticsMeta }) {
   const notes: ReactNode[] = []
@@ -171,26 +184,23 @@ export function AnalyticsFrame<T extends { meta: AnalyticsMeta }>({
   const { tabs } = moduleTabs(pathname, visibleNavigation(false, undefined, membership.permissions))
   return (
     <div data-pattern="analytics" className="flex min-w-0 flex-col gap-4">
-      <PageHeader
-        title={title}
-        description={description}
-        className="[&>div>div]:max-w-full"
-        actions={<RangePicker range={range} onChange={onRangeChange} today={data?.meta.today} />}
-      />
-      <ModuleTabs
-        items={tabs}
-        label="Analytics pages"
-        linkAs={Link}
-        className="bg-transparent [&_ul]:px-0"
-      />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {data ? (
-          <p className="text-sm text-fg-muted">
-            {shortDay(data.meta.range.from)} – {shortDay(data.meta.range.to)}
-            {data.meta.partial ? ' (today so far)' : ''} · {data.meta.timezone}
-            {data.meta.previous ? ' · compared with the previous period' : ''}
-          </p>
-        ) : null}
+      <div className="flex min-w-0 flex-col gap-2">
+        <PageHeader
+          title={title}
+          description={description}
+          className="[&>div>div]:max-w-full"
+          actions={<RangePicker range={range} onChange={onRangeChange} today={data?.meta.today} />}
+        />
+        {/* Reserved height so the tabs don't jump when the range line arrives. */}
+        <p className="min-h-5 text-sm text-fg-muted">
+          {data ? <RangeLine meta={data.meta} /> : null}
+        </p>
+        <ModuleTabs
+          items={tabs}
+          label="Analytics pages"
+          linkAs={Link}
+          className="bg-transparent [&_ul]:px-0"
+        />
       </div>
       {query.isError && !data ? (
         <Card>
@@ -211,10 +221,10 @@ export function AnalyticsFrame<T extends { meta: AnalyticsMeta }>({
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-28" />
+              <Skeleton key={i} className="h-32" />
             ))}
           </div>
-          <Skeleton className="h-64" />
+          <Skeleton className="h-80" />
         </div>
       ) : data.meta.freshness.status === 'NOT_STARTED' ? (
         <Card>
@@ -272,6 +282,16 @@ export function Panel({
     </Card>
   )
 }
+
+/** Separate, equal-height summary cards (Overview): 1 → 2 → 4 columns. */
+export const SummaryGrid = ({ children }: { children: ReactNode }) => (
+  <section
+    aria-label="Key metrics"
+    className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+  >
+    {children}
+  </section>
+)
 
 export const KpiGrid = ({ children }: { children: ReactNode }) => (
   <section

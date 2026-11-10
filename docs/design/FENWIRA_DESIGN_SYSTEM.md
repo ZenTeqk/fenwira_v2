@@ -129,7 +129,7 @@ A status always shows a **label**, and usually an icon. `StatusBadge` is the onl
 | Statuses inside a chart (always with a legend label) | Failed `chart-critical` · Completed / Resolved `chart-good` · Excluded / Cancelled `chart-other` (grey) |
 | Nominal categories (fixed order, never cycled; colour follows the category) | `chart-blue` · `chart-orange` · `chart-violet` · `chart-aqua` — e.g. Usage: Utility, Authentication, Marketing, Service; Automations: Stopped by takeover blue, Running or waiting violet |
 
-Status colours never stand in for a category, and a categorical hue never means good or bad. Stacked series follow the validated order so no colour-blind-ambiguous pair touches. `chart-1`…`chart-6` are legacy tones kept for compatibility; the operator console now uses the named series too (single series `chart-blue`, Sent/Received `chart-blue`/`chart-orange`). Values never depend on colour alone: every series has a text legend, the chart's accessible name states the totals, and "Show as table" (a charcoal `textLink`) renders the same numbers in a keyboard-focusable scrolling region. No other chart library is used.
+Status colours never stand in for a category, and a categorical hue never means good or bad. Stacked series follow the validated order so no colour-blind-ambiguous pair touches. `chart-1`…`chart-6` are legacy tones kept for compatibility; the operator console now uses the named series too (single series `chart-blue`, Sent/Received `chart-blue`/`chart-orange`). Values never depend on colour alone: every series has a text legend, the chart's accessible name states the totals, and "Show as table" (a charcoal `textLink`) renders the same numbers in a keyboard-focusable scrolling region; Analytics → Overview uses the compact `viewToggle="segmented"` Chart / Table control (`aria-pressed` buttons) for the same switch. Stack only mutually exclusive series: nested funnel counts (Sent ⊇ Delivered ⊇ Read) are lines or are first converted to latest-status buckets (Overview: Read `chart-stage-3` · Delivered, not read `chart-stage-1` · Sent, not delivered `chart-other` · Failed `chart-critical`). `totalLabel` adds a hover/table total for such stacks only; `integerTicks` keeps count axes whole. No other chart library is used.
 
 ### Brand assets
 
@@ -150,6 +150,7 @@ Font: Inter for UI, JetBrains Mono for identifiers, phone numbers and code (load
 | Small         | 13 / 18          | `text-sm`               | regular                        |
 | Caption       | 12 / 16          | `text-xs`               | regular / medium               |
 | Metric value  | 24 / 32          | `text-2xl tabular-nums` | semibold (via `MetricCard`)    |
+| Summary metric value | 30 / 36    | `text-3xl tabular-nums` | semibold (via `MetricCard appearance="summary"`, Analytics → Overview only) |
 
 `text-3xl` (30/36) is reserved for authentication and onboarding. The approved Home scale refinement returns its welcome heading to 24/32, section headings to 16/24 and primary body/row text to 14/20. Other application pages retain their existing typography. Headings follow document order (one `h1` per page from `PageHeader`, `h2` for sections, `h3` inside cards).
 
