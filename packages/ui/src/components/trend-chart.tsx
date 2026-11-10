@@ -101,6 +101,15 @@ export type TrendChartProps = {
   /** Column header for the point labels in the table alternative. */
   pointHeader?: string
   height?: number
+  /** Whole-number axis ticks (counts), so a small range never shows "0.5". */
+  integerTicks?: boolean
+  /**
+   * Stacked only: adds a total row to the hover detail. Pass it only when the series are
+   * mutually exclusive parts of one whole, so the sum is meaningful.
+   */
+  totalLabel?: string
+  /** "link": the "Show as table" text link (default); "segmented": a compact Chart / Table control. */
+  viewToggle?: 'link' | 'segmented'
   className?: string
 }
 
@@ -111,6 +120,22 @@ function niceMax(max: number): number {
   if (max <= 0) return 1
   const p = 10 ** Math.floor(Math.log10(max))
   return ([1, 2, 5, 10].find((m) => m * p >= max) ?? 10) * p
+}
+
+/**
+ * Axis ticks from 0. Default: 0, half and a "nice" maximum. Integer: a whole 1/2/5 × 10ⁿ step with
+ * at most five ticks, so counts never show fractional labels.
+ */
+export function axisTicks(max: number, integer = false): number[] {
+  if (!integer) {
+    const top = niceMax(max)
+    return [0, top / 2, top]
+  }
+  const raw = Math.max(1, max) / 4
+  const p = 10 ** Math.floor(Math.log10(raw))
+  const step = Math.max(1, ([1, 2, 5, 10].find((m) => m * p >= raw) ?? 10) * p)
+  const n = Math.max(1, Math.ceil(Math.max(1, max) / step))
+  return Array.from({ length: n + 1 }, (_, i) => i * step)
 }
 
 /**
@@ -125,6 +150,9 @@ export function TrendChart({
   formatValue = (v) => v.toLocaleString('en-IN'),
   pointHeader = 'Day',
   height = 220,
+  integerTicks = false,
+  totalLabel,
+  viewToggle = 'link',
   className,
 }: TrendChartProps) {
   const container = useRef<HTMLElement>(null)
@@ -144,7 +172,7 @@ export function TrendChart({
   const H = height
   const plotW = W - PAD.left - PAD.right
   const plotH = H - PAD.top - PAD.bottom
-  const max = useMemo(() => {
+  const ticks = useMemo(() => {
     let m = 0
     for (const p of data) {
       const vals = series.map((s) => p.values[s.key] ?? 0)
@@ -153,8 +181,9 @@ export function TrendChart({
         variant === 'stacked' ? vals.reduce((a, b) => a + b, 0) : Math.max(0, ...vals),
       )
     }
-    return niceMax(m)
-  }, [data, series, variant])
+    return axisTicks(m, integerTicks)
+  }, [data, series, variant, integerTicks])
+  const max = ticks[ticks.length - 1] ?? 1
   const x = (i: number) =>
     PAD.left + (data.length <= 1 ? plotW / 2 : (i * plotW) / (data.length - 1))
   const band = plotW / Math.max(1, data.length)
@@ -172,6 +201,8 @@ export function TrendChart({
     ...s,
     sum: data.reduce((a, p) => a + (p.values[s.key] ?? 0), 0),
   }))
+  const showTotal = variant === 'stacked' && Boolean(totalLabel)
+  const pointTotal = (p: ChartPoint) => series.reduce((a, s) => a + (p.values[s.key] ?? 0), 0)
   const summary = `${label}. ${total.map((s) => `${s.label}: ${formatValue(s.sum)} in total`).join(', ')}.`
 
   return (
@@ -189,18 +220,45 @@ export function TrendChart({
             </li>
           ))}
         </ul>
-        <button
-          type="button"
-          className={cn(
-            'text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
-            textLink,
-          )}
-          aria-expanded={table}
-          aria-controls={`${id}-table`}
-          onClick={() => setTable((t) => !t)}
-        >
-          {table ? 'Show as chart' : 'Show as table'}
-        </button>
+        {viewToggle === 'segmented' ? (
+          <div
+            role="group"
+            aria-label={`${label}: view as`}
+            className="inline-flex shrink-0 rounded-md border border-border-control bg-surface-muted p-0.5"
+          >
+            {(['Chart', 'Table'] as const).map((v) => {
+              const on = (v === 'Table') === table
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setTable(v === 'Table')}
+                  className={cn(
+                    'rounded-sm px-2.5 py-1 text-xs font-medium',
+                    on ? 'bg-surface text-fg shadow-raised' : 'text-fg-secondary hover:text-fg',
+                    focusRing,
+                  )}
+                >
+                  {v}
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={cn(
+              'text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
+              textLink,
+            )}
+            aria-expanded={table}
+            aria-controls={`${id}-table`}
+            onClick={() => setTable((t) => !t)}
+          >
+            {table ? 'Show as chart' : 'Show as table'}
+          </button>
+        )}
       </div>
       {table ? (
         // The table scrolls inside a bounded box, so keyboard users can focus it to scroll
@@ -228,6 +286,11 @@ export function TrendChart({
                     {s.label}
                   </th>
                 ))}
+                {showTotal ? (
+                  <th scope="col" className="px-3 py-2 text-right font-medium">
+                    {totalLabel}
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -241,6 +304,11 @@ export function TrendChart({
                       {formatValue(p.values[s.key] ?? 0)}
                     </td>
                   ))}
+                  {showTotal ? (
+                    <td className="px-3 py-1.5 text-right font-medium tabular-nums text-fg">
+                      {formatValue(pointTotal(p))}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -254,24 +322,24 @@ export function TrendChart({
             role="img"
             aria-label={summary}
           >
-            {[0, 0.5, 1].map((f) => (
-              <g key={f}>
+            {ticks.map((t) => (
+              <g key={t}>
                 <line
                   x1={PAD.left}
                   x2={W - PAD.right}
-                  y1={y(max * f)}
-                  y2={y(max * f)}
+                  y1={y(t)}
+                  y2={y(t)}
                   className="stroke-border-subtle"
                   strokeWidth={1}
                 />
                 <text
                   x={PAD.left - 6}
-                  y={y(max * f)}
+                  y={y(t)}
                   textAnchor="end"
                   dominantBaseline="middle"
                   className="fill-fg-muted text-xs"
                 >
-                  {formatValue(max * f)}
+                  {formatValue(t)}
                 </text>
               </g>
             ))}
@@ -383,6 +451,11 @@ export function TrendChart({
                   {s.label}: {formatValue(data[active]!.values[s.key] ?? 0)}
                 </p>
               ))}
+              {showTotal ? (
+                <p className="mt-1 border-t border-border-subtle pt-1 font-medium text-fg">
+                  {totalLabel}: {formatValue(pointTotal(data[active]))}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
