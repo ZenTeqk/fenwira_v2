@@ -71,23 +71,26 @@ The contract is **Design System v1 evolved by the approved [Experience V2](docs/
 ```text
 Source of truth   packages/ui/src/tokens.ts  →  generated packages/ui/src/styles/tokens.css
 Layers            palette (primitives) → semantic roles (light + dark) → component tokens
-Canvas / sidebar / surface     #F5F5F4 / #EFEFED / #FFFFFF   canvas · sidebar · surface
-Muted / selected surface       #F0F0ED / #E7E7E4             surface-muted · surface-selected
-Text primary / secondary       #242622 / #62665E             fg · fg-secondary
-Border                         #DEDED8                       border-subtle (controls: border-control)
-Primary action                 #047857 (hover #065F46)       action-primary · -hover · -fg · -subtle
+Palette                        Graphite + Emerald (2026-11-10), light + dark in tokens.ts
+Canvas / sidebar / surface     #F6F7F9 / #F0F2F5 / #FFFFFF   canvas · sidebar · surface
+Muted / hover / selected       #F0F2F5 / #E9EDF2 / #DEE5ED   surface-muted · surface-hover · surface-selected
+Text primary / secondary       #20252C / #586270             fg · fg-secondary
+Border                         #E1E5EB                       border-subtle (controls: border-control / -strong)
+Links (charcoal, underlined)   #334155 (hover #20252C)       link · link-hover
+Primary action                 #047857 (hover #065F46)       action-primary · -hover · -pressed · -fg · -subtle
 Brand emerald (marks only)     #00A884                       brand
+Sidebar selected               #D6DFE9 + emerald indicator   sidebar-item-selected · -indicator
 WhatsApp channel identity      #25D366                       whatsapp
 Status (success/warning/error/info/neutral): status-<s> (solid) · -fg (text) · -bg · -border
 Accents: conversation/info blue accent-conversation-*, automation/AI violet accent-automation-*
-Chat: chat-canvas #F3F0EA · chat-incoming #FFFFFF · chat-outgoing #DDEED5 · chat-read #2563EB
+Chat: chat-canvas #F1F3F5 · chat-incoming #FFFFFF · chat-outgoing #E0EFE7 · chat-read #2563EB
 ```
 
 Customer navigation is light (`sidebar`), with neutral surfaces and a WhatsApp-inspired chat area in the Inbox. Appearance is Light, Dark or System (the default with no stored preference), chosen from the header Appearance menu; dark values are tested, and `data-theme` on <html> is set before first paint (`lib/theme-script.ts`). Home remains at `/dashboard`. Never revert to dark customer navigation, introduce fake screenshot capabilities, or expose `/platform` through tenant navigation. Follow the Experience V2 plan and stop at its visual checkpoints.
 
 Rules:
 
-1. Primary actions, green text, focus and selection use `action-primary` (filled buttons pair with `action-primary-fg`). `brand` (#00A884) is for brand marks and the active-navigation bar only, never text.
+1. Primary actions, focus and small active markers use `action-primary` (filled buttons pair with `action-primary-fg`; emerald text on a tint uses `action-primary-subtle-fg`). Selection is grey (`surface-selected`, `sidebar-item-selected`). `brand` (#00A884) is for logo treatments and small identity accents only, never text.
 2. Brand emerald, `action-primary`, `status-success`, `chat-outgoing` and WhatsApp green are different tokens with different meanings.
 3. Statuses are rendered with `StatusBadge` only (five categories: success, warning, danger, info, neutral). Never by color alone. The one exception is inbox bubble delivery ticks (`MessageTicks`: icon only, with an accessible label; FENWIRA_DESIGN_SYSTEM.md → Status).
 4. Do not introduce colors without updating `docs/design/FENWIRA_DESIGN_SYSTEM.md`, `packages/ui/src/tokens.ts` (light and dark) and the contrast pairs first; regenerate `tokens.css` with `pnpm --filter @fenwira/ui test -u`.

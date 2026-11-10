@@ -17,11 +17,14 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         // Action fills pair with their -fg token at WCAG AA in both themes (tokens.test.ts).
-        primary: 'bg-action-primary text-action-primary-fg hover:bg-action-primary-hover',
-        secondary: 'border border-border-control bg-surface text-fg hover:bg-surface-hover',
-        // Low-emphasis action: charcoal text, no fill; a quiet underline darkens on hover.
-        tertiary: textLink,
-        ghost: 'text-fg hover:bg-surface-hover',
+        primary:
+          'bg-action-primary text-action-primary-fg hover:bg-action-primary-hover active:bg-action-primary-pressed',
+        secondary:
+          'border border-border-control bg-surface text-fg hover:bg-surface-hover active:bg-surface-selected',
+        // Low-emphasis action: neutral text and icon, no border; a subtle neutral fill on hover.
+        tertiary:
+          'text-fg-secondary hover:bg-surface-hover hover:text-fg active:bg-surface-selected',
+        ghost: 'text-fg hover:bg-surface-hover active:bg-surface-selected',
         danger: 'bg-action-danger text-action-danger-fg hover:bg-action-danger-hover',
         // Ordinary links are charcoal; emerald stays reserved for primary actions.
         link: cn('h-auto px-0', textLink),

@@ -10,7 +10,7 @@ export const Modal = DialogPrimitive.Root
 export const ModalTrigger = DialogPrimitive.Trigger
 export const ModalClose = DialogPrimitive.Close
 
-const overlay = 'fixed inset-0 z-50 bg-scrim/50'
+const overlay = 'fixed inset-0 z-50 bg-scrim-overlay'
 
 /**
  * Radix returns focus to a Dialog `Trigger` on close; dialogs opened from ordinary buttons have

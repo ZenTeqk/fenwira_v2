@@ -275,17 +275,17 @@ function Row({
             }
           : {})}
         className={cn(
-          'fw-inbox-bubble flex min-w-0 flex-col gap-1 rounded-lg border px-3 py-2.5 text-base leading-normal text-fg shadow-raised',
+          'fw-inbox-bubble flex min-w-0 flex-col gap-1 rounded-lg border px-3 py-2.5 text-base leading-normal shadow-raised',
           outbound
-            ? 'border-transparent bg-chat-outgoing contrast-more:border-border-control'
-            : 'border-chat-incoming-border bg-chat-incoming contrast-more:border-border-control',
+            ? 'border-transparent bg-chat-outgoing text-chat-outgoing-fg contrast-more:border-border-control'
+            : 'border-chat-incoming-border bg-chat-incoming text-chat-incoming-fg contrast-more:border-border-control',
           // The first bubble of a sender's group points at its side, like a chat app's tail.
           !grouped && (outbound ? 'rounded-tr-none' : 'rounded-tl-none'),
         )}
       >
         {/* Only other senders are named, at the start of their group (never "You"). */}
         {!grouped && outbound && sender ? (
-          <span className="text-xs font-medium text-fg">{sender}</span>
+          <span className="text-xs font-medium text-chat-outgoing-fg">{sender}</span>
         ) : null}
         <MessageBody m={m} labelId={labelId} bodyId={bodyId} />
         <span

@@ -11,14 +11,18 @@ import { useSession } from '@/components/session/session-provider'
 import { get } from '@/lib/api/client'
 import { keys } from '@/lib/api/keys'
 
-/** Tag colors come from a fixed enum mapped to badge tones (never free hex). */
+/**
+ * Tag colors come from a fixed enum (stored values unchanged) mapped to the contact-label palette,
+ * which is separate from status semantics and from emerald actions. `PRIMARY` keeps its muted
+ * green identity; `SUCCESS` renders teal. Filled emerald stays reserved for actions.
+ */
 export const TAG_TONE: Record<TagColor, BadgeTone> = {
-  NEUTRAL: 'neutral',
-  PRIMARY: 'primary',
-  INFO: 'info',
-  WARNING: 'warning',
-  DANGER: 'danger',
-  SUCCESS: 'success',
+  NEUTRAL: 'label-neutral',
+  PRIMARY: 'label-green',
+  INFO: 'label-blue',
+  WARNING: 'label-amber',
+  DANGER: 'label-rose',
+  SUCCESS: 'label-teal',
 }
 
 export const CONSENT_LABEL: Record<ConsentState, string> = {

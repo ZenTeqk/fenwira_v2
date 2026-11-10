@@ -15,7 +15,7 @@ export function Toaster() {
           description: 'text-fg-muted text-sm',
           actionButton: 'bg-action-primary text-action-primary-fg',
           cancelButton: 'bg-surface-muted text-fg',
-          success: '[&_[data-icon]]:text-action-primary',
+          success: '[&_[data-icon]]:text-status-success-fg',
           error: '[&_[data-icon]]:text-status-error-fg',
           warning: '[&_[data-icon]]:text-status-warning',
           info: '[&_[data-icon]]:text-status-info-fg',

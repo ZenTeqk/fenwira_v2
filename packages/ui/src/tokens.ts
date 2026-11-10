@@ -21,44 +21,54 @@ export const palette = {
   whatsapp: '#25D366',
   /** Fenwira brand emerald (the logo's core green): brand marks and indicators, never text. */
   brand: { emerald: '#00A884', 'emerald-dark': '#10B981' },
-  // Warm-neutral ramp shared by both themes, lightest to darkest. No hue tint on surfaces.
-  neutral: {
+  // Graphite: the cool-grey ramp shared by both themes, lightest to darkest. Surfaces carry no
+  // green tint (Graphite + Emerald palette, 2026-11-10).
+  graphite: {
     0: '#FFFFFF',
-    25: '#F5F5F4',
-    50: '#F0F0ED',
-    60: '#EFEFED',
-    70: '#ECECE9',
-    75: '#EAEAE7',
-    100: '#E7E7E4',
-    150: '#DEDED8',
-    200: '#CFCFC8',
-    300: '#B3B5AD',
-    330: '#A8AAA2',
-    400: '#80837B',
-    450: '#7A7D75',
-    600: '#62665E',
-    700: '#4A4C46',
-    750: '#3B3B37',
-    800: '#2E2F2C',
-    825: '#2A2B28',
-    850: '#272826',
-    900: '#242622',
-    910: '#232422',
-    925: '#1D1E1C',
-    950: '#171816',
-    960: '#151614',
-    975: '#121311',
+    25: '#F6F7F9',
+    40: '#F1F3F5',
+    50: '#F0F2F5',
+    75: '#E9EDF2',
+    100: '#E1E5EB',
+    120: '#DEE5ED',
+    300: '#BCC5D0',
+    320: '#B6BFCB',
+    380: '#A0ACBC',
+    400: '#9AA3AF',
+    450: '#8995A5',
+    500: '#737F8F',
+    540: '#5D6776',
+    550: '#657080',
+    580: '#596575',
+    600: '#586270',
+    700: '#35404D',
+    720: '#303740',
+    750: '#2A3038',
+    775: '#252C33',
+    780: '#252A30',
+    800: '#22272D',
+    820: '#20252C',
+    850: '#1B1E22',
+    900: '#15181C',
+    910: '#14191D',
+    950: '#111315',
   },
+  /** Charcoal link ink. */
+  slate: { 300: '#CBD5E1', 700: '#334155' },
   emerald: {
-    50: '#ECFDF5',
-    100: '#D1FAE5',
+    tint: '#EAF5F0',
+    'tint-hover': '#DCEEE5',
     300: '#6EE7B7',
     400: '#34D399',
+    500: '#10B981',
+    /** Tailwind emerald-600 (#059669) lightened just enough for dark text (AA) on a pressed dark-mode button. */
+    'pressed-dark': '#05A271',
     700: '#047857',
     800: '#065F46',
-    850: '#1A3D2E',
-    900: '#143024',
-    975: '#022C22',
+    900: '#064E3B',
+    'tint-dark': '#17382D',
+    'tint-dark-hover': '#1A3D31',
+    975: '#052E24',
   },
   green: {
     100: '#DCFCE7',
@@ -93,7 +103,7 @@ export const palette = {
     800: '#991B1B',
     900: '#7F1D1D',
     950: '#331A1A',
-    975: '#2B0A0A',
+    975: '#450A0A',
   },
   blue: {
     50: '#EFF6FF',
@@ -116,6 +126,8 @@ export const palette = {
     800: '#5B21B6',
     950: '#251C3B',
   },
+  /** Rose: contact-label colour only (never an error or status). */
+  rose: { 50: '#FFF1F2', 300: '#FDA4AF', 700: '#BE123C', 950: '#351D29' },
   orange: { 50: '#FFF7ED', 300: '#FDBA74', 700: '#C2410C', 950: '#33200F' },
   // Categorical chart hues (validated with the dataviz palette checks: lightness band, chroma,
   // colour-blind separation and >= 3:1 against the chart surface in each mode).
@@ -130,15 +142,26 @@ export const palette = {
     'aqua-dark': '#199E70',
     'red-dark': '#E66767',
   },
-  // Light sidebar interaction states: hover and selected rows stand out from the sidebar surface.
+  // Sidebar row states: hover stays visibly lighter than the selected fill in both themes.
   sidebar: {
-    hover: '#E2E2DC',
-    selected: '#D3D5CC',
-    'selected-hover': '#C9CDC1',
-    'selected-fg': '#20251F',
+    hover: '#DEE5ED',
+    selected: '#D6DFE9',
+    'selected-fg': '#192431',
+    'hover-dark': '#262D36',
+    'selected-dark': '#354251',
+    'selected-fg-dark': '#F4F7FA',
   },
-  // WhatsApp-inspired chat surfaces (warm paper canvas, leaf outgoing, forest outgoing in dark).
-  chat: { sand: '#F3F0EA', leaf: '#DDEED5', forest: '#1E3A2B' },
+  // Inbox chat surfaces: neutral canvas, soft emerald outgoing bubble, amber private notes.
+  chat: {
+    outgoing: '#E0EFE7',
+    'outgoing-dark': '#1C3B32',
+    note: '#FFF6DF',
+    'note-fg': '#785014',
+    'note-border': '#E7C777',
+    'note-dark': '#352B18',
+    'note-fg-dark': '#F8DFA0',
+    'note-border-dark': '#8A6829',
+  },
   // Avatar identity hues: decorative, deterministic per contact, never a status.
   pink: { 100: '#FCE0EC', 200: '#F5B8D0', 800: '#9D2455', 900: '#3A1F2B' },
   lavender: { 100: '#EBDDFB', 200: '#D3BDF5', 800: '#66379B', 900: '#2C2240' },
@@ -148,7 +171,7 @@ export const palette = {
 } as const
 
 type Palette = typeof palette
-/** `white`, `neutral.600`, `brand.emerald`, … — a reference into `palette`. */
+/** `white`, `graphite.600`, `brand.emerald`, … — a reference into `palette`. */
 export type PaletteRef = {
   [K in keyof Palette]: Palette[K] extends string
     ? K
@@ -161,53 +184,60 @@ const pair = (light: PaletteRef, dark: PaletteRef): ThemePair => ({ light, dark 
 /** Semantic roles. Names become `--color-<name>` and Tailwind utilities (`bg-surface-muted`). */
 export const semanticTokens = {
   // Surfaces
-  canvas: pair('neutral.25', 'neutral.975'),
-  sidebar: pair('neutral.60', 'neutral.950'),
-  surface: pair('neutral.0', 'neutral.925'),
-  'surface-elevated': pair('neutral.0', 'neutral.850'),
-  'surface-muted': pair('neutral.50', 'neutral.910'),
-  'surface-hover': pair('neutral.75', 'neutral.800'),
-  'surface-selected': pair('neutral.100', 'neutral.750'),
-  'surface-disabled': pair('neutral.50', 'neutral.910'),
+  canvas: pair('graphite.25', 'graphite.950'),
+  sidebar: pair('graphite.50', 'graphite.900'),
+  surface: pair('graphite.0', 'graphite.850'),
+  'surface-elevated': pair('graphite.0', 'graphite.780'),
+  'surface-muted': pair('graphite.50', 'graphite.800'),
+  'surface-hover': pair('graphite.75', 'graphite.750'),
+  'surface-selected': pair('graphite.120', 'graphite.700'),
+  'surface-disabled': pair('graphite.50', 'graphite.800'),
   /** Tooltips and dark chips: the opposite lightness of the page. */
-  inverse: pair('neutral.900', 'neutral.70'),
-  'inverse-fg': pair('neutral.0', 'neutral.925'),
-  'inverse-fg-muted': pair('neutral.300', 'neutral.600'),
-  'inverse-border': pair('neutral.700', 'neutral.200'),
-  'inverse-hover': pair('neutral.800', 'neutral.100'),
-  /** Dialog backdrop; used with an opacity modifier (`bg-scrim/50`). */
-  scrim: pair('neutral.900', 'black'),
+  inverse: pair('graphite.820', 'graphite.40'),
+  'inverse-fg': pair('graphite.0', 'graphite.850'),
+  'inverse-fg-muted': pair('graphite.300', 'graphite.600'),
+  'inverse-border': pair('graphite.600', 'graphite.300'),
+  'inverse-hover': pair('graphite.750', 'graphite.120'),
+  /** Dialog backdrop; applied through the `bg-scrim-overlay` utility (45% light, 65% dark). */
+  scrim: pair('graphite.950', 'black'),
   /** Shadow color; consumed by the elevation tokens in theme.css. */
-  shadow: pair('neutral.975', 'black'),
+  shadow: pair('graphite.950', 'black'),
 
   // Text and icons
-  fg: pair('neutral.900', 'neutral.70'),
-  'fg-secondary': pair('neutral.600', 'neutral.300'),
-  /** Same light value as secondary: nothing lighter clears AA on the selected surface. */
-  'fg-muted': pair('neutral.600', 'neutral.330'),
+  fg: pair('graphite.820', 'graphite.40'),
+  'fg-secondary': pair('graphite.600', 'graphite.320'),
+  /** Light is #657080 darkened to #5D6776: the approved value is < 4.5:1 on sidebar/hover/selected. */
+  'fg-muted': pair('graphite.540', 'graphite.380'),
   /** Disabled text pairs with opacity/disabled semantics; exempt from AA (WCAG 1.4.3). */
-  'fg-disabled': pair('neutral.300', 'neutral.700'),
+  'fg-disabled': pair('graphite.400', 'graphite.550'),
   /** Idle icons, dots, connectors: non-text, 3:1 on canvas, sidebar and surfaces. */
-  'fg-subtle': pair('neutral.400', 'neutral.450'),
+  'fg-subtle': pair('graphite.500', 'graphite.450'),
 
   // Borders and focus
-  'border-subtle': pair('neutral.150', 'neutral.800'),
+  /** Decorative separators only. */
+  'border-subtle': pair('graphite.100', 'graphite.720'),
   /** Text-field and secondary-button outline. Labelled controls (WCAG 1.4.11 exception). */
-  'border-control': pair('neutral.200', 'neutral.700'),
+  'border-control': pair('graphite.300', 'graphite.580'),
   /** Checkbox, radio and switch boundaries, which need 3:1 on their own. */
-  'border-control-strong': pair('neutral.400', 'neutral.450'),
-  'focus-ring': pair('emerald.700', 'emerald.400'),
+  'border-control-strong': pair('graphite.500', 'graphite.450'),
+  'focus-ring': pair('emerald.700', 'emerald.500'),
 
-  // Primary action (emerald). Also green links/text and selection indicators.
-  'action-primary': pair('emerald.700', 'emerald.400'),
-  'action-primary-hover': pair('emerald.800', 'emerald.300'),
+  // Primary action (emerald): primary buttons, focus, checked controls and selection markers.
+  'action-primary': pair('emerald.700', 'emerald.500'),
+  'action-primary-hover': pair('emerald.800', 'emerald.400'),
+  'action-primary-pressed': pair('emerald.900', 'emerald.pressed-dark'),
   'action-primary-fg': pair('white', 'emerald.975'),
-  'action-primary-subtle': pair('emerald.50', 'emerald.900'),
-  'action-primary-subtle-hover': pair('emerald.100', 'emerald.850'),
+  'action-primary-subtle': pair('emerald.tint', 'emerald.tint-dark'),
+  'action-primary-subtle-hover': pair('emerald.tint-hover', 'emerald.tint-dark-hover'),
+  /** Emerald text and icons on `action-primary-subtle`. */
+  'action-primary-subtle-fg': pair('emerald.800', 'emerald.300'),
   'action-danger': pair('red.700', 'red.400'),
   'action-danger-hover': pair('red.800', 'red.300'),
   'action-danger-fg': pair('white', 'red.975'),
-  /** Brand emerald: brand marks and the active-navigation bar. Never text, never an action. */
+  /** Ordinary links: charcoal, underlined (lib/link.ts). Emerald is for actions only. */
+  link: pair('slate.700', 'slate.300'),
+  'link-hover': pair('graphite.820', 'graphite.40'),
+  /** Brand emerald: approved logo treatments and small identity accents. Never text or an action. */
   brand: pair('brand.emerald', 'brand.emerald-dark'),
   /** WhatsApp channel identity. Not an action or status color. */
   whatsapp: pair('whatsapp', 'whatsapp'),
@@ -239,40 +269,63 @@ export const semanticTokens = {
   'status-info-fg': pair('blue.700', 'blue.300'),
   'status-info-bg': pair('blue.50', 'blue.950'),
   'status-info-border': pair('blue.200', 'blue.800'),
-  'status-neutral': pair('neutral.400', 'neutral.450'),
-  'status-neutral-fg': pair('neutral.600', 'neutral.300'),
-  'status-neutral-bg': pair('neutral.50', 'neutral.800'),
-  'status-neutral-border': pair('neutral.150', 'neutral.700'),
+  'status-neutral': pair('graphite.500', 'graphite.450'),
+  'status-neutral-fg': pair('graphite.600', 'graphite.320'),
+  'status-neutral-bg': pair('graphite.50', 'graphite.750'),
+  'status-neutral-border': pair('graphite.100', 'graphite.580'),
 
   // Chat (WhatsApp-inspired thread inside a neutral inbox shell)
-  'chat-canvas': pair('chat.sand', 'neutral.960'),
-  'chat-pattern': pair('neutral.400', 'neutral.450'),
-  'chat-incoming': pair('neutral.0', 'neutral.825'),
-  'chat-incoming-border': pair('neutral.150', 'neutral.750'),
-  'chat-outgoing': pair('chat.leaf', 'chat.forest'),
+  'chat-canvas': pair('graphite.40', 'graphite.910'),
+  'chat-pattern': pair('graphite.500', 'graphite.450'),
+  'chat-incoming': pair('graphite.0', 'graphite.775'),
+  'chat-incoming-fg': pair('graphite.820', 'graphite.40'),
+  'chat-incoming-border': pair('graphite.100', 'graphite.720'),
+  'chat-outgoing': pair('chat.outgoing', 'chat.outgoing-dark'),
+  'chat-outgoing-fg': pair('graphite.820', 'graphite.40'),
   /** Timestamps, sender labels and sent/delivered ticks on either bubble. */
-  'chat-meta': pair('neutral.600', 'neutral.300'),
+  'chat-meta': pair('graphite.600', 'graphite.320'),
   'chat-read': pair('blue.600', 'blue.400'),
-  'chat-note': pair('amber.50', 'amber.950'),
-  'chat-note-border': pair('amber.200', 'amber.900'),
-  'chat-note-fg': pair('amber.800', 'amber.300'),
+  'chat-note': pair('chat.note', 'chat.note-dark'),
+  'chat-note-border': pair('chat.note-border', 'chat.note-border-dark'),
+  'chat-note-fg': pair('chat.note-fg', 'chat.note-fg-dark'),
 } as const satisfies Record<string, ThemePair>
 
 /** Component tokens: only where no semantic role fits. */
 export const componentTokens = {
-  'phone-bezel': pair('neutral.900', 'neutral.700'),
-  // Sidebar rows (collapsed icons, expanded rows, submenu links, bottom utilities). Dark keeps the
-  // shared hover/selected surfaces; only light gets the stronger sidebar-specific steps.
-  'sidebar-item-hover': pair('sidebar.hover', 'neutral.800'),
-  'sidebar-item-hover-fg': pair('neutral.900', 'neutral.70'),
-  'sidebar-item-selected': pair('sidebar.selected', 'neutral.750'),
-  'sidebar-item-selected-hover': pair('sidebar.selected-hover', 'neutral.750'),
-  'sidebar-item-selected-fg': pair('sidebar.selected-fg', 'neutral.70'),
+  'phone-bezel': pair('graphite.820', 'graphite.580'),
+  // Sidebar rows (collapsed icons, expanded rows, submenu links, bottom utilities): grey hover,
+  // a stronger grey selected fill and a thin emerald indicator on the leading edge.
+  'sidebar-item-hover': pair('sidebar.hover', 'sidebar.hover-dark'),
+  'sidebar-item-hover-fg': pair('graphite.820', 'graphite.40'),
+  'sidebar-item-selected': pair('sidebar.selected', 'sidebar.selected-dark'),
+  /** Selected keeps its fill on hover, so selection never reads as a hover state. */
+  'sidebar-item-selected-hover': pair('sidebar.selected', 'sidebar.selected-dark'),
+  'sidebar-item-selected-fg': pair('sidebar.selected-fg', 'sidebar.selected-fg-dark'),
+  'sidebar-item-selected-indicator': pair('emerald.700', 'emerald.500'),
+  /**
+   * Hover on selectable list and table rows: midway between the row surface and
+   * `surface-selected` in each theme, so hover never reads as selection (or as nothing).
+   */
+  'list-item-hover': pair('graphite.50', 'graphite.750'),
   // Template categories (Utility reuses status-info).
   'category-marketing-fg': pair('violet.700', 'violet.300'),
   'category-marketing-bg': pair('violet.50', 'violet.950'),
   'category-authentication-fg': pair('orange.700', 'orange.300'),
   'category-authentication-bg': pair('orange.50', 'orange.950'),
+  // Contact labels (user-chosen tag colours): decorative identity, never a status or an action.
+  'label-blue-bg': pair('blue.50', 'blue.950'),
+  'label-blue-fg': pair('blue.700', 'blue.300'),
+  /** Muted green label: the same accessible green pair as status-success, under a label name. */
+  'label-green-bg': pair('green.100', 'green.950'),
+  'label-green-fg': pair('green.800', 'green.300'),
+  'label-amber-bg': pair('amber.100', 'amber.950'),
+  'label-amber-fg': pair('amber.800', 'amber.300'),
+  'label-rose-bg': pair('rose.50', 'rose.950'),
+  'label-rose-fg': pair('rose.700', 'rose.300'),
+  'label-teal-bg': pair('mint.100', 'mint.900'),
+  'label-teal-fg': pair('mint.800', 'mint.200'),
+  'label-neutral-bg': pair('graphite.50', 'graphite.750'),
+  'label-neutral-fg': pair('graphite.600', 'graphite.320'),
   // Avatar identities (data-driven, decorative).
   'avatar-pink-bg': pair('pink.100', 'pink.900'),
   'avatar-pink-fg': pair('pink.800', 'pink.200'),
@@ -286,12 +339,12 @@ export const componentTokens = {
   'avatar-periwinkle-fg': pair('periwinkle.800', 'periwinkle.200'),
   // Chart series (TrendChart): 3:1 against the surface in both themes. chart-1…6 are the original
   // tones (still used by the operator console); the named series below are the validated set.
-  'chart-1': pair('emerald.700', 'emerald.400'),
+  'chart-1': pair('emerald.700', 'emerald.500'),
   'chart-2': pair('blue.600', 'blue.400'),
   'chart-3': pair('green.800', 'green.400'),
   'chart-4': pair('red.600', 'red.400'),
   'chart-5': pair('amber.700', 'amber.400'),
-  'chart-6': pair('neutral.600', 'neutral.330'),
+  'chart-6': pair('graphite.600', 'graphite.380'),
   // Message funnel (sent → delivered → read): one ordinal blue ramp, light to dark.
   'chart-stage-1': pair('blue.500', 'blue.600'),
   'chart-stage-2': pair('blue.700', 'blue.400'),
@@ -304,7 +357,7 @@ export const componentTokens = {
   // Outcomes that are statuses (always with a legend label) and the grey "other".
   'chart-good': pair('green.600', 'green.600'),
   'chart-critical': pair('red.600', 'series.red-dark'),
-  'chart-other': pair('neutral.400', 'neutral.450'),
+  'chart-other': pair('graphite.500', 'graphite.450'),
 } as const satisfies Record<string, ThemePair>
 
 export type SemanticToken = keyof typeof semanticTokens | keyof typeof componentTokens

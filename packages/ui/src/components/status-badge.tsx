@@ -172,6 +172,12 @@ const inlineTones: Record<BadgeTone, string> = {
   warning: 'text-status-warning-fg',
   danger: 'text-status-error-fg',
   info: 'text-status-info-fg',
+  'label-blue': 'text-label-blue-fg',
+  'label-green': 'text-label-green-fg',
+  'label-amber': 'text-label-amber-fg',
+  'label-rose': 'text-label-rose-fg',
+  'label-teal': 'text-label-teal-fg',
+  'label-neutral': 'text-label-neutral-fg',
 }
 
 export function StatusBadge({

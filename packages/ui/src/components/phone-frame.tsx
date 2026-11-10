@@ -70,7 +70,7 @@ export function PhoneFrame({
         <ArrowLeft aria-hidden="true" className="size-4 shrink-0 text-action-primary" />
         <span
           aria-hidden="true"
-          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-action-primary-subtle text-sm font-semibold text-action-primary"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-action-primary-subtle text-sm font-semibold text-action-primary-subtle-fg"
         >
           {contactName.slice(0, 1).toUpperCase()}
         </span>

@@ -53,6 +53,17 @@
     0 2px 6px -2px color-mix(in srgb, var(--color-shadow) 8%, transparent);
 }
 
+/* Dialog, drawer and command-palette backdrop: the scrim token at 45% (light) / 65% (dark). */
+:root {
+  --fw-scrim-opacity: 45%;
+}
+[data-theme='dark'] {
+  --fw-scrim-opacity: 65%;
+}
+@utility bg-scrim-overlay {
+  background-color: color-mix(in srgb, var(--color-scrim) var(--fw-scrim-opacity), transparent);
+}
+
 /* Inbox wallpaper: an original line-art tile (../assets/chat-doodle.svg) applied as a mask, so its
    color comes from a token utility on the same element (bg-chat-pattern) and the asset has none. */
 @utility chat-doodle {
