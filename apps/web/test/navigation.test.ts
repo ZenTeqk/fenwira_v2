@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   activeModule,
+  DAILY_MODULES,
   moduleHref,
   moduleTabs,
   NAVIGATION,
+  SECONDARY_MODULES,
   SHIPPED_PHASE,
   breadcrumbsFor,
   findActiveLeaf,
@@ -30,6 +32,14 @@ describe('navigation', () => {
     expect(flattenLeaves(NAVIGATION)).toHaveLength(37)
     const hrefs = flattenLeaves(NAVIGATION).map((l) => l.href)
     expect(new Set(hrefs).size).toBe(hrefs.length)
+  })
+
+  it('splits the sidebar into daily work, messaging tools and workspace, in order', () => {
+    const ids = NAVIGATION.map((i) => i.id)
+    const tools = ids.filter((id) => !DAILY_MODULES.includes(id) && !SECONDARY_MODULES.includes(id))
+    expect(DAILY_MODULES).toEqual(ids.slice(0, 4))
+    expect(tools).toEqual(['campaigns', 'templates', 'automations', 'ai-assistant', 'analytics'])
+    expect(SECONDARY_MODULES).toEqual(ids.slice(-3))
   })
 
   it('shows only shipped modules and never empty groups', () => {

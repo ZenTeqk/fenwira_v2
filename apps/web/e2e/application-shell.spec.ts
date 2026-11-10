@@ -30,6 +30,35 @@ async function fixture(page: Page, statuses = ['CONNECTED'], tenantName?: string
   )
 }
 const rail = (page: Page) => page.getByRole('complementary', { name: 'Application navigation' })
+/**
+ * Wait for the rail's width/opacity transitions to finish. CSS transitions run in real time
+ * even while page.clock is paused, and Playwright's stability check relies on the paused
+ * animation frames, so clicks on targets that move with the width must wait for this.
+ */
+const settled = (page: Page) =>
+  rail(page).evaluate((element) =>
+    Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)),
+  )
+/** Click a rail row on its icon, so the cursor stays inside the 68px collapsed rail. */
+const ICON = { position: { x: 20, y: 22 } }
+/** Record every data-expanded change, to prove nothing reopens or flickers between assertions. */
+const recordExpanded = async (page: Page) => {
+  await rail(page).evaluate((element) => {
+    const log: string[] = []
+    ;(window as unknown as { expandedLog: string[] }).expandedLog = log
+    new MutationObserver(() => log.push(element.dataset.expanded!)).observe(element, {
+      attributes: true,
+      attributeFilter: ['data-expanded'],
+    })
+  })
+  return () =>
+    page.evaluate(() => (window as unknown as { expandedLog: string[] }).expandedLog.splice(0))
+}
+/** The rail is server-rendered collapsed; wait until hydration has attached its hover listeners. */
+const railReady = async (page: Page) => {
+  await expect(rail(page)).toHaveAttribute('data-hover-ready', 'true')
+  return rail(page)
+}
 const noOverflow = async (page: Page) =>
   expect(
     await page.evaluate(
@@ -51,6 +80,7 @@ test('temporary rail timing, keyboard focus, pin preference and no layout shift'
   await page.setViewportSize({ width: 1440, height: 900 })
   await fixture(page)
   await page.goto('/dashboard')
+  await railReady(page)
   const sidebar = rail(page)
   await expect(sidebar).toHaveAttribute('data-expanded', 'false')
   expect((await sidebar.boundingBox())!.width).toBe(68)
@@ -72,7 +102,7 @@ test('temporary rail timing, keyboard focus, pin preference and no layout shift'
   await expect(inbox).toBeFocused()
   await page.waitForTimeout(400)
   await expect(sidebar).toHaveAttribute('data-expanded', 'true')
-  await sidebar.getByRole('button', { name: 'Pin sidebar', exact: true }).click()
+  await sidebar.getByRole('button', { name: 'Keep sidebar open', exact: true }).click()
   await page.getByRole('button', { name: 'Account menu', exact: true }).focus()
   await expect(sidebar).toHaveAttribute('data-pinned', 'true')
   expect((await page.locator('main').boundingBox())!.x).toBe(232)
@@ -92,6 +122,7 @@ test('mouse-clicked navigation focus does not hold an unpinned sidebar open', as
   await fixture(page)
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/dashboard')
+  await railReady(page)
   const sidebar = rail(page)
   await page.mouse.move(2, 100)
   await expect(sidebar).toHaveAttribute('data-expanded', 'true')
@@ -111,6 +142,7 @@ test('keyboard focus takes over from a clicked link, and a later pointer click r
 }) => {
   await fixture(page)
   await page.goto('/dashboard')
+  await railReady(page)
   const sidebar = rail(page)
   await page.mouse.move(2, 100)
   await expect(sidebar).toHaveAttribute('data-expanded', 'true')
@@ -140,16 +172,16 @@ test('keyboard focus takes over from a clicked link, and a later pointer click r
   await expect(inbox).toBeFocused()
 })
 
-test('rapid hover cancels stale timers and uses the 180ms/250ms delays', async ({ page }) => {
+test('rapid hover cancels stale timers and uses the 150ms/250ms delays', async ({ page }) => {
   await fixture(page)
   await page.goto('/dashboard')
-  const sidebar = rail(page)
+  const sidebar = await railReady(page)
   await expect(sidebar).toHaveAttribute('data-expanded', 'false')
   const time = new Date()
   await page.clock.install({ time })
   await page.clock.pauseAt(new Date(time.getTime() + 1000))
   await page.mouse.move(2, 100)
-  await page.clock.runFor(179)
+  await page.clock.runFor(149)
   await expect(sidebar).toHaveAttribute('data-expanded', 'false')
   await page.mouse.move(600, 20)
   await page.clock.runFor(500)
@@ -157,10 +189,12 @@ test('rapid hover cancels stale timers and uses the 180ms/250ms delays', async (
   await page.getByRole('button', { name: 'Account menu', exact: true }).focus()
   await page.mouse.move(2, 100)
   await page.clock.runFor(90)
-  // A fast click moves focus out of the header before the hover delay has elapsed.
-  // That focusout must not cancel the pending hover expansion.
-  await sidebar.getByRole('link', { name: 'Home', exact: true }).click()
-  await page.clock.runFor(89)
+  // A fast click on the rail's empty gutter (not a destination) moves focus out of the header
+  // before the hover delay has elapsed. That focusout must not cancel the pending expansion.
+  await page.mouse.down()
+  await page.mouse.up()
+  await expect(page.getByRole('button', { name: 'Account menu', exact: true })).not.toBeFocused()
+  await page.clock.runFor(59)
   await expect(sidebar).toHaveAttribute('data-expanded', 'false')
   await page.clock.runFor(1)
   await expect(sidebar).toHaveAttribute('data-expanded', 'true')
@@ -179,12 +213,163 @@ test('rapid hover cancels stale timers and uses the 180ms/250ms delays', async (
   await expect(sidebar).toHaveAttribute('data-expanded', 'false')
 })
 
-test('the 200ms rail transition keeps navigation icons and page geometry fixed', async ({
+test('selecting a destination collapses the hover rail until the pointer leaves and re-enters', async ({
+  page,
+}) => {
+  await fixture(page)
+  await page.goto('/dashboard')
+  const sidebar = await railReady(page)
+  const inbox = sidebar.getByRole('link', { name: /Inbox/ })
+  const home = sidebar.getByRole('link', { name: 'Home', exact: true })
+  const log = await recordExpanded(page)
+  const time = new Date()
+  await page.clock.install({ time })
+  await page.clock.pauseAt(new Date(time.getTime() + 1000))
+  const open = async () => {
+    await page.mouse.move(600, 400)
+    await page.clock.runFor(300)
+    await page.mouse.move(30, 100)
+    await page.clock.runFor(150)
+    await expect(sidebar).toHaveAttribute('data-expanded', 'true')
+    await settled(page)
+    await log()
+  }
+
+  // 1. Click a destination: normal navigation, and the rail collapses at once (no timer).
+  await open()
+  await inbox.click(ICON)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'false')
+  await page.clock.runFor(1000)
+  await expect(page).toHaveURL(/\/inbox$/)
+  // 2. The cursor stays over (and moves within) the collapsed rail: it stays collapsed, and the
+  //    clicked link keeps its native focus without reopening the rail.
+  await page.mouse.move(40, 300)
+  await page.mouse.move(20, 200)
+  await page.clock.runFor(1000)
+  await expect(inbox).toBeFocused()
+  await page.keyboard.press('x')
+  await page.clock.runFor(500)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'false')
+  expect(await log()).toEqual(['false'])
+  // 3. Leave and re-enter: the normal 150ms open delay applies again.
+  await page.mouse.move(600, 400)
+  await page.clock.runFor(300)
+  await page.mouse.move(30, 100)
+  await page.clock.runFor(149)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'false')
+  await page.clock.runFor(1)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'true')
+
+  // 4. Clicking the current page also collapses.
+  await log()
+  await inbox.click(ICON)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'false')
+  await page.clock.runFor(1000)
+  expect(await log()).toEqual(['false'])
+  await expect(page).toHaveURL(/\/inbox$/)
+
+  // 4b. Clicking a label beyond 68px leaves the cursor over the page once the rail collapses:
+  //     moving back over the icons is a re-entry, so the normal delay opens it again.
+  await open()
+  await home.click({ position: { x: 120, y: 22 } })
+  await expect(sidebar).toHaveAttribute('data-expanded', 'false')
+  await page.clock.runFor(300)
+  await expect(page).toHaveURL(/\/dashboard$/)
+  // A real pointer passes over the page on its way back (Playwright's single-step move would
+  // teleport); wait for the collapse so the intermediate points are outside the 68px rail.
+  await settled(page)
+  await page.mouse.move(30, 400, { steps: 6 })
+  await page.clock.runFor(149)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'false')
+  await page.clock.runFor(1)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'true')
+
+  // 5. A click during the pending open delay cancels it; rapid repeat clicks never reopen.
+  await page.mouse.move(600, 400)
+  await page.clock.runFor(300)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'false')
+  await log()
+  await page.mouse.move(30, 100)
+  await page.clock.runFor(90)
+  await home.click(ICON)
+  await home.click(ICON)
+  await inbox.click(ICON)
+  await page.clock.runFor(1000)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'false')
+  expect(await log()).toEqual([])
+  await expect(page).toHaveURL(/\/inbox$/)
+
+  // 6. Keyboard focus moving inside (Tab) is explicit: it expands without a pointer exit.
+  await page.keyboard.press('Shift+Tab')
+  await expect(sidebar).toHaveAttribute('data-expanded', 'true')
+  await expect(home).toBeFocused()
+})
+
+test('submenu toggles keep the hover rail open; a submenu destination collapses it', async ({
+  page,
+}) => {
+  await fixture(page)
+  await page.goto('/dashboard')
+  const sidebar = await railReady(page)
+  const log = await recordExpanded(page)
+  const time = new Date()
+  await page.clock.install({ time })
+  await page.clock.pauseAt(new Date(time.getTime() + 1000))
+  await page.mouse.move(30, 100)
+  await page.clock.runFor(150)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'true')
+  await settled(page)
+  const disclosure = sidebar.getByRole('button', { name: 'Expand Automations', exact: true })
+  await disclosure.click()
+  await page.clock.runFor(1000)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'true')
+  await expect(sidebar.getByRole('link', { name: 'Workflows', exact: true })).toBeVisible()
+  await sidebar.getByRole('button', { name: 'Collapse Automations', exact: true }).click()
+  await page.clock.runFor(1000)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'true')
+  await sidebar.getByRole('button', { name: 'Expand Automations', exact: true }).click()
+  // Toggling never changed the rail's state.
+  expect(await log()).toEqual(['true'])
+  // Collapsing unmounts the submenu; the click must still reach Link, so this is a client-side
+  // navigation (the page's window state, including the log, survives).
+  await sidebar.getByRole('link', { name: 'Workflows', exact: true }).click(ICON)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'false')
+  await page.clock.runFor(1000)
+  await expect(page).toHaveURL(/\/automations\/workflows$/)
+  expect(await log()).toEqual(['false'])
+  await expect(sidebar).toHaveAttribute('data-expanded', 'false')
+})
+
+test('pinned rail and keyboard activation stay expanded after navigation', async ({ page }) => {
+  await fixture(page)
+  await page.goto('/dashboard')
+  const sidebar = await railReady(page)
+  const inbox = sidebar.getByRole('link', { name: /Inbox/ })
+  // Keyboard: Enter on a focused destination navigates; labels stay while focus is inside.
+  await inbox.focus()
+  await expect(sidebar).toHaveAttribute('data-expanded', 'true')
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/\/inbox$/)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'true')
+  await expect(inbox).toBeFocused()
+  // Pinned: a pointer click on a destination keeps the rail open.
+  await sidebar.getByRole('button', { name: 'Keep sidebar open', exact: true }).click()
+  await expect(sidebar).toHaveAttribute('data-pinned', 'true')
+  await sidebar.getByRole('link', { name: 'Home', exact: true }).click()
+  await expect(page).toHaveURL(/\/dashboard$/)
+  await page.mouse.move(600, 400)
+  await expect(sidebar).toHaveAttribute('data-expanded', 'true')
+  expect((await sidebar.boundingBox())!.width).toBe(232)
+  await sidebar.getByRole('button', { name: 'Unpin sidebar', exact: true }).click()
+})
+
+test('the 180ms rail transition keeps navigation icons and page geometry fixed', async ({
   page,
 }) => {
   await fixture(page)
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/dashboard')
+  await railReady(page)
   const sidebar = rail(page)
   await expect(sidebar).toHaveAttribute('data-expanded', 'false')
   const geometry = () =>
@@ -222,7 +407,7 @@ test('the 200ms rail transition keeps navigation icons and page geometry fixed',
   }))
   expect(transition).toEqual({
     property: 'width, box-shadow',
-    duration: '0.2s, 0.2s',
+    duration: '0.18s, 0.18s',
     easing: 'ease-out, ease-out',
   })
   for (const label of await sidebar.locator('.fw-sidebar-label').all()) {
@@ -230,10 +415,42 @@ test('the 200ms rail transition keeps navigation icons and page geometry fixed',
   }
   const rootBox = (await sidebar.boundingBox())!
   const pinBox = (await sidebar
-    .getByRole('button', { name: 'Pin sidebar', exact: true })
+    .getByRole('button', { name: 'Keep sidebar open', exact: true })
     .boundingBox())!
   expect(pinBox.y - rootBox.y).toBeLessThanOrEqual(16)
   expect(rootBox.x + rootBox.width - pinBox.x - pinBox.width).toBeLessThanOrEqual(16)
+  // The pin has a compact strip at the rail's top; navigation starts 16–24px below the header.
+  const homeBox = (await sidebar.getByRole('link', { name: 'Home', exact: true }).boundingBox())!
+  expect(homeBox.y - 64).toBeGreaterThanOrEqual(16)
+  expect(homeBox.y - 64).toBeLessThanOrEqual(24)
+  // Three subtly divided groups, no visible headings; rows 4px apart.
+  for (const name of ['Daily work', 'Messaging tools', 'Workspace'])
+    await expect(sidebar.getByRole('list', { name, exact: true })).toBeVisible()
+  const inboxBox = (await sidebar.getByRole('link', { name: /Inbox/ }).boundingBox())!
+  expect(Math.round(inboxBox.y - homeBox.y - homeBox.height)).toBe(4)
+  await expect(sidebar.getByRole('link', { name: 'Home', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  // Hover expansion stays below the 64px top bar: the workspace switcher is fully uncovered and
+  // receives pointer input across its whole box (nothing invisible intercepts it).
+  expect(rootBox.y).toBeGreaterThanOrEqual(64)
+  const switcher = page.getByRole('button', { name: /Current workspace/ })
+  const switcherBox = (await switcher.boundingBox())!
+  expect(switcherBox.y + switcherBox.height).toBeLessThanOrEqual(64)
+  for (const [fx, fy] of [
+    [0.05, 0.5],
+    [0.5, 0.5],
+    [0.95, 0.5],
+    [0.5, 0.1],
+    [0.5, 0.9],
+  ])
+    expect(
+      await switcher.evaluate(
+        (button, [x, y]) => button.contains(document.elementFromPoint(x, y)),
+        [switcherBox.x + switcherBox.width * fx, switcherBox.y + switcherBox.height * fy],
+      ),
+    ).toBe(true)
   expect(
     await sidebar
       .locator('[data-sidebar-scroll]')
@@ -252,6 +469,7 @@ test('closing an owned pointer menu can restore trigger focus without holding th
 }) => {
   await fixture(page)
   await page.goto('/dashboard')
+  await railReady(page)
   const sidebar = rail(page)
   await page.mouse.move(2, 100)
   await expect(sidebar).toHaveAttribute('data-expanded', 'true')
@@ -541,7 +759,7 @@ test('workspace switching refreshes connection data with the selected tenant', a
     page.getByRole('button', { name: 'WhatsApp: Connected. Show connection details', exact: true }),
   ).toBeVisible()
   await rail(page).getByRole('link', { name: /Inbox/ }).focus()
-  await page.getByRole('button', { name: 'Pin sidebar', exact: true }).click()
+  await page.getByRole('button', { name: 'Keep sidebar open', exact: true }).click()
   await noOverflow(page)
   await page.getByRole('button', { name: /Current workspace/ }).click()
   await page.getByRole('menuitem', { name: 'Second workspace' }).click()
@@ -721,11 +939,11 @@ test('sidebar rows, utilities group, badge placement and collapsed-only tooltips
   // Collapsed: the count is a compact badge over the icon (labels are hidden).
   const collapsedBadge = (await inbox.locator('.fw-sidebar-badge').boundingBox())!
   expect(collapsedBadge.x + collapsedBadge.width).toBeLessThanOrEqual(68)
-  // Hovering expands the rail (180ms) before a tooltip could open (300ms); expanded rows show
+  // Hovering expands the rail (150ms) before a tooltip could open (300ms); expanded rows show
   // their label, so the tooltip stays closed. Pin to inspect the expanded rows.
   await inbox.hover()
   await expect(rail(page)).toHaveAttribute('data-expanded', 'true')
-  await rail(page).getByRole('button', { name: 'Pin sidebar' }).click()
+  await rail(page).getByRole('button', { name: 'Keep sidebar open' }).click()
   await expect(rail(page)).toHaveAttribute('data-pinned', 'true')
   const box = (await inbox.boundingBox())!
   expect(Math.round(box.height)).toBe(44)
@@ -762,6 +980,8 @@ for (const theme of ['light', 'dark'] as const) {
     await page.goto('/dashboard')
     const nav = rail(page).getByRole('navigation', { name: 'Main' })
     const links = nav.getByRole('link')
+    // The session loads client-side; wait for the rail before snapshotting its links.
+    await expect(links.first()).toBeVisible()
     // Every navigation link keeps an accessible name from its own text (no tooltip needed).
     for (const link of await links.all()) expect(await link.textContent()).toMatch(/\w/)
 
@@ -830,8 +1050,8 @@ const STATES = {
   light: {
     idle: 'rgba(0, 0, 0, 0)',
     hover: 'rgb(222, 229, 237)', // #DEE5ED
-    selected: 'rgb(214, 223, 233)', // #D6DFE9
-    selectedHover: 'rgb(214, 223, 233)', // selected keeps its fill on hover
+    selected: 'rgb(203, 213, 225)', // #CBD5E1
+    selectedHover: 'rgb(203, 213, 225)', // selected keeps its fill on hover
     hoverFg: 'rgb(32, 37, 44)', // #20252C
     selectedFg: 'rgb(25, 36, 49)', // #192431
   },
@@ -874,7 +1094,7 @@ for (const theme of ['light', 'dark'] as const) {
     for (const size of ['collapsed', 'expanded'] as const) {
       if (size === 'expanded') {
         await inbox.focus()
-        await rail(page).getByRole('button', { name: 'Pin sidebar' }).click()
+        await rail(page).getByRole('button', { name: 'Keep sidebar open' }).click()
         await page.locator('main').focus()
         await page.mouse.move(900, 450)
       }

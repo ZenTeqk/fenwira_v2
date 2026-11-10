@@ -206,7 +206,7 @@ describe('color tokens', () => {
       brand: ['#00A884', '#10B981'],
       whatsapp: ['#25D366', '#25D366'],
       'sidebar-item-hover': ['#DEE5ED', '#262D36'],
-      'sidebar-item-selected': ['#D6DFE9', '#354251'],
+      'sidebar-item-selected': ['#CBD5E1', '#354251'],
       'sidebar-item-selected-fg': ['#192431', '#F4F7FA'],
       'sidebar-item-selected-indicator': ['#047857', '#10B981'],
       'status-success': ['#16A34A', '#4ADE80'],

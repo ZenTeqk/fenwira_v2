@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 
 const PREFERENCE_KEY = 'fenwira.sidebar.collapsed'
+/** Hover intent: open after a short rest, close a little later so diagonal moves don't flicker. */
+const OPEN_DELAY_MS = 150
+const CLOSE_DELAY_MS = 250
 
 /** Hover/focus is temporary; only the explicit pin action changes the browser preference. */
 export function useSidebarExpansion() {
@@ -33,6 +36,9 @@ export function useSidebarExpansion() {
     // Match the shared focus-visible accessibility treatment. Explicit input tracking also
     // handles a mouse click on a link that was already focused by the keyboard.
     let modality: 'pointer' | 'keyboard' | undefined
+    // Set when a pointer click selects a destination: the rail collapses and hover cannot reopen
+    // it until the pointer has left the rail. Not tied to navigation or remounting.
+    let suppressed = false
     const cancelEnter = () => {
       clearTimeout(enterTimer)
       enterTimer = undefined
@@ -86,7 +92,7 @@ export function useSidebarExpansion() {
       leaveTimer = setTimeout(() => {
         leaveTimer = undefined
         if (!held()) setTemporary(false)
-      }, 250)
+      }, CLOSE_DELAY_MS)
     }
     const pointerOver = (event: PointerEvent) => {
       if (event.pointerType === 'touch' || !hover.matches) return
@@ -96,20 +102,27 @@ export function useSidebarExpansion() {
         cancelLeave()
         if (!wasInside) {
           cancelEnter()
+          if (suppressed) return
           enterTimer = setTimeout(() => {
             enterTimer = undefined
-            if (inside(pointer)) setTemporary(true)
-          }, 180)
+            if (inside(pointer) && !suppressed) setTemporary(true)
+          }, OPEN_DELAY_MS)
         }
-      } else leave()
+      } else {
+        suppressed = false
+        leave()
+      }
     }
     const pointerOut = (event: PointerEvent) => {
       if (event.relatedTarget !== null) return
       pointer = null
+      suppressed = false
       leave()
     }
     const focusIn = () => {
       if (keyboardFocusInside()) {
+        // Keyboard focus moving inside (for example Tab) is explicit and takes over.
+        suppressed = false
         cancelLeave()
         cancelEnter()
         setTemporary(true)
@@ -131,7 +144,35 @@ export function useSidebarExpansion() {
       )
         return
       modality = 'keyboard'
-      focusIn()
+      // After a pointer selection, wait for keyboard focus to actually move (focusin) rather
+      // than reopening around the clicked link on any key press.
+      if (!suppressed) focusIn()
+    }
+    // A plain pointer click on a destination collapses an unpinned rail immediately, including
+    // the current page. Keyboard activation (detail 0), modified/middle clicks (new tab or
+    // window), buttons such as the Automations disclosure or the pin, and a pinned rail are
+    // unaffected. Capture phase: Next's Link prevents the default to route client-side.
+    // The timers and suppression change at once; the collapse itself waits until the click
+    // has finished dispatching, because collapsing unmounts submenu links and React (and so
+    // Link's client-side routing) must still see the clicked element.
+    let collapsePending = false
+    const applyCollapse = () => {
+      if (!collapsePending) return
+      collapsePending = false
+      setTemporary(false)
+    }
+    const click = (event: MouseEvent) => {
+      if (!hover.matches || event.detail === 0 || root.dataset.pinned === 'true') return
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+        return
+      const link = (event.target as Element | null)?.closest?.('a[href]')
+      if (!link || !root.contains(link)) return
+      cancelEnter()
+      cancelLeave()
+      suppressed = true
+      collapsePending = true
+      // Fallback for a click whose propagation is stopped before it reaches window.
+      setTimeout(applyCollapse, 0)
     }
     const focusOut = () => leave()
     const observer = new MutationObserver(() => {
@@ -147,8 +188,13 @@ export function useSidebarExpansion() {
     document.addEventListener('pointerout', pointerOut)
     document.addEventListener('pointerdown', pointerDown, true)
     document.addEventListener('keydown', keyDown, true)
+    document.addEventListener('click', click, true)
+    window.addEventListener('click', applyCollapse)
     document.addEventListener('focusin', focusIn)
     document.addEventListener('focusout', focusOut)
+    // Hover/focus handling is live only after hydration runs this effect; the server-rendered
+    // rail cannot react to the pointer yet. Tests wait for this instead of guessing.
+    root.dataset.hoverReady = 'true'
     return () => {
       cancelEnter()
       cancelLeave()
@@ -157,8 +203,11 @@ export function useSidebarExpansion() {
       document.removeEventListener('pointerout', pointerOut)
       document.removeEventListener('pointerdown', pointerDown, true)
       document.removeEventListener('keydown', keyDown, true)
+      document.removeEventListener('click', click, true)
+      window.removeEventListener('click', applyCollapse)
       document.removeEventListener('focusin', focusIn)
       document.removeEventListener('focusout', focusOut)
+      delete root.dataset.hoverReady
     }
   }, [])
 

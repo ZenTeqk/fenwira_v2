@@ -468,6 +468,9 @@ export function breadcrumbsFor(
     : [{ label: leaf.label }]
 }
 
+/** Daily work, the sidebar's first group; the remaining main modules are messaging tools. */
+export const DAILY_MODULES = ['dashboard', 'inbox', 'follow-ups', 'contacts']
+
 /** Workspace administration, listed under a divider in the sidebar. */
 export const SECONDARY_MODULES = ['integrations', 'billing', 'settings']
 

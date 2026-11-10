@@ -115,14 +115,18 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
         Skip to content
       </a>
 
-      {/* Only a pinned rail reserves the expanded width. The temporary rail is below the header. */}
+      {/* Only a pinned rail reserves the expanded width. Hover expansion overlays the page below
+          the 64px top bar (never the workspace switcher) without moving it. The logo tile sits
+          above the rail; the pin has a compact 24px strip, so navigation starts 24px below the
+          header. */}
       <div className={cn('hidden shrink-0 desktop-navigation:block', pinned ? 'w-58' : 'w-17')}>
         <Link
           href="/dashboard"
           className={cn(
-            'fixed top-0 left-0 z-20 flex h-16 items-center border-b border-r border-border-subtle bg-sidebar',
-            pinned ? 'w-58 justify-start px-6' : 'w-17 justify-center',
+            'fixed top-0 left-0 z-20 flex h-16 items-center border-r border-b border-border-subtle bg-sidebar',
+            pinned ? 'w-58 justify-start px-5' : 'w-17 justify-center',
             focusRing,
+            'focus-visible:-outline-offset-2',
           )}
         >
           <BrandMark tone="light" compact={!pinned} size="md" />
@@ -134,22 +138,22 @@ export function AppShell({ children, navPreview, galleryEnabled }: AppShellProps
           data-expanded={expanded}
           data-pinned={pinned}
           className={cn(
-            'fw-desktop-sidebar fixed top-16 bottom-0 left-0 z-20 flex flex-col gap-2 overflow-hidden border-r border-border-subtle bg-sidebar p-3',
+            'fw-desktop-sidebar fixed top-16 bottom-0 left-0 z-20 flex flex-col overflow-hidden border-r border-border-subtle bg-sidebar px-3 pb-3',
             expanded ? 'w-58' : 'w-17',
             expanded && !pinned && 'shadow-overlay',
           )}
         >
-          <div className="flex h-6 w-52 shrink-0 justify-end">
+          {/* Fixed 208px strip: the pin is revealed in place as the width grows. */}
+          <div className="flex h-6 w-52 shrink-0 items-center justify-end">
             {expanded ? (
-              <Tooltip content={pinned ? 'Unpin sidebar' : 'Pin sidebar'} side="right">
+              <Tooltip content={pinned ? 'Unpin sidebar' : 'Keep sidebar open'} side="right">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="size-6 text-fg-secondary"
+                  className="fw-sidebar-disclosure size-6 shrink-0 text-fg-secondary [&_svg]:size-4"
                   onClick={togglePin}
-                  aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
-                  aria-pressed={pinned}
+                  aria-label={pinned ? 'Unpin sidebar' : 'Keep sidebar open'}
                 >
                   {pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
                 </Button>

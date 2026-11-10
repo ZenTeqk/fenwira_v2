@@ -79,7 +79,7 @@ Border                         #E1E5EB                       border-subtle (cont
 Links (charcoal, underlined)   #334155 (hover #20252C)       link · link-hover
 Primary action                 #047857 (hover #065F46)       action-primary · -hover · -pressed · -fg · -subtle
 Brand emerald (marks only)     #00A884                       brand
-Sidebar selected               #D6DFE9 + emerald indicator   sidebar-item-selected · -indicator
+Sidebar selected               #CBD5E1 + emerald indicator   sidebar-item-selected · -indicator
 WhatsApp channel identity      #25D366                       whatsapp
 Status (success/warning/error/info/neutral): status-<s> (solid) · -fg (text) · -bg · -border
 Accents: conversation/info blue accent-conversation-*, automation/AI violet accent-automation-*
