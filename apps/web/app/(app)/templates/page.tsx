@@ -464,18 +464,9 @@ export default function TemplatesPage() {
         </Tabs>
       </ListPage>
       <TemplateContext
-        name={selected?.name}
+        template={selected}
         onClose={() => setSelectedId(null)}
         restoreFocus={restoreFocus}
-        preview={
-          selected ? (
-            <TemplateMessage
-              version={selected.currentVersion}
-              businessName={selected.wabaName}
-              library
-            />
-          ) : null
-        }
       >
         {selected ? (
           <>
@@ -526,23 +517,6 @@ export default function TemplatesPage() {
                 <dd>{relativeTime(selected.createdAt)}</dd>
               </dl>
             </section>
-            {selected.currentVersion.samples.body.length ? (
-              <section
-                className="border-t border-border-subtle pt-3"
-                aria-label="Stored sample values"
-              >
-                <h3 className="mb-2 text-sm font-semibold">Message sample values</h3>
-                <p className="mb-2 text-xs text-fg-muted">Stored examples for this version.</p>
-                <dl className="grid grid-cols-2 gap-2 text-sm">
-                  {selected.currentVersion.samples.body.map((sample, index) => (
-                    <div key={index} className="contents">
-                      <dt className="text-fg-secondary">{`Message {{${index + 1}}}`}</dt>
-                      <dd className="break-words">{sample}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            ) : null}
             <dl className="grid grid-cols-2 gap-3 text-sm">
               <dt className="text-fg-muted">WhatsApp account</dt>
               <dd className="break-words">{selected.wabaName}</dd>
