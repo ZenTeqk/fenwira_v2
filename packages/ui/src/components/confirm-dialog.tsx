@@ -37,7 +37,7 @@ export function ConfirmDialog({
   return (
     <AlertPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <AlertPrimitive.Portal>
-        <AlertPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim/50" />
+        <AlertPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim-overlay" />
         <AlertPrimitive.Content
           data-slot="confirm-dialog"
           className={cn(

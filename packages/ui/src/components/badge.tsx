@@ -3,20 +3,28 @@ import { type ComponentProps, type ReactNode } from 'react'
 import { cn } from '../lib/cn'
 
 /**
- * Soft tint background + slate text (AA on every tint) + tone-colored icon/dot.
- * Tone color never carries the meaning alone: the label always does (FENWIRA_DESIGN_SYSTEM → Status).
+ * Static, non-interactive chip: a muted tint with readable text in the same hue and a matching
+ * icon (AA on every tint, tokens.test.ts). Tone colour never carries the meaning alone: the label
+ * always does (FENWIRA_DESIGN_SYSTEM → Status). `label-*` tones are user-chosen contact-label
+ * colours: decorative identity, never a status.
  */
 export const badgeVariants = cva(
   'inline-flex w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium text-fg [&_svg]:size-3.5',
   {
     variants: {
       tone: {
-        neutral: 'bg-surface-muted [&_[data-tone-icon]]:text-fg-muted',
-        primary: 'bg-action-primary-subtle [&_[data-tone-icon]]:text-action-primary',
-        success: 'bg-status-success-bg [&_[data-tone-icon]]:text-status-success-fg',
-        warning: 'bg-status-warning-bg [&_[data-tone-icon]]:text-status-warning-fg',
-        danger: 'bg-status-error-bg [&_[data-tone-icon]]:text-status-error-fg',
-        info: 'bg-status-info-bg [&_[data-tone-icon]]:text-status-info-fg',
+        neutral: 'bg-status-neutral-bg text-status-neutral-fg',
+        primary: 'bg-action-primary-subtle text-action-primary-subtle-fg',
+        success: 'bg-status-success-bg text-status-success-fg',
+        warning: 'bg-status-warning-bg text-status-warning-fg',
+        danger: 'bg-status-error-bg text-status-error-fg',
+        info: 'bg-status-info-bg text-status-info-fg',
+        'label-blue': 'bg-label-blue-bg text-label-blue-fg',
+        'label-green': 'bg-label-green-bg text-label-green-fg',
+        'label-amber': 'bg-label-amber-bg text-label-amber-fg',
+        'label-rose': 'bg-label-rose-bg text-label-rose-fg',
+        'label-teal': 'bg-label-teal-bg text-label-teal-fg',
+        'label-neutral': 'bg-label-neutral-bg text-label-neutral-fg',
       },
     },
     defaultVariants: { tone: 'neutral' },

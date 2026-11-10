@@ -344,6 +344,7 @@ export function CampaignSnapshot({
                 className="mt-3"
                 value={sent}
                 max={data.total}
+                tone="stage1"
                 label="Campaign messages sent"
               />
             ) : null}

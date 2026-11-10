@@ -23,9 +23,9 @@ describe('campaign status semantics', () => {
     rerender(<StatusBadge status="FAILED" />)
     expect(screen.getByText('Failed')).toHaveClass('bg-status-error-bg')
     rerender(<StatusBadge status="DRAFT" />)
-    expect(screen.getByText('Draft')).toHaveClass('bg-surface-muted')
+    expect(screen.getByText('Draft')).toHaveClass('bg-status-neutral-bg')
     rerender(<StatusBadge status="ARCHIVED" />)
-    expect(screen.getByText('Archived')).toHaveClass('bg-surface-muted')
+    expect(screen.getByText('Archived')).toHaveClass('bg-status-neutral-bg')
   })
   it('tells sent, delivered and read apart by icon, not color alone', () => {
     render(

@@ -218,10 +218,7 @@ export function ContactTags({ contact }: { contact: Contact }) {
           <li key={tag.id} className="max-w-full">
             <Badge
               tone={TAG_TONE[tag.color as keyof typeof TAG_TONE] ?? 'neutral'}
-              className={cn(
-                'min-h-6 max-w-full gap-1 py-0 text-xs',
-                tag.color === 'WARNING' && 'bg-status-warning-bg text-status-warning-fg',
-              )}
+              className="min-h-6 max-w-full gap-1 py-0 text-xs"
             >
               <span className="min-w-0 break-words whitespace-normal">{tag.name}</span>
               {editable ? (

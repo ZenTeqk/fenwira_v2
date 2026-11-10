@@ -829,20 +829,19 @@ async function hoverForcer(page: Page) {
 const STATES = {
   light: {
     idle: 'rgba(0, 0, 0, 0)',
-    hover: 'rgb(226, 226, 220)', // #E2E2DC
-    selected: 'rgb(211, 213, 204)', // #D3D5CC
-    selectedHover: 'rgb(201, 205, 193)', // #C9CDC1
-    hoverFg: 'rgb(36, 38, 34)', // #242622
-    selectedFg: 'rgb(32, 37, 31)', // #20251F
+    hover: 'rgb(222, 229, 237)', // #DEE5ED
+    selected: 'rgb(214, 223, 233)', // #D6DFE9
+    selectedHover: 'rgb(214, 223, 233)', // selected keeps its fill on hover
+    hoverFg: 'rgb(32, 37, 44)', // #20252C
+    selectedFg: 'rgb(25, 36, 49)', // #192431
   },
-  // Dark keeps the shared surfaces: hover neutral.800, selected neutral.750.
   dark: {
     idle: 'rgba(0, 0, 0, 0)',
-    hover: 'rgb(46, 47, 44)',
-    selected: 'rgb(59, 59, 55)',
-    selectedHover: 'rgb(59, 59, 55)',
-    hoverFg: 'rgb(236, 236, 233)',
-    selectedFg: 'rgb(236, 236, 233)',
+    hover: 'rgb(38, 45, 54)', // #262D36
+    selected: 'rgb(53, 66, 81)', // #354251
+    selectedHover: 'rgb(53, 66, 81)',
+    hoverFg: 'rgb(241, 243, 245)', // #F1F3F5
+    selectedFg: 'rgb(244, 247, 250)', // #F4F7FA
   },
 }
 

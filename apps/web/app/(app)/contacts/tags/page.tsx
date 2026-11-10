@@ -34,9 +34,9 @@ type TagRow = { id: string; name: string; color: TagColor; contactCount: number 
 const COLOR_LABEL: Record<TagColor, string> = {
   NEUTRAL: 'Gray',
   PRIMARY: 'Green',
-  INFO: 'Indigo',
+  INFO: 'Blue',
   WARNING: 'Amber',
-  DANGER: 'Red',
+  DANGER: 'Rose',
   SUCCESS: 'Teal',
 }
 

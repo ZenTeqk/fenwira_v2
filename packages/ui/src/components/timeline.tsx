@@ -15,7 +15,7 @@ export type TimelineItem = {
 }
 
 const activityTones = {
-  success: 'bg-action-primary-subtle text-action-primary',
+  success: 'bg-status-success-bg text-status-success-fg',
   info: 'bg-status-info-bg text-status-info-fg',
   warning: 'bg-status-warning-bg text-status-warning-fg',
   danger: 'bg-status-error-bg text-status-error-fg',

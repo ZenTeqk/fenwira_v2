@@ -171,7 +171,7 @@ export function DataTable<Row>({
         <div
           role="region"
           aria-label="Bulk actions"
-          className="flex flex-wrap items-center gap-2 rounded-md border border-border-control bg-surface-muted px-3 py-2"
+          className="flex flex-wrap items-center gap-2 rounded-md border border-border-subtle bg-surface-muted px-3 py-2"
         >
           <span className="text-base font-medium text-fg" aria-live="polite">
             {selectedIds.length} selected

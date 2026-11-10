@@ -151,7 +151,7 @@ function ConversationRow({
             'focus-visible:-outline-offset-2',
             // Neutral selection with a slim emerald bar; hover is lighter than selection, and
             // keyboard focus keeps its own outline (focusRing).
-            selected ? 'bg-surface-selected' : 'bg-surface hover:bg-surface-muted',
+            selected ? 'bg-surface-selected' : 'bg-surface hover:bg-list-item-hover',
           )}
         >
           {selected ? (
@@ -180,7 +180,8 @@ function ConversationRow({
             <div
               className={cn(
                 'flex min-w-0 items-center gap-1 text-sm group-hover/row:text-fg',
-                c.unreadCount || selected ? 'text-fg' : 'text-fg-secondary',
+                // Unread: stronger preview (charcoal, medium weight) beside the bold name.
+                c.unreadCount ? 'font-medium text-fg' : selected ? 'text-fg' : 'text-fg-secondary',
               )}
               title={preview.text}
             >

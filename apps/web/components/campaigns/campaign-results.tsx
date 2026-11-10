@@ -48,6 +48,7 @@ export function CampaignResults({
               label={`${c.name}: sent out of eligible recipients`}
               value={s.sent}
               max={s.eligible}
+              tone="stage1"
             />
           ) : null}
           {s.failed || s.skipped ? (

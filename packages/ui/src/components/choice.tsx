@@ -10,7 +10,7 @@ import { type ComponentProps } from 'react'
 import { cn } from '../lib/cn'
 import { focusRing } from '../lib/focus'
 
-// Checked fills use #00A884: non-text UI components need 3:1 (WCAG 1.4.11), which it meets.
+// Checked fills use action-primary (emerald): non-text UI needs 3:1 (WCAG 1.4.11), pinned in tokens.test.ts.
 
 export function Checkbox({ className, ...props }: ComponentProps<typeof CheckboxPrimitive.Root>) {
   return (

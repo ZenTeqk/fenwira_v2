@@ -26,7 +26,7 @@ export function initials(name: string): string {
 }
 
 const identityTones = [
-  'bg-action-primary-subtle text-action-primary',
+  'bg-action-primary-subtle text-action-primary-subtle-fg',
   'bg-status-info-bg text-status-info-fg',
   'bg-status-warning-bg text-status-warning-fg',
   'bg-status-error-bg text-status-error-fg',

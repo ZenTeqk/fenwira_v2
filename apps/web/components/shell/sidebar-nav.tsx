@@ -48,7 +48,7 @@ const inactiveCollapsed = cn('text-fg-secondary', hover)
 const active = cn(
   'bg-sidebar-item-selected font-semibold text-sidebar-item-selected-fg [&_svg]:text-sidebar-item-selected-fg',
   'hover:bg-sidebar-item-selected-hover',
-  'before:absolute before:inset-y-1.5 before:left-0 before:w-0.75 before:rounded-full before:bg-action-primary',
+  'before:absolute before:inset-y-1.5 before:left-0 before:w-0.75 before:rounded-full before:bg-sidebar-item-selected-indicator',
 )
 
 /** The same item treatment for other navigations (the operator console's sections). */

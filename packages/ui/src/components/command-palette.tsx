@@ -56,7 +56,7 @@ export function CommandPalette({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim/50" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim-overlay" />
         <DialogPrimitive.Content
           data-slot="command-palette"
           aria-describedby={undefined}
@@ -104,7 +104,7 @@ export function CommandPalette({
                         }}
                         className={cn(
                           'flex cursor-default items-center gap-2 rounded-sm px-2 py-2 text-base text-fg select-none',
-                          'data-[selected=true]:bg-action-primary-subtle [&_svg]:size-4 [&_svg]:text-fg-muted',
+                          'data-[selected=true]:bg-surface-selected [&_svg]:size-4 [&_svg]:text-fg-muted',
                         )}
                       >
                         {item.icon}

@@ -41,7 +41,7 @@ export function TableRow({ className, ...props }: ComponentProps<'tr'>) {
     <tr
       className={cn(
         // Neutral states (Inbox list parity): hover lighter than selection; the checkbox also marks it.
-        'border-b border-border-subtle transition-colors hover:bg-surface-muted data-[state=selected]:bg-surface-selected',
+        'border-b border-border-subtle transition-colors hover:bg-list-item-hover data-[state=selected]:bg-surface-selected',
         className,
       )}
       {...props}

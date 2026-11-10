@@ -21,7 +21,7 @@ export function ConversationStatusBar({ conversation: c }: { conversation: Conve
     <div
       role="group"
       aria-label="Conversation state"
-      className="mx-3 mb-2 flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border-subtle bg-surface px-3 py-1 md:mx-4"
+      className="mx-3 mb-2 flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-surface-muted px-3 py-1 md:mx-4"
     >
       <span
         className="min-w-0 truncate"

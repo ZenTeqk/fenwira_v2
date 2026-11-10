@@ -8,7 +8,29 @@ This is a contract. Tokens live in `packages/ui` and are the only source of colo
 
 ## 1. Color
 
-**Theme token refactor (2026-10-31).** Approved direction: neutral surfaces, colorful feature accents, semantic statuses and emerald primary actions; the Inbox is a neutral shell around a WhatsApp-inspired chat area. Light is the default theme. Dark values are defined and contrast-tested but not exposed: `data-theme="dark"` on an element switches its subtree, and there is no switcher yet.
+**Graphite + Emerald (2026-11-10).** Approved palette for both themes: cool-grey (light) and graphite (dark) neutral surfaces with no green tint, white cards in light and layered graphite panels in dark, emerald only for primary actions, focus and small active-navigation markers, charcoal underlined links, strong grey selection (hover always lighter than selected), and a neutral Inbox shell around the chat tokens below. It replaces the warm-neutral/olive ramp of the 2026-10-31 token refactor; token names are unchanged except for the additions listed below. The header Appearance menu (Light/Dark/System) is unchanged.
+
+New roles: `action-primary-pressed`, `action-primary-subtle-fg` (emerald text on the subtle tint), `link` · `link-hover` (used by `textLink`), `chat-incoming-fg` · `chat-outgoing-fg`, and the component token `sidebar-item-selected-indicator`. The dialog backdrop uses the `bg-scrim-overlay` utility (theme.css): `scrim` at 45% in light, 65% in dark.
+
+**Accessibility adjustments to the supplied values** (the smallest change that clears the contrast tests):
+
+| Token | Supplied | Shipped | Why |
+| --- | --- | --- | --- |
+| `fg-muted` (light) | #657080 | #5D6776 | #657080 is 4.48:1 on sidebar/surface-muted, 4.27:1 on surface-hover and 3.95:1 on surface-selected |
+| `action-primary-pressed` (dark) | #059669 | #05A271 | dark label text (#052E24) on #059669 is 3.9:1 |
+| `action-primary-subtle-hover` | not supplied | #DCEEE5 · #1A3D31 | hover step of the subtle tint; keeps emerald text ≥ 4.5:1 |
+| `sidebar-item-selected-hover` | not supplied | = `sidebar-item-selected` | selected keeps its fill on hover |
+| `status-*-border`, `chat-incoming-border`, `chat-pattern`, `inverse-*`, `surface-disabled`, `phone-bezel` | not supplied | mapped onto the graphite ramp | see tokens.ts |
+
+**Refinements (2026-11-10, same palette).**
+
+- **Selection:** list rows and table rows use grey `surface-selected` for selection and the new `list-item-hover` (#F0F2F5 light, #2A3038 dark) for hover. That hover sits midway between the row and the selection in each theme, and `tokens.test.ts` keeps it apart from both. Active navigation and the selected conversation keep a thin emerald bar, and keyboard focus keeps its own outline.
+- **Buttons:** primary is filled emerald. Secondary is a neutral surface with a `border-control` border and neutral text. Tertiary is neutral `fg-secondary` text and icon with a `surface-hover` fill, and no underline. Danger stays red. Links (`textLink`) stay charcoal and underlined.
+- **Unread conversations:** the name is bold, the preview is medium-weight `fg`, and the unread count is a compact emerald badge (`action-primary` / `action-primary-fg`, AA in both themes).
+- **Status vs action:** `Badge` and `StatusBadge` are static chips with a muted tint, matching `-fg` text and an icon. Filled emerald is kept for actionable buttons, plus small indicators, counts, checked controls and progress.
+- **Contact labels:** `label-{green,blue,amber,rose,teal,neutral}-{bg,fg}` are component tokens, separate from statuses and from filled emerald. Stored tag colours are unchanged and each keeps its identity: NEUTRAL→Gray, PRIMARY→Green (a muted green chip using the accessible green pair also used by `status-success`), INFO→Blue, WARNING→Amber, DANGER→Rose, SUCCESS→Teal (existing mint primitives). The enum has no violet, so no violet label is offered. The picker names match the rendered colours.
+- **Borders:** decorative containers use `border-subtle`, including the bulk-action bar. The inbox conversation-state bar is a borderless `surface-muted` strip rather than a nested outline.
+- **Charts:** "Sent" progress bars on Home and campaign results use the analytics `stage1` tone, so Sent, Delivered and Read share one ordinal blue ramp everywhere. Failed is `chart-critical`.
 
 ### Source of truth
 
@@ -16,7 +38,7 @@ This is a contract. Tokens live in `packages/ui` and are the only source of colo
 
 | Layer | Export | Naming | Use |
 | --- | --- | --- | --- |
-| Primitive palette | `palette` | hue + lightness: `neutral.600`, `emerald.700`, `chat.leaf` | Raw hex. Never referenced by feature code; becomes `--fw-<hue>-<step>` with no Tailwind utility |
+| Primitive palette | `palette` | hue + lightness: `graphite.600`, `emerald.700`, `chat.outgoing` | Raw hex. Never referenced by feature code; becomes `--fw-<hue>-<step>` with no Tailwind utility |
 | Semantic roles | `semanticTokens` | role: `canvas`, `fg-secondary`, `status-error-bg`, `chat-outgoing` | Each role is a `{ light, dark }` pair of palette references. Feature code uses these utilities (`bg-surface-muted`, `text-fg-secondary`) |
 | Component tokens | `componentTokens` | `phone-bezel`, `category-*`, `avatar-*`, `chart-1…6` | Only where no semantic role fits: data-driven identities, chart series, the phone preview bezel |
 
@@ -26,22 +48,24 @@ This is a contract. Tokens live in `packages/ui` and are the only source of colo
 
 | Group | Tokens | Light | Dark |
 | --- | --- | --- | --- |
-| Surfaces | `canvas` · `sidebar` · `surface` · `surface-elevated` · `surface-muted` | #F5F5F4 · #EFEFED · #FFFFFF · #FFFFFF · #F0F0ED | #121311 · #171816 · #1D1E1C · #272826 · #232422 |
-| Interaction surfaces | `surface-hover` · `surface-selected` · `surface-disabled` | #EAEAE7 · #E7E7E4 · #F0F0ED | #2E2F2C · #3B3B37 · #232422 |
-| Inverse | `inverse` · `inverse-fg` · `inverse-fg-muted` · `inverse-border` · `inverse-hover` · `scrim` | #242622 · #FFFFFF · #B3B5AD · #4A4C46 · #2E2F2C · #242622 | #ECECE9 · #1D1E1C · #62665E · #CFCFC8 · #E7E7E4 · #000000 |
-| Text | `fg` · `fg-secondary` · `fg-muted` · `fg-disabled` · `fg-subtle` (non-text icons) | #242622 · #62665E · #62665E · #B3B5AD · #80837B | #ECECE9 · #B3B5AD · #A8AAA2 · #4A4C46 · #7A7D75 |
-| Borders and focus | `border-subtle` · `border-control` · `border-control-strong` · `focus-ring` | #DEDED8 · #CFCFC8 · #80837B · #047857 | #2E2F2C · #4A4C46 · #7A7D75 · #34D399 |
-| Primary action | `action-primary` · `-hover` · `-fg` · `-subtle` · `-subtle-hover` | #047857 · #065F46 · #FFFFFF · #ECFDF5 · #D1FAE5 | #34D399 · #6EE7B7 · #022C22 · #143024 · #1A3D2E |
-| Destructive action | `action-danger` · `-hover` · `-fg` | #B91C1C · #991B1B · #FFFFFF | #F87171 · #FCA5A5 · #2B0A0A |
+| Surfaces | `canvas` · `sidebar` · `surface` · `surface-elevated` · `surface-muted` | #F6F7F9 · #F0F2F5 · #FFFFFF · #FFFFFF · #F0F2F5 | #111315 · #15181C · #1B1E22 · #252A30 · #22272D |
+| Interaction surfaces | `surface-hover` · `surface-selected` · `surface-disabled` | #E9EDF2 · #DEE5ED · #F0F2F5 | #2A3038 · #35404D · #22272D |
+| Inverse | `inverse` · `inverse-fg` · `inverse-fg-muted` · `inverse-border` · `inverse-hover` · `scrim` | #20252C · #FFFFFF · #BCC5D0 · #586270 · #2A3038 · #111315 | #F1F3F5 · #1B1E22 · #586270 · #BCC5D0 · #DEE5ED · #000000 |
+| Text | `fg` · `fg-secondary` · `fg-muted` · `fg-disabled` · `fg-subtle` (non-text icons) | #20252C · #586270 · #5D6776 · #9AA3AF · #737F8F | #F1F3F5 · #B6BFCB · #A0ACBC · #657080 · #8995A5 |
+| Borders and focus | `border-subtle` (decorative) · `border-control` · `border-control-strong` · `focus-ring` | #E1E5EB · #BCC5D0 · #737F8F · #047857 | #303740 · #596575 · #8995A5 · #10B981 |
+| Primary action | `action-primary` · `-hover` · `-pressed` · `-fg` · `-subtle` · `-subtle-hover` · `-subtle-fg` | #047857 · #065F46 · #064E3B · #FFFFFF · #EAF5F0 · #DCEEE5 · #065F46 | #10B981 · #34D399 · #05A271 · #052E24 · #17382D · #1A3D31 · #6EE7B7 |
+| Destructive action | `action-danger` · `-hover` · `-fg` | #B91C1C · #991B1B · #FFFFFF | #F87171 · #FCA5A5 · #450A0A |
+| Links | `link` · `link-hover` | #334155 · #20252C | #CBD5E1 · #F1F3F5 |
 | Brand and channel | `brand` · `whatsapp` | #00A884 · #25D366 | #10B981 · #25D366 |
+| Sidebar | `sidebar-item-hover` · `-selected` · `-selected-fg` · `-selected-indicator` | #DEE5ED · #D6DFE9 · #192431 · #047857 | #262D36 · #354251 · #F4F7FA · #10B981 |
 | Conversation accent (blue) | `accent-conversation` · `-fg` · `-bg` · `-border` | #2563EB · #1D4ED8 · #EFF6FF · #BFDBFE | #60A5FA · #93C5FD · #17233A · #1E3A8A |
 | Automation / AI accent (violet) | `accent-automation` · `-fg` · `-bg` · `-border` | #7C3AED · #6D28D9 · #F5F3FF · #DDD6FE | #A78BFA · #C4B5FD · #251C3B · #5B21B6 |
-| Chat | `chat-canvas` · `chat-incoming` · `chat-incoming-border` · `chat-outgoing` · `chat-meta` · `chat-read` · `chat-pattern` | #F3F0EA · #FFFFFF · #DEDED8 · #DDEED5 · #62665E · #2563EB · #80837B | #151614 · #2A2B28 · #3B3B37 · #1E3A2B · #B3B5AD · #60A5FA · #7A7D75 |
-| Internal notes | `chat-note` · `chat-note-border` · `chat-note-fg` | #FFF7E6 · #FDE3B0 · #92400E | #2E2410 · #5C4413 · #FCD34D |
+| Chat | `chat-canvas` · `chat-incoming` · `chat-incoming-fg` · `chat-incoming-border` · `chat-outgoing` · `chat-outgoing-fg` · `chat-meta` · `chat-read` · `chat-pattern` | #F1F3F5 · #FFFFFF · #20252C · #E1E5EB · #E0EFE7 · #20252C · #586270 · #2563EB · #737F8F | #14191D · #252C33 · #F1F3F5 · #303740 · #1C3B32 · #F1F3F5 · #B6BFCB · #60A5FA · #8995A5 |
+| Internal notes | `chat-note` · `chat-note-border` · `chat-note-fg` | #FFF6DF · #E7C777 · #785014 | #352B18 · #8A6829 · #F8DFA0 |
 
-**Four greens, four meanings.** `action-primary` is "Fenwira action or selection"; `brand` (#00A884) is the logo's emerald for brand marks and the active-navigation bar, never text or an action; `status-success` (#16A34A) means healthy/approved; `chat-outgoing` is a message the business sent; `whatsapp` (#25D366) means "this is WhatsApp". `tokens.test.ts` fails if any two collapse to the same value. The Inbox's former private action greens (`inbox-primary` and friends) are now the shared action tokens.
+**Four greens, four meanings.** `action-primary` is "Fenwira action or selection"; `brand` (#00A884) is the logo's emerald for approved logo treatments and small identity accents, never text or an action (the active-navigation bar is `sidebar-item-selected-indicator`); `status-success` (#16A34A) means healthy/approved; `chat-outgoing` is a message the business sent; `whatsapp` (#25D366) means "this is WhatsApp". `tokens.test.ts` fails if any two collapse to the same value. The Inbox's former private action greens (`inbox-primary` and friends) are now the shared action tokens.
 
-Dark surfaces are neutral charcoal: the test rejects any blue or green cast (channel spread above 4) on canvas, sidebar, surfaces and the chat canvas/incoming bubble.
+Surfaces are neutral graphite in both themes: the test rejects any green tint (green above blue) or a blue lead above 28 on canvas, sidebar, surfaces, sidebar rows and the chat canvas/incoming bubble.
 
 ### Status
 
@@ -53,7 +77,7 @@ Every status has four tokens: the solid (dots, bars, icons beside a label), `-fg
 | `status-warning` | paused, attention required, low balance, opted out, window closed | #D97706 · #9A4D0B · #FEF3C7 · #FDE3B0 | #FBBF24 · #FCD34D · #2E2410 · #5C4413 |
 | `status-error` | failed, rejected, disconnected, destructive | #DC2626 · #B91C1C · #FEE2E2 · #FECACA | #F87171 · #FCA5A5 · #331A1A · #7F1D1D |
 | `status-info` | scheduled, processing, syncing, sent, running, open, human takeover | #2563EB · #1D4ED8 · #EFF6FF · #BFDBFE | #60A5FA · #93C5FD · #17233A · #1E3A8A |
-| `status-neutral` | draft, archived, inactive, cancelled, skipped | #80837B · #62665E · #F0F0ED · #DEDED8 | #7A7D75 · #B3B5AD · #2E2F2C · #4A4C46 |
+| `status-neutral` | draft, archived, inactive, cancelled, skipped | #737F8F · #586270 · #F0F2F5 · #E1E5EB | #8995A5 · #B6BFCB · #2A3038 · #596575 |
 
 The light warning solid moved from #F59E0B to #D97706 and warning text from #B45309 to #9A4D0B: the old values failed 3:1 as a bar on white and 4.5:1 as text on the grey sidebar/muted surfaces.
 
@@ -184,7 +208,7 @@ Every component: built on Radix primitives via `@fenwira/ui` (feature code may n
 | Inbox system event | `surface-muted` / `surface` pill with `fg-secondary` text |
 | Human takeover | `status-info` badge and banner |
 | AI handling, AI flow steps | `accent-automation` (violet) |
-| Ordinary links | `textLink` (`@fenwira/ui`): `fg` text with a `border-control` underline that darkens to `fg` on hover; `Button` `link`/`tertiary` use it. Emerald is for primary actions only |
+| Ordinary links | `textLink` (`@fenwira/ui`): charcoal `link` text with a `border-control` underline that darkens to `link-hover` on hover; `Button` `link`/`tertiary` use it. Emerald is for primary actions only |
 | Home | White cards on `canvas` with one header style (16/24 title, `border-subtle` divider, 12×16 padding); Needs attention marks its header amber only while items exist; conversation tiles `accent-conversation`, automation tiles `accent-automation`, campaign tiles neutral; `MetricCard` icon tiles are neutral by default with an optional `iconTone` |
 | Tables (shared `Table`/`DataTable`) and Contacts directory | Row hover `surface-muted`, selected `surface-selected` (the checkbox also marks it), bulk-action bar `surface-muted` + `border-control`; long names truncate inside their column with the full name in the title/label; detail values wrap (`wrap-anywhere`) and empty fields show a muted dash read as "Not set" |
 | Templates library and detail | White cards on `canvas`; status and category are separate labelled badges; the previewed card gets an `fg` outline, keyboard focus the `focus-ring` colour; Preview is a secondary button; rejection reasons are `status-error-fg` lines with an icon and failed submissions `status-warning-fg`; preview stages use `chat-canvas` |
