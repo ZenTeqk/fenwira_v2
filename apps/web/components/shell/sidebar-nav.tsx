@@ -4,7 +4,13 @@ import { Button, cn, focusRing } from '@fenwira/ui'
 import Link from 'next/link'
 import { ChevronDown, GitBranch, MessageCircle } from 'lucide-react'
 import { type ReactNode, useId, useState } from 'react'
-import { activeModule, moduleHref, type NavItem, SECONDARY_MODULES } from '@/lib/navigation'
+import {
+  activeModule,
+  DAILY_MODULES,
+  moduleHref,
+  type NavItem,
+  SECONDARY_MODULES,
+} from '@/lib/navigation'
 
 type SidebarNavProps = {
   items: NavItem[]
@@ -16,8 +22,9 @@ type SidebarNavProps = {
   /** What each count means, for screen readers ("unread", "overdue"). */
   badgeLabels?: Record<string, string>
   /**
-   * `rail`: main modules scroll; Integrations, Billing and Settings stay pinned below a divider
-   * (desktop sidebar). `stacked`: one flowing list with the same divider (mobile drawer).
+   * `rail`: daily work and messaging tools scroll; Integrations, Billing and Settings stay at the
+   * foot below a divider (desktop sidebar). `stacked`: one flowing list with the same dividers
+   * (mobile drawer).
    */
   layout?: 'rail' | 'stacked'
   /** Rendered after the main modules (e.g. workspace status). */
@@ -29,8 +36,9 @@ const itemBase = cn(
   'relative flex h-11 w-full items-center gap-3 rounded-sm px-3 text-base font-normal [&_svg]:size-5 [&_svg]:shrink-0',
   // Short background/colour change between states; none with reduced motion.
   'transition-colors duration-150 motion-reduce:transition-none',
+  // Inset ring: the scrolling rail would clip an outside outline at its edges.
   focusRing,
-  'focus-visible:outline-offset-0',
+  'focus-visible:-outline-offset-2',
 )
 // Hover uses the sidebar-specific step (stronger than the shared surface-hover in light) with
 // charcoal label and icon. Idle icons are fg-subtle beside their label; with more contrast
@@ -72,7 +80,10 @@ export function SidebarNav({
   const [automationsExpanded, setAutomationsExpanded] = useState<boolean | null>(null)
   const automationChildrenId = useId()
   const showAutomationChildren = !collapsed && (automationsExpanded ?? current === 'automations')
-  const primary = items.filter((i) => !SECONDARY_MODULES.includes(i.id))
+  const daily = items.filter((i) => DAILY_MODULES.includes(i.id))
+  const tools = items.filter(
+    (i) => !DAILY_MODULES.includes(i.id) && !SECONDARY_MODULES.includes(i.id),
+  )
   const secondary = items.filter((i) => SECONDARY_MODULES.includes(i.id))
 
   const render = (item: NavItem) => {
@@ -98,7 +109,7 @@ export function SidebarNav({
         <Icon aria-hidden="true" />
         <span className="fw-sidebar-label truncate">{item.label}</span>
         {count ? (
-          <span className="fw-sidebar-badge ml-auto rounded-full bg-action-primary px-1.5 text-xs font-semibold text-action-primary-fg">
+          <span className="fw-sidebar-badge ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-action-primary px-1.5 text-xs font-semibold tabular-nums text-action-primary-fg">
             {count > 99 ? '99+' : count}
             <span className="sr-only"> {badgeLabels[item.id] ?? 'unread'}</span>
           </span>
@@ -139,7 +150,7 @@ export function SidebarNav({
             hidden={!showAutomationChildren}
             aria-label="Automation sections"
             className={cn(
-              'ml-5 mt-1 flex flex-col gap-1 border-l border-border-subtle pl-2',
+              'mt-1 ml-5 flex flex-col gap-1 border-l border-border-subtle pl-2',
               !showAutomationChildren && 'hidden',
             )}
           >
@@ -175,26 +186,38 @@ export function SidebarNav({
     )
   }
 
-  const utilities = secondary.length ? (
-    <ul
-      aria-label="Workspace"
-      className="flex shrink-0 flex-col gap-0.5 border-t border-border-subtle pt-2"
-    >
-      {secondary.map(render)}
-    </ul>
-  ) : null
-  // One landmark: main modules (Home → Analytics), then the workspace utilities.
+  // Groups are separated by a subtle divider only; no visible headings (names for assistive tech).
+  const group = (label: string, list: NavItem[], divided: boolean) =>
+    list.length ? (
+      <ul
+        aria-label={label}
+        className={cn(
+          'flex shrink-0 flex-col gap-1',
+          divided && 'mt-2 border-t border-border-subtle pt-2',
+        )}
+      >
+        {list.map(render)}
+      </ul>
+    ) : null
+  const main = (
+    <>
+      {group('Daily work', daily, false)}
+      {group('Messaging tools', tools, daily.length > 0)}
+    </>
+  )
+  const utilities = group('Workspace', secondary, true)
+  // One landmark: daily work, messaging tools, then the workspace utilities.
   return layout === 'rail' ? (
-    <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col gap-2">
+    <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col">
       <div data-sidebar-scroll className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        <ul className="flex flex-col gap-0.5">{primary.map(render)}</ul>
-        {afterPrimary}
+        {main}
+        <div className="mt-2 empty:hidden">{afterPrimary}</div>
       </div>
       {utilities}
     </nav>
   ) : (
-    <nav aria-label="Main" className="flex flex-col gap-2">
-      <ul className="flex flex-col gap-0.5">{primary.map(render)}</ul>
+    <nav aria-label="Main" className="flex flex-col">
+      {main}
       {afterPrimary}
       {utilities}
     </nav>

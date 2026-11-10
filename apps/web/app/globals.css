@@ -5,16 +5,17 @@
 @custom-variant desktop-navigation (@media (min-width: 64rem) and (hover: hover) and (pointer: fine));
 
 /* Only the rail width and its label/disclosure opacity animate. Icon coordinates, row
-   height and the page's reserved width stay fixed during temporary expansion. */
+   height and the page's reserved width stay fixed during temporary expansion. Reduced motion
+   is handled globally (packages/ui theme.css). */
 .fw-desktop-sidebar {
   transition:
-    width 200ms ease-out,
-    box-shadow 200ms ease-out;
+    width 180ms ease-out,
+    box-shadow 180ms ease-out;
 }
 
 .fw-desktop-sidebar .fw-sidebar-label,
 .fw-desktop-sidebar .fw-sidebar-disclosure {
-  transition: opacity 200ms ease-out;
+  transition: opacity 180ms ease-out;
 }
 
 .fw-desktop-sidebar .fw-sidebar-label {
@@ -28,11 +29,18 @@
   pointer-events: none;
 }
 
-/* Expanded, the Inbox count sits right-aligned in the row; collapsed, a compact badge on the icon. */
+/* Expanded, counts sit right-aligned in the row. Collapsed, an 8px dot just off the icon's top
+   right corner (icons span 12–32px); the count stays in the link's accessible name. */
 .fw-desktop-sidebar[data-expanded='false'] .fw-sidebar-badge {
   position: absolute;
   top: 0.375rem;
-  left: 1.25rem;
+  left: 1.875rem;
+  width: 0.5rem;
+  min-width: 0;
+  height: 0.5rem;
+  padding: 0;
+  overflow: hidden;
+  font-size: 0;
 }
 
 /* React Flow (automation builder) themed with semantic tokens: idle edges fg-subtle, active

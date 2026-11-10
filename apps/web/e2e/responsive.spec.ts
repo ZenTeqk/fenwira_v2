@@ -61,7 +61,7 @@ test('sidebar starts as an icon rail and remembers the explicit pin preference',
   const sidebar = page.getByRole('complementary', { name: 'Application navigation' })
   await expect.poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width)).toBe(68)
   await sidebar.getByRole('link', { name: 'Home', exact: true }).focus()
-  await page.getByRole('button', { name: 'Pin sidebar', exact: true }).click()
+  await page.getByRole('button', { name: 'Keep sidebar open', exact: true }).click()
   await page.reload()
   await expect(sidebar).toHaveAttribute('data-pinned', 'true')
   await expect.poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width)).toBe(232)

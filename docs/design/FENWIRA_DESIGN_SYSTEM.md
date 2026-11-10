@@ -20,6 +20,7 @@ New roles: `action-primary-pressed`, `action-primary-subtle-fg` (emerald text on
 | `action-primary-pressed` (dark) | #059669 | #05A271 | dark label text (#052E24) on #059669 is 3.9:1 |
 | `action-primary-subtle-hover` | not supplied | #DCEEE5 · #1A3D31 | hover step of the subtle tint; keeps emerald text ≥ 4.5:1 |
 | `sidebar-item-selected-hover` | not supplied | = `sidebar-item-selected` | selected keeps its fill on hover |
+| `sidebar-item-selected` (light) | #D6DFE9 | #CBD5E1 | approved 2026-11-10 sidebar refinement: #D6DFE9 was barely darker than the #DEE5ED hover; dark (#354251) unchanged |
 | `status-*-border`, `chat-incoming-border`, `chat-pattern`, `inverse-*`, `surface-disabled`, `phone-bezel` | not supplied | mapped onto the graphite ramp | see tokens.ts |
 
 **Refinements (2026-11-10, same palette).**
@@ -57,7 +58,7 @@ New roles: `action-primary-pressed`, `action-primary-subtle-fg` (emerald text on
 | Destructive action | `action-danger` · `-hover` · `-fg` | #B91C1C · #991B1B · #FFFFFF | #F87171 · #FCA5A5 · #450A0A |
 | Links | `link` · `link-hover` | #334155 · #20252C | #CBD5E1 · #F1F3F5 |
 | Brand and channel | `brand` · `whatsapp` | #00A884 · #25D366 | #10B981 · #25D366 |
-| Sidebar | `sidebar-item-hover` · `-selected` · `-selected-fg` · `-selected-indicator` | #DEE5ED · #D6DFE9 · #192431 · #047857 | #262D36 · #354251 · #F4F7FA · #10B981 |
+| Sidebar | `sidebar-item-hover` · `-selected` · `-selected-fg` · `-selected-indicator` | #DEE5ED · #CBD5E1 · #192431 · #047857 | #262D36 · #354251 · #F4F7FA · #10B981 |
 | Conversation accent (blue) | `accent-conversation` · `-fg` · `-bg` · `-border` | #2563EB · #1D4ED8 · #EFF6FF · #BFDBFE | #60A5FA · #93C5FD · #17233A · #1E3A8A |
 | Automation / AI accent (violet) | `accent-automation` · `-fg` · `-bg` · `-border` | #7C3AED · #6D28D9 · #F5F3FF · #DDD6FE | #A78BFA · #C4B5FD · #251C3B · #5B21B6 |
 | Chat | `chat-canvas` · `chat-incoming` · `chat-incoming-fg` · `chat-incoming-border` · `chat-outgoing` · `chat-outgoing-fg` · `chat-meta` · `chat-read` · `chat-pattern` | #F1F3F5 · #FFFFFF · #20252C · #E1E5EB · #E0EFE7 · #20252C · #586270 · #2563EB · #737F8F | #14191D · #252C33 · #F1F3F5 · #303740 · #1C3B32 · #F1F3F5 · #B6BFCB · #60A5FA · #8995A5 |

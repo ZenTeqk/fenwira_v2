@@ -145,7 +145,7 @@ export const palette = {
   // Sidebar row states: hover stays visibly lighter than the selected fill in both themes.
   sidebar: {
     hover: '#DEE5ED',
-    selected: '#D6DFE9',
+    selected: '#CBD5E1',
     'selected-fg': '#192431',
     'hover-dark': '#262D36',
     'selected-dark': '#354251',
